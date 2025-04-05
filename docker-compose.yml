@@ -3,12 +3,10 @@ services:
     build:
       context: app
       dockerfile: ../docker/Dockerfile
-    user: "${UID:-1000}:${GID:-1000}"
+    # user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./app:/app
-      - ./data:/data
-      # - app_svelte_kit:/app/.svelte-kit
-      # - app_node_modules:/app/node_modules
+      - alcoves_data:/data
     ports:
       - 5173:5173
     # depends_on:
@@ -25,7 +23,6 @@ services:
   #     - 6100:6379
   #   volumes:
   #     - tasks:/eqalpha/keydb
-# volumes:
-# tasks:
-# app_svelte_kit:
-# app_node_modules:
+
+volumes:
+  alcoves_data:
