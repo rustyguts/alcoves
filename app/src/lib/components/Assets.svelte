@@ -76,20 +76,20 @@
         {#each Object.keys(monthData.days).sort().reverse() as day}
           {@const dayAssets = monthData.days[day]}
           <div class="mb-6">
-            <div class="sticky top-0 bg-base-100 z-10 py-2">
+            <div class="bg-base-100 py-2">
               <h3 class="text-base font-semibold">
                 {monthData.monthName}
                 {formatDay(day)}
               </h3>
             </div>
 
-            <div class="flex flex-wrap">
+            <div class="flex flex-wrap gap-1">
               {#each dayAssets as asset}
-                <div class="p-0.5">
+                <div class="inline-block">
                   <img
-                    class="h-40 object-cover rounded"
+                    class="h-40 w-auto object-cover rounded"
                     alt={asset.id}
-                    src={`/api/proxy/${asset.id}/${asset.id}.JPG?width=400`}
+                    src={`/api/proxy/${asset.id}/${asset.id}.JPG?width=400&format=avif`}
                   />
                   {#if asset.description}
                     <p class="text-xs mt-0.5 text-opacity-70">
