@@ -42,6 +42,8 @@ function getCacheFilePath(cacheKey, format) {
 }
 
 export async function GET({ url, params, request }) {
+	// TODO :: Everything in here should be put into a bullmq job so as not to overwhelm the server
+
 	const relativePath = url.pathname.replace(/^\/api\/proxy\//, "");
 	const filePath = join(await getAssetsDirectory(), relativePath);
 	const fileStat = await stat(filePath);

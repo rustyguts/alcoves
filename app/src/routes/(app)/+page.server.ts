@@ -78,19 +78,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			assets.map(async (asset) => {
 				const fileUrl = `${getAssetsDirectory()}/${asset}/${asset}.JPG`;
 
-				if (fileUrl.includes("placeholder")) {
-					return {
-						id: asset,
-					};
-				}
-
-				const sharpMetadata = await sharp(fileUrl).metadata();
-				console.log(sharpMetadata.exif);
 				const tags = await ExifReader.load(fileUrl);
-
 				const datetime = tags["DateTimeOriginal"].description;
-
-				// const tags = [];
 
 				return {
 					id: asset,
