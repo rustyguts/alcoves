@@ -79,7 +79,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 				const fileUrl = `${getAssetsDirectory()}/${asset}/${asset}.JPG`;
 
 				const tags = await ExifReader.load(fileUrl);
-				const datetime = tags["DateTimeOriginal"].description;
+				const datetime = tags.DateTimeOriginal?.description || "Unknown";
 
 				return {
 					id: asset,
@@ -127,12 +127,16 @@ export const actions = {
 		const fileExtension = path.extname(filename);
 		const storageFilename = `${assetId}${fileExtension}`;
 		const storagePath = path.join(assetDir, storageFilename);
-		const storageKey = `${assetId}/${storageFilename}`;
 
 		// Convert file to buffer and write to disk
+		// TODO :: Refactor this to use streams
 		const arrayBuffer = await file.arrayBuffer();
 		const buffer = Buffer.from(arrayBuffer);
 		await writeFile(storagePath, buffer);
+
+		const tags = await ExifReader.load(storagePath);
+		const photoCreatedAt =
+			tags.DateTimeOriginal?.description || new Date().toISOString();
 
 		// Insert into database
 		// const [asset] = await db

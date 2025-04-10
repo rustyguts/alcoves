@@ -47,7 +47,7 @@ export async function GET({ url, params, request }) {
 	const relativePath = url.pathname.replace(/^\/api\/proxy\//, "");
 	const filePath = join(await getAssetsDirectory(), relativePath);
 	const fileStat = await stat(filePath);
-	const useCache = false;
+	const useCache = true;
 
 	if (!fileStat.isFile()) {
 		// Actually should return a black screen
