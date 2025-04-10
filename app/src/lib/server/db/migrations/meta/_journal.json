@@ -8,6 +8,20 @@
       "when": 1743797872399,
       "tag": "0000_numerous_korvac",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1744264459460,
+      "tag": "0001_previous_greymalkin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1744264699042,
+      "tag": "0002_nebulous_sheva_callister",
+      "breakpoints": true
     }
   ]
 }

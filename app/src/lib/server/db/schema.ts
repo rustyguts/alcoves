@@ -1,7 +1,19 @@
-import { integer, sqliteTable } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
-	id: integer("id"),
+	id: integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+});
+
+export const assets = sqliteTable("assets", {
+	id: integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+	storagePath: text(),
+	status: text({ enum: ["PROCESSING", "READY", "ERROR"] }).default(
+		"PROCESSING",
+	),
+	cTime: integer({ mode: "timestamp" }).default(sql`(CURRENT_TIMESTAMP)`),
+	createdAt: integer({ mode: "timestamp" }).default(sql`(CURRENT_TIMESTAMP)`),
+	updatedAt: integer({ mode: "timestamp" }).default(sql`(CURRENT_TIMESTAMP)`),
 });
 
 // import { relations } from "drizzle-orm";

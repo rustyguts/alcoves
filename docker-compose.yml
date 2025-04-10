@@ -3,12 +3,12 @@ services:
     build:
       context: app
       dockerfile: ../docker/Dockerfile
-    # user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./app:/app
-      - alcoves_data:/data
+      - ./data:/data
     ports:
       - 5173:5173
+
     # depends_on:
     #   tasks:
     #     condition: service_started
@@ -23,6 +23,3 @@ services:
   #     - 6100:6379
   #   volumes:
   #     - tasks:/eqalpha/keydb
-
-volumes:
-  alcoves_data:
