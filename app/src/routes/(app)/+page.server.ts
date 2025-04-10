@@ -78,13 +78,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 			assets.map(async (asset) => {
 				const fileUrl = `${getAssetsDirectory()}/${asset}/${asset}.JPG`;
 
-				const tags = await ExifReader.load(fileUrl);
-				const datetime = tags.DateTimeOriginal?.description || "Unknown";
+				// const tags = await ExifReader.load(fileUrl);
+				// const datetime = tags.DateTimeOriginal?.description || "Unknown";
 
 				return {
 					id: asset,
 					// exif: tags,
-					createdAt: datetime,
+					createdAt: new Date().toISOString(),
 				};
 			}),
 		),
