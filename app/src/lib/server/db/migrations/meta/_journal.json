@@ -22,6 +22,13 @@
       "when": 1744264699042,
       "tag": "0002_nebulous_sheva_callister",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1744328993512,
+      "tag": "0003_wealthy_electro",
+      "breakpoints": true
     }
   ]
 }

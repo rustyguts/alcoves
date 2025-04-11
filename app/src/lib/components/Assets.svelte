@@ -89,7 +89,7 @@
                   <img
                     class="h-40 w-auto object-cover rounded"
                     alt={asset.id}
-                    src={`/api/proxy/${asset.id}/${asset.id}.JPG?width=400&format=avif`}
+                    src={`/api/proxy/${asset.id}.avif?width=400`}
                   />
                   {#if asset.description}
                     <p class="text-xs mt-0.5 text-opacity-70">

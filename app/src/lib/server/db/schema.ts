@@ -1,12 +1,15 @@
+import { randomUUIDv7 } from "bun";
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
+	// id2: text().primaryKey().$defaultFn(randomUUIDv7),
 	id: integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
 });
 
 export const assets = sqliteTable("assets", {
-	id: integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
+	id: text().primaryKey().$defaultFn(randomUUIDv7),
+	// id: integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
 	storagePath: text(),
 	status: text({ enum: ["PROCESSING", "READY", "ERROR"] }).default(
 		"PROCESSING",

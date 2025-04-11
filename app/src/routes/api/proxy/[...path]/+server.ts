@@ -2,13 +2,15 @@ import { createReadStream } from "node:fs";
 import { constants } from "node:fs";
 import { access, mkdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { getAssetsDirectory } from "$lib/server/utils.js";
+import { getBaseAssetsDirectory } from "$lib/server/utils.js";
 import { error } from "@sveltejs/kit";
 import sharp from "sharp";
 import { v5 as uuidv5 } from "uuid";
 
 // Cache directory path
 const CACHE_DIR = "/data/cache";
+
+// Except /api/proxy/${asset.id}.avif?width=400
 
 // Generate cache key using UUID v5 with asset id and sorted query params
 function generateCacheKey(assetPath, queryParams) {
@@ -45,7 +47,7 @@ export async function GET({ url, params, request }) {
 	// TODO :: Everything in here should be put into a bullmq job so as not to overwhelm the server
 
 	const relativePath = url.pathname.replace(/^\/api\/proxy\//, "");
-	const filePath = join(await getAssetsDirectory(), relativePath);
+	const filePath = join(await getBaseAssetsDirectory(), relativePath);
 	const fileStat = await stat(filePath);
 	const useCache = true;
 
