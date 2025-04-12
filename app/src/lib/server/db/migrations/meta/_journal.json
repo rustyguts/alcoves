@@ -29,6 +29,13 @@
       "when": 1744328993512,
       "tag": "0003_wealthy_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1744431988181,
+      "tag": "0004_dizzy_energizer",
+      "breakpoints": true
     }
   ]
 }

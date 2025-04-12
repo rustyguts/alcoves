@@ -10,7 +10,8 @@ export const users = sqliteTable("users", {
 export const assets = sqliteTable("assets", {
 	id: text().primaryKey().$defaultFn(randomUUIDv7),
 	// id: integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
-	storagePath: text(),
+	sourceStoragePath: text(),
+	optimizedStoragePath: text(),
 	status: text({ enum: ["PROCESSING", "READY", "ERROR"] }).default(
 		"PROCESSING",
 	),

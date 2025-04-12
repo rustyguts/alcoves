@@ -18,11 +18,6 @@ function isRunningInDocker(): boolean {
 
 export function getDataDirectory(): string {
 	let dataDir = "";
-	const ENV_OVERRIDE = process.env.ALCOVES_DATA_DIR;
-
-	if (ENV_OVERRIDE) {
-		dataDir = ENV_OVERRIDE;
-	}
 
 	if (isRunningInDocker()) {
 		dataDir = "/data";
@@ -30,64 +25,53 @@ export function getDataDirectory(): string {
 		dataDir = `${process.cwd()}/../data`;
 	}
 
-	if (!existsSync(dataDir)) {
-		mkdirSync(dataDir, { recursive: true });
-	}
+	if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 
 	return dataDir;
 }
 
-export function getBaseAssetsDirectory(): string {
-	const dataDir = getDataDirectory();
-	const assetsDir = `${dataDir}/assets`;
-
-	if (!existsSync(assetsDir)) {
-		mkdirSync(assetsDir, { recursive: true });
-	}
-
-	return assetsDir;
-}
-
-export function getAssetDirectory(): { directory: string; id: string } {
-	const assetsDir = getBaseAssetsDirectory();
+export function getDirectory(type: "tmpDir" | "cacheDir" | "assetDir"): {
+	id: string;
+	directory: string;
+} {
+	const { tmpDir, cacheDir, assetsDir } = getBaseDirectories();
 	const id = randomUUIDv7();
-	const directory = `${assetsDir}/${id}`;
-
-	if (!existsSync(directory)) {
-		mkdirSync(directory, { recursive: true });
+	let directory = "";
+	if (type === "tmpDir") {
+		directory = `${tmpDir}/${id}`;
+	} else if (type === "cacheDir") {
+		directory = `${cacheDir}/${id}`;
+	} else if (type === "assetDir") {
+		directory = `${assetsDir}/${id}`;
+	} else {
+		throw new Error("Invalid type");
 	}
 
-	return {
-		id,
-		directory,
-	};
-}
-
-export function getTemporaryDirectory(): { directory: string; id: string } {
-	const dataDir = getDataDirectory();
-	const id = randomUUIDv7();
-	const directory = `${dataDir}/tmp/${id}`;
-
-	if (!existsSync(directory)) {
-		mkdirSync(directory, { recursive: true });
-	}
-
-	return {
-		id,
-		directory,
-	};
+	mkdirSync(directory, { recursive: true });
+	return { id, directory };
 }
 
 export function getDatabasePath(): string {
 	const dataDir = getDataDirectory();
-	const databasePath = `${dataDir}/alcoves.db`;
-
-	return databasePath;
+	return `${dataDir}/alcoves.db`;
 }
 
-console.info("Alcoves Data Directory:", getDataDirectory());
-console.info("Database path:", getDatabasePath());
-console.info("Assets path:", getBaseAssetsDirectory());
-console.info(
-	`Alcoves is ${isRunningInDocker() ? "running in a container" : "not running in a container"}.`,
-);
+export function getBaseDirectories(): {
+	tmpDir: string;
+	cacheDir: string;
+	assetsDir: string;
+} {
+	const dataDir = getDataDirectory();
+	const tmpDir = `${dataDir}/tmp`;
+	const cacheDir = `${dataDir}/cache`;
+	const assetsDir = `${dataDir}/assets`;
+
+	if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+	if (!existsSync(tmpDir)) mkdirSync(tmpDir, { recursive: true });
+	if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
+	if (!existsSync(assetsDir)) mkdirSync(assetsDir, { recursive: true });
+
+	return { tmpDir, cacheDir, assetsDir };
+}
+
+getBaseDirectories();

@@ -4,30 +4,40 @@ import ExifReader from "exifreader";
 import sharp from "sharp";
 import { db } from "../db/db";
 import { assets } from "../db/schema";
-import { getAssetDirectory } from "../utils";
+import { getDirectory } from "../utils";
+
+function parsePhotoCreatedAt(exifTags: ExifReader.Tags): Date {
+	const dateTimeOriginal = exifTags.DateTimeOriginal?.description;
+	if (!dateTimeOriginal) return new Date();
+
+	// Parse EXIF format: "YYYY:MM:DD HH:MM:SS"
+	const [date, time] = dateTimeOriginal.split(" ");
+	const [year, month, day] = date.split(":").map(Number);
+	const [hour, minute, second] = time.split(":").map(Number);
+	return new Date(year, month - 1, day, hour, minute, second);
+}
 
 export async function createAsset(tmpFilePath: string) {
 	const metadata = await sharp(tmpFilePath).metadata();
 	const exiftags = await ExifReader.load(tmpFilePath);
+	const photoCreatedAt = parsePhotoCreatedAt(exiftags);
 
-	const photoCreatedAt =
-		exiftags.DateTimeOriginal?.description || new Date().toISOString();
+	console.debug("Metadata", metadata);
+	console.debug("Exif Tags", exiftags);
+	console.debug("Photo Created At", photoCreatedAt);
 
-	console.log("Metadata", metadata);
-	console.log("Exif Tags", exiftags);
-	console.log("Photo Created At", photoCreatedAt);
-
-	const { directory, id } = getAssetDirectory();
+	const { directory, id } = getDirectory("assetDir");
 	const originalExtension = metadata.format;
 	const storagePath = `${directory}/${id}.${originalExtension}`;
-	await Bun.write(tmpFilePath, storagePath);
+	await Bun.write(Bun.file(storagePath), tmpFilePath);
 
 	const [asset] = await db
 		.insert(assets)
 		.values({
 			id,
+			status: "READY",
 			storagePath: storagePath,
-			cTime: new Date(),
+			cTime: photoCreatedAt,
 			createdAt: new Date(),
 			updatedAt: new Date(),
 		})

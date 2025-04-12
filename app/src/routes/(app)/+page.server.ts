@@ -1,9 +1,5 @@
-import { readdir } from "node:fs/promises";
 import path from "node:path";
-import {
-	getBaseAssetsDirectory,
-	getTemporaryDirectory,
-} from "$lib/server/utils";
+import { getDirectory } from "$lib/server/utils";
 import { type Actions, fail } from "@sveltejs/kit";
 import { z } from "zod";
 import type { PageServerLoad } from "./$types";
@@ -83,12 +79,11 @@ export const actions = {
 			});
 		}
 
-		const { directory } = await getTemporaryDirectory();
+		const { directory } = await getDirectory("tmpDir");
 		const tmpFilePath = path.join(directory, filename);
 		await Bun.write(tmpFilePath, file);
 
 		const asset = await createAsset(tmpFilePath);
-
 		return { success: true };
 	},
 } satisfies Actions;
