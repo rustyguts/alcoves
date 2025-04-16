@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { PageServerLoad } from "./$types";
 
 import { createAsset } from "$lib/server/svc/assets";
-import { db } from "../../db/db";
+import { db } from "../../lib/db/db";
 
 const mimeTypeValidator = z.string().refine((val) => val.startsWith("image/"), {
 	message: "Invalid MIME type. Must be an image type",

@@ -4,7 +4,7 @@ import { getBaseDirectories } from "$lib/server/utils.js";
 import { error } from "@sveltejs/kit";
 import sharp from "sharp";
 import { v5 as uuidv5 } from "uuid";
-import { db } from "../../../../db/db.js";
+import { db } from "../../../../lib/db/db.js";
 
 // Except /api/proxy/${asset.id}.avif?width=400
 

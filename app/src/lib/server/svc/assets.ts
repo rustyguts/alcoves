@@ -2,8 +2,8 @@ import { rm } from "node:fs/promises";
 import path from "node:path";
 import ExifReader from "exifreader";
 import sharp from "sharp";
-import { db } from "../../../db/db";
-import { assets } from "../../../db/schema/asset";
+import { db } from "../../db/db";
+import { assets } from "../../db/schema/asset";
 import { getDirectory } from "../utils";
 
 function parsePhotoCreatedAt(exifTags: ExifReader.Tags): Date {
