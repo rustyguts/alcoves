@@ -1,5 +1,6 @@
 services:
   app:
+    user: "${UID}:${GID}"
     build:
       context: app
       dockerfile: ../docker/Dockerfile
