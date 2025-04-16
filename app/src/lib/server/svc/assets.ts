@@ -36,7 +36,10 @@ export async function createAsset(tmpFilePath: string) {
 		.values({
 			id,
 			status: "READY",
-			storagePath: storagePath,
+			exif: exiftags,
+			sourceStoragePath: storagePath,
+			// optimizedStoragePath: storagePath,
+			// TODO :: Add optimized storage path
 			cTime: photoCreatedAt,
 			createdAt: new Date(),
 			updatedAt: new Date(),
