@@ -1,12 +1,10 @@
-import { createReadStream } from "node:fs";
-import { constants } from "node:fs";
-import { access, mkdir, stat, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { db } from "$lib/server/db/db.js";
 import { getBaseDirectories } from "$lib/server/utils.js";
 import { error } from "@sveltejs/kit";
 import sharp from "sharp";
 import { v5 as uuidv5 } from "uuid";
+import { db } from "../../../../db/db.js";
 
 // Except /api/proxy/${asset.id}.avif?width=400
 

@@ -4,8 +4,8 @@ import { type Actions, fail } from "@sveltejs/kit";
 import { z } from "zod";
 import type { PageServerLoad } from "./$types";
 
-import { db } from "$lib/server/db/db";
 import { createAsset } from "$lib/server/svc/assets";
+import { db } from "../../db/db";
 
 const mimeTypeValidator = z.string().refine((val) => val.startsWith("image/"), {
 	message: "Invalid MIME type. Must be an image type",

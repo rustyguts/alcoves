@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "da7330f9-bb81-4c3a-a1e4-d7d9b6503b4e",
-  "prevId": "c794ef27-fe2c-4ad9-b1ab-05b1884a9f0a",
+  "id": "13aa55ee-8d4b-45aa-a5ae-d16237174638",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "assets": {
       "name": "assets",
@@ -14,8 +14,22 @@
           "notNull": true,
           "autoincrement": false
         },
-        "storagePath": {
-          "name": "storagePath",
+        "exif": {
+          "name": "exif",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sourceStoragePath": {
+          "name": "sourceStoragePath",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "optimizedStoragePath": {
+          "name": "optimizedStoragePath",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -65,10 +79,26 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": true
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(CURRENT_TIMESTAMP)"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(CURRENT_TIMESTAMP)"
         }
       },
       "indexes": {},

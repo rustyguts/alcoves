@@ -1,13 +1,11 @@
-import type { Config } from "drizzle-kit";
-import { getDatabasePath } from "./src/lib/server/utils";
+import { defineConfig } from "drizzle-kit";
+// import { getDatabasePath } from "./src/lib/server/utils";
 
-export default {
-	schema: "./src/lib/server/db/schema.ts",
-	out: "./src/lib/server/db/migrations",
+export default defineConfig({
+	schema: "./src/db/schema/*",
 	dialect: "sqlite",
 	dbCredentials: {
-		url: `file:${getDatabasePath()}`,
+		// url: `file:${getDatabasePath()}`,
+		url: "file:../data/alcoves.db",
 	},
-	verbose: true,
-	strict: true,
-} satisfies Config;
+});
