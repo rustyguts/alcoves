@@ -1,10 +1,10 @@
 {
     "recommendations": [
-        "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
         "oven.bun-vscode",
         "biomejs.biome",
-        "svelte.svelte-vscode"
+        "svelte.svelte-vscode",
+        "alexcvzz.vscode-sqlite"
     ]
 }
