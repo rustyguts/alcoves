@@ -1,5 +1,5 @@
 <script lang="ts">
-  console.log("Assets");
+  console.log("Assets Component");
   const { assets } = $props();
 
   // Group assets by year, month, day
@@ -89,7 +89,7 @@
                   <img
                     class="h-40 w-auto object-cover rounded"
                     alt={asset.id}
-                    src={`/api/proxy/${asset.id}.avif?width=400`}
+                    src={`/api/proxy/${asset.id}.jpg?width=400`}
                   />
                   {#if asset.description}
                     <p class="text-xs mt-0.5 text-opacity-70">

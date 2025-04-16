@@ -4,8 +4,8 @@ import { type Actions, fail } from "@sveltejs/kit";
 import { z } from "zod";
 import type { PageServerLoad } from "./$types";
 
+import { db } from "$lib/db/db";
 import { createAsset } from "$lib/server/svc/assets";
-import { db } from "../../lib/db/db";
 
 const mimeTypeValidator = z.string().refine((val) => val.startsWith("image/"), {
 	message: "Invalid MIME type. Must be an image type",
@@ -41,7 +41,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		// 	eq(assets.ownerId, locals.user.id) && eq(assets.deleted, getDeleted),
 	});
 
-	console.log("Assets Fetched", assetsList);
+	console.log(`Assets Fetched: ${assetsList.length}`);
 
 	return {
 		assets: await Promise.all(

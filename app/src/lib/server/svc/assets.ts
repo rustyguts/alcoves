@@ -29,7 +29,9 @@ export async function createAsset(tmpFilePath: string) {
 	const { directory, id } = getDirectory("assetDir");
 	const originalExtension = metadata.format;
 	const storagePath = `${directory}/${id}.${originalExtension}`;
-	await Bun.write(Bun.file(storagePath), tmpFilePath);
+
+	const temporaryFile = Bun.file(tmpFilePath);
+	await Bun.write(Bun.file(storagePath), temporaryFile);
 
 	const [asset] = await db
 		.insert(assets)

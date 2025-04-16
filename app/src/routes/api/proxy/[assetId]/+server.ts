@@ -1,15 +1,17 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { getBaseDirectories } from "$lib/server/utils.js";
+import { db } from "$lib/db/db";
+import { assets } from "$lib/db/schema/asset";
+import { getBaseDirectories } from "$lib/server/utils";
 import { error } from "@sveltejs/kit";
+import { eq } from "drizzle-orm";
 import sharp from "sharp";
 import { v5 as uuidv5 } from "uuid";
-import { db } from "../../../../lib/db/db.js";
 
 // Except /api/proxy/${asset.id}.avif?width=400
 
 // Generate cache key using UUID v5 with asset id and sorted query params
-function generateCacheKey(assetPath: string, queryParams) {
+function generateCacheKey(assetPath: string, queryParams: URLSearchParams) {
 	// Sort query params alphabetically
 	const sortedParams = [...queryParams.entries()]
 		.sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
@@ -23,106 +25,47 @@ function generateCacheKey(assetPath: string, queryParams) {
 	return cacheKey;
 }
 
-function getCacheFilePath(cacheKey, format) {
+function getCacheFilePath(cacheKey: string, extension: string) {
 	const { cacheDir } = getBaseDirectories();
-	const extension = format || "jpeg";
 	return join(cacheDir, `${cacheKey}.${extension}`);
 }
 
 export async function GET({ url, params, request }) {
-	// TODO :: Everything in here should be put into a bullmq job so as not to overwhelm the server
-
-	const useCache = true;
-	const { assetId } = params;
-
-	const asset = await db.query.assets.findFirst({
-		where: { id: assetId },
-	});
+	const [assetId, extension = "jpg"] = params.assetId.split(".");
+	const [asset] = await db.select().from(assets).where(eq(assets.id, assetId));
 
 	if (!asset) throw error(404, "Asset not found");
-	const sourceFile = Bun.file(asset.storagePath);
+	const sourceFile = Bun.file(asset.sourceStoragePath);
 	if (!(await sourceFile.exists())) throw error(404, "Asset not found");
 
-	// Get query parameters for resizing if needed
-	const width = url.searchParams.get("width")
-		? Number.parseInt(url.searchParams.get("width") || "")
-		: null;
-	const height = url.searchParams.get("height")
-		? Number.parseInt(url.searchParams.get("height") || "")
-		: null;
-	const format = url.searchParams.get("format")
-		? url.searchParams.get("format")
-		: null;
+	const format = extension.toLowerCase();
+	const width = Number.parseInt(url.searchParams.get("width") || "1920");
+	const height = Number.parseInt(url.searchParams.get("height") || "1080");
 
-	// Apply transformations if needed
-	if (width || height || format) {
-		// Skip the cache for assets without query strings
-		if (url.search && useCache) {
-			const cacheKey = generateCacheKey(asset.storagePath, url.searchParams);
-			const cacheFilePath = getCacheFilePath(cacheKey, format);
-			const cacheFile = Bun.file(cacheFilePath);
+	const cacheKey = generateCacheKey(asset.sourceStoragePath, url.searchParams);
+	const cacheFilePath = getCacheFilePath(cacheKey, format);
+	const cacheFile = Bun.file(cacheFilePath);
+	const responseHeaders = {
+		"Content-Type": Bun.file(`image.${format}`).type,
+	};
 
-			if (await cacheFile.exists()) {
-				return new Response(Bun.file(cacheFilePath), {
-					headers: {
-						"Content-Type": Bun.file(`image.${format || "jpeg"}`).type,
-					},
-				});
-			}
-
-			const processedBuffer = await sharp(asset.storagePath)
-				.resize(width, height, {
-					fit: "inside",
-					withoutEnlargement: true,
-				})
-				.rotate()
-				.toFormat(format || "jpeg", {
-					quality: 90,
-				})
-				.toBuffer();
-
-			await writeFile(cacheFilePath, processedBuffer);
-
-			console.info("Generated and cached optimized image:", cacheFilePath);
-			return new Response(processedBuffer, {
-				headers: {
-					"Content-Type": Bun.file(`image.${format || "jpeg"}`).type,
-				},
-			});
-
-			// } else {
-			// 	// No query string, skip cache
-			// 	const readStream = createReadStream(filePath);
-
-			// 	const transform = sharp()
-			// 		.resize(width, height, {
-			// 			fit: "inside",
-			// 			withoutEnlargement: true,
-			// 		})
-			// 		.toFormat(format || "jpeg", {
-			// 			quality: 90,
-			// 		});
-
-			// 	const sharpStream = readStream.pipe(transform);
-			// 	const contentType = Bun.file(`image.${format || "jpeg"}`).type;
-
-			// 	console.info("Returning optimized image (no cache):", filePath);
-			// 	return new Response(sharpStream, {
-			// 		headers: {
-			// 			"Content-Type": contentType,
-			// 		},
-			// 	});
-			// }
-		}
+	if (await cacheFile.exists()) {
+		return new Response(Bun.file(cacheFilePath), { headers: responseHeaders });
 	}
 
-	// If no resizing is needed, return the file directly
-	// This won't work if the images are raw
-	// I think we want the create asset job to always convert as a safe backup
-	console.info("Returning original file:", asset.storagePath);
-	return new Response(Bun.file(asset.storagePath), {
-		headers: {
-			"Content-Type": "image/jpeg",
-		},
-	});
+	console.log(asset.sourceStoragePath, cacheFilePath, format, width, height);
+	const processedBuffer = await sharp(asset.sourceStoragePath)
+		.resize(width, height, {
+			fit: "inside",
+			withoutEnlargement: true,
+		})
+		// .rotate()
+		.toFormat(format, {
+			quality: 80,
+			progressive: true,
+		})
+		.toBuffer();
+
+	await writeFile(cacheFilePath, processedBuffer);
+	return new Response(Bun.file(cacheFilePath), { headers: responseHeaders });
 }
