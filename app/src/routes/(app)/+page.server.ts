@@ -4,8 +4,11 @@ import { type Actions, fail } from "@sveltejs/kit";
 import { z } from "zod";
 import type { PageServerLoad } from "./$types";
 
+import { exists, rmdir } from "node:fs/promises";
 import { db } from "$lib/db/db";
+import { assets } from "$lib/db/schema/asset";
 import { createAsset } from "$lib/server/svc/assets";
+import { eq } from "drizzle-orm";
 
 const mimeTypeValidator = z.string().refine((val) => val.startsWith("image/"), {
 	message: "Invalid MIME type. Must be an image type",
@@ -48,7 +51,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			assetsList.map(async (asset) => {
 				return {
 					id: asset.id,
-					createdAt: asset.cTime?.toISOString(),
+					cTime: asset.cTime?.toISOString(),
 				};
 			}),
 		),
@@ -85,5 +88,45 @@ export const actions = {
 
 		const asset = await createAsset(tmpFilePath);
 		return { success: true };
+	},
+	deleteAssets: async ({ request }) => {
+		const formData = await request.formData();
+		const assetIds = formData.get("assetIds")?.toString();
+
+		if (!assetIds) {
+			return fail(400, {
+				error: true,
+				message: "No assets to delete",
+			});
+		}
+
+		const ids = assetIds.split(",").map((id) => id.trim());
+		console.log("Deleting assets with IDs:", ids);
+
+		try {
+			for (const id of ids) {
+				const [asset] = await db.select().from(assets).where(eq(assets.id, id));
+
+				console.log("Deleting asset:", asset);
+
+				if (asset) {
+					if (await exists(asset.sourceStoragePath)) {
+						const assetDirectory = path.dirname(asset?.sourceStoragePath);
+						if (assetDirectory) {
+							await rmdir(assetDirectory, { recursive: true });
+						}
+					}
+					await db.delete(assets).where(eq(assets.id, id));
+				}
+			}
+
+			return { success: true };
+		} catch (error) {
+			console.error("Error deleting assets:", error);
+			return fail(500, {
+				error: true,
+				message: "Failed to delete assets",
+			});
+		}
 	},
 } satisfies Actions;
