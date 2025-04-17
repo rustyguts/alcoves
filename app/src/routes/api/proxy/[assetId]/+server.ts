@@ -59,7 +59,7 @@ export async function GET({ url, params, request }) {
 			fit: "inside",
 			withoutEnlargement: true,
 		})
-		// .rotate()
+		.rotate()
 		.toFormat(format, {
 			quality: 80,
 			progressive: true,
