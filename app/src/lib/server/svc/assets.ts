@@ -6,21 +6,32 @@ import { db } from "../../db/db";
 import { assets } from "../../db/schema/asset";
 import { getDirectory } from "../utils";
 
-function parsePhotoCreatedAt(exifTags: ExifReader.Tags): Date {
+function parsePhotoCreatedAt(
+	tmpFilePath: string,
+	exifTags: ExifReader.Tags,
+): Date {
 	const dateTimeOriginal = exifTags.DateTimeOriginal?.description;
-	if (!dateTimeOriginal) return new Date();
+	if (dateTimeOriginal) {
+		// Parse EXIF format: "YYYY:MM:DD HH:MM:SS"
+		const [date, time] = dateTimeOriginal.split(" ");
+		const [year, month, day] = date.split(":").map(Number);
+		const [hour, minute, second] = time.split(":").map(Number);
+		return new Date(year, month - 1, day, hour, minute, second);
+	}
 
-	// Parse EXIF format: "YYYY:MM:DD HH:MM:SS"
-	const [date, time] = dateTimeOriginal.split(" ");
-	const [year, month, day] = date.split(":").map(Number);
-	const [hour, minute, second] = time.split(":").map(Number);
-	return new Date(year, month - 1, day, hour, minute, second);
+	const creationTime = exifTags["Creation Time"]?.description;
+	if (creationTime) {
+		// Parse format: "Fri 04 Apr 2025 05:25:18 PM EDT"
+		return new Date(creationTime);
+	}
+
+	return new Date(Bun.file(tmpFilePath).lastModified);
 }
 
 export async function createAsset(tmpFilePath: string) {
 	const metadata = await sharp(tmpFilePath).metadata();
 	const exiftags = await ExifReader.load(tmpFilePath);
-	const photoCreatedAt = parsePhotoCreatedAt(exiftags);
+	const photoCreatedAt = parsePhotoCreatedAt(tmpFilePath, exiftags);
 
 	console.debug("Metadata", metadata);
 	console.debug("Exif Tags", exiftags);
