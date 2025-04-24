@@ -1,9 +1,8 @@
 <script lang="ts">
-  // import { page } from "$app/state";
   import "../../app.css";
   import { goto } from "$app/navigation";
   import Uploader from "$lib/components/Uploader.svelte";
-  import { Film, Menu } from "lucide-svelte";
+  import { Home, Menu, Trash } from "lucide-svelte";
 
   const { data, children } = $props();
 </script>
@@ -77,9 +76,10 @@
         <div class="h-[calc(100vh-65px)] w-full border-r border-base-300">
           <ul class="menu p-4 w-full">
             <li>
-              <!-- <a href="/" class:active={$page.url.pathname == "/"}>
-                <Film class="w-5 h-5" />My Library</a
-              > -->
+              <a href="/" class="py-2"> <Home class="w-5 h-5" />Home</a>
+            </li>
+            <li>
+              <a href="/trash" class="py-2"> <Trash class="w-5 h-5" />Trash</a>
             </li>
           </ul>
         </div>
