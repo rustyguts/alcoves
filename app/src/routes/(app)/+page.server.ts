@@ -44,8 +44,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 		// 	eq(assets.ownerId, locals.user.id) && eq(assets.deleted, getDeleted),
 	});
 
-	console.log(`Assets Fetched: ${assetsList.length}`);
-
 	return {
 		assets: await Promise.all(
 			assetsList.map(async (asset) => {
@@ -101,13 +99,10 @@ export const actions = {
 		}
 
 		const ids = assetIds.split(",").map((id) => id.trim());
-		console.log("Deleting assets with IDs:", ids);
 
 		try {
 			for (const id of ids) {
 				const [asset] = await db.select().from(assets).where(eq(assets.id, id));
-
-				console.log("Deleting asset:", asset);
 
 				if (asset) {
 					if (await exists(asset.sourceStoragePath)) {
