@@ -50,7 +50,7 @@
 
       <div class="flex flex-col items-center justify-center h-screen w-full">
         <img
-          src={`/api/proxy/${asset.id}.jpg?quality=original`}
+          src={`/api/proxy/${asset.id}.jpg?width=1920`}
           alt={asset.description || asset.id}
           class="max-h-screen max-w-screen object-contain"
         />
