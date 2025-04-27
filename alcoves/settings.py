@@ -78,7 +78,9 @@ WSGI_APPLICATION = "alcoves.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.environ.get("ALCOVES_DB_PATH", os.path.join(BASE_DIR, "alcoves.db")),
+        "NAME": os.environ.get(
+            "ALCOVES_DB_PATH", os.path.join(BASE_DIR, "data", "alcoves.db")
+        ),
     }
 }
 
