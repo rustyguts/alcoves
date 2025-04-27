@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark"> {# Changed theme to dark #}
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Alcoves{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+  <main>
+    {% block content %}
+    {% endblock %}
+  </main>
+</body>
+
+</html>
