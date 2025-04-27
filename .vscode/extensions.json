@@ -2,9 +2,10 @@
     "recommendations": [
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
-        "oven.bun-vscode",
-        "biomejs.biome",
-        "svelte.svelte-vscode",
-        "alexcvzz.vscode-sqlite"
+        "ms-python.vscode-pylance",
+        "ms-python.python",
+        "ms-python.mypy-type-checker",
+        "ms-python.debugpy",
+        "charliermarsh.ruff"
     ]
 }

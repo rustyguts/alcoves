@@ -1,9 +1,32 @@
 .env
 volumes
-node_modules
 .DS_Store
 data
+.venv
 
-# Data directory
-data/*
-!/data/placeholder
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.log
+*.pot
+*.mo
+*.manifest
+*.spec
+*.coverage
+.cache
+.pytest_cache/
+.mypy_cache/
+.tox/
+.coverage.*
+nosetests.xml
+coverage.xml
+*.sqlite3
+*.db
+*.ipynb_checkpoints

@@ -1,26 +1,13 @@
 services:
-  app:
+  alcoves:
     user: "${UID}:${GID}"
-    build:
-      context: app
-      dockerfile: ../docker/Dockerfile
+    build: .
     volumes:
-      - ./app:/app
+      - .:/app
       - ./data:/data
+      - venv:/app/.venv
     ports:
-      - 5173:5173
+      - 8000:8000
 
-    # depends_on:
-    #   tasks:
-    #     condition: service_started
-
-  # tasks:
-  #   image: eqalpha/keydb:latest
-  #   restart: always
-  #   attach: false
-  #   ulimits:
-  #     memlock: -1
-  #   ports:
-  #     - 6100:6379
-  #   volumes:
-  #     - tasks:/eqalpha/keydb
+volumes:
+  venv:
