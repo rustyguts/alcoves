@@ -1,0 +1,9 @@
+{% if assets %}
+<div class="asset-timeline">
+  {% for asset in assets %}
+  <div class="asset-item" id="asset-{{ asset.id }}">
+    <img src="{{ asset.url }}" alt="Asset {{ asset.id }}">
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

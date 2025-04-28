@@ -15,47 +15,45 @@
                     </svg>
                 </label>
             </div>
-            <div class="flex-1">
-                <a href="{% url 'home' %}" class="btn btn-ghost text-xl">Alcoves</a> {# Link home #}
-            </div>
-            <div class="flex-none">
-                <button class="btn btn-ghost mr-2" onclick="upload_modal.showModal()">Upload</button>
-                <div class="dropdown dropdown-end">
-
-                    <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar avatar-placeholder">
-                        <div class="bg-neutral text-neutral-content w-12 rounded-full">
-                            <span class="text-xl">{{ user.username|slice:":1"|upper }}</span>
+            <div class="flex justify-end w-full">
+                <div>
+                    <button class="btn btn-ghost mr-2" onclick="upload_modal.showModal()">Upload</button>
+                    <div class="dropdown dropdown-end">
+                        <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar avatar-placeholder">
+                            <div class="bg-neutral text-neutral-content w-12 rounded-full">
+                                <span class="text-xl">{{ user.username|slice:1|upper }}</span>
+                            </div>
                         </div>
+                        <ul tabindex="0"
+                            class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
+                            <li>
+                                <a class="justify-between">
+                                    Account
+                                </a>
+                            </li>
+                            <li>
+                                <form action="{% url 'logout' %}" method="post">
+                                    {% csrf_token %}
+                                    <button type="submit">Log Out</button>
+                                </form>
+                            </li>
+                        </ul>
                     </div>
-
-                    <ul tabindex="0"
-                        class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
-                        <li>
-                            <a class="justify-between">
-                                Account
-                            </a>
-                        </li>
-                        <li>
-                            <form action="{% url 'logout' %}" method="post">
-                                {% csrf_token %}
-                                <button type="submit">Log Out</button>
-                            </form>
-                        </li>
-                    </ul>
                 </div>
             </div>
         </div>
-        <!-- Page content here -->
         <main class="flex-1 p-4">
-            {% block page_content %} {# New block for page-specific content within the base layout #}
+            {% block page_content %}
             {% endblock %}
         </main>
     </div>
     <div class="drawer-side">
         <label for="my-drawer-2" aria-label="close sidebar" class="drawer-overlay"></label>
         <ul class="menu bg-base-200 text-base-content min-h-full w-60 p-4">
-            <!-- Sidebar content here -->
-            <li><a href="{% url 'home' %}" class="menu-item">Home</a></li>
+            <!-- Sidebar -->
+            <li><a href="{% url 'home' %}" class="text-2xl">Alcoves</a></li>
+            <br />
+            <li class="text-lg"><a href="{% url 'home' %}" class="menu-item">Home</a></li>
         </ul>
     </div>
 </div>

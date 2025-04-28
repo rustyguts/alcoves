@@ -1,10 +1,9 @@
-{% extends 'base.jinja' %}
+{% extends 'layout.jinja' %}
 
-{% block title %}Home - Alcoves{% endblock %}
+{% block title %}Alcoves{% endblock %}
 
-{% block page_content %} {# Use the new page_content block #}
-<h1>Hello World!</h1>
-<p>Welcome to my first Django project!</p>
+{% block page_content %}
 
-<button class="btn">Click Me</button>
+{% include "partials/asset-timeline.jinja" %}
+
 {% endblock %}
