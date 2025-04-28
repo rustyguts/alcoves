@@ -1,0 +1,137 @@
+{% extends 'root.jinja' %}
+
+{% block content %}
+<div class="drawer lg:drawer-open">
+    <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+    <div class="drawer-content flex flex-col">
+        <!-- Navbar -->
+        <div class="navbar bg-base-100 sticky top-0 z-30">
+            <div class="flex-none lg:hidden">
+                <label for="my-drawer-2" aria-label="open sidebar" class="btn btn-square btn-ghost">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        class="inline-block h-6 w-6 stroke-current">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </label>
+            </div>
+            <div class="flex-1">
+                <a href="{% url 'home' %}" class="btn btn-ghost text-xl">Alcoves</a> {# Link home #}
+            </div>
+            <div class="flex-none">
+                <button class="btn btn-ghost mr-2" onclick="upload_modal.showModal()">Upload</button>
+                <div class="dropdown dropdown-end">
+
+                    <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar avatar-placeholder">
+                        <div class="bg-neutral text-neutral-content w-12 rounded-full">
+                            <span class="text-xl">{{ user.username|slice:":1"|upper }}</span>
+                        </div>
+                    </div>
+
+                    <ul tabindex="0"
+                        class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
+                        <li>
+                            <a class="justify-between">
+                                Account
+                            </a>
+                        </li>
+                        <li>
+                            <form action="{% url 'logout' %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit">Log Out</button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <!-- Page content here -->
+        <main class="flex-1 p-4">
+            {% block page_content %} {# New block for page-specific content within the base layout #}
+            {% endblock %}
+        </main>
+    </div>
+    <div class="drawer-side">
+        <label for="my-drawer-2" aria-label="close sidebar" class="drawer-overlay"></label>
+        <ul class="menu bg-base-200 text-base-content min-h-full w-60 p-4">
+            <!-- Sidebar content here -->
+            <li><a href="{% url 'home' %}" class="menu-item">Home</a></li>
+        </ul>
+    </div>
+</div>
+
+{# Upload Modal #}
+<dialog id="upload_modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Upload File</h3>
+        <form id="upload-form" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" id="file-input" name="file"
+                class="file-input file-input-bordered w-full max-w-xs my-4" />
+            <button type="submit" class="btn btn-primary">Upload</button>
+        </form>
+        <div class="modal-action">
+            <form method="dialog">
+                <button class="btn">Close</button>
+            </form>
+        </div>
+    </div>
+</dialog>
+
+<script>
+    const uploadForm = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-input');
+    const uploadModal = document.getElementById('upload_modal');
+
+    uploadForm.addEventListener('submit', async (event) => {
+        event.preventDefault(); // Prevent default form submission
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        // Get CSRF token from the cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+
+        try {
+            const response = await fetch('/api/upload', { // Changed URL to /api/upload
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken // Include CSRF token
+                },
+                body: formData,
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Upload successful:', result);
+                alert('Upload successful!');
+                uploadModal.close(); // Close modal on success
+                // Optionally: Refresh part of the page or show a success message
+            } else {
+                console.error('Upload failed:', response.statusText);
+                const errorData = await response.json(); // Get error details if available
+                alert(`Upload failed: ${errorData.error || response.statusText}`);
+            }
+        } catch (error) {
+            console.error('Error during upload:', error);
+            alert('An error occurred during upload.');
+        }
+    });
+</script>
+{% endblock %}

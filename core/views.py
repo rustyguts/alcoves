@@ -6,6 +6,12 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 
 
+@login_required
+def home(request):
+    template = loader.get_template("home.jinja")
+    return HttpResponse(template.render({}, request))
+
+
 def register(request):
     if request.method == "POST":
         form = UserCreationForm(request.POST)
@@ -17,10 +23,4 @@ def register(request):
             )  # Redirect to home page after successful registration
     else:
         form = UserCreationForm()
-    return render(request, "register.html", {"form": form})
-
-
-@login_required
-def home(request):
-    template = loader.get_template("home.html")
-    return HttpResponse(template.render({}, request))
+    return render(request, "register.jinja", {"form": form})

@@ -6,6 +6,7 @@
         "ms-python.python",
         "ms-python.mypy-type-checker",
         "ms-python.debugpy",
-        "charliermarsh.ruff"
+        "charliermarsh.ruff",
+        "samuelcolvin.jinjahtml"
     ]
 }
