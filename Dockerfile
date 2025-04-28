@@ -2,6 +2,7 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+ENV ALCOVES_MEDIA_PATH=/data/media
 ENV ALCOVES_DB_PATH=/data/alcoves.db
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

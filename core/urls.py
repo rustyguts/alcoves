@@ -1,5 +1,6 @@
-from django.urls import path, include
 from django.contrib.auth import views as auth_views
+from django.urls import include, path
+
 from . import views
 
 urlpatterns = [
@@ -11,4 +12,5 @@ urlpatterns = [
     ),
     path("accounts/register/", views.register, name="register"),
     path("accounts/", include("django.contrib.auth.urls")),
+    path("create-asset/", views.create_asset, name="create-asset"),
 ]

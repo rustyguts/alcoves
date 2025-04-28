@@ -75,6 +75,11 @@ LOGIN_REDIRECT_URL = "/"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+MEDIA_ROOT = os.environ.get(
+    "ALCOVES_MEDIA_PATH", os.path.join(BASE_DIR, "data", "media")
+)
+
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",

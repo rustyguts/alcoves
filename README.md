@@ -4,6 +4,7 @@
 
 https://htmx.org/docs/#installing
 https://blog.pecar.me/uv-with-django
+https://github.com/serengil/deepface
 https://docs.djangoproject.com/en/5.2/ref/settings
 https://learndjango.com/tutorials/django-login-and-logout-tutorial
 

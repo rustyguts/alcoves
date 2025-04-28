@@ -1,9 +1,7 @@
-{% if assets %}
-<div class="asset-timeline">
+<div class="flex gap-2" id="asset-timeline">
+  {% if assets %}
   {% for asset in assets %}
-  <div class="asset-item" id="asset-{{ asset.id }}">
-    <img src="{{ asset.url }}" alt="Asset {{ asset.id }}">
-  </div>
+  {% include "partials/asset-item.jinja" %}
   {% endfor %}
+  {% endif %}
 </div>
-{% endif %}
