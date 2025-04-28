@@ -1,8 +1,7 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from api.models import Asset  # Import the Asset model
 
-# Create your views here.
+from api.models import Asset
 
 
 def root(request):
@@ -12,6 +11,35 @@ def root(request):
             "status": "success",
         }
     )
+
+
+# @require_GET
+# @login_required
+# def get_assets(request):
+#     """
+#     Retrieve all assets owned by the authenticated user.
+#     """
+#     try:
+#         # assets = Asset.objects.filter(owner=request.user)
+#         assets = Asset.objects.all()
+#         asset_list = [
+#             {
+#                 "id": str(asset.id),
+#                 "filename": asset.filename,
+#             }
+#             for asset in assets
+#         ]
+#         return JsonResponse(
+#             {
+#                 "assets": asset_list,
+#                 "status": "success",
+#             },
+#             status=200,
+#         )
+#     except Exception as e:
+#         # Log the exception e
+#         print(f"Error retrieving assets: {e}")
+#         return JsonResponse({"error": "Failed to retrieve assets"}, status=500)
 
 
 @require_POST  # Ensure this view only accepts POST requests

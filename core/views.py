@@ -1,15 +1,14 @@
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
-from django.template import loader
-from django.shortcuts import render, redirect
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.shortcuts import redirect, render
 
 
 @login_required
 def home(request):
-    template = loader.get_template("home.jinja")
-    return HttpResponse(template.render({}, request))
+    assets = request.user.assets.all().order_by("-created_at")
+    # libraries = request.user.userprofile.libraries.all().order_by("-created_at")
+    return render(request, "home.jinja", {"assets": assets})
 
 
 def register(request):
