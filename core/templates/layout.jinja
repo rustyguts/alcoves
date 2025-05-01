@@ -78,10 +78,12 @@
                 </div>
             </div>
         </div>
-        <main class="flex-1 p-4 bg-base-100 rounded-xl">
+        <main class="flex-1 p-4 bg-base-100 rounded-xl overflow-hidden flex flex-col h-[calc(100vh-5rem)]">
             {% block page_content %}
             {% endblock %}
         </main>
+        <!-- Container for the image preview modal -->
+        <div id="image-preview-modal-container"></div>
     </div>
     <div class="drawer-side">
         <label for="drawer-sidebar-toggle" aria-label="close sidebar" class="drawer-overlay"></label>

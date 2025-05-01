@@ -1,0 +1,42 @@
+<dialog id="image-preview-modal" class="modal modal-open bg-black" hx-ext="morph" _="on closeModal remove me">
+  <div
+    class="modal-box w-full max-w-none h-screen max-h-screen p-0 bg-transparent shadow-none flex items-center justify-center relative">
+    <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 text-white z-50"
+      _="on click trigger closeModal">✕</button>
+
+    {# Previous Button #}
+    {% if previous_asset_id %}
+    <button class="btn btn-circle btn-ghost absolute left-4 top-1/2 -translate-y-1/2 text-white text-4xl z-50"
+      hx-get="{% url 'image_preview' asset_id=previous_asset_id %}" hx-target="#image-preview-modal-container"
+      hx-swap="innerHTML">
+      &lt;
+    </button>
+    {% endif %}
+
+    {# Image Display #}
+    <div class="flex items-center justify-center h-full">
+      <img src="/api/assets/{{ asset.id }}?width=1920" alt="{{ asset.filename }}" class="h-full w-full object-contain"
+        {# Add keydown listener for arrow keys #} _="on keydown from document
+                       if event.key is 'ArrowLeft' and '{{ previous_asset_id }}'
+                           hx-get=" {% url 'image_preview' asset_id=previous_asset_id %}"
+        hx-target="#image-preview-modal-container" hx-swap="innerHTML" trigger click from the previous button else if
+        event.key is 'ArrowRight' and '{{ next_asset_id }}' hx-get="{% url 'image_preview' asset_id=next_asset_id %}"
+        hx-target="#image-preview-modal-container" hx-swap="innerHTML" trigger click from the next button else if
+        event.key is 'Escape' trigger closeModal end" tabindex="0"> {# Make img focusable for keydown #}
+    </div>
+
+
+    {# Next Button #}
+    {% if next_asset_id %}
+    <button class="btn btn-circle btn-ghost absolute right-4 top-1/2 -translate-y-1/2 text-white text-4xl z-50"
+      hx-get="{% url 'image_preview' asset_id=next_asset_id %}" hx-target="#image-preview-modal-container"
+      hx-swap="innerHTML">
+      &gt;
+    </button>
+    {% endif %}
+
+  </div>
+  {# Add references to buttons for keydown trigger #}
+  <button _="on click trigger click from the previous button" class="hidden"></button> {# previous button reference #}
+  <button _="on click trigger click from the next button" class="hidden"></button> {# next button reference #}
+</dialog>

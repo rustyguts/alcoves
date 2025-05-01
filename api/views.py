@@ -31,7 +31,13 @@ def get_asset_proxy(request, asset_id):
         resize_width = int(request.GET.get("width", 300))
         resize_quality = int(request.GET.get("quality", 80))
 
-        cache_key_hash = asset.file.path + str(resize_width) + str(resize_quality)
+        original_image = pyvips.Image.new_from_file(asset.file.path)
+        original_width = original_image.width
+
+        if resize_width > original_width:
+            resize_width = original_width
+
+        cache_key_hash = f"{asset.file.path}_{resize_width}_{resize_quality}"
         cache_uuid = uuid5(NAMESPACE_URL, cache_key_hash)
         cache_dir = os.path.join(settings.MEDIA_ROOT, "cache")
         cache_path = f"{os.path.join(cache_dir, str(cache_uuid))}.jpg"
@@ -50,10 +56,25 @@ def get_asset_proxy(request, asset_id):
             content_type="image/jpeg",
         )
 
-        cache_max_age = 60 * 60 * 24 * 30  # 30 days
+        # Add Vary header to instruct browsers to cache based on query parameters
+        response["Vary"] = "Accept-Encoding, width, quality"
+
+        # Add ETag header based on the width and quality
+        etag = f'W/"{cache_uuid}"'
+        response["ETag"] = etag
+
+        # Check if the client sent an If-None-Match header and it matches our ETag
+        if_none_match = request.META.get("HTTP_IF_NONE_MATCH")
+        if if_none_match and if_none_match == etag:
+            # Return 304 Not Modified to use browser cache
+            response = JsonResponse({}, status=304)
+            return response
+
+        # Set relatively short cache time to allow for changes
+        cache_max_age = 60 * 60 * 24  # 1 day
         expires = timezone.now() + timedelta(seconds=cache_max_age)
 
-        response["Cache-Control"] = f"public, max-age={cache_max_age}"
+        response["Cache-Control"] = f"public, max-age={cache_max_age}, must-revalidate"
         response["Expires"] = expires.strftime("%a, %d %b %Y %H:%M:%S GMT")
         response["Last-Modified"] = datetime.fromtimestamp(
             os.path.getmtime(cache_path)

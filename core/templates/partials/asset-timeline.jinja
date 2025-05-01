@@ -1,5 +1,5 @@
-<div class="flex flex-wrap gap-1" id="asset-timeline" hx-trigger="assets-created from:body" hx-target="this"
-  hx-swap="innerHTML">
+<div class="flex flex-wrap gap-1 overflow-y-auto h-full rounded-xl" id="asset-timeline"
+  hx-trigger="assets-created from:body" hx-target="this" hx-swap="innerHTML">
   {# Include the first page initially #}
   {% include "partials/asset-items-page.jinja" %}
 </div>

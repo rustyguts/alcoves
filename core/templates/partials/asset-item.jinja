@@ -1,4 +1,5 @@
-<div id="asset-{{ asset.id }}" class="opacity-0 transition-opacity duration-300 h-full">
-  <img class='rounded-sm w-full h-full object-cover shadow-sm' src="/api/assets/{{ asset.id }}?width=400"
-    alt="{{ asset.filename }}" onload="this.parentElement.classList.add('opacity-100')" />
+<div id="asset-{{ asset.id }}" class="relative h-full cursor-pointer"
+  hx-get="{% url 'image_preview' asset_id=asset.id %}" hx-target="#image-preview-modal-container" hx-swap="innerHTML">
+  <img class="rounded-sm w-full h-full object-cover shadow-sm" src="/api/assets/{{ asset.id }}?width=400"
+    alt="{{ asset.filename }}" />
 </div>

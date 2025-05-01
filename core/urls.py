@@ -13,4 +13,5 @@ urlpatterns = [
     path("accounts/register/", views.register, name="register"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("assets/timeline/", views.asset_timeline, name="asset_timeline"),
+    path("image-preview/<uuid:asset_id>/", views.image_preview, name="image_preview"),
 ]
