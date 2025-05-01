@@ -12,5 +12,4 @@ urlpatterns = [
     ),
     path("accounts/register/", views.register, name="register"),
     path("accounts/", include("django.contrib.auth.urls")),
-    path("create-asset/", views.create_asset, name="create-asset"),
 ]

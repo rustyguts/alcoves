@@ -1,31 +1,59 @@
-<dialog id="upload_modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg">Upload</h3>
-    <form id="upload-form" hx-post="{% url 'create-asset' %}" hx-swap="afterbegin" hx-target="#asset-timeline"
-      hx-encoding='multipart/form-data' hx-on:asset-created="upload_modal.close(); this.reset();">
-      {% csrf_token %}
-      <div class="form-control w-full">
-        <label class="label">
-          <span class="label-text">Media</span>
-        </label>
-        {{ form.file }}
-        {% if form.file.errors %}
-        <label class="label text-error">
-          {{ form.file.errors }}
-        </label>
-        {% endif %}
-      </div>
-      {% if form.file.errors %}
-      <label class="label">
-        <span class="label-text-alt text-error">
-          {{ form.file.errors.0 }}
-        </span>
-      </label>
-      {% endif %}
-      <div class="modal-action">
-        <button type="button" class="btn" onclick="upload_modal.close()">Close</button>
-        <button type="submit" class="btn btn-primary">Upload</button>
-      </div>
-    </form>
-  </div>
-</dialog>
+{% load static %}
+
+{% block extra_css %}
+<link href="https://releases.transloadit.com/uppy/v4.13.3/uppy.min.css" rel="stylesheet">
+<script src="https://releases.transloadit.com/uppy/v4.13.3/uppy.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>File Upload</h1>
+  <div id="drag-drop-area"></div>
+  <div id="upload-results" class="mt-3"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module">
+  import { Uppy, DragDrop, XHRUpload } from "https://releases.transloadit.com/uppy/v4.13.3/uppy.min.mjs";
+
+  const uppy = new Uppy({
+    endpoint: '/upload',
+    autoProceed: true,
+    restrictions: {
+      maxFileSize: 10000000, // 10MB
+      maxNumberOfFiles: 5,
+      // Optional: restrict file types
+      // allowedFileTypes: ['image/*', '.pdf']
+    }
+  })
+
+  uppy.use(DragDrop, {
+    target: '#drag-drop-area',
+    note: 'Upload files up to 10MB'
+  });
+
+  uppy.use(XHRUpload, {
+    endpoint: '{% url "upload_file" %}',
+    formData: true,
+    fieldName: 'files[]',
+    headers: {
+      'X-CSRFToken': '{{ csrf_token }}'
+    }
+  });
+
+  // Handle successful uploads
+  uppy.on('upload-success', (file, response) => {
+    console.log('Upload successful:', file.name);
+    const resultsEl = document.getElementById('upload-results');
+    resultsEl.innerHTML += `<div class="alert alert-success">Successfully uploaded ${file.name}</div>`;
+  });
+
+  // Handle upload errors
+  uppy.on('upload-error', (file, error, response) => {
+    console.error('Upload error:', error);
+    const resultsEl = document.getElementById('upload-results');
+    resultsEl.innerHTML += `<div class="alert alert-danger">Error uploading ${file.name}: ${error}</div>`;
+  });
+</script>
+{% endblock %}
