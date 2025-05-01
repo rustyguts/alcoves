@@ -1,69 +1,27 @@
 {% load static %}
 
-{% block extra_css %}
-<link href="https://releases.transloadit.com/uppy/v4.13.3/uppy.min.css" rel="stylesheet">
-<script src="https://releases.transloadit.com/uppy/v4.13.3/uppy.min.js"></script>
-{% endblock %}
-
 {% block content %}
 <dialog id="upload_modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg">File Upload</h3>
-    <div id="drag-drop-area" class="my-4"></div>
-    <div id="upload-results" class="mt-3"></div>
+    <div class="my-4">
+      <form id="upload_form" action="{% url 'upload_file' %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text">Select images (up to 50MB each)</span>
+          </label>
+          <input type="file" name="files[]" class="file-input file-input-bordered w-full" accept="image/*" multiple
+            required />
+        </div>
+      </form>
+    </div>
     <div class="modal-action">
-      <form method="dialog">
+      <form method="dialog" style="display: inline;">
         <button class="btn">Close</button>
       </form>
+      <button type="submit" form="upload_form" class="btn btn-primary">Upload</button>
     </div>
   </div>
 </dialog>
-
-{% endblock %}
-
-{% block extra_js %}
-<script type="module">
-  import { Uppy, DragDrop, XHRUpload } from "https://releases.transloadit.com/uppy/v4.13.3/uppy.min.mjs";
-  const mbSize = 50
-  const uppy = new Uppy({
-    endpoint: '/upload',
-    autoProceed: true,
-    restrictions: {
-      maxFileSize: mbSize * 1024 * 1024, // 50MB
-      maxNumberOfFiles: 1000,
-      allowedFileTypes: ['image/*']
-    }
-  })
-
-  uppy.use(DragDrop, {
-    target: '#drag-drop-area',
-    note: `Upload files up to ${mbSize}MB each`
-  });
-
-  uppy.use(XHRUpload, {
-    endpoint: '{% url "upload_file" %}',
-    formData: true,
-    fieldName: 'files[]',
-    headers: {
-      'X-CSRFToken': '{{ csrf_token }}'
-    }
-  });
-
-  // Handle successful uploads
-  uppy.on('upload-success', (file, response) => {
-    console.log('Upload successful:', file.name);
-    const resultsEl = document.getElementById('upload-results');
-    resultsEl.innerHTML += `<div class="alert alert-success">Successfully uploaded ${file.name}</div>`;
-
-    // Explicitly dispatch the assets-created event that HTMX is listening for
-    document.body.dispatchEvent(new Event('assets-created'));
-  });
-
-  // Handle upload errors
-  uppy.on('upload-error', (file, error, response) => {
-    console.error('Upload error:', error);
-    const resultsEl = document.getElementById('upload-results');
-    resultsEl.innerHTML += `<div class="alert alert-danger">Error uploading ${file.name}: ${error}</div>`;
-  });
-</script>
 {% endblock %}

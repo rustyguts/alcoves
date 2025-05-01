@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.http import FileResponse, JsonResponse
+from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
@@ -78,5 +79,9 @@ def upload_file(request):
         asset.save()
         assets.append(asset)
 
-    response = JsonResponse({"success": True, "files": []})
-    return response
+    # If the request is AJAX/XHR (checking for an XHR header), return JSON
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({"success": True, "files": []})
+    
+    # For regular form submission, redirect back to home page
+    return redirect('home')
