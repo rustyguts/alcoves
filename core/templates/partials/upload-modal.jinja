@@ -21,10 +21,9 @@
     endpoint: '/upload',
     autoProceed: true,
     restrictions: {
-      maxFileSize: 10000000, // 10MB
-      maxNumberOfFiles: 5,
-      // Optional: restrict file types
-      // allowedFileTypes: ['image/*', '.pdf']
+      maxFileSize: 50 * 1024 * 1024, // 50MB
+      maxNumberOfFiles: 100,
+      allowedFileTypes: ['image/*']
     }
   })
 
@@ -47,6 +46,9 @@
     console.log('Upload successful:', file.name);
     const resultsEl = document.getElementById('upload-results');
     resultsEl.innerHTML += `<div class="alert alert-success">Successfully uploaded ${file.name}</div>`;
+
+    // Explicitly dispatch the assets-created event that HTMX is listening for
+    document.body.dispatchEvent(new Event('assets-created'));
   });
 
   // Handle upload errors

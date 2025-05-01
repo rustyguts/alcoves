@@ -10,6 +10,12 @@ def home(request):
     return render(request, "home.jinja", {"assets": assets})
 
 
+@login_required
+def asset_timeline(request):
+    assets = request.user.assets.all().order_by("-created_at")
+    return render(request, "partials/asset-timeline.jinja", {"assets": assets})
+
+
 def register(request):
     if request.method == "POST":
         form = UserCreationForm(request.POST)
