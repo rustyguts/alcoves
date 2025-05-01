@@ -79,9 +79,7 @@ def upload_file(request):
         asset.save()
         assets.append(asset)
 
-    # If the request is AJAX/XHR (checking for an XHR header), return JSON
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
         return JsonResponse({"success": True, "files": []})
-    
-    # For regular form submission, redirect back to home page
-    return redirect('home')
+    else:
+        return redirect("/")
