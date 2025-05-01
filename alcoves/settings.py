@@ -80,6 +80,24 @@ MEDIA_ROOT = os.environ.get(
 )
 
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": os.path.join(MEDIA_ROOT, "cache"),
+        "TIMEOUT": None,  # Cache items never expire by default
+        "OPTIONS": {
+            "MAX_ENTRIES": 10000,  # Maximum number of cache entries
+            "CULL_FREQUENCY": 3,  # 1/3 of entries are culled when max is reached
+        },
+    }
+}
+
+# Cache middleware settings
+CACHE_MIDDLEWARE_ALIAS = "default"
+CACHE_MIDDLEWARE_SECONDS = 604800  # Cache for one week
+CACHE_MIDDLEWARE_KEY_PREFIX = "alcoves"
+
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",

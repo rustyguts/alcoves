@@ -1,9 +1,13 @@
 import os
+from datetime import datetime, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
 import pyvips
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.http import FileResponse, JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from api.models import Asset
@@ -23,21 +27,42 @@ def get_asset_proxy(request, asset_id):
     try:
         asset = Asset.objects.get(id=asset_id)
 
-        cache_uuid = uuid5(NAMESPACE_URL, asset.file.path)
-        cache_path = f"/data/media/cache/{cache_uuid}.jpg"
-        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+        resize_width = int(request.GET.get("width", 300))
+        resize_quality = int(request.GET.get("quality", 80))
 
-        vips_image = pyvips.Image.new_from_file(asset.file.path)
-        vips_image.jpegsave(cache_path, Q=80, interlace=True)
-        return FileResponse(
+        cache_key_hash = asset.file.path + str(resize_width) + str(resize_quality)
+        cache_uuid = uuid5(NAMESPACE_URL, cache_key_hash)
+        cache_dir = os.path.join(settings.MEDIA_ROOT, "cache")
+        cache_path = f"{os.path.join(cache_dir, str(cache_uuid))}.jpg"
+
+        if not os.path.exists(cache_path):
+            print(f"Cache miss for {cache_path}")
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+
+            vips_image = pyvips.Image.thumbnail(asset.file.path, resize_width)
+            vips_image.jpegsave(cache_path, Q=resize_quality, interlace=True)
+
+            cache.set(cache_key_hash, cache_path, timeout=None)
+
+        response = FileResponse(
             open(cache_path, "rb"),
             content_type="image/jpeg",
         )
+
+        cache_max_age = 60 * 60 * 24 * 30  # 30 days
+        expires = timezone.now() + timedelta(seconds=cache_max_age)
+
+        response["Cache-Control"] = f"public, max-age={cache_max_age}"
+        response["Expires"] = expires.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        response["Last-Modified"] = datetime.fromtimestamp(
+            os.path.getmtime(cache_path)
+        ).strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+        return response
     except Asset.DoesNotExist:
         return JsonResponse({"error": "Asset not found"}, status=404)
 
 
-# @csrf_exempt
 @login_required
 @require_http_methods(["POST"])
 def upload_file(request):
@@ -53,8 +78,5 @@ def upload_file(request):
         asset.save()
         assets.append(asset)
 
-    # response = render(request, "partials/asset-timeline.jinja", {"assets": assets})
     response = JsonResponse({"success": True, "files": []})
-    # response["HX-Trigger"] = "assets-created"
-    # response["HX-Refresh"] = "true"
     return response
