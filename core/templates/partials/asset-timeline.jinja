@@ -1,8 +1,5 @@
-<div class="flex flex-wrap gap-2" id="asset-timeline" hx-get="{% url 'asset_timeline' %}"
-  hx-trigger="assets-created from:body" hx-target="this" hx-swap="innerHTML">
-  {% if assets %}
-  {% for asset in assets %}
-  {% include "partials/asset-item.jinja" %}
-  {% endfor %}
-  {% endif %}
+<div class="flex flex-wrap gap-1" id="asset-timeline" hx-trigger="assets-created from:body" hx-target="this"
+  hx-swap="innerHTML">
+  {# Include the first page initially #}
+  {% include "partials/asset-items-page.jinja" %}
 </div>

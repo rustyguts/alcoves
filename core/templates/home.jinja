@@ -4,6 +4,7 @@
 
 {% block page_content %}
 
-{% include "partials/asset-timeline.jinja" %}
+{# Pass the initial page_obj from the view #}
+{% include "partials/asset-timeline.jinja" with page_obj=page_obj %}
 
 {% endblock %}

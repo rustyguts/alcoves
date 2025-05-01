@@ -1,4 +1,4 @@
-<div id="asset-{{ asset.id }}">
-  <img class='rounded-md h-48 w-auto object-cover' src="/api/assets/{{ asset.id }}?width=400"
-    alt="{{ asset.filename }}">
+<div id="asset-{{ asset.id }}" class="opacity-0 transition-opacity duration-300">
+  <img class='rounded-sm h-48 w-auto object-cover' src="/api/assets/{{ asset.id }}?width=400" alt="{{ asset.filename }}"
+    onload="this.parentElement.classList.add('opacity-100')" />
 </div>
