@@ -1,5 +1,5 @@
 <div id="asset-{{ asset.id }}" class="relative h-full cursor-pointer"
-  hx-get="{% url 'image_preview' asset_id=asset.id %}" hx-target="#image-preview-modal-container" hx-swap="innerHTML">
+  onclick="window.location.href='/preview/{{ asset.id }}'">
   <img class="rounded-sm w-full h-full object-cover shadow-sm" src="/api/assets/{{ asset.id }}?width=400"
     alt="{{ asset.filename }}" />
 </div>

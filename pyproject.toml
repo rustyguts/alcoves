@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "django>=5.2",
+    "hypercorn>=0.17.3",
     "opentelemetry-distro>=0.53b1",
     "opentelemetry-exporter-otlp>=1.32.1",
     "opentelemetry-instrumentation-asgi>=0.53b1",
@@ -21,7 +22,8 @@ dependencies = [
     "opentelemetry-instrumentation-urllib3>=0.53b1",
     "opentelemetry-instrumentation-wsgi>=0.53b1",
     "opentelemetry-util-http>=0.53b1",
-    "pyvips[binary]>=3.0.0",
+    "pillow>=11.2.1",
+    "pillow-heif>=0.22.0",
 ]
 
 [dependency-groups]
