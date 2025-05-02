@@ -1,5 +1,5 @@
-FROM golang:1.24-alpine AS build
-RUN apk add --no-cache curl alpine-sdk
+FROM golang:1.24-alpine AS dev
+RUN apk add --no-cache curl alpine-sdk vips-dev vips-heif
 
 WORKDIR /app
 
@@ -9,12 +9,15 @@ RUN go install github.com/air-verse/air@latest
 
 COPY . .
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o main cmd/api/main.go
-
+EXPOSE 3000
 CMD ["air", "--build.cmd", "CGO_ENABLED=1 GOOS=linux go build -o main cmd/api/main.go", "--build.bin", "./main"]
+
+FROM dev AS build
+
+RUN CGO_ENABLED=1 GOOS=linux go build -o main cmd/api/main.go
 
 FROM alpine AS prod
 WORKDIR /app
 COPY --from=build /app/main /app/main
-EXPOSE ${PORT}
+EXPOSE 3000
 CMD ["./main"]

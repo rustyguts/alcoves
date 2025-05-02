@@ -1,0 +1,23 @@
+<dialog id="upload_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">File Upload</h3>
+    <div class="my-4">
+      <form id="upload_form" action="/upload/" method="post" enctype="multipart/form-data">
+        <!--csrf_token-->
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text">Select images (up to 50MB each)</span>
+          </label>
+          <input type="file" name="files" class="file-input file-input-bordered w-full" accept="image/*" multiple
+            required />
+        </div>
+      </form>
+    </div>
+    <div class="modal-action">
+      <form method="dialog" style="display: inline;">
+        <button class="btn">Close</button>
+      </form>
+      <button type="submit" form="upload_form" class="btn btn-primary">Upload</button>
+    </div>
+  </div>
+</dialog>
