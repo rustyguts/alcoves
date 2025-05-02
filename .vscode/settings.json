@@ -23,19 +23,5 @@
 	},
 	"peacock.color": "#bf1e2e",
 	"peacock.remoteColor": "#bf1e2e",
-	"python.defaultInterpreterPath": "./.venv/bin/python",
 	"editor.formatOnSave": true,
-	"[python]": {
-			"editor.codeActionsOnSave": {
-					"source.fixAll": "always",
-					"source.organizeImports": "always"
-			},
-			"editor.defaultFormatter": "charliermarsh.ruff",
-	},
-	"python.analysis.typeCheckingMode": "standard",
-  // "github.copilot.chat.codeGeneration.instructions": [
-  //   {
-  //     "file": "./.vscode/daisyui.md"
-  //   }
-  // ],
 }

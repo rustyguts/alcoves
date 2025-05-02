@@ -1,7 +1,0 @@
-{% for asset in page_obj %}
-<div class="flex-grow h-48" {% if forloop.last and page_obj.has_next %}
-  hx-get="{% url 'asset_timeline' %}?page={{ page_obj.next_page_number }}" hx-trigger="revealed" hx-swap="beforeend" {#
-  Append inside the target #} hx-target="#asset-timeline" {# Target the main container #} {% endif %}>
-  {% include "partials/asset-item.jinja" %}
-</div>
-{% endfor %}

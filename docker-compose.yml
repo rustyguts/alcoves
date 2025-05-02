@@ -1,30 +1,26 @@
 services:
-  alcoves:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
     user: ${UID}:${GID}
-    network_mode: host
-    # uv run manage.py runserver 0.0.0.0:8000"
-    # uv run hypercorn alcoves.wsgi:application -b 0.0.0.0:8000 -w 4"
-    # uv run opentelemetry-instrument python manage.py runserver 0.0.0.0:8000 --noreload"
-    # uv run opentelemetry-instrument  --traces_exporter console python manage.py runserver 0.0.0.0:8000 --noreload"
-    command: >
-      /bin/sh -c "uv run manage.py migrate && 
-      uv run opentelemetry-instrument python manage.py runserver 0.0.0.0:8000 --noreload"
+    # network_mode: host
+    # command: go run main.go
     environment:
       OTEL_SERVICE_NAME: alcoves
       OTEL_RESOURCE_ATTRIBUTES: service.name=alcoves,service.namespace=alcoves
       OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
-      # OTEL_EXPORTER_OTLP_HEADERS: "signoz-ingestion-key=1234"
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      DJANGO_SETTINGS_MODULE: alcoves.settings
-      ENV ALCOVES_MEDIA_PATH: /data/media
-      ENV ALCOVES_DB_PATH: /data/alcoves.db
-    build: .
+      # OTEL_EXPORTER_OTLP_HEADERS: "signoz-ingestion-key=1234"
+      # ENV ALCOVES_MEDIA_PATH: /data/media
+      # ENV ALCOVES_DB_PATH: /data/alcoves.db
     volumes:
       - .:/app
       - ./data:/data
-      - venv:/app/.venv
+      # - sqlite_bp:/app/db
     ports:
-      - 8000:8000
+      - 3000:3000
+# volumes:
+#   sqlite_bp:
 
-volumes:
-  venv:

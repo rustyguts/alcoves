@@ -1,5 +1,4 @@
-.venv
 data
-docker-compose.yml
-.python-version
+django
 Dockerfile
+docker-compose.yml

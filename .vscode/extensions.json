@@ -2,11 +2,7 @@
     "recommendations": [
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
-        "ms-python.vscode-pylance",
-        "ms-python.python",
-        "ms-python.mypy-type-checker",
-        "ms-python.debugpy",
-        "charliermarsh.ruff",
-        "samuelcolvin.jinjahtml"
+        "samuelcolvin.jinjahtml",
+        "golang.go"
     ]
 }

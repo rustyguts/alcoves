@@ -1,22 +1,20 @@
-FROM python:3.13-slim
+FROM golang:1.24-alpine AS build
+RUN apk add --no-cache curl alpine-sdk
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    sqlite3 \
-    libsqlite3-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+COPY go.mod go.sum ./
+RUN go mod download
+RUN go install github.com/air-verse/air@latest
 
-RUN pip install --upgrade pip && pip install uv
+COPY . .
 
-COPY pyproject.toml uv.lock ./
+RUN CGO_ENABLED=1 GOOS=linux go build -o main cmd/api/main.go
 
-# --no-dev
-RUN uv sync --locked
+CMD ["air", "--build.cmd", "CGO_ENABLED=1 GOOS=linux go build -o main cmd/api/main.go", "--build.bin", "./main"]
 
-COPY . /app/
-
-EXPOSE 8000
-CMD ["uv", "run", "manage.py", "runserver", "0.0.0.0:8000"]
+FROM alpine AS prod
+WORKDIR /app
+COPY --from=build /app/main /app/main
+EXPOSE ${PORT}
+CMD ["./main"]
