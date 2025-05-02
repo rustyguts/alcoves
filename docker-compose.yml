@@ -1,6 +1,6 @@
 services:
   alcoves:
-    user: "${UID}:${GID}"
+    # /bin/sh -c "uv run manage.py migrate && uv run opentelemetry-instrument manage.py runserver 0.0.0.0:8000"
     command: >
       /bin/sh -c "uv run manage.py migrate && uv run manage.py runserver 0.0.0.0:8000"
     build: .
