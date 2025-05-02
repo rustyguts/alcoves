@@ -1,8 +1,13 @@
 services:
   alcoves:
-    # /bin/sh -c "uv run manage.py migrate && uv run opentelemetry-instrument manage.py runserver 0.0.0.0:8000"
+    # --traces_exporter console
     command: >
-      /bin/sh -c "uv run manage.py migrate && uv run manage.py runserver 0.0.0.0:8000"
+      /bin/sh -c "uv run manage.py migrate && uv run opentelemetry-instrument --traces_exporter console python manage.py runserver 0.0.0.0:8000"
+    environment:
+      OTEL_SERVICE_NAME: alcoves
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      DJANGO_SETTINGS_MODULE: alcoves.settings
     build: .
     volumes:
       - .:/app
