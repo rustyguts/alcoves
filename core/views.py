@@ -1,10 +1,18 @@
+import os
+
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.core.paginator import Paginator
+from django.http import FileResponse
 from django.shortcuts import redirect, render
 
 from api.models import Asset
+
+
+def favicon(request):
+    favicon_path = os.path.join(os.path.dirname(__file__), "static", "favicon.png")
+    return FileResponse(open(favicon_path, "rb"), content_type="image/x-icon")
 
 
 def _get_optimized_page(queryset, page_number, per_page=40):

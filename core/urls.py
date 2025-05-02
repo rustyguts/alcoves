@@ -4,6 +4,7 @@ from django.urls import include, path
 from . import views
 
 urlpatterns = [
+    path("favicon.ico", views.favicon, name="favicon"),
     path("", views.home, name="home"),
     path(
         "accounts/login/",
