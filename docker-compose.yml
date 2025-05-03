@@ -3,24 +3,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: build
+      target: dev
     user: ${UID}:${GID}
-    # network_mode: host
-    # command: go run main.go
+    network_mode: bridge
     environment:
+      ALCOVES_ENABLE_TRACING: false
       OTEL_SERVICE_NAME: alcoves
       OTEL_RESOURCE_ATTRIBUTES: service.name=alcoves,service.namespace=alcoves
       OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       # OTEL_EXPORTER_OTLP_HEADERS: "signoz-ingestion-key=1234"
       # ENV ALCOVES_MEDIA_PATH: /data/media
-      # ENV ALCOVES_DB_PATH: /data/alcoves.db
+      ALCOVES_DB_PATH: /data/alcoves.db
     volumes:
       - .:/app
       - ./data:/data
-      # - sqlite_bp:/app/db
     ports:
       - 3000:3000
-# volumes:
-#   sqlite_bp:
-

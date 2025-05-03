@@ -42,3 +42,6 @@ uv add opentelemetry-instrumentation-urllib3
 uv add opentelemetry-instrumentation-wsgi
 uv add opentelemetry-util-http
 ```
+
+go get go.opentelemetry.io/otel/exporters/otlp/otlptrace
+go get go.opentelemetry.io/otel/exporters/otlp/otlpmetric
