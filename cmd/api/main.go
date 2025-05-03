@@ -7,12 +7,15 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/davidbyttow/govips/v2/vips"
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/storage/sqlite3"
 	"github.com/gofiber/template/html/v2"
 	"github.com/google/uuid"
 	"github.com/rustyguts/alcoves/internal/db"
@@ -176,6 +179,55 @@ func main() {
 		}
 
 		return nil
+	})
+
+	storage := sqlite3.New(sqlite3.Config{
+		Database:        "/data/alcoves.db",
+		Table:           "sessions",
+		Reset:           false,
+		GCInterval:      10 * time.Second,
+		MaxOpenConns:    100,
+		MaxIdleConns:    100,
+		ConnMaxLifetime: 1 * time.Second,
+	})
+	store := session.New(session.Config{
+		Storage: storage,
+	})
+
+	app.Get("/session", func(c *fiber.Ctx) error {
+		// Get session from storage
+		sess, err := store.Get(c)
+		if err != nil {
+			panic(err)
+		}
+
+		// Get value
+		name := sess.Get("name")
+
+		// Set key/value
+		sess.Set("name", "john")
+
+		// Get all Keys
+		keys := sess.Keys()
+		fmt.Println(keys)
+
+		// Delete key
+		sess.Delete("name")
+
+		// Destroy session
+		if err := sess.Destroy(); err != nil {
+			panic(err)
+		}
+
+		// Sets a specific expiration for this session
+		sess.SetExpiry(time.Second * 2)
+
+		// Save session
+		if err := sess.Save(); err != nil {
+			panic(err)
+		}
+
+		return c.SendString(fmt.Sprintf("Welcome %v", name))
 	})
 
 	app.Static("/", "./web/static")
