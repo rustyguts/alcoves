@@ -194,6 +194,38 @@ func main() {
 		Storage: storage,
 	})
 
+	app.Get("/login", func(c *fiber.Ctx) error {
+		sess, err := store.Get(c)
+		if err != nil {
+			panic(err)
+		}
+		sess.Set("name", "alcoves")
+		sess.Set("user", 1)
+		// sess.Set("email", "test")
+		// sess.Set("is_admin", true)
+
+		// Save session
+		if err := sess.Save(); err != nil {
+			panic(err)
+		}
+		return c.SendString("Logged in")
+	})
+
+	app.Get("/logout", func(c *fiber.Ctx) error {
+		sess, err := store.Get(c)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("Failed to get session")
+		}
+		// Delete key
+		sess.Delete("name")
+
+		// Destroy session
+		if err := sess.Destroy(); err != nil {
+			panic(err)
+		}
+		return c.SendString("Logged out")
+	})
+
 	app.Get("/session", func(c *fiber.Ctx) error {
 		// Get session from storage
 		sess, err := store.Get(c)
