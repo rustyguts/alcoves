@@ -13,7 +13,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       # OTEL_EXPORTER_OTLP_HEADERS: "signoz-ingestion-key=1234"
-      # ENV ALCOVES_MEDIA_PATH: /data/media
+      # ALCOVES_MEDIA_PATH: /data/media
       ALCOVES_DB_PATH: /data/alcoves.db
     volumes:
       - .:/app

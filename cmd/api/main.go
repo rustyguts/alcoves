@@ -117,9 +117,13 @@ func main() {
 		m := c.Queries()
 		fmt.Print(m)
 
-		height := 0
-		max_width := 8000
-		recommended_width := 8000
+		img, err := vips.NewImageFromFile(filepath)
+
+		original_width := img.Width()
+		original_height := img.Height()
+
+		max_width := original_width
+		recommended_width := original_height
 
 		width, _ := strconv.Atoi(m["width"])
 		if width <= 0 {
@@ -130,18 +134,15 @@ func main() {
 			width = max_width
 		}
 
-		fmt.Println("Width:", width)
-		fmt.Println("Filepath:", filepath)
-
-		// https://www.libvips.org/API/current/libvips-conversion.html#VipsInteresting
-
-		image, err := vips.NewThumbnailFromFile(filepath, width, height, vips.InterestingNone)
+		image, err := vips.NewThumbnailFromFile(filepath, width, 0, vips.InterestingNone)
 		if err != nil {
 			fmt.Println("Error opening image:", err)
 		}
 
-		image.Height()
-		width.Width()
+		fmt.Println("Width:", width)
+		fmt.Println("Filepath:", filepath)
+
+		// https://www.libvips.org/API/current/libvips-conversion.html#VipsInteresting
 
 		err = image.AutoRotate()
 		if err != nil {
