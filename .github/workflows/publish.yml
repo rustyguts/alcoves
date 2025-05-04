@@ -1,4 +1,4 @@
-name: Create and publish a Docker image
+name: Docker Image
 
 on:
   push:
@@ -46,6 +46,7 @@ jobs:
         with:
           context: app
           file: ../docker/Dockerfile
+          target: dist
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -16,7 +16,7 @@ FROM dev AS build
 
 RUN CGO_ENABLED=1 GOOS=linux go build -o main cmd/server/main.go
 
-FROM alpine AS prod
+FROM alpine AS dist
 WORKDIR /app
 COPY --from=build /app/main /app/main
 EXPOSE 3000
