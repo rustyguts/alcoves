@@ -10,11 +10,12 @@ RUN go install github.com/air-verse/air@latest
 COPY . .
 
 EXPOSE 3000
-CMD ["air", "--build.cmd", "CGO_ENABLED=1 GOOS=linux go build -o main cmd/api/main.go", "--build.bin", "./main"]
+# CGO_ENABLED=1 GOOS=linux 
+CMD ["air", "--build.cmd", "go build -o /tmp/main cmd/server/main.go", "--build.bin", "/tmp/main"]
 
 FROM dev AS build
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o main cmd/api/main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -o main cmd/server/main.go
 
 FROM alpine AS prod
 WORKDIR /app

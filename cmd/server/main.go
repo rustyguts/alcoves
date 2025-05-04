@@ -19,6 +19,7 @@ import (
 	"github.com/gofiber/template/html/v2"
 	"github.com/google/uuid"
 	"github.com/rustyguts/alcoves/internal/db"
+	"github.com/rustyguts/alcoves/internal/features/root"
 	"github.com/rustyguts/alcoves/internal/models"
 	"github.com/rustyguts/alcoves/internal/otel"
 )
@@ -74,12 +75,7 @@ func main() {
 	app.Use(recover.New())
 	app.Use(otelfiber.Middleware())
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.Render("index", fiber.Map{
-			"title":      "Alcoves",
-			"data_theme": "dark",
-		})
-	})
+	root.Router(app)
 
 	app.Post("/upload", func(c *fiber.Ctx) error {
 		form, err := c.MultipartForm()
