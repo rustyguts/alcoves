@@ -1,8 +1,9 @@
-package otel
+package config
 
 import (
 	"context"
 	"log"
+	"os"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -39,7 +40,7 @@ func getExporter() (trace.SpanExporter, error) {
 	}
 }
 
-func InitTracer() *trace.TracerProvider {
+func InitOtel() *trace.TracerProvider {
 	// https://signoz.io/docs/instrumentation/opentelemetry-golang/
 	// https://github.com/gofiber/contrib/blob/main/otelfiber/example/server.go
 
@@ -53,21 +54,34 @@ func InitTracer() *trace.TracerProvider {
 
 	// var secureOption = otlptracegrpc.WithInsecure()
 
-	exporter, err := getExporter()
-	if err != nil {
-		log.Fatal(err)
-	}
+	if os.Getenv("ALCOVES_ENABLE_TRACING") == "true" {
+		exporter, err := getExporter()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	tp := trace.NewTracerProvider(
-		trace.WithSampler(trace.AlwaysSample()),
-		trace.WithBatcher(exporter),
-		trace.WithResource(
-			resource.NewWithAttributes(
-				semconv.SchemaURL,
-				semconv.ServiceNameKey.String("alcoves"),
-			)),
-	)
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
-	return tp
+		tp := trace.NewTracerProvider(
+			trace.WithSampler(trace.AlwaysSample()),
+			trace.WithBatcher(exporter),
+			trace.WithResource(
+				resource.NewWithAttributes(
+					semconv.SchemaURL,
+					semconv.ServiceNameKey.String("alcoves"),
+				)),
+		)
+		otel.SetTracerProvider(tp)
+		otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+
+		defer func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				log.Printf("Error shutting down tracer provider: %v", err)
+			}
+		}()
+
+		log.Println("OpenTelemetry tracing enabled")
+		return tp
+	} else {
+		log.Println("OpenTelemetry tracing disabled")
+		return nil
+	}
 }

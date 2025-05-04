@@ -10,7 +10,6 @@ RUN go install github.com/air-verse/air@latest
 COPY . .
 
 EXPOSE 3000
-# CGO_ENABLED=1 GOOS=linux 
 CMD ["air", "--build.cmd", "go build -o /tmp/main cmd/server/main.go", "--build.bin", "/tmp/main"]
 
 FROM dev AS build
