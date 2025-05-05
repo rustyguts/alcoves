@@ -5,7 +5,11 @@ import (
 )
 
 func Router(app fiber.Router) {
+	app.Get("/login", GetLogin)
 	app.Post("/login", PostLogin)
+
+	app.Get("/register", GetRegister)
+	app.Post("/register", PostRegister)
 }
 
 // app.Get("/logout", func(c *fiber.Ctx) error {

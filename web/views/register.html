@@ -1,0 +1,30 @@
+<div class="bg-base-300 max-w-md w-90 mx-auto mt-10 p-6 rounded-lg shadow-md">
+  <h2 class="text-2xl font-bold mb-4">Register</h2>
+
+  <form method="post">
+    <div class="mb-4">
+      <label for="username" class="block text-sm font-medium mb-1">Username</label>
+      <input type="text" name="username" id="username"
+        class="input input-bordered w-full {{if .Errors}}{{if index .Errors " Username"}}input-error{{end}}{{end}}"
+        value="{{.Username}}" required>
+      {{if .Errors}}
+      {{if index .Errors "Username"}}
+      <p class="text-error text-xs mt-1">{{index .Errors "Username"}}</p>
+      {{end}}
+      {{end}}
+    </div>
+    <div class="mb-4">
+      <label for="password" class="block text-sm font-medium mb-1">Password</label>
+      <input type="password" name="password" id="password"
+        class="input input-bordered w-full {{if .Errors}}{{if index .Errors " Password"}}input-error{{end}}{{end}}"
+        required>
+      {{if .Errors}}
+      {{if index .Errors "Password"}}
+      <p class="text-error text-xs mt-1">{{index .Errors "Password"}}</p>
+      {{end}}
+      {{end}}
+    </div>
+    <button type="submit" class="btn btn-primary w-full">Register</button>
+  </form>
+  <p class="mt-4">Already have an account? <a href="/login" class="link">Login</a></p>
+</div>
