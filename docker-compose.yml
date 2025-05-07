@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    user: ${UID}:${GID}
-    network_mode: bridge
     environment:
       OTEL_SERVICE_NAME: alcoves
       OTEL_RESOURCE_ATTRIBUTES: service.name=alcoves,service.namespace=alcoves
@@ -17,6 +15,9 @@ services:
       ALCOVES_DB_PATH: /data/alcoves.db
     volumes:
       - .:/app
-      - ./data:/data
+      - data:/data
     ports:
       - 3000:3000
+
+volumes:
+  data:

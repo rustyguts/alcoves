@@ -1,15 +1,15 @@
 package auth
 
 import (
+	"net/mail"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rustyguts/alcoves/internal/db"
 )
 
-func GetRegister(c *fiber.Ctx) error {
-	return c.Render("register", fiber.Map{
-		"title":      "Register",
-		"data_theme": "dark",
-	})
+func valid(email string) bool {
+	_, err := mail.ParseAddress(email)
+	return err == nil
 }
 
 func GetLogin(c *fiber.Ctx) error {
@@ -19,44 +19,49 @@ func GetLogin(c *fiber.Ctx) error {
 	})
 }
 
+func GetRegister(c *fiber.Ctx) error {
+	return c.Render("register", fiber.Map{
+		"title":      "Register",
+		"data_theme": "dark",
+	})
+}
+
 func PostRegister(c *fiber.Ctx) error {
-	// For GET requests, just render the form
-	if c.Method() == "GET" {
-		return c.Render("register", fiber.Map{
-			"Errors":   nil,
-			"Username": "",
-		})
-	}
-
-	// Process POST form submission
-	username := c.FormValue("username")
+	email := c.FormValue("email")
 	password := c.FormValue("password")
-
-	// Validate the form data
 	errors := make(map[string]string)
 
-	// Example validation
-	if len(username) < 3 {
-		errors["Username"] = "Username must be at least 3 characters"
+	if !valid(email) {
+		errors["Email"] = "Invalid email address"
 	}
 
 	if len(password) < 8 {
 		errors["Password"] = "Password must be at least 8 characters"
 	}
 
-	// If validation failed, re-render the form with errors
 	if len(errors) > 0 {
 		return c.Status(fiber.StatusBadRequest).Render("register", fiber.Map{
-			"Errors":     errors,
-			"Username":   username,
+			"title":      "Register",
 			"data_theme": "dark",
+			"Errors":     errors,
+			"Email":      email,
 		})
 	}
 
-	// If no errors, handle successful registration
-	// ... registration logic here ...
+	// Now we create the user
+	// user := &models.User{
+	// 	Email:    email,
+	// 	Password: password,
+	// }
+	// if err := db.CreateUser(user); err != nil {
+	// 	return c.Status(fiber.StatusInternalServerError).Render("register", fiber.Map{
+	// 		"title":      "Register",
+	// 		"data_theme": "dark",
+	// 		"Errors":     map[string]string{"Email": "Email already exists"},
+	// 		"Email":      email,
+	// 	})
+	// }
 
-	// Redirect to success page or dashboard
 	return c.Redirect("/")
 }
 

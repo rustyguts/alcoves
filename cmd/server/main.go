@@ -23,9 +23,7 @@ func main() {
 
 	config.EnsureDirectories()
 
-	// Initialize OpenTelemetry
 	config.InitOtel()
-
 	config.InitVips()
 
 	app := fiber.New(fiber.Config{
