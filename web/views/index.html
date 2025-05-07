@@ -1,10 +1,6 @@
-<!-- This would be where you include the root.jinja template -->
-
-<!-- content block starts -->
 <div class="drawer lg:drawer-open">
   <input id="drawer-sidebar-toggle" type="checkbox" class="drawer-toggle" />
   <div class="bg-base-300 drawer-content flex flex-col">
-    <!-- Navbar -->
     <div class="navbar bg-base-300 sticky top-0 z-30">
       <div class="flex-none lg:hidden">
         <label for="drawer-sidebar-toggle" aria-label="open sidebar" class="btn btn-square btn-ghost">
@@ -52,7 +48,6 @@
               </li>
             </ul>
           </div>
-
           <div class="dropdown dropdown-end">
             <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar avatar-placeholder">
               <div class="bg-neutral text-neutral-content w-12 rounded-full">
@@ -67,7 +62,6 @@
               </li>
               <li>
                 <form action="/logout" method="post">
-                  <!-- CSRF Token would go here -->
                   <button type="submit">Log Out</button>
                 </form>
               </li>
@@ -76,9 +70,8 @@
         </div>
       </div>
     </div>
-    <!-- Page content -->
-    <div class="flex flex-col h-[calc(100vh-5rem)] mx-4">
-      <div class="p-4 rounded-xl bg-base-100 overflow-y-auto flex-1 pr-2">
+    <div class="flex flex-col h-[calc(100vh-64px)] px-4 pb-4">
+      <div class="p-4 rounded-xl bg-base-200 overflow-y-auto flex-1 pr-2">
         Content!
       </div>
     </div>
@@ -91,4 +84,3 @@
     </ul>
   </div>
 </div>
-<!-- content block ends -->

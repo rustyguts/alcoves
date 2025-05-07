@@ -14,15 +14,13 @@ func valid(email string) bool {
 
 func GetLogin(c *fiber.Ctx) error {
 	return c.Render("login", fiber.Map{
-		"title":      "Login",
-		"data_theme": "dark",
+		"title": "Login",
 	})
 }
 
 func GetRegister(c *fiber.Ctx) error {
 	return c.Render("register", fiber.Map{
-		"title":      "Register",
-		"data_theme": "dark",
+		"title": "Register",
 	})
 }
 
@@ -41,10 +39,9 @@ func PostRegister(c *fiber.Ctx) error {
 
 	if len(errors) > 0 {
 		return c.Status(fiber.StatusBadRequest).Render("register", fiber.Map{
-			"title":      "Register",
-			"data_theme": "dark",
-			"Errors":     errors,
-			"Email":      email,
+			"title":  "Register",
+			"Errors": errors,
+			"Email":  email,
 		})
 	}
 
