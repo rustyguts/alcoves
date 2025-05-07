@@ -90,3 +90,14 @@ func PostLogin(c *fiber.Ctx) error {
 	CreateUserSession(c, user)
 	return c.Redirect("/")
 }
+
+func PostLogout(c *fiber.Ctx) error {
+	sess, err := db.SessionStore.Get(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to get session")
+	}
+	if err := sess.Destroy(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to logout")
+	}
+	return c.Redirect("/login")
+}
