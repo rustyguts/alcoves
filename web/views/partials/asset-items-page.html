@@ -1,0 +1,8 @@
+{{define "asset-items-page"}}
+{{range .Assets}}
+<div class="flex-grow h-48" {{if and .IsLast .HasNext}}hx-get="/assets?page={{.NextPage}}" hx-trigger="revealed"
+  hx-swap="beforeend" hx-target="#asset-timeline" {{end}}>
+  {{template "asset-item" .}}
+</div>
+{{end}}
+{{end}}

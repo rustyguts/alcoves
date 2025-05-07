@@ -1,0 +1,12 @@
+{{define "asset-preview"}}
+<div class="w-full h-screen flex items-center justify-center bg-base-300 border-2 border-base-200 rounded-lg">
+  <div class="p-4 max-h-screen">
+    {{if .Asset}}
+    <img class="rounded-xl shadow-xl max-h-[90vh] object-contain opacity-0 transition-opacity duration-100"
+      src="/api/assets/{{.Asset.ID}}?width=1920" alt="{{.Asset.Filename}}" onload="this.classList.remove('opacity-0')">
+    {{else}}
+    <p class="text-3xl">Asset not available</p>
+    {{end}}
+  </div>
+</div>
+{{end}}
