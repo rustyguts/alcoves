@@ -31,6 +31,9 @@ func InitDB() {
 	}
 
 	SessionStore = session.New(session.Config{
+		// https://docs.gofiber.io/api/middleware/session/#config
+		CookieSecure:   false, // TODO set to true in production
+		CookieHTTPOnly: true,  // Secure by default
 		Storage: sqlite3.New(sqlite3.Config{
 			Database:        "/data/alcoves.db",
 			Table:           "sessions",

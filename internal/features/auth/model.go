@@ -7,5 +7,7 @@ import (
 
 type User struct {
 	gorm.Model
-	Assets []assets.Asset `gorm:"foreignKey:OwnerID"`
+	Email    string         `gorm:"uniqueIndex;not null"`
+	Password string         `gorm:"not null"`
+	Assets   []assets.Asset `gorm:"foreignKey:OwnerID"`
 }

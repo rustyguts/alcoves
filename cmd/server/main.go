@@ -17,7 +17,6 @@ import (
 func main() {
 	db.InitDB()
 
-	// Migrate the database models
 	db.DBConn.AutoMigrate(&auth.User{})
 	db.DBConn.AutoMigrate(&assets.Asset{})
 
@@ -38,8 +37,6 @@ func main() {
 	root.Router(app)
 	auth.Router(app)
 	assets.Router(app)
-
-	app.Static("/", "./web/static")
 
 	log.Println("Starting server on :3000")
 	if err := app.Listen(":3000"); err != nil {

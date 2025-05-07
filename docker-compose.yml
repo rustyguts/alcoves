@@ -15,9 +15,6 @@ services:
       ALCOVES_DB_PATH: /data/alcoves.db
     volumes:
       - .:/app
-      - data:/data
+      - ./data:/data
     ports:
       - 3000:3000
-
-volumes:
-  data:

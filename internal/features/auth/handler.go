@@ -14,7 +14,7 @@ func valid(email string) bool {
 
 func GetLogin(c *fiber.Ctx) error {
 	return c.Render("login", fiber.Map{
-		"title":      "Register",
+		"title":      "Login",
 		"data_theme": "dark",
 	})
 }
@@ -28,14 +28,14 @@ func GetRegister(c *fiber.Ctx) error {
 
 func PostRegister(c *fiber.Ctx) error {
 	email := c.FormValue("email")
-	password := c.FormValue("password")
+	insecure_password := c.FormValue("password")
 	errors := make(map[string]string)
 
 	if !valid(email) {
 		errors["Email"] = "Invalid email address"
 	}
 
-	if len(password) < 8 {
+	if len(insecure_password) < 8 {
 		errors["Password"] = "Password must be at least 8 characters"
 	}
 
@@ -48,36 +48,45 @@ func PostRegister(c *fiber.Ctx) error {
 		})
 	}
 
-	// Now we create the user
-	// user := &models.User{
-	// 	Email:    email,
-	// 	Password: password,
-	// }
-	// if err := db.CreateUser(user); err != nil {
-	// 	return c.Status(fiber.StatusInternalServerError).Render("register", fiber.Map{
-	// 		"title":      "Register",
-	// 		"data_theme": "dark",
-	// 		"Errors":     map[string]string{"Email": "Email already exists"},
-	// 		"Email":      email,
-	// 	})
-	// }
+	var user User
+	db.DBConn.First(&user, "email = ?", email)
+	if user.ID == 0 {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to create user")
+	}
 
+	hashedPassword, err := HashPassword(insecure_password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to create user")
+	}
+
+	if err := db.DBConn.Create(&User{Email: email, Password: hashedPassword}).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to create user")
+	}
+
+	CreateUserSession(c, user)
 	return c.Redirect("/")
 }
 
 func PostLogin(c *fiber.Ctx) error {
-	sess, err := db.SessionStore.Get(c)
-	if err != nil {
-		panic(err)
-	}
-	sess.Set("name", "alcoves")
-	sess.Set("user", 1)
-	// sess.Set("email", "test")
-	// sess.Set("is_admin", true)
+	email := c.FormValue("email")
+	insecure_password := c.FormValue("password")
 
-	// Save session
-	if err := sess.Save(); err != nil {
-		panic(err)
+	if !valid(email) {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to login")
 	}
-	return c.SendString("Logged in")
+
+	var user User
+	db.DBConn.First(&user, "email = ?", email)
+	if user.ID == 0 {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to login")
+	}
+
+	passwordVerified := VerifyPassword(insecure_password, user.Password)
+
+	if !passwordVerified {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to login")
+	}
+
+	CreateUserSession(c, user)
+	return c.Redirect("/")
 }
