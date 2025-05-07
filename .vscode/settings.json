@@ -24,4 +24,8 @@
 	"peacock.color": "#bf1e2e",
 	"peacock.remoteColor": "#bf1e2e",
 	"editor.formatOnSave": true,
+	"[html]": {
+		"editor.formatOnSave": true,
+		"editor.defaultFormatter": "vscode.html-language-features"
+	}
 }

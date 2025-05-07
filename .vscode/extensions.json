@@ -2,7 +2,6 @@
     "recommendations": [
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
-        "samuelcolvin.jinjahtml",
         "golang.go"
     ]
 }
