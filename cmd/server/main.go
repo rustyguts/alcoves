@@ -2,6 +2,9 @@ package main
 
 import (
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
@@ -37,6 +40,16 @@ func main() {
 	root.Router(app)
 	auth.Router(app)
 	assets.Router(app)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-c
+		log.Println("Gracefully shutting down...")
+		_ = app.Shutdown()
+		config.ShutdownVips()
+	}()
 
 	log.Println("Starting server on :3000")
 	if err := app.Listen(":3000"); err != nil {
