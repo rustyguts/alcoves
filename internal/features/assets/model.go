@@ -20,6 +20,7 @@ type Asset struct {
 	Filepath  string    `json:"filepath"`
 	Filename  string    `json:"filename"`
 	CTime     time.Time `json:"ctime"`
+	UserID    uint      `json:"user_id" gorm:"index"`
 }
 
 func (asset *Asset) BeforeCreate(tx *gorm.DB) error {

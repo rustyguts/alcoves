@@ -6,19 +6,21 @@ import (
 )
 
 var DATA_STORAGE_PATH = "/data"
-var ASSETS_PATH = "/data/assets"
+var ASSETS_PATH = DATA_STORAGE_PATH + "/assets"
+var ASSETS_CACHE_PATH = DATA_STORAGE_PATH + "/cache"
 
 func EnsureDirectories() {
-	if _, err := os.Stat(DATA_STORAGE_PATH); os.IsNotExist(err) {
-		err := os.MkdirAll(DATA_STORAGE_PATH, os.ModePerm)
-		if err != nil {
-			log.Fatalf("Failed to create directory: %v", err)
-		}
+	dirs := []string{
+		ASSETS_PATH,
+		ASSETS_CACHE_PATH,
 	}
-	if _, err := os.Stat(ASSETS_PATH); os.IsNotExist(err) {
-		err := os.MkdirAll(ASSETS_PATH, os.ModePerm)
-		if err != nil {
-			log.Fatalf("Failed to create directory: %v", err)
+
+	for _, dir := range dirs {
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			err := os.MkdirAll(dir, os.ModePerm)
+			if err != nil {
+				log.Fatalf("Failed to create directory %s: %v", dir, err)
+			}
 		}
 	}
 }

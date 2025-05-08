@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,7 +23,38 @@ import (
 	"github.com/rustyguts/alcoves/internal/db"
 )
 
+// URLNamespace is the UUID namespace for URL-based identifiers (RFC 4122)
+// This is used to generate deterministic UUIDs for image proxies
+const URLNamespace = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+
 func GetAsset(c *fiber.Ctx) error {
+	// Get and sort query parameters for deterministic proxy ID
+	queryParams := c.Queries()
+	keys := make([]string, 0, len(queryParams))
+	for k := range queryParams {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Build deterministic name from public ID and sorted query params
+	var nameBuilder strings.Builder
+	nameBuilder.WriteString(c.Params("asset_id"))
+	for _, k := range keys {
+		nameBuilder.WriteString(k)
+		nameBuilder.WriteString(queryParams[k])
+	}
+
+	// Generate deterministic UUID v5 using the URL namespace and sorted query params
+	proxyID := uuid.NewSHA1(uuid.MustParse(URLNamespace), []byte(nameBuilder.String())).String()
+
+	// Check if proxy already exists in cache
+	proxyPath := filepath.Join(config.ASSETS_CACHE_PATH, proxyID+".jpg")
+	if _, err := os.Stat(proxyPath); err == nil {
+		// Proxy exists, serve it directly
+		return filesystem.SendFile(c, http.Dir("."), proxyPath)
+	}
+
+	// Cache miss, fetch asset from database
 	var asset Asset
 	asset.PublicID = c.Params("asset_id")
 
@@ -32,8 +64,7 @@ func GetAsset(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Asset not found"})
 	}
 
-	m := c.Queries()
-	fmt.Print(m)
+	// Generate new proxy
 	img, err := vips.NewImageFromFile(asset.Filepath)
 	if err != nil {
 		fmt.Println("Error opening image:", err)
@@ -46,7 +77,7 @@ func GetAsset(c *fiber.Ctx) error {
 	max_width := original_width
 	recommended_width := original_height
 
-	width, _ := strconv.Atoi(m["width"])
+	width, _ := strconv.Atoi(queryParams["width"])
 	if width <= 0 {
 		width = recommended_width
 	}
@@ -85,29 +116,26 @@ func GetAsset(c *fiber.Ctx) error {
 	if err != nil {
 		fmt.Println("Error exporting image:", err)
 	}
-	// Save the image to a file
-	proxyID := uuid.New().String()
-	proxyPath := config.ASSETS_PATH + "/proxies/" + proxyID + ".jpg"
+
+	// Save the proxy image
 	err = os.WriteFile(proxyPath, imageBytes, 0644)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Failed to save image")
 	}
 
-	err = filesystem.SendFile(c, http.Dir("."), proxyPath)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("File not found")
-	}
-
-	return nil
+	return filesystem.SendFile(c, http.Dir("."), proxyPath)
 }
 
 // createAsset handles the creation of a single asset, including file storage and metadata extraction
-func CreateAsset(file *multipart.FileHeader) (*Asset, error) {
+func CreateAsset(c *fiber.Ctx, file *multipart.FileHeader) (*Asset, error) {
+	user := c.Locals("user").(uint)
+
 	// Create initial asset record
 	asset := Asset{
 		Type:     file.Header.Get("Content-Type"),
 		Size:     file.Size,
 		Filename: file.Filename,
+		UserID:   user,
 	}
 
 	// This will trigger BeforeCreate hook to generate PublicID
@@ -115,15 +143,9 @@ func CreateAsset(file *multipart.FileHeader) (*Asset, error) {
 		return nil, fmt.Errorf("failed to create asset record: %w", err)
 	}
 
-	// Create directory for this asset
-	assetDir := filepath.Join(config.ASSETS_PATH, asset.PublicID)
-	if err := os.MkdirAll(assetDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create asset directory: %w", err)
-	}
-
 	// Save the original file
 	ext := filepath.Ext(file.Filename)
-	originalPath := filepath.Join(assetDir, asset.PublicID+ext)
+	originalPath := filepath.Join(config.ASSETS_PATH, asset.PublicID+ext)
 
 	// Open the uploaded file
 	src, err := file.Open()
@@ -173,7 +195,7 @@ func CreateAsset(file *multipart.FileHeader) (*Asset, error) {
 	asset.Hash = hex.EncodeToString(hash[:])
 
 	// Update asset record with metadata
-	asset.Filepath = strings.TrimPrefix(originalPath, config.DATA_STORAGE_PATH)
+	asset.Filepath = originalPath
 	if err := db.DBConn.Save(&asset).Error; err != nil {
 		return nil, fmt.Errorf("failed to update asset metadata: %w", err)
 	}
@@ -197,7 +219,7 @@ func UploadAssets(c *fiber.Ctx) error {
 	}
 
 	for _, file := range files {
-		_, err := CreateAsset(file)
+		_, err := CreateAsset(c, file)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -206,4 +228,18 @@ func UploadAssets(c *fiber.Ctx) error {
 	}
 
 	return c.Redirect("/", fiber.StatusSeeOther)
+}
+
+func GetUserAssets(c *fiber.Ctx) error {
+	user := c.Locals("user").(uint)
+
+	var assets []Asset
+	result := db.DBConn.Where("user_id = ?", user).Order("created_at DESC").Find(&assets)
+	if result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch assets",
+		})
+	}
+
+	return c.JSON(assets)
 }
