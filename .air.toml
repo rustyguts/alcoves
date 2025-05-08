@@ -5,4 +5,4 @@ tmp_dir = "tmp"
 cmd = "go build -o /tmp/main cmd/server/main.go && cd web && bun install && bun run build"
 bin = "/tmp/main"
 include_ext = ["go", "tpl", "tmpl", "html", "js", "ts", "jsx", "tsx", "css"]
-exclude_dir = ["tmp", "vendor", "web/node_modules", "node_modules", "data/uploads"]
+exclude_dir = ["data", "tmp", "vendor", "web/node_modules", "node_modules"]

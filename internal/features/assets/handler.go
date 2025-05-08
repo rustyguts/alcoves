@@ -230,16 +230,14 @@ func UploadAssets(c *fiber.Ctx) error {
 	return c.Redirect("/", fiber.StatusSeeOther)
 }
 
-func GetUserAssets(c *fiber.Ctx) error {
+func GetUserAssets(c *fiber.Ctx) []Asset {
 	user := c.Locals("user").(uint)
 
 	var assets []Asset
 	result := db.DBConn.Where("user_id = ?", user).Order("created_at DESC").Find(&assets)
 	if result.Error != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch assets",
-		})
+		return nil
 	}
 
-	return c.JSON(assets)
+	return assets
 }
