@@ -3,6 +3,7 @@ package assets
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -179,11 +180,59 @@ func CreateAsset(c *fiber.Ctx, file *multipart.FileHeader) (*Asset, error) {
 	// Get EXIF data for creation time
 	exif := img.GetExif()
 	if exif != nil {
-		if dateTime, ok := exif["DateTimeOriginal"]; ok {
-			if t, err := time.Parse("2006:01:02 15:04:05", fmt.Sprintf("%v", dateTime)); err == nil {
-				asset.CTime = t
+		// Pretty print EXIF data
+		exifJSON, err := json.MarshalIndent(exif, "", "  ")
+		if err == nil {
+			fmt.Printf("EXIF data for %s:\n%s\n", file.Filename, string(exifJSON))
+		}
+
+		// Try to parse timestamp from EXIF data with multiple fallbacks
+		parseExifTime := func(key string) (time.Time, error) {
+			if dateTime, ok := exif[key]; ok {
+				// Extract just the timestamp part from the EXIF value
+				// Format is typically "2025:02:23 07:40:01 (2025:02:23 07:40:01, ASCII, 20 components, 20 bytes)"
+				timeStr := fmt.Sprintf("%v", dateTime)
+				if idx := strings.Index(timeStr, " ("); idx > 0 {
+					timeStr = timeStr[:idx]
+				}
+				return time.Parse("2006:01:02 15:04:05", timeStr)
+			}
+			return time.Time{}, fmt.Errorf("no %s found", key)
+		}
+
+		// Try different EXIF timestamp fields in order of preference
+		exifTime, err := parseExifTime("exif-ifd2-DateTimeOriginal")
+		if err != nil {
+			exifTime, err = parseExifTime("exif-ifd2-DateTimeDigitized")
+			if err != nil {
+				exifTime, err = parseExifTime("exif-ifd0-DateTime")
 			}
 		}
+
+		// If we got a valid EXIF time, use it
+		if err == nil && !exifTime.IsZero() {
+			// Check for timezone offset
+			if offset, ok := exif["exif-ifd2-OffsetTimeOriginal"]; ok {
+				offsetStr := fmt.Sprintf("%v", offset)
+				if idx := strings.Index(offsetStr, " ("); idx > 0 {
+					offsetStr = offsetStr[:idx]
+				}
+				// Parse the offset (e.g. "-05:00")
+				if offset, err := time.Parse("-07:00", offsetStr); err == nil {
+					// Get the hour offset as a float
+					_, offsetHours := offset.Zone()
+					// Apply the offset to the time
+					exifTime = exifTime.Add(time.Duration(offsetHours) * time.Second)
+				}
+			}
+			asset.CTime = exifTime
+		} else {
+			// If we couldn't parse EXIF time, use CreatedAt
+			asset.CTime = asset.CreatedAt
+		}
+	} else {
+		// If no EXIF data, use CreatedAt
+		asset.CTime = asset.CreatedAt
 	}
 
 	// Calculate file hash
@@ -234,7 +283,7 @@ func GetUserAssets(c *fiber.Ctx) []Asset {
 	user := c.Locals("user").(uint)
 
 	var assets []Asset
-	result := db.DBConn.Where("user_id = ?", user).Order("created_at DESC").Find(&assets)
+	result := db.DBConn.Where("user_id = ?", user).Order("c_time DESC").Find(&assets)
 	if result.Error != nil {
 		return nil
 	}
