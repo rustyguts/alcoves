@@ -1,4 +1,4 @@
-FROM golang:1.24 AS dev
+FROM golang:1.24
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -32,5 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/main /app/main
+COPY --from=build /app/web /app/web
+RUN rm -rf /app/web/node_modules
 EXPOSE 3000
 CMD ["./main"]
