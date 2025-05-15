@@ -1,8 +1,8 @@
 package auth
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/rustyguts/alcoves/internal/db"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,19 +16,16 @@ func VerifyPassword(password, hash string) bool {
 	return err == nil
 }
 
-func CreateUserSession(c *fiber.Ctx, user User) error {
-	sess, err := db.SessionStore.Get(c)
-	if err != nil {
-		panic(err)
-	}
-	sess.Set("ip", c.IP())
-	sess.Set("user_agent", c.Get("User-Agent"))
-	sess.Set("user", user.ID)
-	sess.Set("email", user.Email)
+func CreateUserSession(c *gin.Context, user User) error {
+	session := sessions.Default(c)
+	session.Set("ip", c.ClientIP())
+	session.Set("user_agent", c.GetHeader("User-Agent"))
+	session.Set("user", user.ID)
+	session.Set("email", user.Email)
 
-	if err := sess.Save(); err != nil {
-		panic(err)
+	if err := session.Save(); err != nil {
+		return err
 	}
 
-	return c.Redirect("/")
+	return nil
 }

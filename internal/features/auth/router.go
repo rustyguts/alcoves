@@ -1,16 +1,16 @@
 package auth
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/rustyguts/alcoves/internal/middleware"
 )
 
-func Router(app fiber.Router) {
-	app.Get("/login", GetLogin)
-	app.Post("/login", PostLogin)
+func Router(router *gin.Engine) {
+	router.GET("/login", GetLogin)
+	router.POST("/login", PostLogin)
 
-	app.Get("/register", GetRegister)
-	app.Post("/register", PostRegister)
+	router.GET("/register", GetRegister)
+	router.POST("/register", PostRegister)
 
-	app.Post("/logout", middleware.SessionAuthMiddleware(), PostLogout)
+	router.POST("/logout", middleware.SessionAuthMiddleware(), PostLogout)
 }

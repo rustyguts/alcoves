@@ -1,14 +1,17 @@
 package root
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 	"github.com/rustyguts/alcoves/internal/features/assets"
 )
 
-func GetRoot(c *fiber.Ctx) error {
-	return c.Render("index", fiber.Map{
+func GetRoot(c *gin.Context) {
+	user, _ := c.Get("user")
+	c.HTML(http.StatusOK, "index.html", gin.H{
 		"title":  "Alcoves",
-		"User":   c.Locals("user"),
+		"User":   user,
 		"Assets": assets.GetUserAssets(c),
 	})
 }

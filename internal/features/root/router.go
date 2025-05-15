@@ -1,14 +1,14 @@
 package root
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/rustyguts/alcoves/internal/middleware"
 )
 
-// This router is a little different from the others.
-// It does not use a router group so as not to interfere
-// with the static file serving and global middleware.
-func Router(app fiber.Router) {
-	app.Static("/", "./web/static")
-	app.Get("/", middleware.SessionAuthMiddleware(), GetRoot)
+func Router(router *gin.Engine) {
+	// Serve static files
+	router.Static("/static", "./web/static")
+
+	// Root route with authentication
+	router.GET("/", middleware.SessionAuthMiddleware(), GetRoot)
 }

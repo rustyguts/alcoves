@@ -5,16 +5,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/gofiber/fiber/v2/middleware/session"
-	"github.com/gofiber/storage/sqlite3"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-// https://github.com/gofiber/recipes/blob/master/gorm-postgres/database/database.go
-
 var DBConn *gorm.DB
-var SessionStore *session.Store
+var SessionStore sessions.Store
 
 func InitDB() {
 	var err error
@@ -30,18 +28,13 @@ func InitDB() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	SessionStore = session.New(session.Config{
-		// https://docs.gofiber.io/api/middleware/session/#config
-		CookieSecure:   false, // TODO set to true in production
-		CookieHTTPOnly: true,  // Secure by default
-		Storage: sqlite3.New(sqlite3.Config{
-			Database:        "/data/alcoves.db",
-			Table:           "sessions",
-			Reset:           false,
-			GCInterval:      10 * time.Second,
-			MaxOpenConns:    100,
-			MaxIdleConns:    100,
-			ConnMaxLifetime: 1 * time.Second,
-		}),
+	// Create a cookie-based store for session management
+	// In a production environment, you should use a more secure store
+	store := cookie.NewStore([]byte("secret"))
+	store.Options(sessions.Options{
+		Path:     "/",
+		MaxAge:   int(12 * time.Hour / time.Second), // 12 hours
+		HttpOnly: true,
 	})
+	SessionStore = store
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,11 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"mime/multipart"
-
 	"github.com/davidbyttow/govips/v2/vips"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/rustyguts/alcoves/internal/config"
 	"github.com/rustyguts/alcoves/internal/db"
@@ -28,9 +26,9 @@ import (
 // This is used to generate deterministic UUIDs for image proxies
 const URLNamespace = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
 
-func GetAsset(c *fiber.Ctx) error {
+func GetAsset(c *gin.Context) {
 	// Get and sort query parameters for deterministic proxy ID
-	queryParams := c.Queries()
+	queryParams := c.Request.URL.Query()
 	keys := make([]string, 0, len(queryParams))
 	for k := range queryParams {
 		keys = append(keys, k)
@@ -39,10 +37,10 @@ func GetAsset(c *fiber.Ctx) error {
 
 	// Build deterministic name from public ID and sorted query params
 	var nameBuilder strings.Builder
-	nameBuilder.WriteString(c.Params("asset_id"))
+	nameBuilder.WriteString(c.Param("asset_id"))
 	for _, k := range keys {
 		nameBuilder.WriteString(k)
-		nameBuilder.WriteString(queryParams[k])
+		nameBuilder.WriteString(queryParams.Get(k))
 	}
 
 	// Generate deterministic UUID v5 using the URL namespace and sorted query params
@@ -52,24 +50,27 @@ func GetAsset(c *fiber.Ctx) error {
 	proxyPath := filepath.Join(config.ASSETS_CACHE_PATH, proxyID+".jpg")
 	if _, err := os.Stat(proxyPath); err == nil {
 		// Proxy exists, serve it directly
-		return filesystem.SendFile(c, http.Dir("."), proxyPath)
+		c.File(proxyPath)
+		return
 	}
 
 	// Cache miss, fetch asset from database
 	var asset Asset
-	asset.PublicID = c.Params("asset_id")
+	asset.PublicID = c.Param("asset_id")
 
 	db.DBConn.Where("public_id = ?", asset.PublicID).First(&asset)
 
 	if asset.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Asset not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Asset not found"})
+		return
 	}
 
 	// Generate new proxy
 	img, err := vips.NewImageFromFile(asset.Filepath)
 	if err != nil {
 		fmt.Println("Error opening image:", err)
-		return fiber.NewError(fiber.StatusBadRequest, "Failed to open image")
+		c.String(http.StatusBadRequest, "Failed to open image")
+		return
 	}
 
 	original_width := img.Width()
@@ -78,7 +79,8 @@ func GetAsset(c *fiber.Ctx) error {
 	max_width := original_width
 	recommended_width := original_height
 
-	width, _ := strconv.Atoi(queryParams["width"])
+	width_str := queryParams.Get("width")
+	width, _ := strconv.Atoi(width_str)
 	if width <= 0 {
 		width = recommended_width
 	}
@@ -121,15 +123,16 @@ func GetAsset(c *fiber.Ctx) error {
 	// Save the proxy image
 	err = os.WriteFile(proxyPath, imageBytes, 0644)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "Failed to save image")
+		c.String(http.StatusBadRequest, "Failed to save image")
+		return
 	}
 
-	return filesystem.SendFile(c, http.Dir("."), proxyPath)
+	c.Data(http.StatusOK, "image/jpeg", imageBytes)
 }
 
 // createAsset handles the creation of a single asset, including file storage and metadata extraction
-func CreateAsset(c *fiber.Ctx, file *multipart.FileHeader) (*Asset, error) {
-	user := c.Locals("user").(uint)
+func CreateAsset(c *gin.Context, file *multipart.FileHeader) (*Asset, error) {
+	user := c.GetUint("user")
 
 	// Create initial asset record
 	asset := Asset{
@@ -252,38 +255,49 @@ func CreateAsset(c *fiber.Ctx, file *multipart.FileHeader) (*Asset, error) {
 	return &asset, nil
 }
 
-func UploadAssets(c *fiber.Ctx) error {
+func UploadAssets(c *gin.Context) {
 	form, err := c.MultipartForm()
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Failed to process form data",
 		})
+		return
 	}
 	files := form.File["files"]
 
 	if len(files) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "No files uploaded",
 		})
+		return
 	}
 
 	for _, file := range files {
 		_, err := CreateAsset(c, file)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
+			return
 		}
 	}
 
-	return c.Redirect("/", fiber.StatusSeeOther)
+	c.Redirect(http.StatusSeeOther, "/")
 }
 
-func GetUserAssets(c *fiber.Ctx) []Asset {
-	user := c.Locals("user").(uint)
+func GetUserAssets(c *gin.Context) []Asset {
+	user, exists := c.Get("user")
+	if !exists {
+		return nil
+	}
+
+	userID, ok := user.(uint)
+	if !ok {
+		return nil
+	}
 
 	var assets []Asset
-	result := db.DBConn.Where("user_id = ?", user).Order("c_time DESC").Find(&assets)
+	result := db.DBConn.Where("user_id = ?", userID).Order("c_time DESC").Find(&assets)
 	if result.Error != nil {
 		return nil
 	}

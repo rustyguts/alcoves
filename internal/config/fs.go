@@ -3,11 +3,12 @@ package config
 import (
 	"log"
 	"os"
+	"path/filepath"
 )
 
-var DATA_STORAGE_PATH = "/data"
-var ASSETS_PATH = DATA_STORAGE_PATH + "/assets"
-var ASSETS_CACHE_PATH = DATA_STORAGE_PATH + "/cache"
+var DATA_STORAGE_PATH = filepath.Join(".", "data")
+var ASSETS_PATH = filepath.Join(DATA_STORAGE_PATH, "assets")
+var ASSETS_CACHE_PATH = filepath.Join(DATA_STORAGE_PATH, "cache")
 
 func EnsureDirectories() {
 	dirs := []string{

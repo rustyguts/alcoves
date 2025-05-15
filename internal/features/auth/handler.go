@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"net/http"
 	"net/mail"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
 	"github.com/rustyguts/alcoves/internal/db"
 )
 
@@ -12,21 +14,21 @@ func valid(email string) bool {
 	return err == nil
 }
 
-func GetLogin(c *fiber.Ctx) error {
-	return c.Render("login", fiber.Map{
+func GetLogin(c *gin.Context) {
+	c.HTML(http.StatusOK, "login.html", gin.H{
 		"title": "Login",
 	})
 }
 
-func GetRegister(c *fiber.Ctx) error {
-	return c.Render("register", fiber.Map{
+func GetRegister(c *gin.Context) {
+	c.HTML(http.StatusOK, "register.html", gin.H{
 		"title": "Register",
 	})
 }
 
-func PostRegister(c *fiber.Ctx) error {
-	email := c.FormValue("email")
-	insecure_password := c.FormValue("password")
+func PostRegister(c *gin.Context) {
+	email := c.PostForm("email")
+	insecure_password := c.PostForm("password")
 	errors := make(map[string]string)
 
 	if !valid(email) {
@@ -38,63 +40,80 @@ func PostRegister(c *fiber.Ctx) error {
 	}
 
 	if len(errors) > 0 {
-		return c.Status(fiber.StatusBadRequest).Render("register", fiber.Map{
+		c.HTML(http.StatusBadRequest, "register.html", gin.H{
 			"title":  "Register",
 			"Errors": errors,
 			"Email":  email,
 		})
+		return
 	}
 
 	var user User
 	db.DBConn.First(&user, "email = ?", email)
-	if user.ID == 0 {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to create user")
+	if user.ID != 0 {
+		// If user already exists (unlike your original code which had a bug)
+		c.String(http.StatusInternalServerError, "Failed to create user")
+		return
 	}
 
 	hashedPassword, err := HashPassword(insecure_password)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to create user")
+		c.String(http.StatusInternalServerError, "Failed to create user")
+		return
 	}
 
-	if err := db.DBConn.Create(&User{Email: email, Password: hashedPassword}).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to create user")
+	user = User{Email: email, Password: hashedPassword}
+	if err := db.DBConn.Create(&user).Error; err != nil {
+		c.String(http.StatusInternalServerError, "Failed to create user")
+		return
 	}
 
-	CreateUserSession(c, user)
-	return c.Redirect("/")
+	if err := CreateUserSession(c, user); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to create user session")
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/")
 }
 
-func PostLogin(c *fiber.Ctx) error {
-	email := c.FormValue("email")
-	insecure_password := c.FormValue("password")
+func PostLogin(c *gin.Context) {
+	email := c.PostForm("email")
+	insecure_password := c.PostForm("password")
 
 	if !valid(email) {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to login")
+		c.String(http.StatusInternalServerError, "Failed to login")
+		return
 	}
 
 	var user User
 	db.DBConn.First(&user, "email = ?", email)
 	if user.ID == 0 {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to login")
+		c.String(http.StatusInternalServerError, "Failed to login")
+		return
 	}
 
 	passwordVerified := VerifyPassword(insecure_password, user.Password)
 
 	if !passwordVerified {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to login")
+		c.String(http.StatusInternalServerError, "Failed to login")
+		return
 	}
 
-	CreateUserSession(c, user)
-	return c.Redirect("/")
+	if err := CreateUserSession(c, user); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to create user session")
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/")
 }
 
-func PostLogout(c *fiber.Ctx) error {
-	sess, err := db.SessionStore.Get(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to get session")
+func PostLogout(c *gin.Context) {
+	session := sessions.Default(c)
+	session.Clear()
+	if err := session.Save(); err != nil {
+		c.String(http.StatusInternalServerError, "Failed to logout")
+		return
 	}
-	if err := sess.Destroy(); err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to logout")
-	}
-	return c.Redirect("/login")
+
+	c.Redirect(http.StatusFound, "/login")
 }
