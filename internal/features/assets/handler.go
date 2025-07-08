@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rustyguts/alcoves/internal/config"
 	"github.com/rustyguts/alcoves/internal/db"
+	"github.com/rustyguts/alcoves/internal/models"
 )
 
 // URLNamespace is the UUID namespace for URL-based identifiers (RFC 4122)
@@ -55,7 +56,7 @@ func GetAsset(c *gin.Context) {
 	}
 
 	// Cache miss, fetch asset from database
-	var asset Asset
+	var asset models.Asset
 	asset.PublicID = c.Param("asset_id")
 
 	db.DBConn.Where("public_id = ?", asset.PublicID).First(&asset)
@@ -131,11 +132,11 @@ func GetAsset(c *gin.Context) {
 }
 
 // createAsset handles the creation of a single asset, including file storage and metadata extraction
-func CreateAsset(c *gin.Context, file *multipart.FileHeader) (*Asset, error) {
+func CreateAsset(c *gin.Context, file *multipart.FileHeader) (*models.Asset, error) {
 	user := c.GetUint("user")
 
 	// Create initial asset record
-	asset := Asset{
+	asset := models.Asset{
 		Type:     file.Header.Get("Content-Type"),
 		Size:     file.Size,
 		Filename: file.Filename,
@@ -285,7 +286,7 @@ func UploadAssets(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/")
 }
 
-func GetUserAssets(c *gin.Context) []Asset {
+func GetUserAssets(c *gin.Context) []models.Asset {
 	user, exists := c.Get("user")
 	if !exists {
 		return nil
@@ -296,7 +297,7 @@ func GetUserAssets(c *gin.Context) []Asset {
 		return nil
 	}
 
-	var assets []Asset
+	var assets []models.Asset
 	result := db.DBConn.Where("user_id = ?", userID).Order("c_time DESC").Find(&assets)
 	if result.Error != nil {
 		return nil

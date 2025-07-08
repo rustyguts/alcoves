@@ -1,40 +1,60 @@
 package db
 
 import (
-	"log"
+	"log/slog"
 	"os"
-	"time"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
-	"gorm.io/driver/sqlite"
+	"github.com/rustyguts/alcoves/internal/models"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 var DBConn *gorm.DB
-var SessionStore sessions.Store
 
-func InitDB() {
-	var err error
-	db_path := os.Getenv("ALCOVES_DB_PATH")
+func getDatabaseURL() string {
+	envURL := os.Getenv("DATABASE_URL")
+	if envURL == "" {
+		slog.Error("DATABASE_URL is not set in environment")
+		panic("DATABASE_URL environment variable is required but not set")
+	}
+	slog.Info("using DATABASE_URL from environment")
+	return envURL
+}
 
-	if db_path == "" {
-		log.Println("ALCOVES_DB_PATH is not set, defaulting to /data/alcoves.db")
-		db_path = "/data/alcoves.db"
+func migrate(db *gorm.DB) error {
+	modelsToMigrate := []interface{}{
+		&models.User{},
+		&models.Asset{},
 	}
 
-	DBConn, err = gorm.Open(sqlite.Open(db_path), &gorm.Config{})
+	for _, model := range modelsToMigrate {
+		if err := db.AutoMigrate(model); err != nil {
+			slog.Error("failed to migrate model", "model", model, "error", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func Initialize() (*gorm.DB, error) {
+	if DBConn != nil {
+		slog.Info("using existing database connection")
+		return DBConn, nil
+	}
+
+	databaseURL := getDatabaseURL()
+	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		return nil, err
 	}
 
-	// Create a cookie-based store for session management
-	// In a production environment, you should use a more secure store
-	store := cookie.NewStore([]byte("secret"))
-	store.Options(sessions.Options{
-		Path:     "/",
-		MaxAge:   int(12 * time.Hour / time.Second), // 12 hours
-		HttpOnly: true,
-	})
-	SessionStore = store
+	if err := migrate(db); err != nil {
+		return nil, err
+	}
+
+	DBConn = db
+
+	// Seed the database
+
+	return DBConn, nil
 }

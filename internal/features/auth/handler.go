@@ -7,6 +7,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/rustyguts/alcoves/internal/db"
+	"github.com/rustyguts/alcoves/internal/models"
 )
 
 func valid(email string) bool {
@@ -48,7 +49,7 @@ func PostRegister(c *gin.Context) {
 		return
 	}
 
-	var user User
+	var user models.User
 	db.DBConn.First(&user, "email = ?", email)
 	if user.ID != 0 {
 		// If user already exists (unlike your original code which had a bug)
@@ -62,7 +63,7 @@ func PostRegister(c *gin.Context) {
 		return
 	}
 
-	user = User{Email: email, Password: hashedPassword}
+	user = models.User{Email: email, Password: hashedPassword}
 	if err := db.DBConn.Create(&user).Error; err != nil {
 		c.String(http.StatusInternalServerError, "Failed to create user")
 		return
@@ -85,7 +86,7 @@ func PostLogin(c *gin.Context) {
 		return
 	}
 
-	var user User
+	var user models.User
 	db.DBConn.First(&user, "email = ?", email)
 	if user.ID == 0 {
 		c.String(http.StatusInternalServerError, "Failed to login")

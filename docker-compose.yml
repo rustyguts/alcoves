@@ -2,9 +2,26 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      target: development
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
     volumes:
       - .:/app
       - ./data:/data
     ports:
-      - 3000:3000
+      - 3000:8080
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_DB=alcoves
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

@@ -1,4 +1,4 @@
-FROM golang:1.24 AS dev
+FROM golang:1.24 AS development
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -12,18 +12,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
 
+RUN go install github.com/air-verse/air@latest
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+
 COPY go.mod go.sum ./
 RUN go mod download
-RUN go install github.com/air-verse/air@latest
 
 COPY . .
-
-EXPOSE 3000
+EXPOSE 8080
 CMD ["air"]
 
-FROM dev AS build
+FROM development AS build
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o main cmd/server/main.go
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
 FROM debian:bookworm-slim AS dist
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libheif-dev \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=build /app/main /app/main
-COPY --from=build /app/web /app/web
-EXPOSE 3000
+COPY --from=builder /app/main /app/main
+COPY --from=builder /app/web /app/web
+EXPOSE 8080
 CMD ["./main"]
