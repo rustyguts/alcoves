@@ -7,6 +7,7 @@ import (
 
 func Router(e *echo.Echo) {
 	assetGroup := e.Group("/assets", middleware.SessionAuthMiddleware())
+
 	assetGroup.GET("/", func(c echo.Context) error {
 		assets := GetUserAssets(c)
 		return c.JSON(200, assets)
