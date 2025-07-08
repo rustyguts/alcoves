@@ -1,12 +1,15 @@
 package main
 
 import (
-	"errors"
+	"context"
 	"io"
-	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
 	"text/template"
+	"time"
 
+	"github.com/davidbyttow/govips/v2/vips"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
@@ -41,8 +44,13 @@ func loadTemplateSet(baseFile string, pageFile string, partials string) *templat
 
 func main() {
 	db.Initialize()
-	config.InitVips()
+	vips.Startup(nil)
+	defer vips.Shutdown()
+
+	config.EnsureDirectories()
+
 	e := echo.New()
+
 	// Load templates with nested structure using helper function
 	templates := make(map[string]*template.Template)
 
@@ -82,10 +90,25 @@ func main() {
 	root.Router(e)
 	auth.Router(e)
 	assets.Router(e)
-
 	e.Static("/", "./web/public")
 
-	if err := e.Start(":8080"); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		slog.Error("failed to start server", "error", err)
+	// Graceful shutdown setup
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	// Start server in a goroutine
+	go func() {
+		if err := e.Start(":8080"); err != nil && err != http.ErrServerClosed {
+			e.Logger.Fatal("shutting down the server")
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shut down the server with a timeout of 10 seconds.
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := e.Shutdown(shutdownCtx); err != nil {
+		e.Logger.Fatal(err)
 	}
 }

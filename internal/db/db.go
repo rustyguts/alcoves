@@ -12,12 +12,12 @@ import (
 var DBConn *gorm.DB
 
 func getDatabaseURL() string {
-	envURL := os.Getenv("DATABASE_URL")
+	envURL := os.Getenv("ALCOVES_DATABASE_URL")
 	if envURL == "" {
-		slog.Error("DATABASE_URL is not set in environment")
-		panic("DATABASE_URL environment variable is required but not set")
+		slog.Error("ALCOVES_DATABASE_URL is not set in environment")
+		panic("ALCOVES_DATABASE_URL environment variable is required but not set")
 	}
-	slog.Info("using DATABASE_URL from environment")
+	slog.Info("using ALCOVES_DATABASE_URL from environment")
 	return envURL
 }
 
