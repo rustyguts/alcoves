@@ -1,8 +1,8 @@
 package auth
 
 import (
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo-contrib/session"
+	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/models"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -17,14 +17,18 @@ func VerifyPassword(password, hash string) bool {
 	return err == nil
 }
 
-func CreateUserSession(c *gin.Context, user models.User) error {
-	session := sessions.Default(c)
-	session.Set("ip", c.ClientIP())
-	session.Set("user_agent", c.GetHeader("User-Agent"))
-	session.Set("user", user.ID)
-	session.Set("email", user.Email)
+func CreateUserSession(c echo.Context, user models.User) error {
+	sess, err := session.Get("session", c)
+	if err != nil {
+		return err
+	}
 
-	if err := session.Save(); err != nil {
+	sess.Values["ip"] = c.RealIP()
+	sess.Values["user_agent"] = c.Request().Header.Get("User-Agent")
+	sess.Values["user"] = user.ID
+	sess.Values["email"] = user.Email
+
+	if err := sess.Save(c.Request(), c.Response()); err != nil {
 		return err
 	}
 

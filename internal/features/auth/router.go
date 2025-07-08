@@ -1,16 +1,16 @@
 package auth
 
 import (
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/middleware"
 )
 
-func Router(router *gin.Engine) {
-	router.GET("/login", GetLogin)
-	router.POST("/login", PostLogin)
+func Router(e *echo.Echo) {
+	e.GET("/login", GetLogin)
+	e.POST("/login", PostLogin)
 
-	router.GET("/register", GetRegister)
-	router.POST("/register", PostRegister)
+	e.GET("/register", GetRegister)
+	e.POST("/register", PostRegister)
 
-	router.POST("/logout", middleware.SessionAuthMiddleware(), PostLogout)
+	e.POST("/logout", PostLogout, middleware.SessionAuthMiddleware())
 }

@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/davidbyttow/govips/v2/vips"
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/config"
 	"github.com/rustyguts/alcoves/internal/db"
 	"github.com/rustyguts/alcoves/internal/models"
@@ -27,9 +27,9 @@ import (
 // This is used to generate deterministic UUIDs for image proxies
 const URLNamespace = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
 
-func GetAsset(c *gin.Context) {
+func GetAsset(c echo.Context) error {
 	// Get and sort query parameters for deterministic proxy ID
-	queryParams := c.Request.URL.Query()
+	queryParams := c.Request().URL.Query()
 	keys := make([]string, 0, len(queryParams))
 	for k := range queryParams {
 		keys = append(keys, k)
@@ -51,8 +51,7 @@ func GetAsset(c *gin.Context) {
 	proxyPath := filepath.Join(config.ASSETS_CACHE_PATH, proxyID+".jpg")
 	if _, err := os.Stat(proxyPath); err == nil {
 		// Proxy exists, serve it directly
-		c.File(proxyPath)
-		return
+		return c.File(proxyPath)
 	}
 
 	// Cache miss, fetch asset from database
@@ -62,16 +61,14 @@ func GetAsset(c *gin.Context) {
 	db.DBConn.Where("public_id = ?", asset.PublicID).First(&asset)
 
 	if asset.ID == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Asset not found"})
-		return
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"error": "Asset not found"})
 	}
 
 	// Generate new proxy
 	img, err := vips.NewImageFromFile(asset.Filepath)
 	if err != nil {
 		fmt.Println("Error opening image:", err)
-		c.String(http.StatusBadRequest, "Failed to open image")
-		return
+		return c.String(http.StatusBadRequest, "Failed to open image")
 	}
 
 	original_width := img.Width()
@@ -124,23 +121,27 @@ func GetAsset(c *gin.Context) {
 	// Save the proxy image
 	err = os.WriteFile(proxyPath, imageBytes, 0644)
 	if err != nil {
-		c.String(http.StatusBadRequest, "Failed to save image")
-		return
+		return c.String(http.StatusBadRequest, "Failed to save image")
 	}
 
-	c.Data(http.StatusOK, "image/jpeg", imageBytes)
+	return c.Blob(http.StatusOK, "image/jpeg", imageBytes)
 }
 
 // createAsset handles the creation of a single asset, including file storage and metadata extraction
-func CreateAsset(c *gin.Context, file *multipart.FileHeader) (*models.Asset, error) {
-	user := c.GetUint("user")
+func CreateAsset(c echo.Context, file *multipart.FileHeader) (*models.Asset, error) {
+	user := c.Get("user")
+
+	userID, ok := user.(uint)
+	if !ok {
+		return nil, fmt.Errorf("invalid user ID")
+	}
 
 	// Create initial asset record
 	asset := models.Asset{
 		Type:     file.Header.Get("Content-Type"),
 		Size:     file.Size,
 		Filename: file.Filename,
-		UserID:   user,
+		UserID:   userID,
 	}
 
 	// This will trigger BeforeCreate hook to generate PublicID
@@ -256,39 +257,36 @@ func CreateAsset(c *gin.Context, file *multipart.FileHeader) (*models.Asset, err
 	return &asset, nil
 }
 
-func UploadAssets(c *gin.Context) {
+func UploadAssets(c echo.Context) error {
 	form, err := c.MultipartForm()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"error": "Failed to process form data",
 		})
-		return
 	}
 	files := form.File["files"]
 
 	if len(files) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"error": "No files uploaded",
 		})
-		return
 	}
 
 	for _, file := range files {
 		_, err := CreateAsset(c, file)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 				"error": err.Error(),
 			})
-			return
 		}
 	}
 
-	c.Redirect(http.StatusSeeOther, "/")
+	return c.Redirect(http.StatusSeeOther, "/")
 }
 
-func GetUserAssets(c *gin.Context) []models.Asset {
-	user, exists := c.Get("user")
-	if !exists {
+func GetUserAssets(c echo.Context) []models.Asset {
+	user := c.Get("user")
+	if user == nil {
 		return nil
 	}
 

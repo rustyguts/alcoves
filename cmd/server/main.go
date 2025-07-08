@@ -7,10 +7,14 @@ import (
 	"net/http"
 	"text/template"
 
+	"github.com/gorilla/sessions"
+	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rustyguts/alcoves/internal/config"
 	"github.com/rustyguts/alcoves/internal/db"
+	"github.com/rustyguts/alcoves/internal/features/assets"
+	"github.com/rustyguts/alcoves/internal/features/auth"
 	"github.com/rustyguts/alcoves/internal/features/root"
 )
 
@@ -41,7 +45,13 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
+	// Session middleware
+	e.Use(session.Middleware(sessions.NewCookieStore([]byte("secret-key-change-in-production"))))
+
+	// Setup routers
 	root.Router(e)
+	auth.Router(e)
+	assets.Router(e)
 
 	e.Static("/", "./web/public")
 

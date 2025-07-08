@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"net/mail"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo-contrib/session"
+	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/db"
 	"github.com/rustyguts/alcoves/internal/models"
 )
@@ -15,21 +15,21 @@ func valid(email string) bool {
 	return err == nil
 }
 
-func GetLogin(c *gin.Context) {
-	c.HTML(http.StatusOK, "login.html", gin.H{
+func GetLogin(c echo.Context) error {
+	return c.Render(http.StatusOK, "login.html", map[string]interface{}{
 		"title": "Login",
 	})
 }
 
-func GetRegister(c *gin.Context) {
-	c.HTML(http.StatusOK, "register.html", gin.H{
+func GetRegister(c echo.Context) error {
+	return c.Render(http.StatusOK, "register.html", map[string]interface{}{
 		"title": "Register",
 	})
 }
 
-func PostRegister(c *gin.Context) {
-	email := c.PostForm("email")
-	insecure_password := c.PostForm("password")
+func PostRegister(c echo.Context) error {
+	email := c.FormValue("email")
+	insecure_password := c.FormValue("password")
 	errors := make(map[string]string)
 
 	if !valid(email) {
@@ -41,80 +41,78 @@ func PostRegister(c *gin.Context) {
 	}
 
 	if len(errors) > 0 {
-		c.HTML(http.StatusBadRequest, "register.html", gin.H{
+		return c.Render(http.StatusBadRequest, "register.html", map[string]interface{}{
 			"title":  "Register",
 			"Errors": errors,
 			"Email":  email,
 		})
-		return
 	}
 
 	var user models.User
 	db.DBConn.First(&user, "email = ?", email)
 	if user.ID != 0 {
 		// If user already exists (unlike your original code which had a bug)
-		c.String(http.StatusInternalServerError, "Failed to create user")
-		return
+		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 
 	hashedPassword, err := HashPassword(insecure_password)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Failed to create user")
-		return
+		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 
 	user = models.User{Email: email, Password: hashedPassword}
 	if err := db.DBConn.Create(&user).Error; err != nil {
-		c.String(http.StatusInternalServerError, "Failed to create user")
-		return
+		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 
 	if err := CreateUserSession(c, user); err != nil {
-		c.String(http.StatusInternalServerError, "Failed to create user session")
-		return
+		return c.String(http.StatusInternalServerError, "Failed to create user session")
 	}
 
-	c.Redirect(http.StatusFound, "/")
+	return c.Redirect(http.StatusFound, "/")
 }
 
-func PostLogin(c *gin.Context) {
-	email := c.PostForm("email")
-	insecure_password := c.PostForm("password")
+func PostLogin(c echo.Context) error {
+	email := c.FormValue("email")
+	insecure_password := c.FormValue("password")
 
 	if !valid(email) {
-		c.String(http.StatusInternalServerError, "Failed to login")
-		return
+		return c.String(http.StatusInternalServerError, "Failed to login")
 	}
 
 	var user models.User
 	db.DBConn.First(&user, "email = ?", email)
 	if user.ID == 0 {
-		c.String(http.StatusInternalServerError, "Failed to login")
-		return
+		return c.String(http.StatusInternalServerError, "Failed to login")
 	}
 
 	passwordVerified := VerifyPassword(insecure_password, user.Password)
 
 	if !passwordVerified {
-		c.String(http.StatusInternalServerError, "Failed to login")
-		return
+		return c.String(http.StatusInternalServerError, "Failed to login")
 	}
 
 	if err := CreateUserSession(c, user); err != nil {
-		c.String(http.StatusInternalServerError, "Failed to create user session")
-		return
+		return c.String(http.StatusInternalServerError, "Failed to create user session")
 	}
 
-	c.Redirect(http.StatusFound, "/")
+	return c.Redirect(http.StatusFound, "/")
 }
 
-func PostLogout(c *gin.Context) {
-	session := sessions.Default(c)
-	session.Clear()
-	if err := session.Save(); err != nil {
-		c.String(http.StatusInternalServerError, "Failed to logout")
-		return
+func PostLogout(c echo.Context) error {
+	sess, err := session.Get("session", c)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to logout")
 	}
 
-	c.Redirect(http.StatusFound, "/login")
+	// Clear all session values
+	for key := range sess.Values {
+		delete(sess.Values, key)
+	}
+
+	if err := sess.Save(c.Request(), c.Response()); err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to logout")
+	}
+
+	return c.Redirect(http.StatusFound, "/login")
 }
