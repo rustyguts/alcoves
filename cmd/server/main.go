@@ -43,7 +43,7 @@ func main() {
 
 	root.Router(e)
 
-	e.Static("/static", "./web/static")
+	e.Static("/", "./web/public")
 
 	if err := e.Start(":8080"); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("failed to start server", "error", err)
