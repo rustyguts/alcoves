@@ -15,7 +15,7 @@ func getRoot(c echo.Context) error {
 		"User":   user,
 		"Assets": userAssets,
 	}
-	return c.Render(http.StatusOK, "main.html", data)
+	return c.Render(http.StatusOK, "home", data)
 }
 
 func getHealthcheck(c echo.Context) error {

@@ -16,13 +16,13 @@ func valid(email string) bool {
 }
 
 func GetLogin(c echo.Context) error {
-	return c.Render(http.StatusOK, "login.html", map[string]interface{}{
+	return c.Render(http.StatusOK, "login", map[string]interface{}{
 		"title": "Login",
 	})
 }
 
 func GetRegister(c echo.Context) error {
-	return c.Render(http.StatusOK, "register.html", map[string]interface{}{
+	return c.Render(http.StatusOK, "register", map[string]interface{}{
 		"title": "Register",
 	})
 }
@@ -41,7 +41,7 @@ func PostRegister(c echo.Context) error {
 	}
 
 	if len(errors) > 0 {
-		return c.Render(http.StatusBadRequest, "register.html", map[string]interface{}{
+		return c.Render(http.StatusBadRequest, "register", map[string]interface{}{
 			"title":  "Register",
 			"Errors": errors,
 			"Email":  email,
