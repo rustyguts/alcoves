@@ -1,14 +1,12 @@
 package root
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/rustyguts/alcoves/internal/middleware"
+	"github.com/labstack/echo/v4"
 )
 
-func Router(router *gin.Engine) {
-	// Serve static files
-	router.Static("/static", "./web/static")
+func Router(e *echo.Echo) {
+	e.Static("/static", "./web/static")
 
-	// Root route with authentication
-	router.GET("/", middleware.SessionAuthMiddleware(), GetRoot)
+	e.GET("/", getRoot)
+	e.GET("/health", getHealthcheck)
 }
