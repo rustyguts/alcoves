@@ -5,8 +5,6 @@ import (
 )
 
 func Router(e *echo.Echo) {
-	e.Static("/static", "./web/static")
-
 	e.GET("/", getRoot)
 	e.GET("/health", getHealthcheck)
 }

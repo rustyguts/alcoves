@@ -28,8 +28,12 @@ func main() {
 	e := echo.New()
 
 	// Load templates
+	tmpl := template.New("")
+	tmpl = template.Must(tmpl.ParseGlob("web/layouts/*.html"))
+	tmpl = template.Must(tmpl.ParseGlob("web/partials/*.html"))
+	tmpl = template.Must(tmpl.ParseGlob("web/views/*.html"))
 	t := &Template{
-		templates: template.Must(template.ParseGlob("web/views/*.html")),
+		templates: tmpl,
 	}
 	e.Renderer = t
 
@@ -38,6 +42,8 @@ func main() {
 	e.Use(middleware.Recover())
 
 	root.Router(e)
+
+	e.Static("/static", "./web/static")
 
 	if err := e.Start(":8080"); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("failed to start server", "error", err)

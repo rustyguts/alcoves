@@ -7,13 +7,13 @@ import (
 )
 
 func getRoot(c echo.Context) error {
-	user := c.Get("user")
+	// user := c.Get("user")
 	data := map[string]interface{}{
 		"title": "Alcoves",
-		"User":  user,
+		// "User":  user,
 		// "Assets": assets.GetUserAssets(c),
 	}
-	return c.Render(http.StatusOK, "index.html", data)
+	return c.Render(http.StatusOK, "main.html", data)
 }
 
 func getHealthcheck(c echo.Context) error {
