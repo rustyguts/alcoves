@@ -1,13 +1,14 @@
 package auth
 
 import (
+	"log"
 	"net/http"
 	"net/mail"
 
-	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/db"
 	"github.com/rustyguts/alcoves/internal/models"
+	"github.com/rustyguts/alcoves/internal/user"
 )
 
 func valid(email string) bool {
@@ -16,64 +17,79 @@ func valid(email string) bool {
 }
 
 func GetLogin(c echo.Context) error {
-	return c.Render(http.StatusOK, "login", map[string]interface{}{
+	// If the user is already logged in, redirect to home
+	session, err := GetSession(c)
+	if err == nil && session != nil {
+		return c.Redirect(http.StatusFound, "/")
+	}
+
+	return c.Render(http.StatusOK, "login", echo.Map{
 		"title": "Login",
 	})
 }
 
 func GetRegister(c echo.Context) error {
-	return c.Render(http.StatusOK, "register", map[string]interface{}{
+	// If the user is already logged in, redirect to home
+	session, err := GetSession(c)
+	if err == nil && session != nil {
+		return c.Redirect(http.StatusFound, "/")
+	}
+
+	return c.Render(http.StatusOK, "register", echo.Map{
 		"title": "Register",
 	})
 }
 
 func PostRegister(c echo.Context) error {
-	if db.DBConn == nil {
-		c.Logger().Error("Database connection is nil")
-		return c.String(http.StatusInternalServerError, "Database unavailable")
-	}
-
 	email := c.FormValue("email")
-	insecure_password := c.FormValue("password")
-	errors := make(map[string]string)
+	insecurePassword := c.FormValue("password")
+	formErrors := make(map[string]string)
 
 	if !valid(email) {
-		errors["Email"] = "Invalid email address"
+		formErrors["Email"] = "Invalid email address"
 	}
 
-	if len(insecure_password) < 8 {
-		errors["Password"] = "Password must be at least 8 characters"
+	if len(insecurePassword) < 8 {
+		formErrors["Password"] = "Password must be at least 8 characters"
 	}
 
-	if len(errors) > 0 {
-		return c.Render(http.StatusBadRequest, "register", map[string]interface{}{
+	if len(formErrors) > 0 {
+		return c.Render(http.StatusBadRequest, "register", echo.Map{
 			"title":  "Register",
-			"Errors": errors,
+			"Errors": formErrors,
 			"Email":  email,
 		})
 	}
 
-	var user models.User
-	db.DBConn.Find(&user, "email = ?", email)
-	if user.ID != 0 {
-		// If user already exists
-		return c.String(http.StatusInternalServerError, "Failed to create user")
-	}
-
-	hashedPassword, err := HashPassword(insecure_password)
+	existingUser, err := user.FindUserByEmail(email)
 	if err != nil {
-		c.Logger().Error("Failed to hash password", "error", err)
+		log.Println("Failed to check existing user", "error", err, "email", email)
+		return c.String(http.StatusInternalServerError, "Failed to check existing user")
+	}
+	if existingUser != nil {
+		log.Println("User already exists", "email", email)
+		return c.String(http.StatusInternalServerError, "User already exists")
+	}
+
+	hashedPassword, err := HashPassword(insecurePassword)
+	if err != nil {
+		log.Println("Failed to hash password", "error", err)
 		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 
-	user = models.User{Email: email, Password: hashedPassword}
-	if err := db.DBConn.Create(&user).Error; err != nil {
-		c.Logger().Error("Failed to create user in database", "error", err, "email", email)
+	user := models.User{
+		Email:    email,
+		Password: hashedPassword,
+	}
+
+	if err := db.Connection.Create(&user).Error; err != nil {
+		log.Println("Failed to create user in database", "error", err, "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 
-	if err := CreateUserSession(c, user); err != nil {
-		c.Logger().Error("Failed to create user session", "error", err, "user_id", user.ID)
+	_, err = CreateSession(c, user.ID)
+	if err != nil {
+		log.Println("Failed to create user session", "error", err, "user_id", user.ID)
 		return c.String(http.StatusInternalServerError, "Failed to create user session")
 	}
 
@@ -82,25 +98,31 @@ func PostRegister(c echo.Context) error {
 
 func PostLogin(c echo.Context) error {
 	email := c.FormValue("email")
-	insecure_password := c.FormValue("password")
+	insecurePassword := c.FormValue("password")
 
 	if !valid(email) {
 		return c.String(http.StatusInternalServerError, "Failed to login")
 	}
 
-	var user models.User
-	db.DBConn.First(&user, "email = ?", email)
-	if user.ID == 0 {
+	user, err := user.FindUserByEmail(email)
+	if err != nil {
+		log.Println("Failed to check existing user", "error", err, "email", email)
+		return c.String(http.StatusInternalServerError, "Failed to check existing user")
+	}
+	if user == nil {
+		log.Println("User not found", "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to login")
 	}
 
-	passwordVerified := VerifyPassword(insecure_password, user.Password)
+	passwordVerified := VerifyPassword(insecurePassword, user.Password)
 
 	if !passwordVerified {
 		return c.String(http.StatusInternalServerError, "Failed to login")
 	}
 
-	if err := CreateUserSession(c, user); err != nil {
+	_, err = CreateSession(c, user.ID)
+	if err != nil {
+		log.Println("Failed to create user session", "error", err, "user_id", user.ID)
 		return c.String(http.StatusInternalServerError, "Failed to create user session")
 	}
 
@@ -108,19 +130,10 @@ func PostLogin(c echo.Context) error {
 }
 
 func PostLogout(c echo.Context) error {
-	sess, err := session.Get("session", c)
+	err := InvalidateSession(c)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, "Failed to logout")
+		// Log the error but don't fail the logout - user might not have a session
+		log.Println("Failed to invalidate session", "error", err)
 	}
-
-	// Clear all session values
-	for key := range sess.Values {
-		delete(sess.Values, key)
-	}
-
-	if err := sess.Save(c.Request(), c.Response()); err != nil {
-		return c.String(http.StatusInternalServerError, "Failed to logout")
-	}
-
 	return c.Redirect(http.StatusFound, "/login")
 }

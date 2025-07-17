@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var DBConn *gorm.DB
+var Connection *gorm.DB
 
 func getDatabaseURL() string {
 	envURL := os.Getenv("ALCOVES_DATABASE_URL")
@@ -25,6 +25,7 @@ func migrate(db *gorm.DB) error {
 	modelsToMigrate := []interface{}{
 		&models.User{},
 		&models.Asset{},
+		&models.Session{},
 	}
 
 	for _, model := range modelsToMigrate {
@@ -37,9 +38,9 @@ func migrate(db *gorm.DB) error {
 }
 
 func Initialize() (*gorm.DB, error) {
-	if DBConn != nil {
+	if Connection != nil {
 		slog.Info("using existing database connection")
-		return DBConn, nil
+		return Connection, nil
 	}
 
 	databaseURL := getDatabaseURL()
@@ -52,9 +53,9 @@ func Initialize() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	DBConn = db
+	Connection = db
 
-	// Seed the database
+	// TODO :: Seed the database
 
-	return DBConn, nil
+	return Connection, nil
 }

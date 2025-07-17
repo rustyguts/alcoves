@@ -10,7 +10,7 @@ import (
 func GetRoot(c echo.Context) error {
 	user := c.Get("user")
 	userAssets := assets.GetUserAssets(c)
-	data := map[string]interface{}{
+	data := echo.Map{
 		"title":  "Alcoves",
 		"User":   user,
 		"Assets": userAssets,

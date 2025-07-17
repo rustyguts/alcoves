@@ -58,10 +58,10 @@ func GetAsset(c echo.Context) error {
 	var asset models.Asset
 	asset.PublicID = c.Param("asset_id")
 
-	db.DBConn.Where("public_id = ?", asset.PublicID).First(&asset)
+	db.Connection.Where("public_id = ?", asset.PublicID).First(&asset)
 
 	if asset.ID == 0 {
-		return c.JSON(http.StatusNotFound, map[string]interface{}{"error": "Asset not found"})
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "Asset not found"})
 	}
 
 	// Generate new proxy
@@ -145,7 +145,7 @@ func CreateAsset(c echo.Context, file *multipart.FileHeader) (*models.Asset, err
 	}
 
 	// This will trigger BeforeCreate hook to generate PublicID
-	if err := db.DBConn.Create(&asset).Error; err != nil {
+	if err := db.Connection.Create(&asset).Error; err != nil {
 		return nil, fmt.Errorf("failed to create asset record: %w", err)
 	}
 
@@ -250,7 +250,7 @@ func CreateAsset(c echo.Context, file *multipart.FileHeader) (*models.Asset, err
 
 	// Update asset record with metadata
 	asset.Filepath = originalPath
-	if err := db.DBConn.Save(&asset).Error; err != nil {
+	if err := db.Connection.Save(&asset).Error; err != nil {
 		return nil, fmt.Errorf("failed to update asset metadata: %w", err)
 	}
 
@@ -260,14 +260,14 @@ func CreateAsset(c echo.Context, file *multipart.FileHeader) (*models.Asset, err
 func UploadAssets(c echo.Context) error {
 	form, err := c.MultipartForm()
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error": "Failed to process form data",
 		})
 	}
 	files := form.File["files"]
 
 	if len(files) == 0 {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error": "No files uploaded",
 		})
 	}
@@ -275,7 +275,7 @@ func UploadAssets(c echo.Context) error {
 	for _, file := range files {
 		_, err := CreateAsset(c, file)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			return c.JSON(http.StatusInternalServerError, echo.Map{
 				"error": err.Error(),
 			})
 		}
@@ -296,7 +296,7 @@ func GetUserAssets(c echo.Context) []models.Asset {
 	}
 
 	var assets []models.Asset
-	result := db.DBConn.Where("user_id = ?", userID).Order("c_time DESC").Find(&assets)
+	result := db.Connection.Where("user_id = ?", userID).Order("c_time DESC").Find(&assets)
 	if result.Error != nil {
 		return nil
 	}
