@@ -1,24 +1,17 @@
 package main
 
 import (
-	"context"
 	"io"
+	"log"
 	"net/http"
-	"os"
-	"os/signal"
 	"text/template"
-	"time"
 
 	"github.com/davidbyttow/govips/v2/vips"
-	"github.com/gorilla/sessions"
-	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rustyguts/alcoves/internal/config"
 	"github.com/rustyguts/alcoves/internal/db"
-	"github.com/rustyguts/alcoves/internal/features/assets"
-	"github.com/rustyguts/alcoves/internal/features/auth"
-	"github.com/rustyguts/alcoves/internal/features/root"
+	"github.com/rustyguts/alcoves/internal/routers"
 )
 
 type TemplateRegistry struct {
@@ -43,72 +36,58 @@ func loadTemplateSet(baseFile string, pageFile string, partials string) *templat
 }
 
 func main() {
-	db.Initialize()
+	e := echo.New()
+	log.Println("starting Alcoves server...")
+
+	log.Println("initializing image processing library...")
 	vips.Startup(nil)
 	defer vips.Shutdown()
 
-	config.EnsureDirectories()
+	log.Println("initializing global config...")
+	cfg := config.InitializeConfig()
+	log.Println("configuration loaded:", cfg)
 
-	e := echo.New()
+	log.Println("initializing database...")
+	_, err := db.Initialize()
+	if err != nil {
+		panic("Failed to initialize database: " + err.Error())
+	}
 
-	// Load templates with nested structure using helper function
+	log.Println("initializing templates...")
 	templates := make(map[string]*template.Template)
-
-	// Home page template set
 	templates["home"] = loadTemplateSet(
 		"web/layouts/base.html",
 		"web/layouts/index.html",
 		"web/partials/*.html",
 	)
-
-	// Auth pages template set
 	templates["login"] = loadTemplateSet(
 		"web/layouts/base.html",
 		"web/views/login.html",
 		"",
 	)
-
 	templates["register"] = loadTemplateSet(
 		"web/layouts/base.html",
 		"web/views/register.html",
 		"",
 	)
 
+	log.Println("initializing template rendering...")
 	t := &TemplateRegistry{
 		templates: templates,
 	}
 	e.Renderer = t
 
-	// Middleware
+	log.Println("setting up middleware...")
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	// Session middleware
-	e.Use(session.Middleware(sessions.NewCookieStore([]byte("secret-key-change-in-production"))))
+	log.Println("setting up routers...")
+	routers.RootRouter(e)
+	routers.AuthRouter(e)
+	routers.AssetsRouter(e)
 
-	// Setup routers
-	root.Router(e)
-	auth.Router(e)
-	assets.Router(e)
+	log.Println("setting up static routers...")
 	e.Static("/", "./web/public")
 
-	// Graceful shutdown setup
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
-	// Start server in a goroutine
-	go func() {
-		if err := e.Start(":8080"); err != nil && err != http.ErrServerClosed {
-			e.Logger.Fatal("shutting down the server")
-		}
-	}()
-
-	// Wait for interrupt signal to gracefully shut down the server with a timeout of 10 seconds.
-	<-ctx.Done()
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := e.Shutdown(shutdownCtx); err != nil {
-		e.Logger.Fatal(err)
-	}
+	log.Fatal(e.Start(":8080"))
 }

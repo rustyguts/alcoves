@@ -28,6 +28,11 @@ func GetRegister(c echo.Context) error {
 }
 
 func PostRegister(c echo.Context) error {
+	if db.DBConn == nil {
+		c.Logger().Error("Database connection is nil")
+		return c.String(http.StatusInternalServerError, "Database unavailable")
+	}
+
 	email := c.FormValue("email")
 	insecure_password := c.FormValue("password")
 	errors := make(map[string]string)
@@ -57,15 +62,18 @@ func PostRegister(c echo.Context) error {
 
 	hashedPassword, err := HashPassword(insecure_password)
 	if err != nil {
+		c.Logger().Error("Failed to hash password", "error", err)
 		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 
 	user = models.User{Email: email, Password: hashedPassword}
 	if err := db.DBConn.Create(&user).Error; err != nil {
+		c.Logger().Error("Failed to create user in database", "error", err, "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 
 	if err := CreateUserSession(c, user); err != nil {
+		c.Logger().Error("Failed to create user session", "error", err, "user_id", user.ID)
 		return c.String(http.StatusInternalServerError, "Failed to create user session")
 	}
 

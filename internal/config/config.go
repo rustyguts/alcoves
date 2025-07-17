@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"path/filepath"
 )
 
 type Config struct {
@@ -17,6 +18,14 @@ type Config struct {
 	SamplingRatio           float64
 }
 
+const (
+	SessionCookieName = "session"
+)
+
+var DATA_STORAGE_PATH = filepath.Join(".", "data")
+var ASSETS_PATH = filepath.Join(DATA_STORAGE_PATH, "assets")
+var ASSETS_CACHE_PATH = filepath.Join(DATA_STORAGE_PATH, "cache")
+
 func getEnvOrDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
@@ -24,7 +33,7 @@ func getEnvOrDefault(key, defaultValue string) string {
 	return defaultValue
 }
 
-func Load() *Config {
+func InitializeConfig() *Config {
 	DatabaseURL := os.Getenv("DATABASE_URL")
 	if DatabaseURL == "" {
 		log.Println("DATABASE_URL environment variable is not set")
@@ -42,6 +51,20 @@ func Load() *Config {
 
 	GoogleAuthEnabled := GoogleOauthClientID != "" && GoogleOauthClientSecret != ""
 
+	dirs := []string{
+		ASSETS_PATH,
+		ASSETS_CACHE_PATH,
+	}
+
+	for _, dir := range dirs {
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			err := os.MkdirAll(dir, os.ModePerm)
+			if err != nil {
+				log.Fatalf("Failed to create directory %s: %v", dir, err)
+			}
+		}
+	}
+
 	return &Config{
 		DatabaseURL:             DatabaseURL,
 		GoogleAuthEnabled:       GoogleAuthEnabled,
@@ -54,9 +77,3 @@ func Load() *Config {
 		SamplingRatio:           1.0, // Always sample for now
 	}
 }
-
-const (
-	SessionCookieName = "session"
-)
-
-var GlobalConfig = Load()
