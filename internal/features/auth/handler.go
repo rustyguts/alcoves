@@ -51,7 +51,7 @@ func PostRegister(c echo.Context) error {
 	var user models.User
 	db.DBConn.First(&user, "email = ?", email)
 	if user.ID != 0 {
-		// If user already exists (unlike your original code which had a bug)
+		// If user already exists
 		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 

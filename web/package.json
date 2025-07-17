@@ -5,6 +5,6 @@
     "tailwindcss": "^4.1.5"
   },
   "scripts": {
-    "build": "bunx @tailwindcss/cli -i ./views/css/input.css -o ./static/main.css"
+    "build": "bunx @tailwindcss/cli -i ./css/input.css -o ./static/main.css"
   }
 }

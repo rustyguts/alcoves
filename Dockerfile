@@ -20,14 +20,14 @@ RUN go mod download
 
 COPY . .
 EXPOSE 8080
-CMD ["air"]
+CMD ["sh", "-c", "rm -rf /app/tmp/main && air"]
 
 FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
 
 FROM debian:bookworm-slim AS dist
 RUN apt-get update && apt-get install -y --no-install-recommends \
