@@ -22,12 +22,19 @@ COPY . .
 EXPOSE 8080
 CMD ["sh", "-c", "rm -rf /app/tmp/main && air"]
 
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24 AS builder
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  libvips-dev \
+  libheif-dev \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
+RUN CGO_ENABLED=1 GOOS=linux go build -a -o main ./cmd/server
 
 FROM debian:bookworm-slim AS dist
 RUN apt-get update && apt-get install -y --no-install-recommends \
