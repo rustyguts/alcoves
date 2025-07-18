@@ -29,6 +29,7 @@ const URLNamespace = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
 
 func GetAsset(c echo.Context) error {
 	// Get and sort query parameters for deterministic proxy ID
+	cacheEnabled := true
 	queryParams := c.Request().URL.Query()
 	keys := make([]string, 0, len(queryParams))
 	for k := range queryParams {
@@ -45,13 +46,14 @@ func GetAsset(c echo.Context) error {
 	}
 
 	// Generate deterministic UUID v5 using the URL namespace and sorted query params
-	proxyID := uuid.NewSHA1(uuid.MustParse(URLNamespace), []byte(nameBuilder.String())).String()
+	cacheID := uuid.NewSHA1(uuid.MustParse(URLNamespace), []byte(nameBuilder.String())).String()
 
 	// Check if proxy already exists in cache
-	proxyPath := filepath.Join(config.ASSETS_CACHE_PATH, proxyID+".jpg")
-	if _, err := os.Stat(proxyPath); err == nil {
-		// Proxy exists, serve it directly
-		return c.File(proxyPath)
+	cachePath := filepath.Join(config.ASSETS_CACHE_PATH, cacheID+".jpg")
+	if cacheEnabled {
+		if _, err := os.Stat(cachePath); err == nil {
+			return c.File(cachePath)
+		}
 	}
 
 	// Cache miss, fetch asset from database
@@ -72,15 +74,12 @@ func GetAsset(c echo.Context) error {
 	}
 
 	original_width := img.Width()
-	original_height := img.Height()
-
-	max_width := original_width
-	recommended_width := original_height
+	max_width := 2000
 
 	width_str := queryParams.Get("width")
 	width, _ := strconv.Atoi(width_str)
 	if width <= 0 {
-		width = recommended_width
+		width = original_width
 	}
 
 	if width > max_width {
@@ -119,7 +118,7 @@ func GetAsset(c echo.Context) error {
 	}
 
 	// Save the proxy image
-	err = os.WriteFile(proxyPath, imageBytes, 0644)
+	err = os.WriteFile(cachePath, imageBytes, 0644)
 	if err != nil {
 		return c.String(http.StatusBadRequest, "Failed to save image")
 	}

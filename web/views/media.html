@@ -2,13 +2,64 @@
 
 {{define "body"}}
 <div class="m-0 p-0 h-full w-full top-0 left-0 absolute">
-  <div style='background-color: black !important;' class="flex w-full h-full justify-center items-center">
-    <img src="/assets/{{.Asset.PublicID}}?width=2000" alt="{{.Asset.Filename}}"
+  <div class="bg-black flex w-full h-full justify-center items-center">
+    <!-- if you know the image is quite large (dimensions over 2000w?) you can add h-screen w-screen for fullsize -->
+    <img src="/assets/{{.Asset.PublicID}}" alt="{{.Asset.Filename}}"
       class="max-h-screen max-w-full object-contain mx-auto" />
-  </div>
-  <div class="absolute top-0 left-0 h-screen w-screen flex items-center justify-center">
-    <h1 class="text-2xl font-bold">{{.Asset.Filename}}</h1>
-    <p class="text-sm">{{.Asset.CTime.Format "Jan 02, 2006 15:04"}}</p>
+    <div class="absolute h-screen z-10 w-screen flex flex-col">
+      <div class="flex justify-between items-center h-20 bg-gradient-to-b from-[rgba(0,0,0,.65)] to-transparent to-80%">
+        <div class="p-4">
+          <div class="btn btn-ghost btn-circle" onclick="history.back()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+              stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h
+        <div>
+          <div>
+            <svg xmlns=" http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-between items-center w-full h-full pb-20">
+        <div
+          class="flex items-center justify-start h-full flex-1/4 opacity-0 hover:opacity-80 transition-opacity duration-100">
+          <div class="p-4">
+            <div class="btn btn-xl btn-soft btn-circle">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke-width="4"
+                class="size-8">
+                <path fill-rule="evenodd"
+                  d="M7.72 12.53a.75.75 0 0 1 0-1.06l7.5-7.5a.75.75 0 1 1 1.06 1.06L9.31 12l6.97 6.97a.75.75 0 1 1-1.06 1.06l-7.5-7.5Z"
+                  clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="flex h-full flex-1/2"></div>
+        <div
+          class="flex items-center justify-end h-full flex-1/4 opacity-0 hover:opacity-80 transition-opacity duration-100">
+          <div class="p-4">
+            <div class="btn btn-xl btn-soft btn-circle opacity-70">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke-width="4"
+                class="size-8">
+                <path fill-rule="evenodd"
+                  d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z"
+                  clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
+<script>
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      history.back();
+    }
+  });
+</script>
 {{end}}
