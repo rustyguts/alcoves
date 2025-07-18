@@ -60,6 +60,11 @@ func main() {
 		"web/layouts/index.html",
 		"web/partials/*.html",
 	)
+	templates["media"] = loadTemplateSet(
+		"web/layouts/base.html",
+		"web/views/media.html",
+		"",
+	)
 	templates["login"] = loadTemplateSet(
 		"web/layouts/base.html",
 		"web/views/login.html",

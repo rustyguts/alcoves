@@ -303,3 +303,12 @@ func GetUserAssets(c echo.Context) []models.Asset {
 
 	return assets
 }
+
+func GetAssetByPublicID(publicID string) *models.Asset {
+	var asset models.Asset
+	result := db.Connection.Where("public_id = ?", publicID).First(&asset)
+	if result.Error != nil {
+		return nil
+	}
+	return &asset
+}

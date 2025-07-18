@@ -17,7 +17,6 @@
         <div class="mr-4">
           {{template "upload-modal" .}}
           <button class="btn btn-ghost mr-2" onclick="upload_modal.showModal()">Upload</button>
-
           <div class="dropdown dropdown-end mr-4">
             <div tabindex="0" role="button" class="btn btn-ghost m-1">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
@@ -107,10 +106,10 @@
 
           .photo-info {
             position: absolute;
-            bottom: 0;
+            top: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
             padding: 1rem 0.75rem 0.75rem;
             color: white;
             opacity: 0;
@@ -144,13 +143,10 @@
 
         <div class="photo-gallery">
           {{range .Assets}}
-          <div class="photo-item">
+          <a href="/media/{{.PublicID}}" class="photo-item">
             <img src="/assets/{{.PublicID}}?width=500" alt="{{.Filename}}" loading="lazy" />
-            <div class="photo-info">
-              <div class="photo-title">{{.Filename}}</div>
-              <div class="photo-date">{{.CTime.Format "Jan 02, 2006 15:04"}}</div>
-            </div>
-          </div>
+            <div class="photo-info"></div>
+          </a>
           {{end}}
         </div>
       </div>
