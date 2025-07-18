@@ -75,15 +75,80 @@
     </div>
     <div class="flex flex-col h-[calc(100vh-64px)] px-4 pb-4">
       <div class="p-4 rounded-xl bg-base-200 overflow-y-auto flex-1 pr-2">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <style>
+          .photo-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .photo-item {
+            height: 240px;
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background-color: var(--b1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          }
+
+          .photo-item img {
+            height: 100%;
+            width: 100%;
+            object-fit: cover;
+            min-width: 100%;
+          }
+
+          .photo-item::after {
+            content: '';
+            display: block;
+            padding-bottom: 100%;
+          }
+
+          .photo-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+            padding: 1rem 0.75rem 0.75rem;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+          }
+
+          .photo-item:hover .photo-info {
+            opacity: 1;
+          }
+
+          .photo-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .photo-date {
+            font-size: 0.75rem;
+            opacity: 0.9;
+          }
+
+          /* Last row handling - prevents excessive stretching */
+          .photo-gallery::after {
+            content: '';
+            flex-grow: 999;
+          }
+        </style>
+
+        <div class="photo-gallery">
           {{range .Assets}}
-          <div class="card bg-base-100 shadow-xl">
-            <figure class="relative aspect-square">
-              <img src="/assets/{{.PublicID}}?width=400" alt="{{.Filename}}" class="object-cover w-full h-full" />
-            </figure>
-            <div class="card-body p-4">
-              <h2 class="card-title text-sm">{{.Filename}}</h2>
-              <p class="text-xs text-base-content/70">{{.CTime.Format "Jan 02, 2006 15:04"}}</p>
+          <div class="photo-item">
+            <img src="/assets/{{.PublicID}}?width=500" alt="{{.Filename}}" loading="lazy" />
+            <div class="photo-info">
+              <div class="photo-title">{{.Filename}}</div>
+              <div class="photo-date">{{.CTime.Format "Jan 02, 2006 15:04"}}</div>
             </div>
           </div>
           {{end}}
