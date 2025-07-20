@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"text/template"
 
 	"github.com/davidbyttow/govips/v2/vips"
@@ -28,7 +29,17 @@ func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c 
 
 // loadTemplateSet loads a set of template files for a specific page
 func loadTemplateSet(baseFile string, pageFile string, partials string) *template.Template {
-	tmpl := template.Must(template.ParseFiles(baseFile, pageFile))
+	// Create template with custom functions
+	funcMap := template.FuncMap{
+		"firstLetter": func(s string) string {
+			if len(s) > 0 {
+				return strings.ToUpper(string(s[0]))
+			}
+			return "U"
+		},
+	}
+	
+	tmpl := template.Must(template.New("").Funcs(funcMap).ParseFiles(baseFile, pageFile))
 	if partials != "" {
 		tmpl = template.Must(tmpl.ParseGlob(partials))
 	}

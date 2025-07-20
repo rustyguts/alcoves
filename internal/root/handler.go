@@ -2,10 +2,13 @@ package root
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/assets"
+	"github.com/rustyguts/alcoves/internal/auth"
+	"github.com/rustyguts/alcoves/internal/user"
 )
 
 func GetHealthcheck(c echo.Context) error {
@@ -13,12 +16,24 @@ func GetHealthcheck(c echo.Context) error {
 }
 
 func GetRoot(c echo.Context) error {
-	user := c.Get("user")
+	userID := auth.GetCurrentUserID(c)
 	userAssets := assets.GetUserAssets(c)
+
+	currentUser, err := user.FindUserByID(userID)
+	theme := "dark" // default theme
+	if err != nil {
+		log.Println("Failed to find user for root handler", "error", err, "user_id", userID)
+		// Fallback to just user ID if we can't fetch user details
+		currentUser = nil
+	} else if currentUser != nil {
+		theme = currentUser.Theme
+	}
+
 	data := echo.Map{
 		"title":  "Alcoves",
-		"User":   user,
+		"User":   currentUser,
 		"Assets": userAssets,
+		"Theme":  theme,
 	}
 	return c.Render(http.StatusOK, "home", data)
 }
@@ -29,11 +44,21 @@ func GetMedia(c echo.Context) error {
 
 	asset := assets.GetAssetByPublicID(assetId)
 
-	user := c.Get("user")
+	userID := auth.GetCurrentUserID(c)
+	currentUser, err := user.FindUserByID(userID)
+	theme := "dark" // default theme
+	if err != nil {
+		log.Println("Failed to find user for media handler", "error", err, "user_id", userID)
+		currentUser = nil
+	} else if currentUser != nil {
+		theme = currentUser.Theme
+	}
+
 	data := echo.Map{
 		"title": "Media - Alcoves",
-		"User":  user,
+		"User":  currentUser,
 		"Asset": asset,
+		"Theme": theme,
 	}
 	return c.Render(http.StatusOK, "media", data)
 }

@@ -16,58 +16,69 @@
       <div class="flex justify-end w-full">
         <div class="mr-4">
           {{template "upload-modal" .}}
-          <button class="btn btn-ghost mr-2" onclick="upload_modal.showModal()">Upload</button>
-          <div class="dropdown dropdown-end mr-4">
-            <div tabindex="0" role="button" class="btn btn-ghost m-1">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                class="inline-block h-5 w-5 stroke-current">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01">
-                </path>
-              </svg>
-              <span class="hidden md:inline">Theme</span>
-            </div>
-            <ul tabindex="0" class="dropdown-content z-[1] mt-2 w-52 p-2 shadow-lg bg-base-200 rounded-box">
-              <li>
-                <input type="radio" name="theme-dropdown"
-                  class="theme-controller btn btn-sm btn-ghost btn-block justify-start" aria-label="Light"
-                  value="light" />
-              </li>
-              <li>
-                <input type="radio" name="theme-dropdown"
-                  class="theme-controller btn btn-sm btn-ghost btn-block justify-start" aria-label="Dark"
-                  value="dark" />
-              </li>
-              <li>
-                <input type="radio" name="theme-dropdown"
-                  class="theme-controller btn btn-sm btn-ghost btn-block justify-start" aria-label="Cupcake"
-                  value="cupcake" />
-              </li>
-              <li>
-                <input type="radio" name="theme-dropdown"
-                  class="theme-controller btn btn-sm btn-ghost btn-block justify-start" aria-label="Sunset"
-                  value="sunset" />
-              </li>
-            </ul>
-          </div>
+          <button class="btn btn-primary mr-2" onclick="upload_modal.showModal()">Upload</button>
           <div class="dropdown dropdown-end">
             <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar avatar-placeholder">
               <div class="bg-neutral text-neutral-content w-12 rounded-full">
-                <span class="text-xl">{{.User}}</span>
+                <span class="text-xl">{{if .User}}{{firstLetter .User.Email}}{{else}}U{{end}}</span>
               </div>
             </div>
-            <ul tabindex="0" class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow">
-              <li>
-                <a class="justify-between">
-                  Account
-                </a>
-              </li>
-              <li>
-                <form action="/logout" method="post">
-                  <button type="submit">Log Out</button>
+            <div tabindex="0" class="dropdown-content z-[1] mt-3 w-80 p-4 shadow-xl bg-base-100 rounded-box">
+              <!-- Profile Section -->
+              <div class="mb-4">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="avatar avatar-placeholder">
+                    <div class="bg-neutral text-neutral-content w-12 rounded-full">
+                      <span class="text-xl">{{if .User}}{{firstLetter .User.Email}}{{else}}U{{end}}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 class="font-semibold">{{if .User}}{{.User.Email}}{{else}}User{{end}}</h3>
+                    <p class="text-sm text-base-content/70">{{if .User}}Member since {{.User.CreatedAt.Format "Jan 2006"}}{{else}}Welcome{{end}}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Theme Settings -->
+              <div class="mb-4">
+                <h4 class="font-medium mb-2 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-4 w-4 stroke-current">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                  </svg>
+                  Theme
+                </h4>
+                <form action="/update-theme" method="post">
+                  <div class="grid grid-cols-2 gap-2">
+                    <label class="label cursor-pointer justify-start gap-2 p-2 rounded hover:bg-base-200">
+                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Light" value="light" {{if eq .Theme "light"}}checked{{end}} onchange="this.form.submit()" />
+                      <span class="label-text text-sm">Light</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-2 p-2 rounded hover:bg-base-200">
+                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Dark" value="dark" {{if eq .Theme "dark"}}checked{{end}} onchange="this.form.submit()" />
+                      <span class="label-text text-sm">Dark</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-2 p-2 rounded hover:bg-base-200">
+                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Cupcake" value="cupcake" {{if eq .Theme "cupcake"}}checked{{end}} onchange="this.form.submit()" />
+                      <span class="label-text text-sm">Cupcake</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-2 p-2 rounded hover:bg-base-200">
+                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Sunset" value="sunset" {{if eq .Theme "sunset"}}checked{{end}} onchange="this.form.submit()" />
+                      <span class="label-text text-sm">Sunset</span>
+                    </label>
+                  </div>
                 </form>
-              </li>
-            </ul>
+              </div>
+              
+              <!-- Logout Button -->
+              <form action="/logout" method="post" class="w-full">
+                <button type="submit" class="btn btn-outline btn-error w-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-4 w-4 stroke-current">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                  </svg>
+                  Log Out
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </div>

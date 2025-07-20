@@ -2,7 +2,11 @@
 
 /* https://daisyui.com/docs/config/ */
 @plugin "daisyui" {
-  themes: light --default, dark --prefersdark;
+  themes: light --default, dark --prefersdark, cupcake;
+}
+
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark, cupcake, sunset;
 }
 
 /* cyrillic-ext */

@@ -28,4 +28,4 @@ go.work.sum
 data
 tmp
 main
-django
+server
