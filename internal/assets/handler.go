@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"archive/zip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -303,6 +304,26 @@ func GetUserAssets(c echo.Context) []models.Asset {
 	return assets
 }
 
+func GetUserDeletedAssets(c echo.Context) []models.Asset {
+	user := c.Get("user")
+	if user == nil {
+		return nil
+	}
+
+	userID, ok := user.(uint)
+	if !ok {
+		return nil
+	}
+
+	var assets []models.Asset
+	result := db.Connection.Unscoped().Where("user_id = ? AND deleted_at IS NOT NULL", userID).Order("c_time DESC").Find(&assets)
+	if result.Error != nil {
+		return nil
+	}
+
+	return assets
+}
+
 func GetAssetByPublicID(publicID string) *models.Asset {
 	var asset models.Asset
 	result := db.Connection.Where("public_id = ?", publicID).First(&asset)
@@ -310,4 +331,141 @@ func GetAssetByPublicID(publicID string) *models.Asset {
 		return nil
 	}
 	return &asset
+}
+
+type DeleteAssetsRequest struct {
+	AssetIds []string `json:"assetIds"`
+}
+
+func DeleteAssets(c echo.Context) error {
+	userID, ok := c.Get("user").(uint)
+	if !ok {
+		return c.String(http.StatusUnauthorized, "Unauthorized")
+	}
+
+	var req DeleteAssetsRequest
+	if err := c.Bind(&req); err != nil {
+		return c.String(http.StatusBadRequest, "Invalid request")
+	}
+
+	if len(req.AssetIds) == 0 {
+		return c.String(http.StatusBadRequest, "No assets specified")
+	}
+
+	// Mark assets as deleted (soft delete)
+	result := db.Connection.Where("public_id IN ? AND user_id = ?", req.AssetIds, userID).Delete(&models.Asset{})
+
+	if result.Error != nil {
+		return c.String(http.StatusInternalServerError, "Failed to delete assets")
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"message": fmt.Sprintf("Successfully deleted %d assets", result.RowsAffected),
+	})
+}
+
+func RestoreAssets(c echo.Context) error {
+	userID, ok := c.Get("user").(uint)
+	if !ok {
+		return c.String(http.StatusUnauthorized, "Unauthorized")
+	}
+
+	var req DeleteAssetsRequest
+	if err := c.Bind(&req); err != nil {
+		return c.String(http.StatusBadRequest, "Invalid request")
+	}
+
+	if len(req.AssetIds) == 0 {
+		return c.String(http.StatusBadRequest, "No assets specified")
+	}
+
+	// Restore soft deleted assets by setting deleted_at to NULL
+	result := db.Connection.Unscoped().Model(&models.Asset{}).
+		Where("public_id IN ? AND user_id = ? AND deleted_at IS NOT NULL", req.AssetIds, userID).
+		Update("deleted_at", nil)
+
+	if result.Error != nil {
+		return c.String(http.StatusInternalServerError, "Failed to restore assets")
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"message": fmt.Sprintf("Successfully restored %d assets", result.RowsAffected),
+	})
+}
+
+func DownloadAsset(c echo.Context) error {
+	publicID := c.Param("asset_id")
+	userID, ok := c.Get("user").(uint)
+	if !ok {
+		return c.String(http.StatusUnauthorized, "Unauthorized")
+	}
+
+	var asset models.Asset
+	result := db.Connection.Where("public_id = ? AND user_id = ?", publicID, userID).First(&asset)
+	if result.Error != nil {
+		return c.String(http.StatusNotFound, "Asset not found")
+	}
+
+	// Set download headers for original file
+	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", asset.Filename))
+	return c.File(asset.Filepath)
+}
+
+func DownloadAssets(c echo.Context) error {
+	userID, ok := c.Get("user").(uint)
+	if !ok {
+		return c.String(http.StatusUnauthorized, "Unauthorized")
+	}
+
+	idsParam := c.QueryParam("ids")
+	if idsParam == "" {
+		return c.String(http.StatusBadRequest, "No asset IDs provided")
+	}
+
+	assetIds := strings.Split(idsParam, ",")
+	if len(assetIds) == 0 {
+		return c.String(http.StatusBadRequest, "No asset IDs provided")
+	}
+
+	// Get assets
+	var assets []models.Asset
+	result := db.Connection.Where("public_id IN ? AND user_id = ?", assetIds, userID).Find(&assets)
+	if result.Error != nil {
+		return c.String(http.StatusInternalServerError, "Failed to fetch assets")
+	}
+
+	if len(assets) == 0 {
+		return c.String(http.StatusNotFound, "No assets found")
+	}
+
+	// Set headers for ZIP download
+	c.Response().Header().Set("Content-Type", "application/zip")
+	c.Response().Header().Set("Content-Disposition", "attachment; filename=\"assets.zip\"")
+
+	// Create ZIP writer
+	zipWriter := zip.NewWriter(c.Response().Writer)
+	defer zipWriter.Close()
+
+	for _, asset := range assets {
+		// Create a file in the ZIP
+		fileWriter, err := zipWriter.Create(asset.Filename)
+		if err != nil {
+			return err
+		}
+
+		// Open the asset file
+		file, err := os.Open(asset.Filepath)
+		if err != nil {
+			continue // Skip this file if we can't open it
+		}
+
+		// Copy file contents to ZIP
+		_, err = io.Copy(fileWriter, file)
+		file.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

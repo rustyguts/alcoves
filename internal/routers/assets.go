@@ -16,4 +16,8 @@ func AssetsRouter(e *echo.Echo) {
 
 	assetGroup.GET("/:asset_id", assets.GetAsset)
 	assetGroup.POST("/upload", assets.UploadAssets)
+	assetGroup.POST("/delete", assets.DeleteAssets)
+	assetGroup.POST("/restore", assets.RestoreAssets)
+	assetGroup.GET("/download/:asset_id", assets.DownloadAsset)
+	assetGroup.GET("/download", assets.DownloadAssets)
 }

@@ -62,3 +62,25 @@ func GetMedia(c echo.Context) error {
 	}
 	return c.Render(http.StatusOK, "media", data)
 }
+
+func GetTrash(c echo.Context) error {
+	userID := auth.GetCurrentUserID(c)
+	userAssets := assets.GetUserDeletedAssets(c)
+
+	currentUser, err := user.FindUserByID(userID)
+	theme := "dark" // default theme
+	if err != nil {
+		log.Println("Failed to find user for trash handler", "error", err, "user_id", userID)
+		currentUser = nil
+	} else if currentUser != nil {
+		theme = currentUser.Theme
+	}
+
+	data := echo.Map{
+		"title":  "Trash - Alcoves",
+		"User":   currentUser,
+		"Assets": userAssets,
+		"Theme":  theme,
+	}
+	return c.Render(http.StatusOK, "trash", data)
+}

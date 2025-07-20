@@ -100,6 +100,25 @@
             border-radius: 0.5rem;
             background-color: var(--b1);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            user-select: none;
+          }
+
+          .photo-item.selected {
+            box-shadow: 0 0 0 2px var(--p), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          }
+
+          .asset-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            transition: all 0.1s ease;
+          }
+
+          .asset-checkbox:checked {
+            background: var(--p);
+            border-color: var(--p);
           }
 
           .photo-item img {
@@ -152,12 +171,36 @@
           }
         </style>
 
+        <!-- Action Buttons -->
+        <div id="action-bar" class="mb-4 p-4 bg-base-200 rounded-lg hidden">
+          <div class="flex gap-2 items-center">
+            <span id="selected-count" class="text-sm font-medium">0 selected</span>
+            <div class="flex gap-2 ml-auto">
+              <button id="download-btn" class="btn btn-sm btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Download
+              </button>
+              <button id="delete-btn" class="btn btn-sm btn-error">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="photo-gallery">
           {{range .Assets}}
-          <a href="/media/{{.PublicID}}" class="photo-item">
-            <img src="/assets/{{.PublicID}}?width=500" alt="{{.Filename}}" loading="lazy" />
-            <div class="photo-info"></div>
-          </a>
+          <div class="photo-item" data-asset-id="{{.PublicID}}">
+            <input type="checkbox" class="asset-checkbox absolute top-2 left-2 z-10 checkbox checkbox-sm" />
+            <a href="/media/{{.PublicID}}" class="photo-link block w-full h-full">
+              <img src="/assets/{{.PublicID}}?width=500" alt="{{.Filename}}" loading="lazy" />
+              <div class="photo-info"></div>
+            </a>
+          </div>
           {{end}}
         </div>
       </div>
@@ -168,7 +211,135 @@
     <ul class="menu bg-base-300 text-base-content min-h-full min-w-[240px] p-4">
       <li><a href="/" class="text-2xl">Alcoves</a></li>
       <li class="text-lg"><a href="/" class="menu-item">Home</a></li>
+      <li class="text-lg"><a href="/trash" class="menu-item">Trash</a></li>
     </ul>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.asset-checkbox');
+    const actionBar = document.getElementById('action-bar');
+    const selectedCount = document.getElementById('selected-count');
+    const downloadBtn = document.getElementById('download-btn');
+    const deleteBtn = document.getElementById('delete-btn');
+    
+    let lastChecked = null;
+    
+    function updateUI() {
+        const selected = document.querySelectorAll('.asset-checkbox:checked');
+        const count = selected.length;
+        
+        selectedCount.textContent = count === 1 ? '1 selected' : `${count} selected`;
+        
+        if (count > 0) {
+            actionBar.classList.remove('hidden');
+        } else {
+            actionBar.classList.add('hidden');
+        }
+        
+        // Update visual selection
+        document.querySelectorAll('.photo-item').forEach(item => {
+            const checkbox = item.querySelector('.asset-checkbox');
+            if (checkbox.checked) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+    
+    checkboxes.forEach((checkbox, index) => {
+        checkbox.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            const isShiftClick = e.shiftKey && lastChecked !== null;
+            
+            if (isShiftClick) {
+                const start = Math.min(lastChecked, index);
+                const end = Math.max(lastChecked, index);
+                
+                // Set all checkboxes in range to the same state as this checkbox
+                for (let i = start; i <= end; i++) {
+                    checkboxes[i].checked = this.checked;
+                }
+            }
+            
+            lastChecked = index;
+            updateUI();
+        });
+    });
+    
+    // Handle clicking on photo item (excluding the link)
+    document.querySelectorAll('.photo-item').forEach((item, index) => {
+        item.addEventListener('click', function(e) {
+            if (e.target.closest('.photo-link') || e.target.closest('.asset-checkbox')) {
+                return;
+            }
+            
+            const checkbox = item.querySelector('.asset-checkbox');
+            const isShiftClick = e.shiftKey && lastChecked !== null;
+            
+            if (isShiftClick) {
+                const start = Math.min(lastChecked, index);
+                const end = Math.max(lastChecked, index);
+                
+                // Toggle the clicked checkbox first
+                checkbox.checked = !checkbox.checked;
+                
+                // Then set all checkboxes in range to the same state
+                for (let i = start; i <= end; i++) {
+                    checkboxes[i].checked = checkbox.checked;
+                }
+            } else {
+                checkbox.checked = !checkbox.checked;
+            }
+            
+            lastChecked = index;
+            updateUI();
+        });
+    });
+    
+    deleteBtn.addEventListener('click', function() {
+        const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
+            .map(cb => cb.closest('.photo-item').dataset.assetId);
+        
+        if (selected.length === 0) return;
+        
+        if (confirm(`Delete ${selected.length} asset(s)? They will be moved to trash.`)) {
+            fetch('/assets/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ assetIds: selected })
+            })
+            .then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to delete assets');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to delete assets');
+            });
+        }
+    });
+    
+    downloadBtn.addEventListener('click', function() {
+        const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
+            .map(cb => cb.closest('.photo-item').dataset.assetId);
+        
+        if (selected.length === 0) return;
+        
+        if (selected.length === 1) {
+            window.location.href = `/assets/download/${selected[0]}`;
+        } else {
+            window.location.href = `/assets/download?ids=${selected.join(',')}`;
+        }
+    });
+});
+</script>
 {{end}}

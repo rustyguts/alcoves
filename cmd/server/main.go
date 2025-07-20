@@ -86,6 +86,11 @@ func main() {
 		"web/views/register.html",
 		"",
 	)
+	templates["trash"] = loadTemplateSet(
+		"web/layouts/base.html",
+		"web/views/trash.html",
+		"",
+	)
 
 	log.Println("initializing template rendering...")
 	t := &TemplateRegistry{

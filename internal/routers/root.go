@@ -12,5 +12,6 @@ func RootRouter(e *echo.Echo) {
 
 	e.GET("/", root.GetRoot, auth.SessionAuthMiddleware())
 	e.GET("/media/:assetId", root.GetMedia, auth.SessionAuthMiddleware())
+	e.GET("/trash", root.GetTrash, auth.SessionAuthMiddleware())
 	e.POST("/update-theme", user.PostUpdateTheme, auth.SessionAuthMiddleware())
 }

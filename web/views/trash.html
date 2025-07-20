@@ -1,0 +1,285 @@
+{{define "title"}}Trash - Alcoves{{end}}
+
+{{define "body"}}
+<div class="drawer">
+  <input id="drawer-sidebar-toggle" type="checkbox" class="drawer-toggle" />
+  <div class="drawer-content flex flex-col">
+    <!-- Navbar -->
+    <div class="w-full navbar bg-base-300">
+      <div class="flex-none lg:hidden">
+        <label for="drawer-sidebar-toggle" aria-label="open sidebar" class="btn btn-square btn-ghost">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-6 w-6 stroke-current">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </label>
+      </div>
+      <div class="mx-2 flex-1 px-2">Trash</div>
+      <div class="hidden flex-none lg:block">
+        <ul class="menu menu-horizontal">
+          <li><a href="/">Home</a></li>
+          <li><a href="/trash">Trash</a></li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Page content here -->
+    <div class="flex-1 p-4">
+      <div class="bg-base-100 min-h-full rounded-lg shadow-lg p-4">
+        <style>
+          .photo-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .photo-item {
+            height: 240px;
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background-color: var(--b1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            user-select: none;
+            opacity: 0.7;
+          }
+
+          .photo-item.selected {
+            box-shadow: 0 0 0 2px var(--p), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            opacity: 1;
+          }
+
+          .asset-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            transition: all 0.1s ease;
+          }
+
+          .asset-checkbox:checked {
+            background: var(--p);
+            border-color: var(--p);
+          }
+
+          .photo-item img {
+            height: 100%;
+            width: 100%;
+            object-fit: cover;
+            min-width: 100%;
+          }
+
+          .photo-item::after {
+            content: '';
+            display: block;
+            padding-bottom: 100%;
+          }
+
+          .photo-info {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), transparent);
+            padding: 1rem 0.75rem 0.75rem;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+          }
+
+          .photo-item:hover .photo-info {
+            opacity: 1;
+          }
+
+          .photo-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .photo-date {
+            font-size: 0.75rem;
+            opacity: 0.9;
+          }
+
+          .photo-gallery::after {
+            content: '';
+            flex-grow: 999;
+          }
+        </style>
+
+        {{if .Assets}}
+          <!-- Action Buttons -->
+          <div id="action-bar" class="mb-4 p-4 bg-base-200 rounded-lg hidden">
+            <div class="flex gap-2 items-center">
+              <span id="selected-count" class="text-sm font-medium">0 selected</span>
+              <div class="flex gap-2 ml-auto">
+                <button id="restore-btn" class="btn btn-sm btn-success">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  Restore
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <p class="text-sm text-base-content/70">
+              Items in trash are permanently deleted after 30 days. You can restore them by moving them back to your library.
+            </p>
+          </div>
+
+          <div class="photo-gallery">
+            {{range .Assets}}
+            <div class="photo-item" data-asset-id="{{.PublicID}}">
+              <input type="checkbox" class="asset-checkbox absolute top-2 left-2 z-10 checkbox checkbox-sm" />
+              <img src="/assets/{{.PublicID}}?width=500" alt="{{.Filename}}" loading="lazy" />
+              <div class="photo-info">
+                <div class="photo-title">{{.Filename}}</div>
+                <div class="photo-date">Deleted</div>
+              </div>
+            </div>
+            {{end}}
+          </div>
+        {{else}}
+          <div class="flex flex-col items-center justify-center h-96">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-16 h-16 stroke-current text-base-content/50 mb-4">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+            <h2 class="text-xl font-semibold text-base-content/70 mb-2">Trash is empty</h2>
+            <p class="text-base-content/50">Deleted assets will appear here</p>
+          </div>
+        {{end}}
+      </div>
+    </div>
+  </div>
+  <div class="drawer-side">
+    <label for="drawer-sidebar-toggle" aria-label="close sidebar" class="drawer-overlay"></label>
+    <ul class="menu bg-base-300 text-base-content min-h-full min-w-[240px] p-4">
+      <li><a href="/" class="text-2xl">Alcoves</a></li>
+      <li class="text-lg"><a href="/" class="menu-item">Home</a></li>
+      <li class="text-lg"><a href="/trash" class="menu-item active">Trash</a></li>
+    </ul>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.asset-checkbox');
+    const actionBar = document.getElementById('action-bar');
+    const selectedCount = document.getElementById('selected-count');
+    const restoreBtn = document.getElementById('restore-btn');
+    
+    let lastChecked = null;
+    
+    function updateUI() {
+        const selected = document.querySelectorAll('.asset-checkbox:checked');
+        const count = selected.length;
+        
+        selectedCount.textContent = count === 1 ? '1 selected' : `${count} selected`;
+        
+        if (count > 0) {
+            actionBar.classList.remove('hidden');
+        } else {
+            actionBar.classList.add('hidden');
+        }
+        
+        // Update visual selection
+        document.querySelectorAll('.photo-item').forEach(item => {
+            const checkbox = item.querySelector('.asset-checkbox');
+            if (checkbox.checked) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+    
+    checkboxes.forEach((checkbox, index) => {
+        checkbox.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            const isShiftClick = e.shiftKey && lastChecked !== null;
+            
+            if (isShiftClick) {
+                const start = Math.min(lastChecked, index);
+                const end = Math.max(lastChecked, index);
+                
+                // Set all checkboxes in range to the same state as this checkbox
+                for (let i = start; i <= end; i++) {
+                    checkboxes[i].checked = this.checked;
+                }
+            }
+            
+            lastChecked = index;
+            updateUI();
+        });
+    });
+    
+    // Handle clicking on photo item (excluding the checkbox)
+    document.querySelectorAll('.photo-item').forEach((item, index) => {
+        item.addEventListener('click', function(e) {
+            if (e.target.closest('.asset-checkbox')) {
+                return;
+            }
+            
+            const checkbox = item.querySelector('.asset-checkbox');
+            const isShiftClick = e.shiftKey && lastChecked !== null;
+            
+            if (isShiftClick) {
+                const start = Math.min(lastChecked, index);
+                const end = Math.max(lastChecked, index);
+                
+                // Toggle the clicked checkbox first
+                checkbox.checked = !checkbox.checked;
+                
+                // Then set all checkboxes in range to the same state
+                for (let i = start; i <= end; i++) {
+                    checkboxes[i].checked = checkbox.checked;
+                }
+            } else {
+                checkbox.checked = !checkbox.checked;
+            }
+            
+            lastChecked = index;
+            updateUI();
+        });
+    });
+    
+    if (restoreBtn) {
+        restoreBtn.addEventListener('click', function() {
+            const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
+                .map(cb => cb.closest('.photo-item').dataset.assetId);
+            
+            if (selected.length === 0) return;
+            
+            if (confirm(`Restore ${selected.length} asset(s) from trash?`)) {
+                fetch('/assets/restore', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ assetIds: selected })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        alert('Failed to restore assets');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to restore assets');
+                });
+            }
+        });
+    }
+});
+</script>
+{{end}}
