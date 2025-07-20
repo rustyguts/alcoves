@@ -34,46 +34,58 @@
                   </div>
                   <div>
                     <h3 class="font-semibold">{{if .User}}{{.User.Email}}{{else}}User{{end}}</h3>
-                    <p class="text-sm text-base-content/70">{{if .User}}Member since {{.User.CreatedAt.Format "Jan 2006"}}{{else}}Welcome{{end}}</p>
+                    <p class="text-sm text-base-content/70">
+                      {{if .User}}Member since {{.User.CreatedAt.Format "Jan 2006"}}{{else}}Welcome{{end}}
+                    </p>
                   </div>
                 </div>
               </div>
-              
+
               <!-- Theme Settings -->
               <div class="mb-4">
                 <h4 class="font-medium mb-2 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-4 w-4 stroke-current">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    class="inline-block h-4 w-4 stroke-current">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01">
+                    </path>
                   </svg>
                   Theme
                 </h4>
                 <form action="/update-theme" method="post">
                   <div class="grid grid-cols-2 gap-2">
                     <label class="label cursor-pointer justify-start gap-2 p-2 rounded hover:bg-base-200">
-                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Light" value="light" {{if eq .Theme "light"}}checked{{end}} onchange="this.form.submit()" />
+                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Light"
+                        value="light" {{if eq .Theme "light" }}checked{{end}} onchange="this.form.submit()" />
                       <span class="label-text text-sm">Light</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-2 p-2 rounded hover:bg-base-200">
-                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Dark" value="dark" {{if eq .Theme "dark"}}checked{{end}} onchange="this.form.submit()" />
+                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Dark"
+                        value="dark" {{if eq .Theme "dark" }}checked{{end}} onchange="this.form.submit()" />
                       <span class="label-text text-sm">Dark</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-2 p-2 rounded hover:bg-base-200">
-                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Cupcake" value="cupcake" {{if eq .Theme "cupcake"}}checked{{end}} onchange="this.form.submit()" />
+                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Cupcake"
+                        value="cupcake" {{if eq .Theme "cupcake" }}checked{{end}} onchange="this.form.submit()" />
                       <span class="label-text text-sm">Cupcake</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-2 p-2 rounded hover:bg-base-200">
-                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Sunset" value="sunset" {{if eq .Theme "sunset"}}checked{{end}} onchange="this.form.submit()" />
+                      <input type="radio" name="theme" class="radio radio-sm theme-controller" aria-label="Sunset"
+                        value="sunset" {{if eq .Theme "sunset" }}checked{{end}} onchange="this.form.submit()" />
                       <span class="label-text text-sm">Sunset</span>
                     </label>
                   </div>
                 </form>
               </div>
-              
+
               <!-- Logout Button -->
               <form action="/logout" method="post" class="w-full">
                 <button type="submit" class="btn btn-outline btn-error w-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-4 w-4 stroke-current">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    class="inline-block h-4 w-4 stroke-current">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                    </path>
                   </svg>
                   Log Out
                 </button>
@@ -85,106 +97,25 @@
     </div>
     <div class="flex flex-col h-[calc(100vh-64px)] px-4 pb-4">
       <div class="p-4 rounded-xl bg-base-200 overflow-y-auto flex-1 pr-2">
-        <style>
-          .photo-gallery {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-          }
-
-          .photo-item {
-            height: 240px;
-            flex-grow: 1;
-            position: relative;
-            overflow: hidden;
-            border-radius: 0.5rem;
-            background-color: var(--b1);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            user-select: none;
-          }
-
-          .photo-item.selected {
-            box-shadow: 0 0 0 2px var(--p), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-          }
-
-          .asset-checkbox {
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255, 255, 255, 0.8);
-            background: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(4px);
-            transition: all 0.1s ease;
-          }
-
-          .asset-checkbox:checked {
-            background: var(--p);
-            border-color: var(--p);
-          }
-
-          .photo-item img {
-            height: 100%;
-            width: 100%;
-            object-fit: cover;
-            min-width: 100%;
-          }
-
-          .photo-item::after {
-            content: '';
-            display: block;
-            padding-bottom: 100%;
-          }
-
-          .photo-info {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), transparent);
-            padding: 1rem 0.75rem 0.75rem;
-            color: white;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-          }
-
-          .photo-item:hover .photo-info {
-            opacity: 1;
-          }
-
-          .photo-title {
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-
-          .photo-date {
-            font-size: 0.75rem;
-            opacity: 0.9;
-          }
-
-          /* Last row handling - prevents excessive stretching */
-          .photo-gallery::after {
-            content: '';
-            flex-grow: 999;
-          }
-        </style>
 
         <!-- Action Buttons -->
-        <div id="action-bar" class="mb-4 p-4 bg-base-200 rounded-lg hidden">
+        <div id="action-bar" class="mb-4 p-4 bg-base-200 rounded-lg h-16">
           <div class="flex gap-2 items-center">
-            <span id="selected-count" class="text-sm font-medium">0 selected</span>
+            <span id="selected-count" class="text-sm font-medium"></span>
             <div class="flex gap-2 ml-auto">
-              <button id="download-btn" class="btn btn-sm btn-primary">
+              <button id="download-btn" class="btn btn-sm btn-primary hidden">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                  </path>
                 </svg>
                 Download
               </button>
-              <button id="delete-btn" class="btn btn-sm btn-error">
+              <button id="delete-btn" class="btn btn-sm btn-error hidden">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                  </path>
                 </svg>
                 Delete
               </button>
@@ -192,13 +123,22 @@
           </div>
         </div>
 
-        <div class="photo-gallery">
+        <style>
+          .has-selection .asset-checkbox {
+            opacity: 1 !important;
+          }
+        </style>
+
+        <div class="flex flex-wrap gap-2 after:content-[''] after:flex-grow-[999]">
           {{range .Assets}}
-          <div class="photo-item" data-asset-id="{{.PublicID}}">
-            <input type="checkbox" class="asset-checkbox absolute top-2 left-2 z-10 checkbox checkbox-sm" />
+          <div
+            class="photo-item h-60 flex-grow relative overflow-hidden rounded-lg bg-base-100 shadow-lg select-none group has-[:checked]:ring-2 has-[:checked]:ring-primary"
+            data-asset-id="{{.PublicID}}">
+            <input type="checkbox"
+              class="asset-checkbox checkbox checkbox-md hover:border-primary absolute top-2 left-2 z-10 border-2 border-white/80 bg-black/30 backdrop-blur transition-all duration-100 checked:bg-primary checked:border-primary opacity-0 group-hover:opacity-100" />
             <a href="/media/{{.PublicID}}" class="photo-link block w-full h-full">
-              <img src="/assets/{{.PublicID}}?width=500" alt="{{.Filename}}" loading="lazy" />
-              <div class="photo-info"></div>
+              <img src="/assets/{{.PublicID}}?width=500" alt="{{.Filename}}" loading="lazy"
+                class="h-full w-full object-cover min-w-full" />
             </a>
           </div>
           {{end}}
@@ -217,129 +157,115 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function () {
     const checkboxes = document.querySelectorAll('.asset-checkbox');
     const actionBar = document.getElementById('action-bar');
     const selectedCount = document.getElementById('selected-count');
     const downloadBtn = document.getElementById('download-btn');
     const deleteBtn = document.getElementById('delete-btn');
-    
+
     let lastChecked = null;
-    
+
     function updateUI() {
-        const selected = document.querySelectorAll('.asset-checkbox:checked');
-        const count = selected.length;
-        
-        selectedCount.textContent = count === 1 ? '1 selected' : `${count} selected`;
-        
-        if (count > 0) {
-            actionBar.classList.remove('hidden');
-        } else {
-            actionBar.classList.add('hidden');
-        }
-        
-        // Update visual selection
-        document.querySelectorAll('.photo-item').forEach(item => {
-            const checkbox = item.querySelector('.asset-checkbox');
-            if (checkbox.checked) {
-                item.classList.add('selected');
-            } else {
-                item.classList.remove('selected');
-            }
-        });
+      const selected = document.querySelectorAll('.asset-checkbox:checked');
+      const count = selected.length;
+      const gallery = document.querySelector('.flex.flex-wrap');
+
+      // Update text and button visibility
+      if (count === 0) {
+        selectedCount.textContent = '';
+        downloadBtn.classList.add('hidden');
+        deleteBtn.classList.add('hidden');
+        gallery.classList.remove('has-selection');
+      } else {
+        selectedCount.textContent = count === 1 ? '1 asset selected' : `${count} assets selected`;
+        downloadBtn.classList.remove('hidden');
+        deleteBtn.classList.remove('hidden');
+        gallery.classList.add('has-selection');
+      }
     }
-    
+
     checkboxes.forEach((checkbox, index) => {
-        checkbox.addEventListener('click', function(e) {
-            e.stopPropagation();
-            
-            const isShiftClick = e.shiftKey && lastChecked !== null;
-            
-            if (isShiftClick) {
-                const start = Math.min(lastChecked, index);
-                const end = Math.max(lastChecked, index);
-                
-                // Set all checkboxes in range to the same state as this checkbox
-                for (let i = start; i <= end; i++) {
-                    checkboxes[i].checked = this.checked;
-                }
-            }
-            
-            lastChecked = index;
-            updateUI();
-        });
+      checkbox.addEventListener('click', function (e) {
+        e.stopPropagation();
+
+        const isShiftClick = e.shiftKey && lastChecked !== null;
+
+        if (isShiftClick) {
+          const start = Math.min(lastChecked, index);
+          const end = Math.max(lastChecked, index);
+
+          // Set all checkboxes in range to the same state as this checkbox
+          for (let i = start; i <= end; i++) {
+            checkboxes[i].checked = this.checked;
+          }
+        }
+
+        lastChecked = index;
+        updateUI();
+      });
     });
-    
-    // Handle clicking on photo item (excluding the link)
+
+    // Add click handlers to photo items for selection when items are already selected
     document.querySelectorAll('.photo-item').forEach((item, index) => {
-        item.addEventListener('click', function(e) {
-            if (e.target.closest('.photo-link') || e.target.closest('.asset-checkbox')) {
-                return;
-            }
-            
-            const checkbox = item.querySelector('.asset-checkbox');
-            const isShiftClick = e.shiftKey && lastChecked !== null;
-            
-            if (isShiftClick) {
-                const start = Math.min(lastChecked, index);
-                const end = Math.max(lastChecked, index);
-                
-                // Toggle the clicked checkbox first
-                checkbox.checked = !checkbox.checked;
-                
-                // Then set all checkboxes in range to the same state
-                for (let i = start; i <= end; i++) {
-                    checkboxes[i].checked = checkbox.checked;
-                }
+      item.addEventListener('click', function (e) {
+        const gallery = document.querySelector('.flex.flex-wrap');
+        const hasSelection = gallery.classList.contains('has-selection');
+
+        if (hasSelection) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Toggle the checkbox for this item
+          const checkbox = item.querySelector('.asset-checkbox');
+          checkbox.checked = !checkbox.checked;
+          lastChecked = index;
+          updateUI();
+        }
+      });
+    });
+
+    deleteBtn.addEventListener('click', function () {
+      const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
+        .map(cb => cb.closest('.photo-item').dataset.assetId);
+
+      if (selected.length === 0) return;
+
+      if (confirm(`Delete ${selected.length} asset(s)? They will be moved to trash.`)) {
+        fetch('/assets/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ assetIds: selected })
+        })
+          .then(response => {
+            if (response.ok) {
+              checkboxes.forEach(cb => cb.checked = false);
+              location.reload();
             } else {
-                checkbox.checked = !checkbox.checked;
+              alert('Failed to delete assets');
             }
-            
-            lastChecked = index;
-            updateUI();
-        });
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to delete assets');
+          });
+      }
     });
-    
-    deleteBtn.addEventListener('click', function() {
-        const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
-            .map(cb => cb.closest('.photo-item').dataset.assetId);
-        
-        if (selected.length === 0) return;
-        
-        if (confirm(`Delete ${selected.length} asset(s)? They will be moved to trash.`)) {
-            fetch('/assets/delete', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ assetIds: selected })
-            })
-            .then(response => {
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Failed to delete assets');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to delete assets');
-            });
-        }
+
+    downloadBtn.addEventListener('click', function () {
+      const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
+        .map(cb => cb.closest('.photo-item').dataset.assetId);
+
+      if (selected.length === 0) return;
+
+      if (selected.length === 1) {
+        window.location.href = `/assets/download/${selected[0]}`;
+      } else {
+        window.location.href = `/assets/download?ids=${selected.join(',')}`;
+      }
     });
-    
-    downloadBtn.addEventListener('click', function() {
-        const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
-            .map(cb => cb.closest('.photo-item').dataset.assetId);
-        
-        if (selected.length === 0) return;
-        
-        if (selected.length === 1) {
-            window.location.href = `/assets/download/${selected[0]}`;
-        } else {
-            window.location.href = `/assets/download?ids=${selected.join(',')}`;
-        }
-    });
-});
+  });
 </script>
 {{end}}

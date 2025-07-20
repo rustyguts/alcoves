@@ -25,100 +25,14 @@
     <!-- Page content here -->
     <div class="flex-1 p-4">
       <div class="bg-base-100 min-h-full rounded-lg shadow-lg p-4">
-        <style>
-          .photo-gallery {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-          }
-
-          .photo-item {
-            height: 240px;
-            flex-grow: 1;
-            position: relative;
-            overflow: hidden;
-            border-radius: 0.5rem;
-            background-color: var(--b1);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            user-select: none;
-            opacity: 0.7;
-          }
-
-          .photo-item.selected {
-            box-shadow: 0 0 0 2px var(--p), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            opacity: 1;
-          }
-
-          .asset-checkbox {
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255, 255, 255, 0.8);
-            background: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(4px);
-            transition: all 0.1s ease;
-          }
-
-          .asset-checkbox:checked {
-            background: var(--p);
-            border-color: var(--p);
-          }
-
-          .photo-item img {
-            height: 100%;
-            width: 100%;
-            object-fit: cover;
-            min-width: 100%;
-          }
-
-          .photo-item::after {
-            content: '';
-            display: block;
-            padding-bottom: 100%;
-          }
-
-          .photo-info {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), transparent);
-            padding: 1rem 0.75rem 0.75rem;
-            color: white;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-          }
-
-          .photo-item:hover .photo-info {
-            opacity: 1;
-          }
-
-          .photo-title {
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-
-          .photo-date {
-            font-size: 0.75rem;
-            opacity: 0.9;
-          }
-
-          .photo-gallery::after {
-            content: '';
-            flex-grow: 999;
-          }
-        </style>
 
         {{if .Assets}}
           <!-- Action Buttons -->
-          <div id="action-bar" class="mb-4 p-4 bg-base-200 rounded-lg hidden">
+          <div id="action-bar" class="mb-4 p-4 bg-base-200 rounded-lg">
             <div class="flex gap-2 items-center">
-              <span id="selected-count" class="text-sm font-medium">0 selected</span>
+              <span id="selected-count" class="text-sm font-medium">No assets selected</span>
               <div class="flex gap-2 ml-auto">
-                <button id="restore-btn" class="btn btn-sm btn-success">
+                <button id="restore-btn" class="btn btn-sm btn-success hidden">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                   </svg>
@@ -134,14 +48,20 @@
             </p>
           </div>
 
-          <div class="photo-gallery">
+          <style>
+            .has-selection .asset-checkbox {
+              opacity: 1 !important;
+            }
+          </style>
+          
+          <div class="flex flex-wrap gap-2 after:content-[''] after:flex-grow-[999]">
             {{range .Assets}}
-            <div class="photo-item" data-asset-id="{{.PublicID}}">
-              <input type="checkbox" class="asset-checkbox absolute top-2 left-2 z-10 checkbox checkbox-sm" />
-              <img src="/assets/{{.PublicID}}?width=500" alt="{{.Filename}}" loading="lazy" />
-              <div class="photo-info">
-                <div class="photo-title">{{.Filename}}</div>
-                <div class="photo-date">Deleted</div>
+            <div class="photo-item h-60 flex-grow relative overflow-hidden rounded-lg bg-base-100 shadow-lg select-none group opacity-70 has-[:checked]:ring-2 has-[:checked]:ring-primary has-[:checked]:opacity-100" data-asset-id="{{.PublicID}}">
+              <input type="checkbox" class="asset-checkbox checkbox checkbox-sm absolute top-2 left-2 z-10 border-2 border-white/80 bg-black/30 backdrop-blur transition-all duration-100 checked:bg-primary checked:border-primary opacity-0 group-hover:opacity-100" />
+              <img src="/assets/{{.PublicID}}?width=500" alt="{{.Filename}}" loading="lazy" class="h-full w-full object-cover min-w-full" />
+              <div class="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/40 to-transparent p-4 pb-3 text-white opacity-100 group-hover:opacity-100 transition-opacity duration-300">
+                <div class="text-sm font-semibold mb-1 truncate">{{.Filename}}</div>
+                <div class="text-xs opacity-90">Deleted</div>
               </div>
             </div>
             {{end}}
@@ -180,24 +100,18 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateUI() {
         const selected = document.querySelectorAll('.asset-checkbox:checked');
         const count = selected.length;
+        const gallery = document.querySelector('.flex.flex-wrap');
         
-        selectedCount.textContent = count === 1 ? '1 selected' : `${count} selected`;
-        
-        if (count > 0) {
-            actionBar.classList.remove('hidden');
+        // Update text and button visibility
+        if (count === 0) {
+            selectedCount.textContent = 'No assets selected';
+            restoreBtn.classList.add('hidden');
+            gallery.classList.remove('has-selection');
         } else {
-            actionBar.classList.add('hidden');
+            selectedCount.textContent = count === 1 ? '1 asset selected' : `${count} assets selected`;
+            restoreBtn.classList.remove('hidden');
+            gallery.classList.add('has-selection');
         }
-        
-        // Update visual selection
-        document.querySelectorAll('.photo-item').forEach(item => {
-            const checkbox = item.querySelector('.asset-checkbox');
-            if (checkbox.checked) {
-                item.classList.add('selected');
-            } else {
-                item.classList.remove('selected');
-            }
-        });
     }
     
     checkboxes.forEach((checkbox, index) => {
@@ -220,34 +134,23 @@ document.addEventListener('DOMContentLoaded', function() {
             updateUI();
         });
     });
-    
-    // Handle clicking on photo item (excluding the checkbox)
+
+    // Add click handlers to photo items for selection when items are already selected
     document.querySelectorAll('.photo-item').forEach((item, index) => {
         item.addEventListener('click', function(e) {
-            if (e.target.closest('.asset-checkbox')) {
-                return;
-            }
+            const gallery = document.querySelector('.flex.flex-wrap');
+            const hasSelection = gallery.classList.contains('has-selection');
             
-            const checkbox = item.querySelector('.asset-checkbox');
-            const isShiftClick = e.shiftKey && lastChecked !== null;
-            
-            if (isShiftClick) {
-                const start = Math.min(lastChecked, index);
-                const end = Math.max(lastChecked, index);
+            if (hasSelection) {
+                e.preventDefault();
+                e.stopPropagation();
                 
-                // Toggle the clicked checkbox first
+                // Toggle the checkbox for this item
+                const checkbox = item.querySelector('.asset-checkbox');
                 checkbox.checked = !checkbox.checked;
-                
-                // Then set all checkboxes in range to the same state
-                for (let i = start; i <= end; i++) {
-                    checkboxes[i].checked = checkbox.checked;
-                }
-            } else {
-                checkbox.checked = !checkbox.checked;
+                lastChecked = index;
+                updateUI();
             }
-            
-            lastChecked = index;
-            updateUI();
         });
     });
     
