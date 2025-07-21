@@ -5,7 +5,7 @@
   <input id="drawer-sidebar-toggle" type="checkbox" class="drawer-toggle" />
   <div class="bg-base-300 drawer-content flex flex-col">
     <div class="navbar bg-base-300 sticky top-0 z-30">
-      <div class="flex-none lg:hidden">
+      <div class="w-10 h-10 flex-none lg:hidden">
         <label for="drawer-sidebar-toggle" aria-label="open sidebar" class="btn btn-square btn-ghost">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
             class="inline-block h-6 w-6 stroke-current">
@@ -14,10 +14,31 @@
         </label>
       </div>
       <div class="flex justify-end w-full">
-        <div class="mr-4">
+        <div class="mr-4 flex items-center gap-2">
           {{template "upload-modal" .}}
-          <button class="btn btn-primary mr-2" onclick="upload_modal.showModal()">Upload</button>
-          <div class="dropdown dropdown-end">
+          <button id="upload-btn" class="w-10 h-10 btn btn-primary btn-ghost btn-circle"
+            onclick="upload_modal.showModal()" aria-label="Upload">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </button>
+          <button id="download-btn-nav" class="w-10 h-10 btn btn-ghost btn-primary btn-circle hidden"
+            aria-label="Download">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M12 9.75v6.75m0 0-3-3m3 3 3-3m-8.25 6a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
+            </svg>
+          </button>
+          <button id="delete-btn-nav" class="w-10 h-10 btn btn-ghost btn-error btn-circle hidden" aria-label="Delete">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+          </button>
+          <div id="profile-dropdown" class="dropdown dropdown-end">
             <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar avatar-placeholder">
               <div class="bg-neutral text-neutral-content w-12 rounded-full">
                 <span class="text-xl">{{if .User}}{{firstLetter .User.Email}}{{else}}U{{end}}</span>
@@ -98,30 +119,6 @@
     <div class="flex flex-col h-[calc(100vh-64px)] px-4 pb-4">
       <div class="p-4 rounded-xl bg-base-200 overflow-y-auto flex-1 pr-2">
 
-        <!-- Action Buttons -->
-        <div id="action-bar" class="mb-4 p-4 bg-base-200 rounded-lg h-16">
-          <div class="flex gap-2 items-center">
-            <span id="selected-count" class="text-sm font-medium"></span>
-            <div class="flex gap-2 ml-auto">
-              <button id="download-btn" class="btn btn-sm btn-primary hidden">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                  </path>
-                </svg>
-                Download
-              </button>
-              <button id="delete-btn" class="btn btn-sm btn-error hidden">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                  </path>
-                </svg>
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
 
         <style>
           .has-selection .asset-checkbox {
@@ -146,23 +143,46 @@
       </div>
     </div>
   </div>
-  <div class="drawer-side">
+  <div class="drawer-side z-10">
     <label for="drawer-sidebar-toggle" aria-label="close sidebar" class="drawer-overlay"></label>
-    <ul class="menu bg-base-300 text-base-content min-h-full min-w-[240px] p-4">
-      <li><a href="/" class="text-2xl">Alcoves</a></li>
-      <li class="text-lg"><a href="/" class="menu-item">Home</a></li>
-      <li class="text-lg"><a href="/trash" class="menu-item">Trash</a></li>
-    </ul>
+    <div class="bg-base-300 min-h-full min-w-[240px]">
+      <div class="flex justify-start items-center text-2xl h-16 p-2 pl-6">
+        <a href="/">Alcoves</a>
+      </div>
+
+      <ul class="menu menu-lg text-base-content gap-2 w-full p-2">
+        <li class="">
+          <a href="/" class="menu-item text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+            </svg>
+            Photos
+          </a>
+        </li>
+        <li class="text-lg">
+          <a href="/trash" class="menu-item text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+            Trash
+          </a>
+        </li>
+      </ul>
+    </div>
   </div>
 </div>
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const checkboxes = document.querySelectorAll('.asset-checkbox');
-    const actionBar = document.getElementById('action-bar');
-    const selectedCount = document.getElementById('selected-count');
-    const downloadBtn = document.getElementById('download-btn');
-    const deleteBtn = document.getElementById('delete-btn');
+    const downloadBtn = document.getElementById('download-btn-nav');
+    const deleteBtn = document.getElementById('delete-btn-nav');
+    const uploadBtn = document.getElementById('upload-btn');
+    const profileDropdown = document.getElementById('profile-dropdown');
 
     let lastChecked = null;
 
@@ -171,14 +191,18 @@
       const count = selected.length;
       const gallery = document.querySelector('.flex.flex-wrap');
 
-      // Update text and button visibility
+      // Update button visibility based on selection state
       if (count === 0) {
-        selectedCount.textContent = '';
+        // No selection: show upload and profile, hide delete and download
+        uploadBtn.classList.remove('hidden');
+        profileDropdown.classList.remove('hidden');
         downloadBtn.classList.add('hidden');
         deleteBtn.classList.add('hidden');
         gallery.classList.remove('has-selection');
       } else {
-        selectedCount.textContent = count === 1 ? '1 asset selected' : `${count} assets selected`;
+        // Items selected: show delete and download, hide upload and profile
+        uploadBtn.classList.add('hidden');
+        profileDropdown.classList.add('hidden');
         downloadBtn.classList.remove('hidden');
         deleteBtn.classList.remove('hidden');
         gallery.classList.add('has-selection');
