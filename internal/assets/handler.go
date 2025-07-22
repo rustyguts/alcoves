@@ -333,6 +333,34 @@ func GetAssetByPublicID(publicID string) *models.Asset {
 	return &asset
 }
 
+func GetPreviousAsset(userID uint, currentAsset *models.Asset) *models.Asset {
+	if currentAsset == nil {
+		return nil
+	}
+	
+	var asset models.Asset
+	result := db.Connection.Where("user_id = ? AND c_time > ?", userID, currentAsset.CTime).
+		Order("c_time ASC").First(&asset)
+	if result.Error != nil {
+		return nil
+	}
+	return &asset
+}
+
+func GetNextAsset(userID uint, currentAsset *models.Asset) *models.Asset {
+	if currentAsset == nil {
+		return nil
+	}
+	
+	var asset models.Asset
+	result := db.Connection.Where("user_id = ? AND c_time < ?", userID, currentAsset.CTime).
+		Order("c_time DESC").First(&asset)
+	if result.Error != nil {
+		return nil
+	}
+	return &asset
+}
+
 type DeleteAssetsRequest struct {
 	AssetIds []string `json:"assetIds"`
 }

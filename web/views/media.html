@@ -4,12 +4,12 @@
 <div class="m-0 p-0 h-full w-full top-0 left-0 absolute">
   <div class="bg-black flex w-full h-full justify-center items-center">
     <!-- if you know the image is quite large (dimensions over 2000w?) you can add h-screen w-screen for fullsize -->
-    <img src="/assets/{{.Asset.PublicID}}" alt="{{.Asset.Filename}}"
-      class="max-h-screen max-w-full object-contain mx-auto" />
+    <img src="/assets/{{.Asset.PublicID}}" alt="{{.Asset.Filename}}" loading="lazy"
+      class="max-h-screen max-w-full object-contain mx-auto transition-all duration-500 ease-in-out" />
     <div class="absolute h-screen z-10 w-screen flex flex-col">
       <div class="flex justify-between items-center h-20 bg-gradient-to-b from-[rgba(0,0,0,.65)] to-transparent to-80%">
         <div class="p-4">
-          <div class="btn btn-ghost btn-circle" onclick="history.back()">
+          <div class="btn btn-ghost btn-circle" onclick="goBackToOriginalPage()">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
               stroke="currentColor" class="size-6">
               <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
@@ -18,7 +18,8 @@
         </div>
       </div>
       <div class="flex justify-between items-center w-full h-full pb-20">
-        <div
+        {{if .PrevAsset}}
+        <a href="/media/{{.PrevAsset.PublicID}}"
           class="flex items-center justify-start h-full flex-1/4 opacity-0 hover:opacity-80 transition-opacity duration-100">
           <div class="p-4">
             <div class="btn btn-xl btn-soft btn-circle">
@@ -30,9 +31,24 @@
               </svg>
             </div>
           </div>
+        </a>
+        {{else}}
+        <div class="flex items-center justify-start h-full flex-1/4 opacity-30 pointer-events-none">
+          <div class="p-4">
+            <div class="btn btn-xl btn-soft btn-circle">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke-width="4"
+                class="size-8">
+                <path fill-rule="evenodd"
+                  d="M7.72 12.53a.75.75 0 0 1 0-1.06l7.5-7.5a.75.75 0 1 1 1.06 1.06L9.31 12l6.97 6.97a.75.75 0 1 1-1.06 1.06l-7.5-7.5Z"
+                  clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
         </div>
+        {{end}}
         <div class="flex h-full flex-1/2"></div>
-        <div
+        {{if .NextAsset}}
+        <a href="/media/{{.NextAsset.PublicID}}"
           class="flex items-center justify-end h-full flex-1/4 opacity-0 hover:opacity-80 transition-opacity duration-100">
           <div class="p-4">
             <div class="btn btn-xl btn-soft btn-circle opacity-70">
@@ -44,15 +60,58 @@
               </svg>
             </div>
           </div>
+        </a>
+        {{else}}
+        <div class="flex items-center justify-end h-full flex-1/4 opacity-30 pointer-events-none">
+          <div class="p-4">
+            <div class="btn btn-xl btn-soft btn-circle">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke-width="4"
+                class="size-8">
+                <path fill-rule="evenodd"
+                  d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z"
+                  clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
         </div>
+        {{end}}
       </div>
     </div>
   </div>
 </div>
 <script>
+  // Store the original referrer when first entering media viewer
+  let originalReferrer = sessionStorage.getItem('mediaViewerReferrer');
+  if (!originalReferrer) {
+    originalReferrer = document.referrer || '/';
+    sessionStorage.setItem('mediaViewerReferrer', originalReferrer);
+  }
+
+  function goBackToOriginalPage() {
+    // Clear the stored referrer since we're leaving the media viewer
+    sessionStorage.removeItem('mediaViewerReferrer');
+    // Navigate back to the original page
+    window.location.href = originalReferrer;
+  }
+
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
-      history.back();
+      goBackToOriginalPage();
+    } else if (e.key === 'ArrowLeft') {
+      {{if .PrevAsset}}
+      window.location.href = '/media/{{.PrevAsset.PublicID}}';
+      {{end}}
+    } else if (e.key === 'ArrowRight') {
+      {{if .NextAsset}}
+      window.location.href = '/media/{{.NextAsset.PublicID}}';
+      {{end}}
+    }
+  });
+
+  // Clear referrer when navigating away from media pages entirely
+  window.addEventListener('beforeunload', function () {
+    if (!window.location.pathname.startsWith('/media/')) {
+      sessionStorage.removeItem('mediaViewerReferrer');
     }
   });
 </script>

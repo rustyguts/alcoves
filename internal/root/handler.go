@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/assets"
 	"github.com/rustyguts/alcoves/internal/auth"
+	"github.com/rustyguts/alcoves/internal/models"
 	"github.com/rustyguts/alcoves/internal/user"
 )
 
@@ -43,6 +44,9 @@ func GetMedia(c echo.Context) error {
 	fmt.Println(assetId)
 
 	asset := assets.GetAssetByPublicID(assetId)
+	if asset == nil {
+		return c.String(http.StatusNotFound, "Asset not found")
+	}
 
 	userID := auth.GetCurrentUserID(c)
 	currentUser, err := user.FindUserByID(userID)
@@ -54,11 +58,20 @@ func GetMedia(c echo.Context) error {
 		theme = currentUser.Theme
 	}
 
+	// Get previous and next assets
+	var prevAsset, nextAsset *models.Asset
+	if currentUser != nil {
+		prevAsset = assets.GetPreviousAsset(userID, asset)
+		nextAsset = assets.GetNextAsset(userID, asset)
+	}
+
 	data := echo.Map{
-		"title": "Media - Alcoves",
-		"User":  currentUser,
-		"Asset": asset,
-		"Theme": theme,
+		"title":     "Media - Alcoves",
+		"User":      currentUser,
+		"Asset":     asset,
+		"PrevAsset": prevAsset,
+		"NextAsset": nextAsset,
+		"Theme":     theme,
 	}
 	return c.Render(http.StatusOK, "media", data)
 }
