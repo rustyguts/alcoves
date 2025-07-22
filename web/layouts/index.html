@@ -184,7 +184,32 @@
 </div>
 
 <script>
+  // Save scroll position when navigating to media
+  function saveScrollPosition() {
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    if (scrollContainer) {
+      sessionStorage.setItem('mediaGalleryScrollPosition', scrollContainer.scrollTop);
+    }
+  }
+
+  // Restore scroll position when returning from media
+  function restoreScrollPosition() {
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    const savedPosition = sessionStorage.getItem('mediaGalleryScrollPosition');
+    if (scrollContainer && savedPosition) {
+      scrollContainer.scrollTop = parseInt(savedPosition);
+      // Clear the saved position after restoring
+      sessionStorage.removeItem('mediaGalleryScrollPosition');
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
+    // Restore scroll position if returning from media viewer
+    if (document.referrer && document.referrer.includes('/media/')) {
+      requestAnimationFrame(() => {
+        restoreScrollPosition();
+      });
+    }
     const checkboxes = document.querySelectorAll('.asset-checkbox');
     const downloadBtn = document.getElementById('download-btn-nav');
     const deleteBtn = document.getElementById('delete-btn-nav');
@@ -304,6 +329,17 @@
     deselectBtn.addEventListener('click', function () {
       checkboxes.forEach(cb => cb.checked = false);
       updateUI();
+    });
+
+    // Add click event listeners to photo links to save scroll position
+    document.querySelectorAll('.photo-link').forEach(link => {
+      link.addEventListener('click', function(e) {
+        // Only save scroll position if not in selection mode
+        const gallery = document.querySelector('.flex.flex-wrap');
+        if (!gallery.classList.contains('has-selection')) {
+          saveScrollPosition();
+        }
+      });
     });
   });
 </script>
