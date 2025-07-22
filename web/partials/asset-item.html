@@ -1,6 +1,0 @@
-{{define "asset-item"}}
-<div id="asset-{{.ID}}" class="relative h-full cursor-pointer" onclick="window.location.href='/preview/{{.ID}}'">
-  <img class="rounded-sm w-full h-full object-cover shadow-sm" src="/api/assets/{{.ID}}?width=400"
-    alt="{{.Filename}}" />
-</div>
-{{end}}
