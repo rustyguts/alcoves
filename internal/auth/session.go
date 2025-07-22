@@ -101,8 +101,8 @@ func ValidateSession(c echo.Context, sessionID string) (bool, error) {
 	duration := time.Until(session.ExpiresAt)
 	log.Printf("Session valid: %s, expires in: %v\n", sessionID, duration)
 
-	// Refresh the user session if it is about to expire
-	if duration < 24*time.Hour {
+	// Refresh the user session if it is about to expire (within 2 hours)
+	if duration < 2*time.Hour {
 		log.Println("Refreshing session due to approaching expiration")
 		session.ExpiresAt = time.Now().Add(sessionDuration)
 		result = db.Connection.Save(&session)
@@ -152,9 +152,9 @@ func GetSession(c echo.Context) (*models.Session, error) {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "Session expired")
 	}
 
-	// Refresh session if it's about to expire (within 24 hours)
+	// Refresh session if it's about to expire (within 2 hours)
 	duration := time.Until(session.ExpiresAt)
-	if duration < 24*time.Hour {
+	if duration < 2*time.Hour {
 		log.Println("Refreshing session due to approaching expiration")
 		session.ExpiresAt = time.Now().Add(sessionDuration)
 		result = db.Connection.Save(&session)
