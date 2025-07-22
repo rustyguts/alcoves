@@ -23,6 +23,13 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
           </button>
+          <button id="deselect-btn-nav" class="w-10 h-10 btn btn-ghost btn-primary btn-circle hidden"
+            aria-label="Deselect All">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
           <button id="download-btn-nav" class="w-10 h-10 btn btn-ghost btn-primary btn-circle hidden"
             aria-label="Download">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
@@ -181,6 +188,7 @@
     const checkboxes = document.querySelectorAll('.asset-checkbox');
     const downloadBtn = document.getElementById('download-btn-nav');
     const deleteBtn = document.getElementById('delete-btn-nav');
+    const deselectBtn = document.getElementById('deselect-btn-nav');
     const uploadBtn = document.getElementById('upload-btn');
     const profileDropdown = document.getElementById('profile-dropdown');
 
@@ -193,18 +201,20 @@
 
       // Update button visibility based on selection state
       if (count === 0) {
-        // No selection: show upload and profile, hide delete and download
+        // No selection: show upload and profile, hide delete, download, and deselect
         uploadBtn.classList.remove('hidden');
         profileDropdown.classList.remove('hidden');
         downloadBtn.classList.add('hidden');
         deleteBtn.classList.add('hidden');
+        deselectBtn.classList.add('hidden');
         gallery.classList.remove('has-selection');
       } else {
-        // Items selected: show delete and download, hide upload and profile
+        // Items selected: show delete, download, and deselect, hide upload and profile
         uploadBtn.classList.add('hidden');
         profileDropdown.classList.add('hidden');
         downloadBtn.classList.remove('hidden');
         deleteBtn.classList.remove('hidden');
+        deselectBtn.classList.remove('hidden');
         gallery.classList.add('has-selection');
       }
     }
@@ -289,6 +299,11 @@
       } else {
         window.location.href = `/assets/download?ids=${selected.join(',')}`;
       }
+    });
+
+    deselectBtn.addEventListener('click', function () {
+      checkboxes.forEach(cb => cb.checked = false);
+      updateUI();
     });
   });
 </script>
