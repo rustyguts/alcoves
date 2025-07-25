@@ -6,6 +6,7 @@ import (
 	"net/mail"
 
 	"github.com/labstack/echo/v4"
+	"github.com/rustyguts/alcoves/internal/components"
 	"github.com/rustyguts/alcoves/internal/db"
 	"github.com/rustyguts/alcoves/internal/models"
 	"github.com/rustyguts/alcoves/internal/user"
@@ -23,9 +24,11 @@ func GetLogin(c echo.Context) error {
 		return c.Redirect(http.StatusFound, "/")
 	}
 
-	return c.Render(http.StatusOK, "login", echo.Map{
-		"title": "Login",
+	component := components.Login(components.LoginData{
+		Title: "Login",
+		Theme: "dark", // Default theme
 	})
+	return component.Render(c.Request().Context(), c.Response().Writer)
 }
 
 func GetRegister(c echo.Context) error {
@@ -35,9 +38,13 @@ func GetRegister(c echo.Context) error {
 		return c.Redirect(http.StatusFound, "/")
 	}
 
-	return c.Render(http.StatusOK, "register", echo.Map{
-		"title": "Register",
+	component := components.Register(components.RegisterData{
+		Title:  "Register",
+		Theme:  "dark", // Default theme
+		Email:  "",
+		Errors: nil,
 	})
+	return component.Render(c.Request().Context(), c.Response().Writer)
 }
 
 func PostRegister(c echo.Context) error {
@@ -54,11 +61,14 @@ func PostRegister(c echo.Context) error {
 	}
 
 	if len(formErrors) > 0 {
-		return c.Render(http.StatusBadRequest, "register", echo.Map{
-			"title":  "Register",
-			"Errors": formErrors,
-			"Email":  email,
+		c.Response().WriteHeader(http.StatusBadRequest)
+		component := components.Register(components.RegisterData{
+			Title:  "Register",
+			Theme:  "dark", // Default theme
+			Email:  email,
+			Errors: formErrors,
 		})
+		return component.Render(c.Request().Context(), c.Response().Writer)
 	}
 
 	existingUser, err := user.FindUserByEmail(email)

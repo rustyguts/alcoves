@@ -27,5 +27,15 @@
 	"[html]": {
 		"editor.formatOnSave": true,
 		"editor.defaultFormatter": "vscode.html-language-features"
+	},
+	"[templ]": {
+		"editor.formatOnSave": true,
+		"editor.defaultFormatter": "a-h.templ"
+	},
+  "tailwindCSS.includeLanguages": {
+    "templ": "html"
+  },
+	"search.exclude": {
+		"*_templ.go": true
 	}
 }

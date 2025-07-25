@@ -4,79 +4,117 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Alcoves is a media server application built with Go and HTML templates. It allows users to upload, store, and manage media assets (images) with user authentication and session management.
+Alcoves is a Go-based media server application for managing and serving image/asset files. It features user authentication, asset management with upload/download capabilities, and a web interface built with Templ components and TailwindCSS.
 
-## Development Commands
+## Common Development Commands
 
-### Go Development
-- `go run ./cmd/server` - Run the development server
-- `go test ./...` - Run all tests
-- `go mod download` - Download dependencies
-- `go build -o main ./cmd/server` - Build production binary
+### Starting the Development Server
+```bash
+# Using Air for hot reloading (recommended for development)
+air
 
-### Frontend Development
-- `cd web && bun install` - Install frontend dependencies
-- `cd web && bun run build` - Build CSS with TailwindCSS
-- `bunx @tailwindcss/cli -i ./css/input.css -o ./public/static/main.css` - Build CSS manually
+# Or build and run manually
+go build -buildvcs=false -o ./tmp/main ./cmd/server
+./tmp/main
+```
 
-### Docker Development
-- `docker-compose up` - Start development environment with PostgreSQL
-- `docker build --target development .` - Build development image
-- `docker build --target dist .` - Build production image
+### Building Frontend Assets
+```bash
+# Install dependencies and build CSS
+bun install
+bun run build
 
-### Database
-The application uses GORM with PostgreSQL (production) or SQLite (development). Database is automatically migrated on startup.
+# Or manually
+bunx @tailwindcss/cli -i static/input.css -o static/main.css
+```
 
-## Architecture
+### Code Generation
+```bash
+# Generate Templ templates (required after modifying .templ files)
+templ generate
+
+# Or use the go generate directive
+go generate ./cmd/server/main.go
+```
+
+### Running Tests
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with verbose output
+go test -v ./...
+
+# Run specific package tests
+go test ./internal/auth
+```
+
+### Database Operations
+```bash
+# Database migrations are handled automatically on startup
+# Set ALCOVES_DATABASE_URL environment variable to your PostgreSQL connection string
+export ALCOVES_DATABASE_URL="postgres://user:password@localhost/dbname?sslmode=disable"
+```
+
+## Architecture Overview
 
 ### Core Structure
-- `cmd/server/main.go` - Application entry point with Echo server setup
-- `internal/` - Core application logic organized by domain
-- `web/` - Frontend templates, CSS, and static assets
-- `data/assets/` - Uploaded media files storage
+- **cmd/server/main.go**: Application entry point, sets up Echo server, middleware, and routes
+- **internal/**: Core application logic organized by domain
+- **static/**: Static web assets (CSS, JS, images)
+- **data/**: Runtime data storage (images, cache)
 
 ### Key Components
 
-**Models** (`internal/models/`)
-- `User` - User accounts with email/password authentication
-- `Asset` - Media files with metadata (dimensions, file info, user association)
-- `Session` - User session management
+#### Database Layer (`internal/db/`)
+- Uses GORM with PostgreSQL driver
+- Auto-migration on startup for User, Asset, and Session models
+- Connection singleton pattern with global `Connection` variable
 
-**Handlers** (`internal/*/handler.go`)
-- `auth` - User registration, login, logout, session middleware
-- `assets` - Media upload, retrieval, and management
-- `root` - Homepage and main navigation
+#### Authentication (`internal/auth/`)
+- Session-based authentication with middleware
+- User registration/login handlers
+- Session management with configurable expiration
 
-**Database** (`internal/db/`)
-- Uses GORM ORM with automatic migrations
-- Supports PostgreSQL (production) and SQLite (development)
-- Configuration via `ALCOVES_DATABASE_URL` environment variable
+#### Asset Management (`internal/assets/`)
+- File upload/download with VIPS image processing
+- Asset storage in configurable data directory
+- Support for multiple image formats with metadata extraction
 
-**Configuration** (`internal/config/`)
-- Environment-based configuration system
-- Database URL, server settings, file paths
+#### Web Components (`internal/components/`)
+- Templ-based HTML components
+- Layout, login, media gallery, and modal templates
+- Auto-generated `*_templ.go` files (don't edit these directly)
 
-### Frontend Architecture
-- Server-side rendered HTML templates using Go's html/template
-- TailwindCSS with DaisyUI for styling
-- HTMX for dynamic interactions
-- Template structure: `layouts/base.html` + page-specific templates + partials
+#### Routing (`internal/routers/`)
+- Modular route organization: root, auth, assets
+- Protected routes use `auth.SessionAuthMiddleware()`
 
-### Media Processing
-- Uses libvips (via govips) for image processing and optimization
-- Automatic thumbnail generation and format conversion
-- Metadata extraction (dimensions, file size, type)
-- UUID-based public IDs for assets
+### Environment Configuration
+Set these environment variables:
+- `ALCOVES_DATABASE_URL`: PostgreSQL connection string (required)
+- `GOOGLE_OAUTH_CLIENT_ID`: For Google OAuth (optional)
+- `GOOGLE_OAUTH_CLIENT_SECRET`: For Google OAuth (optional)
+- `OTEL_*`: OpenTelemetry configuration (optional)
 
-## Testing
+### File Organization
+- Templates: `internal/components/*.templ` -> auto-generates `*_templ.go`
+- Handlers: `internal/{domain}/handler.go`
+- Models: `internal/models/{entity}.go`
+- Tests: `*_test.go` files alongside source
 
-Run tests with `go test ./...`. Tests use mocks for database and Echo context.
+### Docker Development
+```bash
+# Development with hot reload
+docker compose up --build
 
-## Deployment
+# Production build
+docker build --target dist -t alcoves .
+```
 
-The application can be deployed using:
-1. Docker with the provided Dockerfile (multi-stage build)
-2. Binary compilation with `go build`
-3. Docker Compose for development with PostgreSQL
-
-Static files are served from `web/public/` and uploaded assets from `data/assets/`.
+### Important Notes
+- Templ templates must be regenerated after modifications: `templ generate`
+- CSS changes require rebuilding with `bun run build`
+- Database URL environment variable is required for startup
+- Image processing uses libvips - ensure it's installed in development environment
+- Air configuration in `.air.toml` excludes `*_templ.go` files from watching

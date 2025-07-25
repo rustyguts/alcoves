@@ -9,7 +9,6 @@ import (
 
 func RootRouter(e *echo.Echo) {
 	e.GET("/health", root.GetHealthcheck)
-
 	e.GET("/", root.GetRoot, auth.SessionAuthMiddleware())
 	e.GET("/media/:assetId", root.GetMedia, auth.SessionAuthMiddleware())
 	e.GET("/trash", root.GetTrash, auth.SessionAuthMiddleware())

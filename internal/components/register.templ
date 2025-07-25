@@ -1,0 +1,49 @@
+package components
+
+type RegisterData struct {
+	Title  string
+	Theme  string
+	Email  string
+	Errors map[string]string
+}
+
+templ Register(data RegisterData) {
+	@Root(data.Title, data.Theme) {
+		<div class="flex flex-col h-screen w-screen bg-base-300">
+			<div class="bg-base-100 max-w-md w-90 mx-auto mt-10 p-6 rounded-lg shadow-md">
+				<h2 class="text-2xl font-bold mb-4">Register</h2>
+				<form method="post">
+					<div class="mb-4">
+						<label for="email" class="block text-sm font-medium mb-1">Email</label>
+						<input
+							type="text"
+							name="email"
+							id="email"
+							class="input input-bordered w-full"
+							value={ data.Email }
+							required
+						/>
+						if data.Errors != nil && data.Errors["Email"] != "" {
+							<p class="text-error text-xs mt-1">{ data.Errors["Email"] }</p>
+						}
+					</div>
+					<div class="mb-4">
+						<label for="password" class="block text-sm font-medium mb-1">Password</label>
+						<input
+							type="password"
+							name="password"
+							id="password"
+							class={ "input input-bordered w-full", templ.KV("input-error", data.Errors != nil && data.Errors["Password"] != "") }
+							required
+						/>
+						if data.Errors != nil && data.Errors["Password"] != "" {
+							<p class="text-error text-xs mt-1">{ data.Errors["Password"] }</p>
+						}
+					</div>
+					<button type="submit" class="btn btn-primary w-full">Register</button>
+				</form>
+				<p class="mt-4">Already have an account? <a href="/login" class="link">Login</a></p>
+			</div>
+		</div>
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/assets"
 	"github.com/rustyguts/alcoves/internal/auth"
+	"github.com/rustyguts/alcoves/internal/components"
 	"github.com/rustyguts/alcoves/internal/models"
 	"github.com/rustyguts/alcoves/internal/user"
 )
@@ -22,21 +23,37 @@ func GetRoot(c echo.Context) error {
 
 	currentUser, err := user.FindUserByID(userID)
 	theme := "dark" // default theme
+	var userEmail string
 	if err != nil {
 		log.Println("Failed to find user for root handler", "error", err, "user_id", userID)
-		// Fallback to just user ID if we can't fetch user details
 		currentUser = nil
+		userEmail = ""
 	} else if currentUser != nil {
 		theme = currentUser.Theme
+		userEmail = currentUser.Email
 	}
 
-	data := echo.Map{
-		"title":  "Alcoves",
-		"User":   currentUser,
-		"Assets": userAssets,
-		"Theme":  theme,
+	// Convert assets to the format expected by the Layout component
+	var layoutAssets []components.Asset
+	for _, asset := range userAssets {
+		layoutAssets = append(layoutAssets, components.Asset{
+			PublicID: asset.PublicID,
+			Filename: asset.Filename,
+		})
 	}
-	return c.Render(http.StatusOK, "home", data)
+
+	data := components.LayoutData{
+		Title:     "Alcoves",
+		UserEmail: userEmail,
+		Theme:     theme,
+		Assets:    layoutAssets,
+	}
+	if currentUser != nil {
+		data.CreatedAt = currentUser.CreatedAt
+	}
+
+	component := components.Layout(data)
+	return component.Render(c.Request().Context(), c.Response().Writer)
 }
 
 func GetMedia(c echo.Context) error {
@@ -50,12 +67,9 @@ func GetMedia(c echo.Context) error {
 
 	userID := auth.GetCurrentUserID(c)
 	currentUser, err := user.FindUserByID(userID)
-	theme := "dark" // default theme
 	if err != nil {
 		log.Println("Failed to find user for media handler", "error", err, "user_id", userID)
 		currentUser = nil
-	} else if currentUser != nil {
-		theme = currentUser.Theme
 	}
 
 	// Get previous and next assets
@@ -65,35 +79,25 @@ func GetMedia(c echo.Context) error {
 		nextAsset = assets.GetNextAsset(userID, asset)
 	}
 
-	data := echo.Map{
-		"title":     "Media - Alcoves",
-		"User":      currentUser,
-		"Asset":     asset,
-		"PrevAsset": prevAsset,
-		"NextAsset": nextAsset,
-		"Theme":     theme,
+	data := components.MediaViewData{
+		Title:     "Media - Alcoves",
+		Theme:     currentUser.Theme,
+		Asset:     asset,
+		PrevAsset: prevAsset,
+		NextAsset: nextAsset,
 	}
-	return c.Render(http.StatusOK, "media", data)
+
+	component := components.Media(data)
+	return component.Render(c.Request().Context(), c.Response().Writer)
 }
 
 func GetTrash(c echo.Context) error {
-	userID := auth.GetCurrentUserID(c)
 	userAssets := assets.GetUserDeletedAssets(c)
 
-	currentUser, err := user.FindUserByID(userID)
-	theme := "dark" // default theme
-	if err != nil {
-		log.Println("Failed to find user for trash handler", "error", err, "user_id", userID)
-		currentUser = nil
-	} else if currentUser != nil {
-		theme = currentUser.Theme
+	data := components.TrashViewData{
+		Assets: userAssets,
 	}
 
-	data := echo.Map{
-		"title":  "Trash - Alcoves",
-		"User":   currentUser,
-		"Assets": userAssets,
-		"Theme":  theme,
-	}
-	return c.Render(http.StatusOK, "trash", data)
+	component := components.Trash(data)
+	return component.Render(c.Request().Context(), c.Response().Writer)
 }

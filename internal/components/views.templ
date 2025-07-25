@@ -1,0 +1,12 @@
+package components
+
+type HomeData struct {
+	Title string
+	Theme string
+}
+
+templ Home(data HomeData) {
+	@Root(data.Title, data.Theme) {
+		<h1>Welcome home View page!!!</h1>
+	}
+}

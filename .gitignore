@@ -29,3 +29,6 @@ data
 tmp
 main
 server
+
+# Node modules
+node_modules

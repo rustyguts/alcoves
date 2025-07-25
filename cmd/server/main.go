@@ -1,11 +1,7 @@
 package main
 
 import (
-	"io"
 	"log"
-	"net/http"
-	"strings"
-	"text/template"
 
 	"github.com/davidbyttow/govips/v2/vips"
 	"github.com/labstack/echo/v4"
@@ -15,36 +11,8 @@ import (
 	"github.com/rustyguts/alcoves/internal/routers"
 )
 
-type TemplateRegistry struct {
-	templates map[string]*template.Template
-}
-
-func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	tmpl, ok := t.templates[name]
-	if !ok {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Template not found")
-	}
-	return tmpl.ExecuteTemplate(w, "base", data)
-}
-
-// loadTemplateSet loads a set of template files for a specific page
-func loadTemplateSet(baseFile string, pageFile string, partials string) *template.Template {
-	// Create template with custom functions
-	funcMap := template.FuncMap{
-		"firstLetter": func(s string) string {
-			if len(s) > 0 {
-				return strings.ToUpper(string(s[0]))
-			}
-			return "U"
-		},
-	}
-	
-	tmpl := template.Must(template.New("").Funcs(funcMap).ParseFiles(baseFile, pageFile))
-	if partials != "" {
-		tmpl = template.Must(tmpl.ParseGlob(partials))
-	}
-	return tmpl
-}
+//go:generate templ generate
+//go:generate sh -c "cd ../ && bun install && bun run build"
 
 func main() {
 	e := echo.New()
@@ -64,51 +32,18 @@ func main() {
 		panic("Failed to initialize database: " + err.Error())
 	}
 
-	log.Println("initializing templates...")
-	templates := make(map[string]*template.Template)
-	templates["home"] = loadTemplateSet(
-		"web/layouts/base.html",
-		"web/layouts/index.html",
-		"web/partials/*.html",
-	)
-	templates["media"] = loadTemplateSet(
-		"web/layouts/base.html",
-		"web/views/media.html",
-		"",
-	)
-	templates["login"] = loadTemplateSet(
-		"web/layouts/base.html",
-		"web/views/login.html",
-		"",
-	)
-	templates["register"] = loadTemplateSet(
-		"web/layouts/base.html",
-		"web/views/register.html",
-		"",
-	)
-	templates["trash"] = loadTemplateSet(
-		"web/layouts/base.html",
-		"web/views/trash.html",
-		"",
-	)
-
-	log.Println("initializing template rendering...")
-	t := &TemplateRegistry{
-		templates: templates,
-	}
-	e.Renderer = t
-
 	log.Println("setting up middleware...")
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
 	log.Println("setting up routers...")
+
 	routers.RootRouter(e)
 	routers.AuthRouter(e)
 	routers.AssetsRouter(e)
 
 	log.Println("setting up static routers...")
-	e.Static("/", "./web/public")
+	e.Static("/", "./static")
 
 	log.Fatal(e.Start(":8080"))
 }
