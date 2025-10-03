@@ -26,7 +26,7 @@ RUN go mod download
 COPY . .
 EXPOSE 8080
 RUN go generate ./cmd/server/main.go
-CMD ["sh", "-c", "rm -rf /app/tmp/main && air"]
+CMD ["air"]
 
 FROM development AS builder
 WORKDIR /app
