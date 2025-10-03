@@ -3,6 +3,8 @@ services:
     build:
       context: .
       target: development
+      args:
+        - TAILWIND_CSS_BINARY=$TAILWIND_CSS_BINARY
     environment:
       - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
     volumes:
@@ -14,7 +16,7 @@ services:
       postgres:
         condition: service_healthy
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       - POSTGRES_DB=alcoves
       - POSTGRES_USER=postgres

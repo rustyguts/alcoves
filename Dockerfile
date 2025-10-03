@@ -1,5 +1,7 @@
-FROM golang:1.24 AS development
+FROM golang:1.25 AS development
 WORKDIR /app
+
+ARG TAILWIND_CSS_BINARY=tailwindcss-linux-x64
 
 RUN apt update && apt upgrade -y && \
   apt install -y --no-install-recommends \
@@ -10,8 +12,9 @@ RUN apt update && apt upgrade -y && \
   libheif-dev \
   && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://bun.com/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
+RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/$TAILWIND_CSS_BINARY && \
+  chmod +x $TAILWIND_CSS_BINARY && \
+  mv $TAILWIND_CSS_BINARY /usr/local/bin/tailwindcss
 
 RUN go install github.com/air-verse/air@latest
 RUN go install github.com/a-h/templ/cmd/templ@latest

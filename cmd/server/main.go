@@ -12,7 +12,10 @@ import (
 )
 
 //go:generate templ generate
-//go:generate sh -c "cd ../ && bun install && bun run build"
+//go:generate tailwindcss -i ../../static/css/input.css -o ../../static/css/main.css
+
+// TODO templ genrate is not running automatically on build, need to figure out why
+// https://dev.to/hexshift/using-htmx-with-rest-apis-building-modern-web-apps-with-minimal-javascript-2258
 
 func main() {
 	e := echo.New()

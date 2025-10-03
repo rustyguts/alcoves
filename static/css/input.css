@@ -1,7 +1,13 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "./public/*.{html,php,erb}";
+
+/* Optional for custom themes – Docs: https://daisyui.com/docs/themes/#how-to-add-a-new-custom-theme */
+@plugin "../js/daisyui-theme.js" {
+  /* custom theme here */
+}
 
 /* https://daisyui.com/docs/config/ */
-@plugin "daisyui" {
+@plugin "../js/daisyui.js" {
   themes: light --default, dark --prefersdark, cupcake, sunset;
 }
 
