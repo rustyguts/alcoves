@@ -25,7 +25,7 @@ RUN go mod download
 
 COPY . .
 EXPOSE 8080
-RUN go generate ./cmd/server/main.go
+RUN go generate main.go
 CMD ["air"]
 
 FROM development AS builder
@@ -33,8 +33,8 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go generate ./cmd/server/main.go
-RUN CGO_ENABLED=1 GOOS=linux go build -a -o main ./cmd/server
+RUN go generate main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -a -o main .
 
 FROM debian:bookworm-slim AS dist
 RUN apt-get update && apt-get install -y --no-install-recommends \

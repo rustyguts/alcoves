@@ -11,11 +11,8 @@ import (
 	"github.com/rustyguts/alcoves/internal/routers"
 )
 
-//go:generate tailwindcss -i ../../static/css/input.css -o ../../static/css/main.css
-//go:generate templ generate -path ../../internal/components
-
-// TODO templ genrate is not running automatically on build, need to figure out why
-// https://dev.to/hexshift/using-htmx-with-rest-apis-building-modern-web-apps-with-minimal-javascript-2258
+//go:generate templ generate -path internal/components
+//go:generate tailwindcss -i static/css/input.css -o static/css/main.css
 
 func main() {
 	e := echo.New()

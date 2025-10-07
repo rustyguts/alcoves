@@ -48,7 +48,7 @@ func Register(data RegisterData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex flex-col h-screen w-screen bg-base-300\"><div class=\"bg-base-100 max-w-md w-90 mx-auto mt-10 p-6 rounded-lg shadow-md\"><h2 class=\"text-2xl font-bold mb-4\">Register</h2><form method=\"post\"><div class=\"mb-4\"><label for=\"email\" class=\"block text-sm font-medium mb-1\">Email</label> <input type=\"text\" name=\"email\" id=\"email\" class=\"input input-bordered w-full\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex flex-col h-screen w-screen bg-base-300\"><div class=\"bg-base-100 max-w-md w-90 mx-auto mt-10 p-6 rounded-lg shadow-md\"><h2 class=\"text-2xl font-bold mb-4 card\">Register</h2><form method=\"post\"><div class=\"mb-4\"><label for=\"email\" class=\"block text-sm font-medium mb-1\">Email</label> <input type=\"text\" name=\"email\" id=\"email\" class=\"input input-bordered w-full\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
