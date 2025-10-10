@@ -245,10 +245,13 @@ templ Layout(data LayoutData) {
 				<div class="flex flex-col h-[calc(100vh-64px)] px-4 pb-4">
 					<div class="p-4 rounded-xl bg-base-200 overflow-y-auto flex-1 pr-2">
 						<style>
-          .has-selection .asset-checkbox {
-            opacity: 1 !important;
-          }
-        </style>
+							.has-selection .asset-checkbox {
+								opacity: 1 !important;
+							}
+						</style>
+						<div>
+							@Assets()
+						</div>
 						<div class="flex flex-wrap gap-2 after:content-[''] after:flex-grow-[999]">
 							for _, item := range data.Assets {
 								<div
@@ -261,7 +264,7 @@ templ Layout(data LayoutData) {
 									/>
 									<a href={ getAssetPreviewURL(item.PublicID) } class="photo-link block w-full h-full">
 										<img
-											src={getAssetURL(item.PublicID, 500)}
+											src={ getAssetURL(item.PublicID, 500) }
 											alt={ item.Filename }
 											loading="lazy"
 											class="h-full w-full object-cover min-w-full"
@@ -279,43 +282,47 @@ templ Layout(data LayoutData) {
 					<div class="flex justify-start items-center text-2xl h-16 p-2 pl-6">
 						<a href="/">Alcoves</a>
 					</div>
-					<ul class="menu menu-lg text-base-content gap-2 w-full p-2">
-						<li class="">
+					<ul class="menu menu-md text-base-content gap-2 w-full p-2">
+						<li class="text-md">
 							<a href="/" class="menu-item">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="size-6"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
-									></path>
-								</svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+								Home
+							</a>
+						</li>
+						<li class="text-md">
+							<a href="/" class="menu-item">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+								Recent
+							</a>
+						</li>
+						<li class="text-md">
+							<a href="/" class="menu-item">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+								Starred
+							</a>
+						</li>
+						<li class="text-md">
+							<a href="/trash" class="menu-item">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-icon lucide-trash"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+								Trash
+							</a>
+						</li>
+						<li class="text-md">
+							<a href="/" class="menu-item">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+								Documents
+							</a>
+						</li>
+						<li class="text-md">
+							<a href="/" class="menu-item">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
 								Photos
 							</a>
 						</li>
-						<li class="text-lg">
-							<a href="/trash" class="menu-item">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="size-6"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
-									></path>
-								</svg>
-								Trash
+						<li class="text-md">
+							<a href="/" class="menu-item">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+								Bookmarks
 							</a>
 						</li>
 					</ul>
@@ -323,164 +330,164 @@ templ Layout(data LayoutData) {
 			</div>
 		</div>
 		<script>
-  // Save scroll position when navigating to media
-  function saveScrollPosition() {
-    const scrollContainer = document.querySelector('.overflow-y-auto');
-    if (scrollContainer) {
-      sessionStorage.setItem('mediaGalleryScrollPosition', scrollContainer.scrollTop);
-    }
-  }
+			// Save scroll position when navigating to media
+			function saveScrollPosition() {
+				const scrollContainer = document.querySelector('.overflow-y-auto');
+				if (scrollContainer) {
+					sessionStorage.setItem('mediaGalleryScrollPosition', scrollContainer.scrollTop);
+				}
+			}
 
-  // Restore scroll position when returning from media
-  function restoreScrollPosition() {
-    const scrollContainer = document.querySelector('.overflow-y-auto');
-    const savedPosition = sessionStorage.getItem('mediaGalleryScrollPosition');
-    if (scrollContainer && savedPosition) {
-      scrollContainer.scrollTop = parseInt(savedPosition);
-      // Clear the saved position after restoring
-      sessionStorage.removeItem('mediaGalleryScrollPosition');
-    }
-  }
+			// Restore scroll position when returning from media
+			function restoreScrollPosition() {
+				const scrollContainer = document.querySelector('.overflow-y-auto');
+				const savedPosition = sessionStorage.getItem('mediaGalleryScrollPosition');
+				if (scrollContainer && savedPosition) {
+					scrollContainer.scrollTop = parseInt(savedPosition);
+					// Clear the saved position after restoring
+					sessionStorage.removeItem('mediaGalleryScrollPosition');
+				}
+			}
 
-  document.addEventListener('DOMContentLoaded', function () {
-    // Restore scroll position if returning from media viewer
-    if (document.referrer && document.referrer.includes('/media/')) {
-      requestAnimationFrame(() => {
-        restoreScrollPosition();
-      });
-    }
-    const checkboxes = document.querySelectorAll('.asset-checkbox');
-    const downloadBtn = document.getElementById('download-btn-nav');
-    const deleteBtn = document.getElementById('delete-btn-nav');
-    const deselectBtn = document.getElementById('deselect-btn-nav');
-    const uploadBtn = document.getElementById('upload-btn');
-    const profileDropdown = document.getElementById('profile-dropdown');
+			document.addEventListener('DOMContentLoaded', function () {
+				// Restore scroll position if returning from media viewer
+				if (document.referrer && document.referrer.includes('/media/')) {
+					requestAnimationFrame(() => {
+						restoreScrollPosition();
+					});
+				}
+				const checkboxes = document.querySelectorAll('.asset-checkbox');
+				const downloadBtn = document.getElementById('download-btn-nav');
+				const deleteBtn = document.getElementById('delete-btn-nav');
+				const deselectBtn = document.getElementById('deselect-btn-nav');
+				const uploadBtn = document.getElementById('upload-btn');
+				const profileDropdown = document.getElementById('profile-dropdown');
 
-    let lastChecked = null;
+				let lastChecked = null;
 
-    function updateUI() {
-      const selected = document.querySelectorAll('.asset-checkbox:checked');
-      const count = selected.length;
-      const gallery = document.querySelector('.flex.flex-wrap');
+				function updateUI() {
+					const selected = document.querySelectorAll('.asset-checkbox:checked');
+					const count = selected.length;
+					const gallery = document.querySelector('.flex.flex-wrap');
 
-      // Update button visibility based on selection state
-      if (count === 0) {
-        // No selection: show upload and profile, hide delete, download, and deselect
-        uploadBtn.classList.remove('hidden');
-        profileDropdown.classList.remove('hidden');
-        downloadBtn.classList.add('hidden');
-        deleteBtn.classList.add('hidden');
-        deselectBtn.classList.add('hidden');
-        gallery.classList.remove('has-selection');
-      } else {
-        // Items selected: show delete, download, and deselect, hide upload and profile
-        uploadBtn.classList.add('hidden');
-        profileDropdown.classList.add('hidden');
-        downloadBtn.classList.remove('hidden');
-        deleteBtn.classList.remove('hidden');
-        deselectBtn.classList.remove('hidden');
-        gallery.classList.add('has-selection');
-      }
-    }
+					// Update button visibility based on selection state
+					if (count === 0) {
+						// No selection: show upload and profile, hide delete, download, and deselect
+						uploadBtn.classList.remove('hidden');
+						profileDropdown.classList.remove('hidden');
+						downloadBtn.classList.add('hidden');
+						deleteBtn.classList.add('hidden');
+						deselectBtn.classList.add('hidden');
+						gallery.classList.remove('has-selection');
+					} else {
+						// Items selected: show delete, download, and deselect, hide upload and profile
+						uploadBtn.classList.add('hidden');
+						profileDropdown.classList.add('hidden');
+						downloadBtn.classList.remove('hidden');
+						deleteBtn.classList.remove('hidden');
+						deselectBtn.classList.remove('hidden');
+						gallery.classList.add('has-selection');
+					}
+				}
 
-    checkboxes.forEach((checkbox, index) => {
-      checkbox.addEventListener('click', function (e) {
-        e.stopPropagation();
+				checkboxes.forEach((checkbox, index) => {
+					checkbox.addEventListener('click', function (e) {
+						e.stopPropagation();
 
-        const isShiftClick = e.shiftKey && lastChecked !== null;
+						const isShiftClick = e.shiftKey && lastChecked !== null;
 
-        if (isShiftClick) {
-          const start = Math.min(lastChecked, index);
-          const end = Math.max(lastChecked, index);
+						if (isShiftClick) {
+							const start = Math.min(lastChecked, index);
+							const end = Math.max(lastChecked, index);
 
-          // Set all checkboxes in range to the same state as this checkbox
-          for (let i = start; i <= end; i++) {
-            checkboxes[i].checked = this.checked;
-          }
-        }
+							// Set all checkboxes in range to the same state as this checkbox
+							for (let i = start; i <= end; i++) {
+								checkboxes[i].checked = this.checked;
+							}
+						}
 
-        lastChecked = index;
-        updateUI();
-      });
-    });
+						lastChecked = index;
+						updateUI();
+					});
+				});
 
-    // Add click handlers to photo items for selection when items are already selected
-    document.querySelectorAll('.photo-item').forEach((item, index) => {
-      item.addEventListener('click', function (e) {
-        const gallery = document.querySelector('.flex.flex-wrap');
-        const hasSelection = gallery.classList.contains('has-selection');
+				// Add click handlers to photo items for selection when items are already selected
+				document.querySelectorAll('.photo-item').forEach((item, index) => {
+					item.addEventListener('click', function (e) {
+						const gallery = document.querySelector('.flex.flex-wrap');
+						const hasSelection = gallery.classList.contains('has-selection');
 
-        if (hasSelection) {
-          e.preventDefault();
-          e.stopPropagation();
+						if (hasSelection) {
+							e.preventDefault();
+							e.stopPropagation();
 
-          // Toggle the checkbox for this item
-          const checkbox = item.querySelector('.asset-checkbox');
-          checkbox.checked = !checkbox.checked;
-          lastChecked = index;
-          updateUI();
-        }
-      });
-    });
+							// Toggle the checkbox for this item
+							const checkbox = item.querySelector('.asset-checkbox');
+							checkbox.checked = !checkbox.checked;
+							lastChecked = index;
+							updateUI();
+						}
+					});
+				});
 
-    deleteBtn.addEventListener('click', function () {
-      const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
-        .map(cb => cb.closest('.photo-item').dataset.assetId);
+				deleteBtn.addEventListener('click', function () {
+					const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
+						.map(cb => cb.closest('.photo-item').dataset.assetId);
 
-      if (selected.length === 0) return;
+					if (selected.length === 0) return;
 
-      if (confirm(`Delete ${selected.length} asset(s)? They will be moved to trash.`)) {
-        fetch('/assets/delete', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ assetIds: selected })
-        })
-          .then(response => {
-            if (response.ok) {
-              checkboxes.forEach(cb => cb.checked = false);
-              location.reload();
-            } else {
-              alert('Failed to delete assets');
-            }
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            alert('Failed to delete assets');
-          });
-      }
-    });
+					if (confirm(`Delete ${selected.length} asset(s)? They will be moved to trash.`)) {
+						fetch('/assets/delete', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify({ assetIds: selected })
+						})
+							.then(response => {
+								if (response.ok) {
+									checkboxes.forEach(cb => cb.checked = false);
+									location.reload();
+								} else {
+									alert('Failed to delete assets');
+								}
+							})
+							.catch(error => {
+								console.error('Error:', error);
+								alert('Failed to delete assets');
+							});
+					}
+				});
 
-    downloadBtn.addEventListener('click', function () {
-      const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
-        .map(cb => cb.closest('.photo-item').dataset.assetId);
+				downloadBtn.addEventListener('click', function () {
+					const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
+						.map(cb => cb.closest('.photo-item').dataset.assetId);
 
-      if (selected.length === 0) return;
+					if (selected.length === 0) return;
 
-      if (selected.length === 1) {
-        window.location.href = `/assets/download/${selected[0]}`;
-      } else {
-        window.location.href = `/assets/download?ids=${selected.join(',')}`;
-      }
-    });
+					if (selected.length === 1) {
+						window.location.href = `/assets/download/${selected[0]}`;
+					} else {
+						window.location.href = `/assets/download?ids=${selected.join(',')}`;
+					}
+				});
 
-    deselectBtn.addEventListener('click', function () {
-      checkboxes.forEach(cb => cb.checked = false);
-      updateUI();
-    });
+				deselectBtn.addEventListener('click', function () {
+					checkboxes.forEach(cb => cb.checked = false);
+					updateUI();
+				});
 
-    // Add click event listeners to photo links to save scroll position
-    document.querySelectorAll('.photo-link').forEach(link => {
-      link.addEventListener('click', function (e) {
-        // Only save scroll position if not in selection mode
-        const gallery = document.querySelector('.flex.flex-wrap');
-        if (!gallery.classList.contains('has-selection')) {
-          saveScrollPosition();
-        }
-      });
-    });
-  });
-</script>
+				// Add click event listeners to photo links to save scroll position
+				document.querySelectorAll('.photo-link').forEach(link => {
+					link.addEventListener('click', function (e) {
+						// Only save scroll position if not in selection mode
+						const gallery = document.querySelector('.flex.flex-wrap');
+						if (!gallery.classList.contains('has-selection')) {
+							saveScrollPosition();
+						}
+					});
+				});
+			});
+		</script>
 	}
 }
