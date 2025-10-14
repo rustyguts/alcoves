@@ -41,6 +41,7 @@ func main() {
 	routers.RootRouter(e)
 	routers.AuthRouter(e)
 	routers.AssetsRouter(e)
+	routers.LibraryRouter(e)
 
 	log.Println("setting up static routers...")
 	e.Static("/", "./static")
