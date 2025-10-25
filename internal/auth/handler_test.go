@@ -8,14 +8,14 @@ import (
 	"testing"
 
 	"github.com/rustyguts/alcoves/internal/db"
-	"github.com/rustyguts/alcoves/internal/mocks"
 	"github.com/rustyguts/alcoves/internal/models"
+	testutil "github.com/rustyguts/alcoves/internal/testing"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestPostRegister_Success(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	form := url.Values{}
 	form.Add("email", "test@example.com")
@@ -48,8 +48,8 @@ func TestPostRegister_Success(t *testing.T) {
 }
 
 func TestPostRegister_InvalidEmail(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	form := url.Values{}
 	form.Add("email", "invalid-email")
@@ -66,8 +66,8 @@ func TestPostRegister_InvalidEmail(t *testing.T) {
 }
 
 func TestPostRegister_ShortPassword(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	form := url.Values{}
 	form.Add("email", "test@example.com")
@@ -84,8 +84,8 @@ func TestPostRegister_ShortPassword(t *testing.T) {
 }
 
 func TestPostRegister_DuplicateEmail(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	// Create an existing user
 	existingUser := models.User{
@@ -110,8 +110,8 @@ func TestPostRegister_DuplicateEmail(t *testing.T) {
 }
 
 func TestPostLogin_Success(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	// Create a user to login with
 	hashedPassword, _ := HashPassword("password123")
@@ -137,8 +137,8 @@ func TestPostLogin_Success(t *testing.T) {
 }
 
 func TestPostLogin_InvalidEmail(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	form := url.Values{}
 	form.Add("email", "invalid-email")
@@ -156,8 +156,8 @@ func TestPostLogin_InvalidEmail(t *testing.T) {
 }
 
 func TestPostLogin_UserNotFound(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	form := url.Values{}
 	form.Add("email", "nonexistent@example.com")
@@ -174,8 +174,8 @@ func TestPostLogin_UserNotFound(t *testing.T) {
 }
 
 func TestPostLogin_WrongPassword(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	// Create a user with a known password
 	hashedPassword, _ := HashPassword("correctpassword")
@@ -201,7 +201,7 @@ func TestPostLogin_WrongPassword(t *testing.T) {
 }
 
 func TestGetLogin(t *testing.T) {
-	e := mocks.SetupTestEcho()
+	e := testutil.SetupTestEcho()
 
 	req := httptest.NewRequest(http.MethodGet, "/login", nil)
 	rec := httptest.NewRecorder()
@@ -213,7 +213,7 @@ func TestGetLogin(t *testing.T) {
 }
 
 func TestGetRegister(t *testing.T) {
-	e := mocks.SetupTestEcho()
+	e := testutil.SetupTestEcho()
 
 	req := httptest.NewRequest(http.MethodGet, "/register", nil)
 	rec := httptest.NewRecorder()
@@ -225,8 +225,8 @@ func TestGetRegister(t *testing.T) {
 }
 
 func TestPostLogout(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	// Create a user and session first
 	hashedPassword, _ := HashPassword("password123")
@@ -252,7 +252,7 @@ func TestPostLogout(t *testing.T) {
 }
 
 func TestPostLogout_NoSession(t *testing.T) {
-	e := mocks.SetupTestEcho()
+	e := testutil.SetupTestEcho()
 
 	req := httptest.NewRequest(http.MethodPost, "/logout", nil)
 	rec := httptest.NewRecorder()
@@ -288,8 +288,8 @@ func TestValidEmail(t *testing.T) {
 }
 
 func TestPostRegister_EmptyFields(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	form := url.Values{}
 	form.Add("email", "")
@@ -306,8 +306,8 @@ func TestPostRegister_EmptyFields(t *testing.T) {
 }
 
 func TestPostRegister_MultipleValidationErrors(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	form := url.Values{}
 	form.Add("email", "invalid-email")
@@ -324,8 +324,8 @@ func TestPostRegister_MultipleValidationErrors(t *testing.T) {
 }
 
 func TestPostLogin_EmptyFields(t *testing.T) {
-	mocks.SetupTestDatabase(t)
-	e := mocks.SetupTestEcho()
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
 
 	form := url.Values{}
 	form.Add("email", "")

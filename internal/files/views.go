@@ -1,4 +1,4 @@
-package root
+package files
 
 import (
 	"fmt"
@@ -8,9 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/auth"
 	"github.com/rustyguts/alcoves/internal/components"
-	"github.com/rustyguts/alcoves/internal/files"
 	"github.com/rustyguts/alcoves/internal/models"
-	"github.com/rustyguts/alcoves/internal/user"
 )
 
 func GetHealthcheck(c echo.Context) error {
@@ -19,9 +17,9 @@ func GetHealthcheck(c echo.Context) error {
 
 func GetRoot(c echo.Context) error {
 	userID := auth.GetCurrentUserID(c)
-	userFiles := files.GetUserFiles(c)
+	userFiles := GetUserFiles(c)
 
-	currentUser, err := user.FindUserByID(userID)
+	currentUser, err := auth.FindUserByID(userID)
 	theme := "dark" // default theme
 	var userEmail string
 	if err != nil {
@@ -60,13 +58,13 @@ func GetMedia(c echo.Context) error {
 	fileId := c.Param("assetId")
 	fmt.Println(fileId)
 
-	file := files.GetFileByPublicID(fileId)
+	file := GetFileByPublicID(fileId)
 	if file == nil {
 		return c.String(http.StatusNotFound, "File not found")
 	}
 
 	userID := auth.GetCurrentUserID(c)
-	currentUser, err := user.FindUserByID(userID)
+	currentUser, err := auth.FindUserByID(userID)
 	if err != nil {
 		log.Println("Failed to find user for media handler", "error", err, "user_id", userID)
 		currentUser = nil
@@ -75,8 +73,8 @@ func GetMedia(c echo.Context) error {
 	// Get previous and next files
 	var prevFile, nextFile *models.File
 	if currentUser != nil {
-		prevFile = files.GetPreviousFile(userID, file)
-		nextFile = files.GetNextFile(userID, file)
+		prevFile = GetPreviousFile(userID, file)
+		nextFile = GetNextFile(userID, file)
 	}
 
 	data := components.MediaViewData{
@@ -92,7 +90,7 @@ func GetMedia(c echo.Context) error {
 }
 
 func GetTrash(c echo.Context) error {
-	userFiles := files.GetUserDeletedFiles(c)
+	userFiles := GetUserDeletedFiles(c)
 
 	data := components.TrashViewData{
 		Assets: userFiles,

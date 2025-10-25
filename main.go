@@ -6,9 +6,11 @@ import (
 	"github.com/davidbyttow/govips/v2/vips"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/rustyguts/alcoves/internal/auth"
 	"github.com/rustyguts/alcoves/internal/config"
 	"github.com/rustyguts/alcoves/internal/db"
-	"github.com/rustyguts/alcoves/internal/routers"
+	"github.com/rustyguts/alcoves/internal/files"
+	"github.com/rustyguts/alcoves/internal/libraries"
 )
 
 //go:generate templ generate -path internal/components
@@ -39,10 +41,9 @@ func main() {
 
 	log.Println("setting up routers...")
 
-	routers.RootRouter(e)
-	routers.AuthRouter(e)
-	routers.AssetsRouter(e)
-	routers.LibraryRouter(e)
+	auth.RegisterRoutes(e)
+	files.RegisterRoutes(e)
+	libraries.RegisterRoutes(e)
 
 	log.Println("setting up static routers...")
 	e.Static("/", "./static")

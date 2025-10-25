@@ -8,9 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/components"
 	"github.com/rustyguts/alcoves/internal/db"
-	"github.com/rustyguts/alcoves/internal/libraries"
 	"github.com/rustyguts/alcoves/internal/models"
-	"github.com/rustyguts/alcoves/internal/user"
 )
 
 func valid(email string) bool {
@@ -72,7 +70,7 @@ func PostRegister(c echo.Context) error {
 		return component.Render(c.Request().Context(), c.Response().Writer)
 	}
 
-	existingUser, err := user.FindUserByEmail(email)
+	existingUser, err := FindUserByEmail(email)
 	if err != nil {
 		log.Println("Failed to check existing user", "error", err, "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to check existing user")
@@ -99,7 +97,7 @@ func PostRegister(c echo.Context) error {
 	}
 
 	// Create personal library for the user
-	_, err = libraries.CreatePersonalLibrary(user.ID, email)
+	_, err = models.CreatePersonalLibrary(db.Connection, user.ID, email)
 	if err != nil {
 		log.Println("Failed to create personal library", "error", err, "user_id", user.ID)
 		// Note: We don't fail user creation if library creation fails
@@ -123,25 +121,25 @@ func PostLogin(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to login")
 	}
 
-	user, err := user.FindUserByEmail(email)
+	foundUser, err := FindUserByEmail(email)
 	if err != nil {
 		log.Println("Failed to check existing user", "error", err, "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to check existing user")
 	}
-	if user == nil {
+	if foundUser == nil {
 		log.Println("User not found", "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to login")
 	}
 
-	passwordVerified := VerifyPassword(insecurePassword, user.Password)
+	passwordVerified := VerifyPassword(insecurePassword, foundUser.Password)
 
 	if !passwordVerified {
 		return c.String(http.StatusInternalServerError, "Failed to login")
 	}
 
-	_, err = CreateSession(c, user.ID)
+	_, err = CreateSession(c, foundUser.ID)
 	if err != nil {
-		log.Println("Failed to create user session", "error", err, "user_id", user.ID)
+		log.Println("Failed to create user session", "error", err, "user_id", foundUser.ID)
 		return c.String(http.StatusInternalServerError, "Failed to create user session")
 	}
 
