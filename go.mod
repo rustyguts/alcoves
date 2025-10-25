@@ -3,7 +3,7 @@ module github.com/rustyguts/alcoves
 go 1.24.2
 
 require (
-	github.com/a-h/templ v0.3.943
+	github.com/a-h/templ v0.3.960
 	github.com/davidbyttow/govips/v2 v2.16.0
 	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v4 v4.13.4

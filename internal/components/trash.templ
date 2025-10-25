@@ -3,7 +3,7 @@ package components
 import "github.com/rustyguts/alcoves/internal/models"
 
 type TrashViewData struct {
-	Assets []models.Asset
+	Assets []models.File
 }
 
 templ Trash(data TrashViewData) {
@@ -104,14 +104,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const actionBar = document.getElementById('action-bar');
     const selectedCount = document.getElementById('selected-count');
     const restoreBtn = document.getElementById('restore-btn');
-    
+
     let lastChecked = null;
-    
+
     function updateUI() {
         const selected = document.querySelectorAll('.asset-checkbox:checked');
         const count = selected.length;
         const gallery = document.querySelector('.flex.flex-wrap');
-        
+
         // Update text and button visibility
         if (count === 0) {
             selectedCount.textContent = 'No assets selected';
@@ -123,23 +123,23 @@ document.addEventListener('DOMContentLoaded', function() {
             gallery.classList.add('has-selection');
         }
     }
-    
+
     checkboxes.forEach((checkbox, index) => {
         checkbox.addEventListener('click', function(e) {
             e.stopPropagation();
-            
+
             const isShiftClick = e.shiftKey && lastChecked !== null;
-            
+
             if (isShiftClick) {
                 const start = Math.min(lastChecked, index);
                 const end = Math.max(lastChecked, index);
-                
+
                 // Set all checkboxes in range to the same state as this checkbox
                 for (let i = start; i <= end; i++) {
                     checkboxes[i].checked = this.checked;
                 }
             }
-            
+
             lastChecked = index;
             updateUI();
         });
@@ -150,11 +150,11 @@ document.addEventListener('DOMContentLoaded', function() {
         item.addEventListener('click', function(e) {
             const gallery = document.querySelector('.flex.flex-wrap');
             const hasSelection = gallery.classList.contains('has-selection');
-            
+
             if (hasSelection) {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 // Toggle the checkbox for this item
                 const checkbox = item.querySelector('.asset-checkbox');
                 checkbox.checked = !checkbox.checked;
@@ -163,14 +163,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-    
+
     if (restoreBtn) {
         restoreBtn.addEventListener('click', function() {
             const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
                 .map(cb => cb.closest('.photo-item').dataset.assetId);
-            
+
             if (selected.length === 0) return;
-            
+
             if (confirm(`Restore ${selected.length} asset(s) from trash?`)) {
                 fetch('/assets/restore', {
                     method: 'POST',

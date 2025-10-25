@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/rustyguts/alcoves/internal/assets"
 	"github.com/rustyguts/alcoves/internal/auth"
 	"github.com/rustyguts/alcoves/internal/components"
+	"github.com/rustyguts/alcoves/internal/files"
 	"github.com/rustyguts/alcoves/internal/models"
 	"github.com/rustyguts/alcoves/internal/user"
 )
@@ -19,7 +19,7 @@ func GetHealthcheck(c echo.Context) error {
 
 func GetRoot(c echo.Context) error {
 	userID := auth.GetCurrentUserID(c)
-	userAssets := assets.GetUserAssets(c)
+	userFiles := files.GetUserFiles(c)
 
 	currentUser, err := user.FindUserByID(userID)
 	theme := "dark" // default theme
@@ -33,12 +33,12 @@ func GetRoot(c echo.Context) error {
 		userEmail = currentUser.Email
 	}
 
-	// Convert assets to the format expected by the Layout component
+	// Convert files to the format expected by the Layout component
 	var layoutAssets []components.Asset
-	for _, asset := range userAssets {
+	for _, file := range userFiles {
 		layoutAssets = append(layoutAssets, components.Asset{
-			PublicID: asset.PublicID,
-			Filename: asset.Filename,
+			PublicID: file.PublicID,
+			Filename: file.Filename,
 		})
 	}
 
@@ -57,12 +57,12 @@ func GetRoot(c echo.Context) error {
 }
 
 func GetMedia(c echo.Context) error {
-	assetId := c.Param("assetId")
-	fmt.Println(assetId)
+	fileId := c.Param("assetId")
+	fmt.Println(fileId)
 
-	asset := assets.GetAssetByPublicID(assetId)
-	if asset == nil {
-		return c.String(http.StatusNotFound, "Asset not found")
+	file := files.GetFileByPublicID(fileId)
+	if file == nil {
+		return c.String(http.StatusNotFound, "File not found")
 	}
 
 	userID := auth.GetCurrentUserID(c)
@@ -72,19 +72,19 @@ func GetMedia(c echo.Context) error {
 		currentUser = nil
 	}
 
-	// Get previous and next assets
-	var prevAsset, nextAsset *models.Asset
+	// Get previous and next files
+	var prevFile, nextFile *models.File
 	if currentUser != nil {
-		prevAsset = assets.GetPreviousAsset(userID, asset)
-		nextAsset = assets.GetNextAsset(userID, asset)
+		prevFile = files.GetPreviousFile(userID, file)
+		nextFile = files.GetNextFile(userID, file)
 	}
 
 	data := components.MediaViewData{
 		Title:     "Media - Alcoves",
 		Theme:     currentUser.Theme,
-		Asset:     asset,
-		PrevAsset: prevAsset,
-		NextAsset: nextAsset,
+		Asset:     file,
+		PrevAsset: prevFile,
+		NextAsset: nextFile,
 	}
 
 	component := components.Media(data)
@@ -92,10 +92,10 @@ func GetMedia(c echo.Context) error {
 }
 
 func GetTrash(c echo.Context) error {
-	userAssets := assets.GetUserDeletedAssets(c)
+	userFiles := files.GetUserDeletedFiles(c)
 
 	data := components.TrashViewData{
-		Assets: userAssets,
+		Assets: userFiles,
 	}
 
 	component := components.Trash(data)

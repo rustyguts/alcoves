@@ -22,7 +22,7 @@ func getAssetPreviewURL(publicID string) string {
 }
 
 func getAssetURL(publicID string, width int) string {
-	str := fmt.Sprintf("/assets/%s?width=%s", publicID, width)
+	str := fmt.Sprintf("/assets/%s?width=%d", publicID, width)
 	return str
 }
 

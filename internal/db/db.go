@@ -24,7 +24,8 @@ func getDatabaseURL() string {
 func migrate(db *gorm.DB) error {
 	modelsToMigrate := []interface{}{
 		&models.User{},
-		&models.Asset{},
+		&models.Library{},
+		&models.File{},
 		&models.Session{},
 	}
 

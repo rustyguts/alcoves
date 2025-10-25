@@ -5,9 +5,9 @@ import "github.com/rustyguts/alcoves/internal/models"
 type MediaViewData struct {
 	Title     string
 	Theme     string
-	Asset     *models.Asset
-	PrevAsset *models.Asset
-	NextAsset *models.Asset
+	Asset     *models.File
+	PrevAsset *models.File
+	NextAsset *models.File
 }
 
 templ Media(data MediaViewData) {

@@ -14,6 +14,7 @@ import (
 //go:generate templ generate -path internal/components
 //go:generate tailwindcss -i static/css/input.css -o static/css/main.css
 
+// https://dev.to/b_myers/golang-api-structure-for-beginners-1of6
 func main() {
 	e := echo.New()
 	log.Println("starting Alcoves server...")

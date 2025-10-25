@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/components"
 	"github.com/rustyguts/alcoves/internal/db"
+	"github.com/rustyguts/alcoves/internal/libraries"
 	"github.com/rustyguts/alcoves/internal/models"
 	"github.com/rustyguts/alcoves/internal/user"
 )
@@ -95,6 +96,14 @@ func PostRegister(c echo.Context) error {
 	if err := db.Connection.Create(&user).Error; err != nil {
 		log.Println("Failed to create user in database", "error", err, "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to create user")
+	}
+
+	// Create personal library for the user
+	_, err = libraries.CreatePersonalLibrary(user.ID, email)
+	if err != nil {
+		log.Println("Failed to create personal library", "error", err, "user_id", user.ID)
+		// Note: We don't fail user creation if library creation fails
+		// The user can still use the system, just without their personal library initially
 	}
 
 	_, err = CreateSession(c, user.ID)

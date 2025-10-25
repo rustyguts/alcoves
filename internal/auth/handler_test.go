@@ -37,6 +37,14 @@ func TestPostRegister_Success(t *testing.T) {
 	assert.Equal(t, "test@example.com", user.Email)
 	assert.NotEmpty(t, user.Password)
 	assert.True(t, VerifyPassword("password123", user.Password))
+
+	// Verify personal library was created
+	var library models.Library
+	db.Connection.Where("owner_id = ? AND is_personal = ?", user.ID, true).First(&library)
+	assert.NotEqual(t, uint(0), library.ID)
+	assert.Equal(t, user.ID, library.OwnerID)
+	assert.True(t, library.IsPersonal)
+	assert.Contains(t, library.Name, "test@example.com")
 }
 
 func TestPostRegister_InvalidEmail(t *testing.T) {

@@ -10,5 +10,5 @@ type User struct {
 	Password string    `gorm:"not null"`
 	Theme    string    `gorm:"default:'dark'"`
 	Sessions []Session `gorm:"foreignKey:UserID"`
-	Assets   []Asset   `gorm:"foreignKey:UserID"`
+	Files    []File    `gorm:"foreignKey:UserID"`
 }

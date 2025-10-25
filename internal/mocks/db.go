@@ -17,7 +17,7 @@ func SetupTestDatabase(t *testing.T) {
 
 	db.Connection = testDB
 
-	err = testDB.AutoMigrate(&models.User{}, &models.Asset{}, &models.Session{})
+	err = testDB.AutoMigrate(&models.User{}, &models.Library{}, &models.File{}, &models.Session{})
 	if err != nil {
 		t.Fatalf("Failed to migrate test database: %v", err)
 	}

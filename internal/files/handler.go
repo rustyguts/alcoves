@@ -1,4 +1,4 @@
-package assets
+package files
 
 import (
 	"archive/zip"
@@ -28,7 +28,7 @@ import (
 // This is used to generate deterministic UUIDs for image proxies
 const URLNamespace = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
 
-func GetAsset(c echo.Context) error {
+func GetFile(c echo.Context) error {
 	// Get and sort query parameters for deterministic proxy ID
 	cacheEnabled := true
 	queryParams := c.Request().URL.Query()
@@ -57,18 +57,18 @@ func GetAsset(c echo.Context) error {
 		}
 	}
 
-	// Cache miss, fetch asset from database
-	var asset models.Asset
-	asset.PublicID = c.Param("asset_id")
+	// Cache miss, fetch file from database
+	var file models.File
+	file.PublicID = c.Param("asset_id")
 
-	db.Connection.Where("public_id = ?", asset.PublicID).First(&asset)
+	db.Connection.Where("public_id = ?", file.PublicID).First(&file)
 
-	if asset.ID == 0 {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "Asset not found"})
+	if file.ID == 0 {
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "File not found"})
 	}
 
 	// Generate new proxy
-	img, err := vips.NewImageFromFile(asset.Filepath)
+	img, err := vips.NewImageFromFile(file.Filepath)
 	if err != nil {
 		fmt.Println("Error opening image:", err)
 		return c.String(http.StatusBadRequest, "Failed to open image")
@@ -87,13 +87,13 @@ func GetAsset(c echo.Context) error {
 		width = max_width
 	}
 
-	image, err := vips.NewThumbnailFromFile(asset.Filepath, width, 0, vips.InterestingNone)
+	image, err := vips.NewThumbnailFromFile(file.Filepath, width, 0, vips.InterestingNone)
 	if err != nil {
 		fmt.Println("Error opening image:", err)
 	}
 
 	fmt.Println("Width:", width)
-	fmt.Println("Filepath:", asset.Filepath)
+	fmt.Println("Filepath:", file.Filepath)
 
 	// https://www.libvips.org/API/current/libvips-conversion.html#VipsInteresting
 
@@ -127,8 +127,8 @@ func GetAsset(c echo.Context) error {
 	return c.Blob(http.StatusOK, "image/jpeg", imageBytes)
 }
 
-// createAsset handles the creation of a single asset, including file storage and metadata extraction
-func CreateAsset(c echo.Context, file *multipart.FileHeader) (*models.Asset, error) {
+// CreateFile handles the creation of a single file, including file storage and metadata extraction
+func CreateFile(c echo.Context, fileHeader *multipart.FileHeader) (*models.File, error) {
 	user := c.Get("user")
 
 	userID, ok := user.(uint)
@@ -136,25 +136,25 @@ func CreateAsset(c echo.Context, file *multipart.FileHeader) (*models.Asset, err
 		return nil, fmt.Errorf("invalid user ID")
 	}
 
-	// Create initial asset record
-	asset := models.Asset{
-		Type:     file.Header.Get("Content-Type"),
-		Size:     file.Size,
-		Filename: file.Filename,
+	// Create initial file record
+	file := models.File{
+		Type:     fileHeader.Header.Get("Content-Type"),
+		Size:     fileHeader.Size,
+		Filename: fileHeader.Filename,
 		UserID:   userID,
 	}
 
 	// This will trigger BeforeCreate hook to generate PublicID
-	if err := db.Connection.Create(&asset).Error; err != nil {
-		return nil, fmt.Errorf("failed to create asset record: %w", err)
+	if err := db.Connection.Create(&file).Error; err != nil {
+		return nil, fmt.Errorf("failed to create file record: %w", err)
 	}
 
 	// Save the original file
-	ext := filepath.Ext(file.Filename)
-	originalPath := filepath.Join(config.ASSETS_PATH, asset.PublicID+ext)
+	ext := filepath.Ext(fileHeader.Filename)
+	originalPath := filepath.Join(config.ASSETS_PATH, file.PublicID+ext)
 
 	// Open the uploaded file
-	src, err := file.Open()
+	src, err := fileHeader.Open()
 	if err != nil {
 		return nil, fmt.Errorf("failed to open uploaded file: %w", err)
 	}
@@ -179,8 +179,8 @@ func CreateAsset(c echo.Context, file *multipart.FileHeader) (*models.Asset, err
 	}
 
 	// Get image dimensions
-	asset.Width = img.Width()
-	asset.Height = img.Height()
+	file.Width = img.Width()
+	file.Height = img.Height()
 
 	// Get EXIF data for creation time
 	exif := img.GetExif()
@@ -230,14 +230,14 @@ func CreateAsset(c echo.Context, file *multipart.FileHeader) (*models.Asset, err
 					exifTime = exifTime.Add(time.Duration(offsetHours) * time.Second)
 				}
 			}
-			asset.CTime = exifTime
+			file.CTime = exifTime
 		} else {
 			// If we couldn't parse EXIF time, use CreatedAt
-			asset.CTime = asset.CreatedAt
+			file.CTime = file.CreatedAt
 		}
 	} else {
 		// If no EXIF data, use CreatedAt
-		asset.CTime = asset.CreatedAt
+		file.CTime = file.CreatedAt
 	}
 
 	// Calculate file hash
@@ -246,18 +246,18 @@ func CreateAsset(c echo.Context, file *multipart.FileHeader) (*models.Asset, err
 		return nil, fmt.Errorf("failed to read file for hashing: %w", err)
 	}
 	hash := sha256.Sum256(fileData)
-	asset.Hash = hex.EncodeToString(hash[:])
+	file.Hash = hex.EncodeToString(hash[:])
 
-	// Update asset record with metadata
-	asset.Filepath = originalPath
-	if err := db.Connection.Save(&asset).Error; err != nil {
-		return nil, fmt.Errorf("failed to update asset metadata: %w", err)
+	// Update file record with metadata
+	file.Filepath = originalPath
+	if err := db.Connection.Save(&file).Error; err != nil {
+		return nil, fmt.Errorf("failed to update file metadata: %w", err)
 	}
 
-	return &asset, nil
+	return &file, nil
 }
 
-func UploadAssets(c echo.Context) error {
+func UploadFiles(c echo.Context) error {
 	form, err := c.MultipartForm()
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -273,7 +273,7 @@ func UploadAssets(c echo.Context) error {
 	}
 
 	for _, file := range files {
-		_, err := CreateAsset(c, file)
+		_, err := CreateFile(c, file)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, echo.Map{
 				"error": err.Error(),
@@ -284,7 +284,7 @@ func UploadAssets(c echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, "/")
 }
 
-func GetUserAssets(c echo.Context) []models.Asset {
+func GetUserFiles(c echo.Context) []models.File {
 	user := c.Get("user")
 	if user == nil {
 		return nil
@@ -295,7 +295,7 @@ func GetUserAssets(c echo.Context) []models.Asset {
 		return nil
 	}
 
-	var assets []models.Asset
+	var assets []models.File
 	result := db.Connection.Where("user_id = ?", userID).Order("c_time DESC").Find(&assets)
 	if result.Error != nil {
 		return nil
@@ -304,7 +304,7 @@ func GetUserAssets(c echo.Context) []models.Asset {
 	return assets
 }
 
-func GetUserDeletedAssets(c echo.Context) []models.Asset {
+func GetUserDeletedFiles(c echo.Context) []models.File {
 	user := c.Get("user")
 	if user == nil {
 		return nil
@@ -315,7 +315,7 @@ func GetUserDeletedAssets(c echo.Context) []models.Asset {
 		return nil
 	}
 
-	var assets []models.Asset
+	var assets []models.File
 	result := db.Connection.Unscoped().Where("user_id = ? AND deleted_at IS NOT NULL", userID).Order("c_time DESC").Find(&assets)
 	if result.Error != nil {
 		return nil
@@ -324,48 +324,48 @@ func GetUserDeletedAssets(c echo.Context) []models.Asset {
 	return assets
 }
 
-func GetAssetByPublicID(publicID string) *models.Asset {
-	var asset models.Asset
-	result := db.Connection.Where("public_id = ?", publicID).First(&asset)
+func GetFileByPublicID(publicID string) *models.File {
+	var file models.File
+	result := db.Connection.Where("public_id = ?", publicID).First(&file)
 	if result.Error != nil {
 		return nil
 	}
-	return &asset
+	return &file
 }
 
-func GetPreviousAsset(userID uint, currentAsset *models.Asset) *models.Asset {
-	if currentAsset == nil {
+func GetPreviousFile(userID uint, currentFile *models.File) *models.File {
+	if currentFile == nil {
 		return nil
 	}
-	
-	var asset models.Asset
-	result := db.Connection.Where("user_id = ? AND c_time > ?", userID, currentAsset.CTime).
-		Order("c_time ASC").First(&asset)
+
+	var file models.File
+	result := db.Connection.Where("user_id = ? AND c_time > ?", userID, currentFile.CTime).
+		Order("c_time ASC").First(&file)
 	if result.Error != nil {
 		return nil
 	}
-	return &asset
+	return &file
 }
 
-func GetNextAsset(userID uint, currentAsset *models.Asset) *models.Asset {
-	if currentAsset == nil {
+func GetNextFile(userID uint, currentFile *models.File) *models.File {
+	if currentFile == nil {
 		return nil
 	}
-	
-	var asset models.Asset
-	result := db.Connection.Where("user_id = ? AND c_time < ?", userID, currentAsset.CTime).
-		Order("c_time DESC").First(&asset)
+
+	var file models.File
+	result := db.Connection.Where("user_id = ? AND c_time < ?", userID, currentFile.CTime).
+		Order("c_time DESC").First(&file)
 	if result.Error != nil {
 		return nil
 	}
-	return &asset
+	return &file
 }
 
 type DeleteAssetsRequest struct {
 	AssetIds []string `json:"assetIds"`
 }
 
-func DeleteAssets(c echo.Context) error {
+func DeleteFiles(c echo.Context) error {
 	userID, ok := c.Get("user").(uint)
 	if !ok {
 		return c.String(http.StatusUnauthorized, "Unauthorized")
@@ -381,7 +381,7 @@ func DeleteAssets(c echo.Context) error {
 	}
 
 	// Mark assets as deleted (soft delete)
-	result := db.Connection.Where("public_id IN ? AND user_id = ?", req.AssetIds, userID).Delete(&models.Asset{})
+	result := db.Connection.Where("public_id IN ? AND user_id = ?", req.AssetIds, userID).Delete(&models.File{})
 
 	if result.Error != nil {
 		return c.String(http.StatusInternalServerError, "Failed to delete assets")
@@ -392,7 +392,7 @@ func DeleteAssets(c echo.Context) error {
 	})
 }
 
-func RestoreAssets(c echo.Context) error {
+func RestoreFiles(c echo.Context) error {
 	userID, ok := c.Get("user").(uint)
 	if !ok {
 		return c.String(http.StatusUnauthorized, "Unauthorized")
@@ -408,7 +408,7 @@ func RestoreAssets(c echo.Context) error {
 	}
 
 	// Restore soft deleted assets by setting deleted_at to NULL
-	result := db.Connection.Unscoped().Model(&models.Asset{}).
+	result := db.Connection.Unscoped().Model(&models.File{}).
 		Where("public_id IN ? AND user_id = ? AND deleted_at IS NOT NULL", req.AssetIds, userID).
 		Update("deleted_at", nil)
 
@@ -421,14 +421,14 @@ func RestoreAssets(c echo.Context) error {
 	})
 }
 
-func DownloadAsset(c echo.Context) error {
+func DownloadFile(c echo.Context) error {
 	publicID := c.Param("asset_id")
 	userID, ok := c.Get("user").(uint)
 	if !ok {
 		return c.String(http.StatusUnauthorized, "Unauthorized")
 	}
 
-	var asset models.Asset
+	var asset models.File
 	result := db.Connection.Where("public_id = ? AND user_id = ?", publicID, userID).First(&asset)
 	if result.Error != nil {
 		return c.String(http.StatusNotFound, "Asset not found")
@@ -439,7 +439,7 @@ func DownloadAsset(c echo.Context) error {
 	return c.File(asset.Filepath)
 }
 
-func DownloadAssets(c echo.Context) error {
+func DownloadFiles(c echo.Context) error {
 	userID, ok := c.Get("user").(uint)
 	if !ok {
 		return c.String(http.StatusUnauthorized, "Unauthorized")
@@ -456,7 +456,7 @@ func DownloadAssets(c echo.Context) error {
 	}
 
 	// Get assets
-	var assets []models.Asset
+	var assets []models.File
 	result := db.Connection.Where("public_id IN ? AND user_id = ?", assetIds, userID).Find(&assets)
 	if result.Error != nil {
 		return c.String(http.StatusInternalServerError, "Failed to fetch assets")
