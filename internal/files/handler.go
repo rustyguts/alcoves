@@ -21,6 +21,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/config"
 	"github.com/rustyguts/alcoves/internal/db"
+	"github.com/rustyguts/alcoves/internal/libraries"
 	"github.com/rustyguts/alcoves/internal/models"
 )
 
@@ -127,8 +128,7 @@ func GetFile(c echo.Context) error {
 	return c.Blob(http.StatusOK, "image/jpeg", imageBytes)
 }
 
-// CreateFile handles the creation of a single file, including file storage and metadata extraction
-func CreateFile(c echo.Context, fileHeader *multipart.FileHeader) (*models.File, error) {
+func CreateFile(c echo.Context, fileHeader *multipart.FileHeader, libraryPublicID string) (*models.File, error) {
 	user := c.Get("user")
 
 	userID, ok := user.(uint)
@@ -136,12 +136,33 @@ func CreateFile(c echo.Context, fileHeader *multipart.FileHeader) (*models.File,
 		return nil, fmt.Errorf("invalid user ID")
 	}
 
+	var library *models.Library
+	var err error
+
+	if libraryPublicID != "" {
+		library, err = libraries.GetLibraryByPublicID(libraryPublicID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get specified library: %w", err)
+		}
+	} else {
+		// Get user's personal library (creates if doesn't exist)
+		var userRecord models.User
+		if err := db.Connection.First(&userRecord, userID).Error; err != nil {
+			return nil, fmt.Errorf("failed to find user: %w", err)
+		}
+		library, err = libraries.GetUserLibrary(userID, userRecord.Email)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user library: %w", err)
+		}
+	}
+
 	// Create initial file record
 	file := models.File{
-		Type:     fileHeader.Header.Get("Content-Type"),
-		Size:     fileHeader.Size,
-		Filename: fileHeader.Filename,
-		UserID:   userID,
+		Type:      fileHeader.Header.Get("Content-Type"),
+		Size:      fileHeader.Size,
+		Filename:  fileHeader.Filename,
+		UserID:    userID,
+		LibraryID: library.ID,
 	}
 
 	// This will trigger BeforeCreate hook to generate PublicID
@@ -258,30 +279,57 @@ func CreateFile(c echo.Context, fileHeader *multipart.FileHeader) (*models.File,
 }
 
 func UploadFiles(c echo.Context) error {
-	form, err := c.MultipartForm()
-	if err != nil {
+	// Parse multipart form with 32MB max memory per file
+	if err := c.Request().ParseMultipartForm(32 << 20); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error": "Failed to process form data",
 		})
 	}
-	files := form.File["files"]
 
+	form := c.Request().MultipartForm
+	if form == nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "No form data",
+		})
+	}
+
+	libraryPublicID := c.FormValue("libraryPublicID")
+
+	files := form.File["files"]
 	if len(files) == 0 {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"error": "No files uploaded",
 		})
 	}
 
+	// Process all files
+	successCount := 0
+	var errors []string
+
 	for _, file := range files {
-		_, err := CreateFile(c, file)
+		_, err := CreateFile(c, file, libraryPublicID)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, echo.Map{
-				"error": err.Error(),
-			})
+			errors = append(errors, fmt.Sprintf("%s: %v", file.Filename, err))
+			continue
 		}
+		successCount++
 	}
 
-	return c.Redirect(http.StatusSeeOther, "/")
+	// Return JSON response for Uppy
+	if len(errors) > 0 {
+		return c.JSON(http.StatusPartialContent, echo.Map{
+			"status":       "partial",
+			"successCount": successCount,
+			"totalCount":   len(files),
+			"errors":       errors,
+		})
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"status":       "success",
+		"successCount": successCount,
+		"totalCount":   len(files),
+	})
 }
 
 func GetUserFiles(c echo.Context) []models.File {

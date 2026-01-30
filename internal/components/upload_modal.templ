@@ -1,25 +1,68 @@
 package components
 
-templ UploadModal() {
+type UploadModalData struct {
+	LibraryPublicID string
+}
+
+templ UploadModal(data UploadModalData) {
 	<dialog id="upload_modal" class="modal">
-		<div class="modal-box">
-			<h3 class="font-bold text-lg">File Upload</h3>
+		<div class="modal-box max-w-4xl">
+			<h3 class="font-bold text-lg mb-4">File Upload</h3>
+			<input type="hidden" id="libraryPublicID" value={ data.LibraryPublicID }/>
 			<div class="my-4">
-				<form id="upload_form" action="/assets/upload" method="post" enctype="multipart/form-data">
-					<div class="form-control mb-4">
-						<label class="label">
-							<span class="label-text">Select images (up to 50MB each)</span>
-						</label>
-						<input type="file" name="files" class="file-input file-input-bordered w-full" accept="image/*" multiple required/>
-					</div>
-				</form>
+				<div id="uploader"></div>
 			</div>
 			<div class="modal-action">
 				<form method="dialog" style="display: inline;">
-					<button class="btn">Close</button>
+					<button class="btn" id="close_upload_modal">Close</button>
 				</form>
-				<button type="submit" form="upload_form" class="btn btn-primary">Upload</button>
 			</div>
 		</div>
+		<link href="https://releases.transloadit.com/uppy/v3.21.0/uppy.min.css" rel="stylesheet"/>
+		<script type="module">
+			import { Uppy, Dashboard, XHRUpload } from "https://releases.transloadit.com/uppy/v3.21.0/uppy.min.mjs"
+
+			const uppy = new Uppy({
+				restrictions: {
+					maxNumberOfFiles: 5000
+				},
+				autoProceed: false
+			})
+			.use(Dashboard, {
+				inline: true,
+				target: '#uploader',
+				showProgressDetails: true,
+				proudlyDisplayPoweredByUppy: false,
+				height: 400,
+				note: 'Up to 5000 files'
+			})
+			.use(XHRUpload, {
+				endpoint: '/assets/upload',
+				fieldName: 'files',
+				formData: true,
+				bundle: true,
+				// This function runs before each upload, allowing us to modify the request.
+				prepareRequest: (files, req) => {
+					const libraryPublicID = document.getElementById('libraryPublicID').value;
+					if (libraryPublicID) {
+						req.formData.append('libraryPublicID', libraryPublicID);
+					}
+					return req;
+				}
+			})
+
+			uppy.on('complete', (result) => {
+				console.log('Upload complete:', result)
+				if (result.successful.length > 0) {
+					// Reload the page to show new uploads
+					window.location.reload()
+				}
+			})
+
+			// Close modal when close button is clicked
+			document.getElementById('close_upload_modal').addEventListener('click', () => {
+				uppy.cancelAll()
+			})
+		</script>
 	</dialog>
 }

@@ -1,5 +1,11 @@
 package components
 
+import (
+	"fmt"
+	"strings"
+	"github.com/rustyguts/alcoves/internal/models"
+)
+
 const (
 	AssetTypeFolder  string = "folder"
 	AssetTypeFilePDF string = "pdf"
@@ -7,20 +13,36 @@ const (
 	AssetTypeImage   string = "image"
 )
 
-type Asset2 struct {
-	Name string
-	Type string
+type AssetsData struct {
+	Assets []models.File
 }
 
-type AssetsData2 struct {
-	Assets []Asset2
+func getFileType(filename string, contentType string) string {
+	lower := strings.ToLower(filename)
+	if strings.HasSuffix(lower, ".pdf") {
+		return AssetTypeFilePDF
+	}
+	if strings.HasPrefix(contentType, "image/") {
+		return AssetTypeImage
+	}
+	return AssetTypeFile
 }
 
-var assets = []Asset2{
-	{Name: "documents", Type: AssetTypeFolder},
-	{Name: "Coachella 2024 Timestamps", Type: AssetTypeFile},
-	{Name: "Drivers's License.pdf", Type: AssetTypeFilePDF},
-	{Name: "Rosie The Puppy!", Type: AssetTypeImage},
+func formatFileSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+func formatDate(file models.File) string {
+	return file.CTime.Format("Jan 02, 2006")
 }
 
 templ IconAndName(name string, filetype string) {
@@ -45,39 +67,48 @@ templ IconAndName(name string, filetype string) {
 	</div>
 }
 
-templ Assets() {
+templ Assets(data AssetsData) {
 	<div>
 		<div class="breadcrumbs text-sm">
 			<ul>
 				<li><a>Home</a></li>
-				<li><a>Documents</a></li>
-				<li>Add Document</li>
+				<li>Library</li>
 			</ul>
 		</div>
 		<div class="overflow-x-auto">
-			<table class="table table-auto w-full">
+			<table class="table table-auto w-full select-none">
 				<thead>
 					<tr>
 						<th class="text-left">Name</th>
 						<th class="w-[120px] whitespace-nowrap">Size</th>
-						<th class="w-[160px] whitespace-nowrap">Modified</th>
+						<th class="w-[160px] whitespace-nowrap">Date</th>
 						<th class="w-[50px] whitespace-nowrap">
 							@SortIcon("18", "18", "3")
 						</th>
 					</tr>
 				</thead>
 				<tbody>
-					for _, asset := range assets {
-						<tr class="h-10 max-h-10">
+					if len(data.Assets) == 0 {
+						<tr>
+							<td colspan="4" class="text-center py-8 text-base-content/60">
+								No files in your library. Click "Upload" to add files.
+							</td>
+						</tr>
+					}
+					for _, asset := range data.Assets {
+						<tr
+							class="h-10 max-h-10 hover:bg-base-200 file-row"
+							data-asset-id={ asset.PublicID }
+						>
 							<td>
-								@IconAndName(asset.Name, asset.Type)
+								@IconAndName(asset.Filename, getFileType(asset.Filename, asset.Type))
 							</td>
 							<td>
 								<div>
-									10 Items
+									{ formatFileSize(asset.Size) }
 								</div>
 							</td>
-							<td>Dec 23, 2023</td>
+							<td>{ formatDate(asset) }</td>
 							<td>
 								@MoreIcon("18", "18", "2")
 							</td>
@@ -86,5 +117,28 @@ templ Assets() {
 				</tbody>
 			</table>
 		</div>
+		<script>
+			document.addEventListener('DOMContentLoaded', function() {
+				const rows = document.querySelectorAll('.file-row');
+
+				rows.forEach(row => {
+					// Single click to select
+					row.addEventListener('click', function(e) {
+						// Deselect all rows
+						rows.forEach(r => {
+							r.classList.remove('!bg-primary', '!bg-opacity-20');
+						});
+						// Select this row with blue background
+						this.classList.add('!bg-primary', '!bg-opacity-20');
+					});
+
+					// Double click to open (no delay)
+					row.addEventListener('dblclick', function(e) {
+						const assetId = this.getAttribute('data-asset-id');
+						window.location.href = '/media/' + assetId;
+					});
+				});
+			});
+		</script>
 	</div>
 }

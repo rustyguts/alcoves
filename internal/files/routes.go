@@ -25,5 +25,4 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/health", GetHealthcheck)
 	e.GET("/", GetRoot, auth.SessionAuthMiddleware())
 	e.GET("/media/:assetId", GetMedia, auth.SessionAuthMiddleware())
-	e.GET("/trash", GetTrash, auth.SessionAuthMiddleware())
 }

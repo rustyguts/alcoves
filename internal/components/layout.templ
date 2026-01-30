@@ -2,6 +2,8 @@ package components
 
 import "time"
 import "fmt"
+import "strings"
+import "github.com/rustyguts/alcoves/internal/models"
 
 type Asset struct {
 	PublicID string
@@ -13,7 +15,8 @@ type LayoutData struct {
 	UserEmail string
 	Theme     string
 	CreatedAt time.Time
-	Assets    []Asset
+	Assets    []models.File
+	Libraries []models.Library
 }
 
 func getAssetPreviewURL(publicID string) string {
@@ -28,7 +31,11 @@ func getAssetURL(publicID string, width int) string {
 
 templ Layout(data LayoutData) {
 	@Root(data.Title, data.Theme) {
-		<div class="drawer lg:drawer-open">
+		<div
+			class="drawer lg:drawer-open"
+			data-signals-renamingLibrary=""
+			data-signals-renameValue=""
+		>
 			<input id="drawer-sidebar-toggle" type="checkbox" class="drawer-toggle"/>
 			<div class="bg-base-300 drawer-content flex flex-col">
 				<div class="navbar bg-base-300 sticky top-0 z-30">
@@ -45,81 +52,12 @@ templ Layout(data LayoutData) {
 						</label>
 					</div>
 					<div class="flex justify-end w-full">
-						<div class="mr-4 flex items-center gap-2">
-							@UploadModal()
-							<button
-								id="upload-btn"
-								class="w-10 h-10 btn btn-primary btn-ghost btn-circle"
-								onclick="upload_modal.showModal()"
-								aria-label="Upload"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="size-6"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path>
-								</svg>
-							</button>
-							<button
-								id="deselect-btn-nav"
-								class="w-10 h-10 btn btn-ghost btn-primary btn-circle hidden"
-								aria-label="Deselect All"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="size-6"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"></path>
-								</svg>
-							</button>
-							<button
-								id="download-btn-nav"
-								class="w-10 h-10 btn btn-ghost btn-primary btn-circle hidden"
-								aria-label="Download"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="size-6"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M12 9.75v6.75m0 0-3-3m3 3 3-3m-8.25 6a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
-									></path>
-								</svg>
-							</button>
-							<button id="delete-btn-nav" class="w-10 h-10 btn btn-ghost btn-error btn-circle hidden" aria-label="Delete">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="size-6"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
-									></path>
-								</svg>
-							</button>
+						   <div class="mr-4 flex items-center gap-2">
+							   <!-- Upload button moved to library page -->
 							<div id="profile-dropdown" class="dropdown dropdown-end">
 								<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar avatar-placeholder">
 									<div class="bg-neutral text-neutral-content w-12 rounded-full">
-										<span class="text-xl">{ string(data.UserEmail[0]) }</span>
+										<span class="text-xl">{ strings.ToUpper(string(data.UserEmail[0])) }</span>
 									</div>
 								</div>
 								<div tabindex="0" class="dropdown-content z-[1] mt-3 w-80 p-4 shadow-xl bg-base-100 rounded-box">
@@ -128,7 +66,7 @@ templ Layout(data LayoutData) {
 										<div class="flex items-center gap-3 mb-3">
 											<div class="avatar avatar-placeholder">
 												<div class="bg-neutral text-neutral-content w-12 rounded-full">
-													<span class="text-xl">{ string(data.UserEmail[0]) }</span>
+													<span class="text-xl">{ strings.ToUpper(string(data.UserEmail[0])) }</span>
 												</div>
 											</div>
 											<div>
@@ -244,41 +182,19 @@ templ Layout(data LayoutData) {
 				</div>
 				<div class="flex flex-col h-[calc(100vh-64px)] px-4 pb-4">
 					<div class="p-4 rounded-xl bg-base-200 overflow-y-auto flex-1 pr-2">
-						<style>
-							.has-selection .asset-checkbox {
-								opacity: 1 !important;
-							}
-						</style>
 						<div>
-							@Assets()
-						</div>
-						<div class="flex flex-wrap gap-2 after:content-[''] after:flex-grow-[999]">
-							for _, item := range data.Assets {
-								<div
-									class="photo-item h-60 flex-grow relative overflow-hidden rounded-lg bg-base-100 shadow-lg select-none group has-[:checked]:ring-2 has-[:checked]:ring-primary"
-									data-asset-id={ item.PublicID }
-								>
-									<input
-										type="checkbox"
-										class="asset-checkbox checkbox checkbox-md hover:border-primary absolute top-2 left-2 z-10 border-2 border-white/80 bg-black/30 backdrop-blur transition-all duration-100 checked:bg-primary checked:border-primary opacity-0 group-hover:opacity-100"
-									/>
-									<a href={ getAssetPreviewURL(item.PublicID) } class="photo-link block w-full h-full">
-										<img
-											src={ getAssetURL(item.PublicID, 500) }
-											alt={ item.Filename }
-											loading="lazy"
-											class="h-full w-full object-cover min-w-full"
-										/>
-									</a>
-								</div>
-							}
+							@Assets(AssetsData{Assets: data.Assets})
 						</div>
 					</div>
 				</div>
 			</div>
 			<div class="drawer-side z-10">
 				<label for="drawer-sidebar-toggle" aria-label="close sidebar" class="drawer-overlay"></label>
-				<div class="bg-base-300 min-h-full min-w-[240px]">
+				   <div
+					   class="bg-base-300 min-h-full min-w-[180px]"
+					   data-signals-showCreateLibrary="false"
+					   data-signals-newLibraryName=""
+				   >
 					<div class="flex justify-start items-center text-2xl h-16 p-2 pl-6">
 						<a href="/">Alcoves</a>
 					</div>
@@ -289,46 +205,13 @@ templ Layout(data LayoutData) {
 								Home
 							</a>
 						</li>
-						<li class="text-md">
-							<a href="/" class="menu-item">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
-								Recent
-							</a>
-						</li>
-						<li class="text-md">
-							<a href="/" class="menu-item">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
-								Starred
-							</a>
-						</li>
-						<li class="text-md">
-							<a href="/trash" class="menu-item">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-icon lucide-trash"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-								Trash
-							</a>
-						</li>
-						<li class="text-md">
-							<a href="/" class="menu-item">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
-								Documents
-							</a>
-						</li>
-						<li class="text-md">
-							<a href="/" class="menu-item">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
-								Photos
-							</a>
-						</li>
-						<li class="text-md">
-							<a href="/" class="menu-item">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
-								Bookmarks
-							</a>
-						</li>
 					</ul>
+					<div class="divider px-4 my-0"></div>
+					@SidebarLibraries(SidebarData{Libraries: data.Libraries})
 				</div>
 			</div>
 		</div>
+		@RenameLibraryModal()
 		<script>
 			// Save scroll position when navigating to media
 			function saveScrollPosition() {
@@ -356,137 +239,6 @@ templ Layout(data LayoutData) {
 						restoreScrollPosition();
 					});
 				}
-				const checkboxes = document.querySelectorAll('.asset-checkbox');
-				const downloadBtn = document.getElementById('download-btn-nav');
-				const deleteBtn = document.getElementById('delete-btn-nav');
-				const deselectBtn = document.getElementById('deselect-btn-nav');
-				const uploadBtn = document.getElementById('upload-btn');
-				const profileDropdown = document.getElementById('profile-dropdown');
-
-				let lastChecked = null;
-
-				function updateUI() {
-					const selected = document.querySelectorAll('.asset-checkbox:checked');
-					const count = selected.length;
-					const gallery = document.querySelector('.flex.flex-wrap');
-
-					// Update button visibility based on selection state
-					if (count === 0) {
-						// No selection: show upload and profile, hide delete, download, and deselect
-						uploadBtn.classList.remove('hidden');
-						profileDropdown.classList.remove('hidden');
-						downloadBtn.classList.add('hidden');
-						deleteBtn.classList.add('hidden');
-						deselectBtn.classList.add('hidden');
-						gallery.classList.remove('has-selection');
-					} else {
-						// Items selected: show delete, download, and deselect, hide upload and profile
-						uploadBtn.classList.add('hidden');
-						profileDropdown.classList.add('hidden');
-						downloadBtn.classList.remove('hidden');
-						deleteBtn.classList.remove('hidden');
-						deselectBtn.classList.remove('hidden');
-						gallery.classList.add('has-selection');
-					}
-				}
-
-				checkboxes.forEach((checkbox, index) => {
-					checkbox.addEventListener('click', function (e) {
-						e.stopPropagation();
-
-						const isShiftClick = e.shiftKey && lastChecked !== null;
-
-						if (isShiftClick) {
-							const start = Math.min(lastChecked, index);
-							const end = Math.max(lastChecked, index);
-
-							// Set all checkboxes in range to the same state as this checkbox
-							for (let i = start; i <= end; i++) {
-								checkboxes[i].checked = this.checked;
-							}
-						}
-
-						lastChecked = index;
-						updateUI();
-					});
-				});
-
-				// Add click handlers to photo items for selection when items are already selected
-				document.querySelectorAll('.photo-item').forEach((item, index) => {
-					item.addEventListener('click', function (e) {
-						const gallery = document.querySelector('.flex.flex-wrap');
-						const hasSelection = gallery.classList.contains('has-selection');
-
-						if (hasSelection) {
-							e.preventDefault();
-							e.stopPropagation();
-
-							// Toggle the checkbox for this item
-							const checkbox = item.querySelector('.asset-checkbox');
-							checkbox.checked = !checkbox.checked;
-							lastChecked = index;
-							updateUI();
-						}
-					});
-				});
-
-				deleteBtn.addEventListener('click', function () {
-					const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
-						.map(cb => cb.closest('.photo-item').dataset.assetId);
-
-					if (selected.length === 0) return;
-
-					if (confirm(`Delete ${selected.length} asset(s)? They will be moved to trash.`)) {
-						fetch('/assets/delete', {
-							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json',
-							},
-							body: JSON.stringify({ assetIds: selected })
-						})
-							.then(response => {
-								if (response.ok) {
-									checkboxes.forEach(cb => cb.checked = false);
-									location.reload();
-								} else {
-									alert('Failed to delete assets');
-								}
-							})
-							.catch(error => {
-								console.error('Error:', error);
-								alert('Failed to delete assets');
-							});
-					}
-				});
-
-				downloadBtn.addEventListener('click', function () {
-					const selected = Array.from(document.querySelectorAll('.asset-checkbox:checked'))
-						.map(cb => cb.closest('.photo-item').dataset.assetId);
-
-					if (selected.length === 0) return;
-
-					if (selected.length === 1) {
-						window.location.href = `/assets/download/${selected[0]}`;
-					} else {
-						window.location.href = `/assets/download?ids=${selected.join(',')}`;
-					}
-				});
-
-				deselectBtn.addEventListener('click', function () {
-					checkboxes.forEach(cb => cb.checked = false);
-					updateUI();
-				});
-
-				// Add click event listeners to photo links to save scroll position
-				document.querySelectorAll('.photo-link').forEach(link => {
-					link.addEventListener('click', function (e) {
-						// Only save scroll position if not in selection mode
-						const gallery = document.querySelector('.flex.flex-wrap');
-						if (!gallery.classList.contains('has-selection')) {
-							saveScrollPosition();
-						}
-					});
-				});
 			});
 		</script>
 	}

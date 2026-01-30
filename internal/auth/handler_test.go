@@ -44,7 +44,7 @@ func TestPostRegister_Success(t *testing.T) {
 	assert.NotEqual(t, uint(0), library.ID)
 	assert.Equal(t, user.ID, library.OwnerID)
 	assert.True(t, library.IsPersonal)
-	assert.Contains(t, library.Name, "test@example.com")
+	assert.Equal(t, "My Library", library.Name)
 }
 
 func TestPostRegister_InvalidEmail(t *testing.T) {

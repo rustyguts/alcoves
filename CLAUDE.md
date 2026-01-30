@@ -7,9 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Alcoves is a Go-based web application for managing and viewing media files (images). It uses:
 - **Echo** web framework for HTTP routing
 - **GORM** for database ORM (PostgreSQL in production, SQLite in tests)
-- **Templ** for type-safe HTML templating
+- **Templ** for type-safe HTML templating (UI structure only)
+- **Datastar** for hypermedia-driven reactivity and data fetching (SSE-based)
 - **libvips** (via govips) for high-performance image processing and on-demand resizing
-- **TailwindCSS** for styling
+- **DaisyUI v5** + **TailwindCSS** for styling
 
 ## Build and Development Commands
 
@@ -68,7 +69,7 @@ internal/
 ├── config/         # Configuration and environment setup
 ├── db/             # Database initialization and migrations
 ├── files/          # File handlers (upload, retrieval, image processing) and page views
-├── libraries/      # Library routes (library logic in models/library.go)
+├── libraries/      # Library retrieval/on-demand creation (GetUserLibrary) and routes
 ├── models/         # GORM database models and domain logic
 └── testing/        # Test utilities and mock database setup
 ```
@@ -96,7 +97,7 @@ GORM AutoMigrate runs on startup in `internal/db/db.go`. The migration order is 
 3. File
 4. Session
 
-When adding models, update both `internal/db/db.go` and `internal/mocks/db.go`.
+When adding models, update both `internal/db/db.go` and `internal/testing/db.go`.
 
 ### File Storage and Image Processing
 
@@ -111,7 +112,7 @@ Files are stored in `./data/assets/` with UUID-based filenames. The `/files` pac
 
 1. User registers via `/register` → `auth.PostRegister`
    - Password hashed with bcrypt (cost 14)
-   - Personal library created automatically via `libraries.CreatePersonalLibrary`
+   - Personal library created automatically via `models.CreatePersonalLibrary`
    - Session created and cookie set
 
 2. Session middleware (`auth.SessionAuthMiddleware`) validates session cookie on protected routes
@@ -141,13 +142,77 @@ component := components.Media(data)
 return component.Render(c.Request().Context(), c.Response().Writer)
 ```
 
+### Frontend Architecture
+
+The frontend follows a strict separation of concerns:
+
+- **Templ** is used **only** for building HTML structure (layout, components, static markup). Do not add inline `<script>` blocks for UI interactions that Datastar can handle.
+- **Datastar** is the **only** library used for reactivity and data fetching. Do not use htmx, Alpine.js, or other JS frameworks. All dynamic behavior (show/hide, form submission, data fetching, DOM updates) must use Datastar data attributes.
+
+### Datastar Integration
+
+Alcoves uses [Datastar](https://data-star.dev/) as its hypermedia framework for reactive UI updates via Server-Sent Events (SSE).
+
+**CDN**: Loaded in `root.templ` via:
+```html
+<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/[email protected]/bundles/datastar.js"></script>
+```
+
+**Go SDK**: `github.com/starfederation/datastar/sdk/go` (package name `datastar`)
+
+**Key Patterns**:
+
+1. **Signals**: Declare reactive state with `data-signals-*` attributes on a parent element:
+   ```html
+   <div data-signals-showForm="false" data-signals-inputValue="">
+   ```
+
+2. **Two-way binding**: Bind inputs with `data-bind-*`:
+   ```html
+   <input data-bind-inputValue />
+   ```
+
+3. **Visibility**: Toggle elements with `data-show`:
+   ```html
+   <div data-show="$showForm">...</div>
+   ```
+
+4. **Actions**: Trigger backend SSE requests with `data-on-click` using the Go SDK helpers:
+   ```go
+   // In .templ files, use the Go SDK helper functions:
+   data-on-click={ datastar.PostSSE("/endpoint") }
+   data-on-click={ datastar.DeleteSSE("/items/%s", item.PublicID) }
+   ```
+
+5. **Backend SSE responses**: Handlers use the Datastar Go SDK to send SSE events:
+   ```go
+   sse := datastar.NewSSE(c.Response().Writer, c.Request())
+
+   // Send updated HTML fragment (morphs element by ID)
+   sse.MergeFragmentTempl(component, datastar.WithSelectorID("target-id"))
+
+   // Update client signals
+   sse.MarshalAndMergeSignals(map[string]any{"signal": "value"})
+   ```
+
+6. **Reading signals**: Datastar sends all signals as JSON in the request body. Read them with:
+   ```go
+   var signals struct {
+       FieldName string `json:"fieldName"`
+   }
+   datastar.ReadSignals(c.Request(), &signals)
+   ```
+   **Important**: Call `ReadSignals` *before* creating the SSE generator with `NewSSE`.
+
+7. **Fragment pattern**: Mutating handlers (POST/PUT/DELETE) should return the updated HTML fragment via `MergeFragmentTempl` so the UI updates in-place without a full page reload. Each fragment must have a stable `id` attribute that the server targets with `WithSelectorID`.
+
 ### Router Organization
 
 Each domain package registers its own routes via `RegisterRoutes(e)` called from `main.go`:
 
 - `auth.RegisterRoutes()`: Login, register, logout, theme updates
 - `files.RegisterRoutes()`: File operations (`/assets/*`) AND page views (`/`, `/media/:id`, `/trash`, `/health`)
-- `libraries.RegisterRoutes()`: Library management (`/libraries/*`)
+- `libraries.RegisterRoutes()`: Library CRUD via Datastar SSE (`/libraries/*`)
 
 Note: The `files` package handles both API routes (`/assets/*`) and page rendering routes. The `/assets/*` URL path is preserved for backward compatibility even though the internal package is named `files`.
 
@@ -179,3 +244,9 @@ Optional:
 7. **Route registration**: Each package registers its own routes. Don't create a separate `routers` package - add `routes.go` to the domain package instead.
 
 8. **User operations**: User-related functions (`FindUserByEmail`, `FindUserByID`, `UpdateUserTheme`) are in the `auth` package, not a separate `user` package.
+
+9. **Datastar signal naming**: Signal names in `data-signals-*`, `data-bind-*` attributes and Go struct JSON tags must match exactly (camelCase). Signals prefixed with `_` are not sent to the server.
+
+10. **Datastar SSE handlers**: Must use `datastar.NewSSE(c.Response().Writer, c.Request())` rather than returning Echo JSON/HTML responses. The Content-Type is set automatically to `text/event-stream`.
+
+11. **No htmx**: htmx has been replaced by Datastar. Do not add htmx attributes or load the htmx script. Use Datastar for all reactive behavior.

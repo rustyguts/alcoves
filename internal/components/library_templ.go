@@ -8,17 +8,24 @@ package components
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/rustyguts/alcoves/internal/models"
+import (
+	"time"
 
-type MediaViewData struct {
-	Title     string
-	Theme     string
-	Asset     *models.File
-	PrevAsset *models.File
-	NextAsset *models.File
+	"github.com/rustyguts/alcoves/internal/models"
+)
+
+type LibraryViewData struct {
+	Title           string
+	UserEmail       string
+	Theme           string
+	CreatedAt       time.Time
+	Assets          []models.File
+	Libraries       []models.Library
+	LibraryName     string
+	LibraryPublicID string
 }
 
-func Media(data MediaViewData) templ.Component {
+func LibraryView(data LibraryViewData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -51,39 +58,45 @@ func Media(data MediaViewData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<dialog id=\"media_modal\" class=\"modal modal-open\"><div class=\"modal-box max-w-none w-auto h-auto p-0 bg-transparent shadow-none\"><div class=\"absolute top-4 right-4 z-10\"><button class=\"btn btn-sm btn-circle btn-ghost bg-base-100/80 hover:bg-base-100\" onclick=\"history.back()\">✕</button></div><div class=\"flex justify-center items-center\"><img src=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex flex-col h-full\"><div class=\"flex items-center justify-between mb-4\"><h1 class=\"text-xl font-bold\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(getAssetURL(data.Asset.PublicID, 2000))
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.LibraryName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `media.templ`, Line: 23, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `library.templ`, Line: 31, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" alt=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h1><button class=\"btn btn-primary\" onclick=\"upload_modal.showModal()\">Upload</button></div><div class=\"flex-1 overflow-y-auto\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.Asset.Filename)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `media.templ`, Line: 23, Col: 80}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			templ_7745c5c3_Err = Assets(AssetsData{Assets: data.Assets}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" loading=\"lazy\" class=\"max-w-[90vw] max-h-[90vh] object-contain\"></div></div><form method=\"dialog\" class=\"modal-backdrop bg-transparent\"><button onclick=\"history.back()\">close</button></form></dialog><script>\n\t\t\tdocument.addEventListener('keydown', function (e) {\n\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\thistory.back();\n\t\t\t\t}\n\t\t\t});\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = UploadModal(UploadModalData{LibraryPublicID: data.LibraryPublicID}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Root(data.Title, data.Theme).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout(LayoutData{
+			Title:     data.Title,
+			UserEmail: data.UserEmail,
+			Theme:     data.Theme,
+			CreatedAt: data.CreatedAt,
+			Assets:    data.Assets,
+			Libraries: data.Libraries,
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

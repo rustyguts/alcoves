@@ -8,8 +8,8 @@ import (
 func RegisterRoutes(e *echo.Echo) {
 	libraryGroup := e.Group("/libraries", auth.SessionAuthMiddleware())
 
-	libraryGroup.GET("/", func(c echo.Context) error {
-		// List libraries
-		return c.String(200, "GET libraries")
-	})
+	libraryGroup.POST("/create", PostCreateLibrary)
+	libraryGroup.PUT("/rename", PutRenameLibrary)
+	libraryGroup.DELETE("/:publicID", DeleteLibraryHandler)
+	libraryGroup.GET("/:publicID", GetLibraryView)
 }

@@ -1,0 +1,45 @@
+package components
+
+import (
+	"time"
+
+	"github.com/rustyguts/alcoves/internal/models"
+)
+
+type LibraryViewData struct {
+	Title           string
+	UserEmail       string
+	Theme           string
+	CreatedAt       time.Time
+	Assets          []models.File
+	Libraries       []models.Library
+	LibraryName     string
+	LibraryPublicID string
+}
+
+templ LibraryView(data LibraryViewData) {
+	@Layout(LayoutData{
+		Title:     data.Title,
+		UserEmail: data.UserEmail,
+		Theme:     data.Theme,
+		CreatedAt: data.CreatedAt,
+		Assets:    data.Assets,
+		Libraries: data.Libraries,
+	}) {
+		<div class="flex flex-col h-full">
+			<div class="flex items-center justify-between mb-4">
+				<h1 class="text-xl font-bold">{data.LibraryName}</h1>
+				<button
+					class="btn btn-primary"
+					onclick="upload_modal.showModal()"
+				>
+					Upload
+				</button>
+			</div>
+			<div class="flex-1 overflow-y-auto">
+				@Assets(AssetsData{Assets: data.Assets})
+			</div>
+		</div>
+		@UploadModal(UploadModalData{LibraryPublicID: data.LibraryPublicID})
+	}
+}

@@ -47,6 +47,7 @@ func main() {
 
 	log.Println("setting up static routers...")
 	e.Static("/", "./static")
+	e.GET("/", files.GetRoot, auth.SessionAuthMiddleware())
 
 	log.Fatal(e.Start(":8080"))
 }
