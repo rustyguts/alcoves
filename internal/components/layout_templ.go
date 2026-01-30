@@ -70,14 +70,14 @@ func Layout(data LayoutData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"drawer lg:drawer-open\" data-signals-renamingLibrary=\"\" data-signals-renameValue=\"\"><input id=\"drawer-sidebar-toggle\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"bg-base-300 drawer-content flex flex-col\"><div class=\"navbar bg-base-300 sticky top-0 z-30\"><div class=\"w-10 h-10 flex-none lg:hidden\"><label for=\"drawer-sidebar-toggle\" aria-label=\"open sidebar\" class=\"btn btn-square btn-ghost\"><svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" class=\"inline-block h-6 w-6 stroke-current\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></label></div><div class=\"flex justify-end w-full\"><div class=\"mr-4 flex items-center gap-2\"><!-- Upload button moved to library page --><div id=\"profile-dropdown\" class=\"dropdown dropdown-end\"><div tabindex=\"0\" role=\"button\" class=\"btn btn-ghost btn-circle avatar avatar-placeholder\"><div class=\"bg-neutral text-neutral-content w-12 rounded-full\"><span class=\"text-xl\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"drawer lg:drawer-open\" data-signals-renamingLibrary=\"\" data-signals-renameValue=\"\" data-signals-showCreateLibrary=\"false\" data-signals-newLibraryName=\"\"><input id=\"drawer-sidebar-toggle\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"bg-base-300 drawer-content flex flex-col\"><div class=\"navbar bg-base-300 sticky top-0 z-30\"><div class=\"w-10 h-10 flex-none lg:hidden\"><label for=\"drawer-sidebar-toggle\" aria-label=\"open sidebar\" class=\"btn btn-square btn-ghost\"><svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" class=\"inline-block h-6 w-6 stroke-current\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></label></div><div class=\"flex justify-end w-full\"><div class=\"mr-4 flex items-center gap-2\"><!-- Upload button moved to library page --><div id=\"profile-dropdown\" class=\"dropdown dropdown-end\"><div tabindex=\"0\" role=\"button\" class=\"btn btn-ghost btn-circle avatar avatar-placeholder\"><div class=\"bg-neutral text-neutral-content w-12 rounded-full\"><span class=\"text-xl\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(strings.ToUpper(string(data.UserEmail[0])))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 60, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 62, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -90,7 +90,7 @@ func Layout(data LayoutData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(strings.ToUpper(string(data.UserEmail[0])))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 69, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 71, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -103,7 +103,7 @@ func Layout(data LayoutData) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.UserEmail)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 73, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 75, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -116,7 +116,7 @@ func Layout(data LayoutData) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.CreatedAt.Format("January 2, 2006"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 75, Col: 68}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 77, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -182,11 +182,19 @@ func Layout(data LayoutData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+			templ_7745c5c3_Err = CreateLibraryModal().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 			templ_7745c5c3_Err = RenameLibraryModal().Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, " <script>\n\t\t\t// Save scroll position when navigating to media\n\t\t\tfunction saveScrollPosition() {\n\t\t\t\tconst scrollContainer = document.querySelector('.overflow-y-auto');\n\t\t\t\tif (scrollContainer) {\n\t\t\t\t\tsessionStorage.setItem('mediaGalleryScrollPosition', scrollContainer.scrollTop);\n\t\t\t\t}\n\t\t\t}\n\n\t\t\t// Restore scroll position when returning from media\n\t\t\tfunction restoreScrollPosition() {\n\t\t\t\tconst scrollContainer = document.querySelector('.overflow-y-auto');\n\t\t\t\tconst savedPosition = sessionStorage.getItem('mediaGalleryScrollPosition');\n\t\t\t\tif (scrollContainer && savedPosition) {\n\t\t\t\t\tscrollContainer.scrollTop = parseInt(savedPosition);\n\t\t\t\t\t// Clear the saved position after restoring\n\t\t\t\t\tsessionStorage.removeItem('mediaGalleryScrollPosition');\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tdocument.addEventListener('DOMContentLoaded', function () {\n\t\t\t\t// Restore scroll position if returning from media viewer\n\t\t\t\tif (document.referrer && document.referrer.includes('/media/')) {\n\t\t\t\t\trequestAnimationFrame(() => {\n\t\t\t\t\t\trestoreScrollPosition();\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t});\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, " <script>\n\t\t\t// Save scroll position when navigating to media\n\t\t\tfunction saveScrollPosition() {\n\t\t\t\tconst scrollContainer = document.querySelector('.overflow-y-auto');\n\t\t\t\tif (scrollContainer) {\n\t\t\t\t\tsessionStorage.setItem('mediaGalleryScrollPosition', scrollContainer.scrollTop);\n\t\t\t\t}\n\t\t\t}\n\n\t\t\t// Restore scroll position when returning from media\n\t\t\tfunction restoreScrollPosition() {\n\t\t\t\tconst scrollContainer = document.querySelector('.overflow-y-auto');\n\t\t\t\tconst savedPosition = sessionStorage.getItem('mediaGalleryScrollPosition');\n\t\t\t\tif (scrollContainer && savedPosition) {\n\t\t\t\t\tscrollContainer.scrollTop = parseInt(savedPosition);\n\t\t\t\t\t// Clear the saved position after restoring\n\t\t\t\t\tsessionStorage.removeItem('mediaGalleryScrollPosition');\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tdocument.addEventListener('DOMContentLoaded', function () {\n\t\t\t\t// Restore scroll position if returning from media viewer\n\t\t\t\tif (document.referrer && document.referrer.includes('/media/')) {\n\t\t\t\t\trequestAnimationFrame(() => {\n\t\t\t\t\t\trestoreScrollPosition();\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t});\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

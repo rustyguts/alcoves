@@ -2,7 +2,6 @@ package components
 
 import "github.com/rustyguts/alcoves/internal/models"
 import "fmt"
-import datastar "github.com/starfederation/datastar/sdk/go"
 
 type SidebarData struct {
 	Libraries []models.Library
@@ -18,8 +17,7 @@ templ SidebarLibraries(data SidebarData) {
 			   <span class="text-xs font-semibold uppercase tracking-wider text-base-content/50">Libraries</span>
 			   <button
 				   class="btn btn-primary btn-sm w-full"
-				   data-on-click={ datastar.PostSSE("/libraries/create") }
-				   data-signals-newLibraryName="New Library"
+				   data-on-click="$showCreateLibrary = true; $newLibraryName = ''"
 			   >
 				   Create Library
 			   </button>
@@ -50,7 +48,7 @@ templ SidebarLibraries(data SidebarData) {
 									<li>
 										<button
 											class="text-error"
-											data-on-click={ datastar.DeleteSSE("/libraries/%s", lib.PublicID) }
+											data-on-click={ fmt.Sprintf("@delete('/libraries/%s')", lib.PublicID) }
 										>
 											Delete
 										</button>
@@ -65,6 +63,28 @@ templ SidebarLibraries(data SidebarData) {
 	</div>
 }
 
+templ CreateLibraryModal() {
+	<div id="create-library-modal" class="modal" data-class-modal-open="$showCreateLibrary" style="display: none">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg">Create Library</h3>
+			<div class="py-4">
+				<input
+					type="text"
+					data-bind="newLibraryName"
+					placeholder="Library name"
+					class="input input-bordered w-full"
+					data-on-keydown.enter="@post('/libraries/create')"
+				/>
+			</div>
+			<div class="modal-action">
+				<button class="btn" data-on-click="$showCreateLibrary = false">Cancel</button>
+				<button class="btn btn-primary" data-on-click="@post('/libraries/create')">Create</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" data-on-click="$showCreateLibrary = false"></div>
+	</div>
+}
+
 templ RenameLibraryModal() {
 	<div id="rename-library-modal" class="modal" data-class-modal-open="$renamingLibrary !== ''">
 		<div class="modal-box">
@@ -72,15 +92,15 @@ templ RenameLibraryModal() {
 			<div class="py-4">
 				<input
 					type="text"
-					data-bind-renameValue
+					data-bind="renameValue"
 					placeholder="New name"
 					class="input input-bordered w-full"
-					data-on-keydown.enter={ datastar.PutSSE("/libraries/rename") }
+					data-on-keydown.enter="@put('/libraries/rename')"
 				/>
 			</div>
 			<div class="modal-action">
 				<button class="btn" data-on-click="$renamingLibrary = ''">Cancel</button>
-				<button class="btn btn-primary" data-on-click={ datastar.PutSSE("/libraries/rename") }>Save</button>
+				<button class="btn btn-primary" data-on-click="@put('/libraries/rename')">Save</button>
 			</div>
 		</div>
 		<div class="modal-backdrop" data-on-click="$renamingLibrary = ''"></div>

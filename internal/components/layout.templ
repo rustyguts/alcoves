@@ -35,6 +35,8 @@ templ Layout(data LayoutData) {
 			class="drawer lg:drawer-open"
 			data-signals-renamingLibrary=""
 			data-signals-renameValue=""
+			data-signals-showCreateLibrary="false"
+			data-signals-newLibraryName=""
 		>
 			<input id="drawer-sidebar-toggle" type="checkbox" class="drawer-toggle"/>
 			<div class="bg-base-300 drawer-content flex flex-col">
@@ -211,6 +213,7 @@ templ Layout(data LayoutData) {
 				</div>
 			</div>
 		</div>
+		@CreateLibraryModal()
 		@RenameLibraryModal()
 		<script>
 			// Save scroll position when navigating to media

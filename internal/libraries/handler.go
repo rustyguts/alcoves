@@ -1,6 +1,7 @@
 package libraries
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -50,24 +51,33 @@ func GetLibraryView(c echo.Context) error {
 // PostCreateLibrary creates a new library and returns updated sidebar fragment via SSE
 func PostCreateLibrary(c echo.Context) error {
 	userID := auth.GetCurrentUserID(c)
+	log.Printf("PostCreateLibrary called for user ID: %d", userID)
 
-	var signals struct {
+	type Signals struct {
 		NewLibraryName string `json:"newLibraryName"`
 	}
-	if err := datastar.ReadSignals(c.Request(), &signals); err != nil {
+
+	signals := &Signals{}
+	if err := datastar.ReadSignals(c.Request(), signals); err != nil {
+		log.Printf("Failed to read signals: %v", err)
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
+	log.Printf("Received signals: %+v", signals)
+
 	name := signals.NewLibraryName
 	if name == "" {
+		log.Println("Library name is empty")
 		return c.String(http.StatusBadRequest, "Library name is required")
 	}
 
 	_, err := CreateLibrary(userID, name)
 	if err != nil {
+		log.Printf("Failed to create library: %v", err)
 		return c.String(http.StatusInternalServerError, "Failed to create library")
 	}
 
+	log.Printf("Successfully created library: %s", name)
 	return sendSidebarUpdate(c, userID, map[string]any{
 		"newLibraryName":    "",
 		"showCreateLibrary": false,
