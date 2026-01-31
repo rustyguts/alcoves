@@ -98,6 +98,15 @@ func DeleteLibrary(publicID string, userID uint) error {
 	if err != nil {
 		return err
 	}
+
+	if library.IsPersonal {
+		return fmt.Errorf("cannot delete your personal library")
+	}
+
+	if len(library.Files) > 0 {
+		return fmt.Errorf("you must delete all items in the library first")
+	}
+
 	if err := db.Connection.Delete(library).Error; err != nil {
 		return fmt.Errorf("failed to delete library: %w", err)
 	}

@@ -142,7 +142,7 @@ func AssetsList(data AssetsData) templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div id=\"assets-container\"><!-- Context Menu --><div id=\"context-menu\" class=\"hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg\"><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg\" id=\"ctx-download\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"></path><polyline points=\"7 10 12 15 17 10\"></polyline><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"></line></svg> <span>Download</span></div><div class=\"h-px bg-base-300 my-1\"></div><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error\" id=\"ctx-delete\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"></path></svg> <span>Move to trash</span></div></div><div class=\"overflow-x-auto\"><table class=\"table table-auto w-full select-none\" id=\"files-table\"><thead><tr><th class=\"w-[40px]\"></th><th class=\"text-left\">Name</th><th class=\"w-[120px] whitespace-nowrap\">Size</th><th class=\"w-[160px] whitespace-nowrap\">Date</th><th class=\"w-[50px] whitespace-nowrap\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div id=\"assets-container\"><!-- Context Menu --><div id=\"context-menu\" class=\"hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg\"><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg\" id=\"ctx-download\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"></path><polyline points=\"7 10 12 15 17 10\"></polyline><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"></line></svg> <span>Download</span></div><div class=\"h-px bg-base-300 my-1\"></div><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error\" id=\"ctx-delete\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"></path></svg> <span>Move to trash</span></div></div><div class=\"overflow-x-auto\"><table class=\"table table-auto w-full select-none\" id=\"files-table\"><thead><tr><th class=\"text-left\">Name</th><th class=\"w-[120px] whitespace-nowrap\">Size</th><th class=\"w-[160px] whitespace-nowrap\">Date</th><th class=\"w-[50px] whitespace-nowrap\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -155,39 +155,26 @@ func AssetsList(data AssetsData) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if len(data.Assets) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<tr><td colspan=\"5\" class=\"text-center py-8 text-base-content/60\">No files in your library. Click \"Upload\" to add files.</td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<tr><td colspan=\"4\" class=\"text-center py-8 text-base-content/60\">No files in your library. Click \"Upload\" to add files.</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		for _, asset := range data.Assets {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<tr class=\"h-10 max-h-10 file-row cursor-pointer group hover:bg-base-200 [&:has(.file-checkbox:checked)]:hover:bg-primary/20\" data-asset-id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<tr class=\"h-10 max-h-10 file-row cursor-pointer [&:not([data-selected='true']):hover]:bg-base-200 [&[data-selected='true']]:bg-primary/20\" data-asset-id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(asset.PublicID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 106, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 105, Col: 36}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" tabindex=\"0\"><td><input type=\"checkbox\" class=\"file-checkbox checkbox checkbox-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150\" data-asset-id=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(asset.PublicID)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 113, Col: 39}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\"></td><td>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" data-selected=\"false\" tabindex=\"0\"><td>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -195,33 +182,33 @@ func AssetsList(data AssetsData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</td><td><div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</td><td><div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var5 string
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(formatFileSize(asset.Size))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 114, Col: 36}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></td><td>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(formatFileSize(asset.Size))
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(formatDate(asset))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 121, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 117, Col: 29}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div></td><td>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(formatDate(asset))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 124, Col: 30}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</td><td>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</td><td>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -229,12 +216,12 @@ func AssetsList(data AssetsData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</tbody></table></div><script>\n\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\tconst rows = document.querySelectorAll('.file-row');\n\t\t\t\tconst checkboxes = document.querySelectorAll('.file-checkbox');\n\t\t\t\tconst contextMenu = document.getElementById('context-menu');\n\t\t\t\tconst ctxDownload = document.getElementById('ctx-download');\n\t\t\t\tconst ctxDelete = document.getElementById('ctx-delete');\n\t\t\t\t\n\t\t\t\tlet lastSelectedIndex = null;\n\t\t\t\tlet contextMenuTarget = null;\n\n\t\t\t\tfunction getSelectedAssetIds() {\n\t\t\t\t\treturn Array.from(document.querySelectorAll('.file-checkbox:checked'))\n\t\t\t\t\t\t.map(cb => cb.getAttribute('data-asset-id'));\n\t\t\t\t}\n\n\t\t\t\tfunction updateRowSelection() {\n\t\t\t\t\trows.forEach(row => {\n\t\t\t\t\t\tconst checkbox = row.querySelector('.file-checkbox');\n\t\t\t\t\t\tif (checkbox.checked) {\n\t\t\t\t\t\t\trow.classList.add('bg-primary/20');\n\t\t\t\t\t\t\tcheckbox.classList.add('opacity-100');\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\trow.classList.remove('bg-primary/20');\n\t\t\t\t\t\t\tcheckbox.classList.remove('opacity-100');\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\tfunction deleteSelectedAssets() {\n\t\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\t\tif (confirm(`Move ${selected.length} file(s) to trash?`)) {\n\t\t\t\t\t\tfetch('/assets/delete', {\n\t\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t\t'Content-Type': 'application/json',\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tbody: JSON.stringify(selected)\n\t\t\t\t\t\t})\n\t\t\t\t\t\t\t.then(response => {\n\t\t\t\t\t\t\t\tif (response.ok) {\n\t\t\t\t\t\t\t\t\twindow.location.reload();\n\t\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t})\n\t\t\t\t\t\t\t.catch(error => {\n\t\t\t\t\t\t\t\tconsole.error('Error:', error);\n\t\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction downloadSelectedAssets() {\n\t\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\t\tif (selected.length === 1) {\n\t\t\t\t\t\twindow.location.href = '/assets/download/' + selected[0];\n\t\t\t\t\t} else {\n\t\t\t\t\t\twindow.location.href = '/assets/download?ids=' + selected.join(',');\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction showContextMenu(e, targetRow) {\n\t\t\t\t\te.preventDefault();\n\t\t\t\t\tcontextMenuTarget = targetRow;\n\t\t\t\t\t\n\t\t\t\t\tconst checkbox = targetRow.querySelector('.file-checkbox');\n\t\t\t\t\tconst isSelected = checkbox.checked;\n\t\t\t\t\t\n\t\t\t\t\t// If right-clicked row is not selected, select only this row\n\t\t\t\t\tif (!isSelected) {\n\t\t\t\t\t\tcheckboxes.forEach(cb => {\n\t\t\t\t\t\t\tcb.checked = false;\n\t\t\t\t\t\t\tcb.closest('.file-row').classList.remove('bg-primary/20');\n\t\t\t\t\t\t\tcb.classList.remove('opacity-100');\n\t\t\t\t\t\t});\n\t\t\t\t\t\tcheckbox.checked = true;\n\t\t\t\t\t\ttargetRow.classList.add('bg-primary/20');\n\t\t\t\t\t\tcheckbox.classList.add('opacity-100');\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Position context menu\n\t\t\t\t\tconst x = e.clientX;\n\t\t\t\t\tconst y = e.clientY;\n\t\t\t\t\t\n\t\t\t\t\t// Prevent menu from going off-screen\n\t\t\t\t\tconst menuWidth = 180;\n\t\t\t\t\tconst menuHeight = 100;\n\t\t\t\t\tconst winWidth = window.innerWidth;\n\t\t\t\t\tconst winHeight = window.innerHeight;\n\t\t\t\t\t\n\t\t\t\t\tlet finalX = x;\n\t\t\t\t\tlet finalY = y;\n\t\t\t\t\t\n\t\t\t\t\tif (x + menuWidth > winWidth) {\n\t\t\t\t\t\tfinalX = x - menuWidth;\n\t\t\t\t\t}\n\t\t\t\t\tif (y + menuHeight > winHeight) {\n\t\t\t\t\t\tfinalY = y - menuHeight;\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\tcontextMenu.style.left = finalX + 'px';\n\t\t\t\t\tcontextMenu.style.top = finalY + 'px';\n\t\t\t\t\tcontextMenu.classList.remove('hidden');\n\t\t\t\t\tcontextMenu.classList.add('block');\n\t\t\t\t}\n\n\t\t\t\tfunction hideContextMenu() {\n\t\t\t\t\tcontextMenu.classList.add('hidden');\n\t\t\t\t\tcontextMenu.classList.remove('block');\n\t\t\t\t\tcontextMenuTarget = null;\n\t\t\t\t}\n\n\t\t\t\t// Context menu event listeners\n\t\t\t\tctxDownload.addEventListener('click', function() {\n\t\t\t\t\thideContextMenu();\n\t\t\t\t\tdownloadSelectedAssets();\n\t\t\t\t});\n\n\t\t\t\tctxDelete.addEventListener('click', function() {\n\t\t\t\t\thideContextMenu();\n\t\t\t\t\tdeleteSelectedAssets();\n\t\t\t\t});\n\n\t\t\t\t// Hide context menu on click elsewhere\n\t\t\t\tdocument.addEventListener('click', function(e) {\n\t\t\t\t\tif (!contextMenu.contains(e.target)) {\n\t\t\t\t\t\thideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t});\n\n\t\t\t\trows.forEach((row, index) => {\n\t\t\t\t\tconst checkbox = row.querySelector('.file-checkbox');\n\n\t\t\t\t\t// Checkbox click handler\n\t\t\t\t\tcheckbox.addEventListener('click', function(e) {\n\t\t\t\t\t\te.stopPropagation();\n\t\t\t\t\t\t\n\t\t\t\t\t\tconst isShiftClick = e.shiftKey && lastSelectedIndex !== null;\n\t\t\t\t\t\tconst isCtrlClick = e.ctrlKey || e.metaKey;\n\n\t\t\t\t\t\tif (isShiftClick) {\n\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst allCheckboxes = document.querySelectorAll('.file-checkbox');\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tfor (let i = start; i <= end; i++) {\n\t\t\t\t\t\t\t\tallCheckboxes[i].checked = this.checked;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t} else if (!isCtrlClick) {\n\t\t\t\t\t\t\t// Clear other selections if not Ctrl/Cmd click\n\t\t\t\t\t\t\tcheckboxes.forEach((cb, i) => {\n\t\t\t\t\t\t\t\tif (i !== index) {\n\t\t\t\t\t\t\t\t\tcb.checked = false;\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\tlastSelectedIndex = index;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t});\n\n\t\t\t\t\t// Row click handler (left click)\n\t\t\t\t\trow.addEventListener('click', function(e) {\n\t\t\t\t\t\t// Ignore if clicking on checkbox directly\n\t\t\t\t\t\tif (e.target.classList.contains('file-checkbox')) return;\n\t\t\t\t\t\t\n\t\t\t\t\t\tconst isCtrlClick = e.ctrlKey || e.metaKey;\n\t\t\t\t\t\tconst isShiftClick = e.shiftKey;\n\n\t\t\t\t\t\tif (isShiftClick && lastSelectedIndex !== null) {\n\t\t\t\t\t\t\t// Shift+click: select range\n\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex, index);\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tcheckboxes.forEach((cb, i) => {\n\t\t\t\t\t\t\t\tif (i >= start && i <= end) {\n\t\t\t\t\t\t\t\t\tcb.checked = true;\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t} else if (isCtrlClick) {\n\t\t\t\t\t\t\t// Ctrl/Cmd+click: toggle this item\n\t\t\t\t\t\t\tcheckbox.checked = !checkbox.checked;\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t// Regular click: select only this item\n\t\t\t\t\t\t\tcheckboxes.forEach(cb => cb.checked = false);\n\t\t\t\t\t\t\tcheckbox.checked = true;\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\tlastSelectedIndex = index;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t});\n\n\t\t\t\t\t// Double click to open\n\t\t\t\t\trow.addEventListener('dblclick', function(e) {\n\t\t\t\t\t\tconst assetId = this.getAttribute('data-asset-id');\n\t\t\t\t\t\twindow.location.href = '/media/' + assetId;\n\t\t\t\t\t});\n\n\t\t\t\t\t// Right click for context menu\n\t\t\t\t\trow.addEventListener('contextmenu', function(e) {\n\t\t\t\t\t\tshowContextMenu(e, row);\n\t\t\t\t\t});\n\t\t\t\t});\n\n\t\t\t\t// Keyboard shortcuts\n\t\t\t\tdocument.addEventListener('keydown', function(e) {\n\t\t\t\t\t// Ctrl+A: Select all\n\t\t\t\t\tif ((e.ctrlKey || e.metaKey) && e.key === 'a') {\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tcheckboxes.forEach(cb => {\n\t\t\t\t\t\t\tcb.checked = true;\n\t\t\t\t\t\t});\n\t\t\t\t\t\tlastSelectedIndex = rows.length - 1;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Escape: Deselect all\n\t\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\t\tcheckboxes.forEach(cb => {\n\t\t\t\t\t\t\tcb.checked = false;\n\t\t\t\t\t\t});\n\t\t\t\t\t\tlastSelectedIndex = null;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t\thideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Space: Toggle selection of focused row\n\t\t\t\t\tif (e.key === ' ' && document.activeElement.classList.contains('file-row')) {\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tconst focusedRow = document.activeElement;\n\t\t\t\t\t\tconst checkbox = focusedRow.querySelector('.file-checkbox');\n\t\t\t\t\t\tcheckbox.checked = !checkbox.checked;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Arrow keys: Navigate and optionally select\n\t\t\t\t\tif (['ArrowUp', 'ArrowDown'].includes(e.key)) {\n\t\t\t\t\t\tconst currentFocus = document.activeElement;\n\t\t\t\t\t\tlet currentIndex = Array.from(rows).indexOf(currentFocus);\n\t\t\t\t\t\t\n\t\t\t\t\t\t// If nothing is focused, focus the first row\n\t\t\t\t\t\tif (currentIndex === -1) {\n\t\t\t\t\t\t\tcurrentIndex = 0;\n\t\t\t\t\t\t\tif (rows.length > 0) {\n\t\t\t\t\t\t\t\trows[0].focus();\n\t\t\t\t\t\t\t\tif (!e.shiftKey) {\n\t\t\t\t\t\t\t\t\t// Clear selection on simple arrow navigation\n\t\t\t\t\t\t\t\t\tcheckboxes.forEach(cb => cb.checked = false);\n\t\t\t\t\t\t\t\t\trows[0].querySelector('.file-checkbox').checked = true;\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t\t\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tlet newIndex = currentIndex;\n\t\t\t\t\t\t\n\t\t\t\t\t\tif (e.key === 'ArrowUp' && currentIndex > 0) {\n\t\t\t\t\t\t\tnewIndex = currentIndex - 1;\n\t\t\t\t\t\t} else if (e.key === 'ArrowDown' && currentIndex < rows.length - 1) {\n\t\t\t\t\t\t\tnewIndex = currentIndex + 1;\n\t\t\t\t\t\t}\n\t\t\t\t\t\t\n\t\t\t\t\t\tif (newIndex !== currentIndex) {\n\t\t\t\t\t\t\trows[newIndex].focus();\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tif (e.shiftKey) {\n\t\t\t\t\t\t\t\t// Shift+Arrow: Select range\n\t\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);\n\t\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\tcheckboxes.forEach((cb, i) => {\n\t\t\t\t\t\t\t\t\tcb.checked = i >= start && i <= end;\n\t\t\t\t\t\t\t\t});\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t// Simple arrow: Move selection to new row\n\t\t\t\t\t\t\t\tcheckboxes.forEach(cb => cb.checked = false);\n\t\t\t\t\t\t\t\trows[newIndex].querySelector('.file-checkbox').checked = true;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tlastSelectedIndex = newIndex;\n\t\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t});\n\t\t</script></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</tbody></table></div><script>\n\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\tconst rows = document.querySelectorAll('.file-row');\n\t\t\t\tconst contextMenu = document.getElementById('context-menu');\n\t\t\t\tconst ctxDownload = document.getElementById('ctx-download');\n\t\t\t\tconst ctxDelete = document.getElementById('ctx-delete');\n\t\t\t\t\n\t\t\t\tlet lastSelectedIndex = null;\n\t\t\t\tlet contextMenuTarget = null;\n\n\t\t\t\tfunction getSelectedAssetIds() {\n\t\t\t\t\treturn Array.from(document.querySelectorAll('.file-row[data-selected=\"true\"]'))\n\t\t\t\t\t\t.map(row => row.getAttribute('data-asset-id'));\n\t\t\t\t}\n\n\t\t\t\tfunction updateRowSelection() {\n\t\t\t\t\trows.forEach(row => {\n\t\t\t\t\t\tconst isSelected = row.getAttribute('data-selected') === 'true';\n\t\t\t\t\t\tif (isSelected) {\n\t\t\t\t\t\t\trow.classList.add('bg-primary/20');\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\trow.classList.remove('bg-primary/20');\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\tfunction deleteSelectedAssets() {\n\t\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\t\tif (confirm(`Move ${selected.length} file(s) to trash?`)) {\n\t\t\t\t\t\tfetch('/assets/delete', {\n\t\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t\t'Content-Type': 'application/json',\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tbody: JSON.stringify(selected)\n\t\t\t\t\t\t})\n\t\t\t\t\t\t\t.then(response => {\n\t\t\t\t\t\t\t\tif (response.ok) {\n\t\t\t\t\t\t\t\t\twindow.location.reload();\n\t\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t})\n\t\t\t\t\t\t\t.catch(error => {\n\t\t\t\t\t\t\t\tconsole.error('Error:', error);\n\t\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction downloadSelectedAssets() {\n\t\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\t\tif (selected.length === 1) {\n\t\t\t\t\t\twindow.location.href = '/assets/download/' + selected[0];\n\t\t\t\t\t} else {\n\t\t\t\t\t\twindow.location.href = '/assets/download?ids=' + selected.join(',');\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction showContextMenu(e, targetRow) {\n\t\t\t\t\te.preventDefault();\n\t\t\t\t\tcontextMenuTarget = targetRow;\n\t\t\t\t\t\n\t\t\t\t\tconst isSelected = targetRow.getAttribute('data-selected') === 'true';\n\t\t\t\t\t\n\t\t\t\t\t// If right-clicked row is not selected, select only this row\n\t\t\t\t\tif (!isSelected) {\n\t\t\t\t\t\trows.forEach(row => {\n\t\t\t\t\t\t\trow.setAttribute('data-selected', 'false');\n\t\t\t\t\t\t\trow.classList.remove('bg-primary/20');\n\t\t\t\t\t\t});\n\t\t\t\t\t\ttargetRow.setAttribute('data-selected', 'true');\n\t\t\t\t\t\ttargetRow.classList.add('bg-primary/20');\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Position context menu\n\t\t\t\t\tconst x = e.clientX;\n\t\t\t\t\tconst y = e.clientY;\n\t\t\t\t\t\n\t\t\t\t\t// Prevent menu from going off-screen\n\t\t\t\t\tconst menuWidth = 180;\n\t\t\t\t\tconst menuHeight = 100;\n\t\t\t\t\tconst winWidth = window.innerWidth;\n\t\t\t\t\tconst winHeight = window.innerHeight;\n\t\t\t\t\t\n\t\t\t\t\tlet finalX = x;\n\t\t\t\t\tlet finalY = y;\n\t\t\t\t\t\n\t\t\t\t\tif (x + menuWidth > winWidth) {\n\t\t\t\t\t\tfinalX = x - menuWidth;\n\t\t\t\t\t}\n\t\t\t\t\tif (y + menuHeight > winHeight) {\n\t\t\t\t\t\tfinalY = y - menuHeight;\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\tcontextMenu.style.left = finalX + 'px';\n\t\t\t\t\tcontextMenu.style.top = finalY + 'px';\n\t\t\t\t\tcontextMenu.classList.remove('hidden');\n\t\t\t\t\tcontextMenu.classList.add('block');\n\t\t\t\t}\n\n\t\t\t\tfunction hideContextMenu() {\n\t\t\t\t\tcontextMenu.classList.add('hidden');\n\t\t\t\t\tcontextMenu.classList.remove('block');\n\t\t\t\t\tcontextMenuTarget = null;\n\t\t\t\t}\n\n\t\t\t\t// Context menu event listeners\n\t\t\t\tctxDownload.addEventListener('click', function() {\n\t\t\t\t\thideContextMenu();\n\t\t\t\t\tdownloadSelectedAssets();\n\t\t\t\t});\n\n\t\t\t\tctxDelete.addEventListener('click', function() {\n\t\t\t\t\thideContextMenu();\n\t\t\t\t\tdeleteSelectedAssets();\n\t\t\t\t});\n\n\t\t\t\t// Hide context menu on click elsewhere\n\t\t\t\tdocument.addEventListener('click', function(e) {\n\t\t\t\t\tif (!contextMenu.contains(e.target)) {\n\t\t\t\t\t\thideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t});\n\n\t\t\t\trows.forEach((row, index) => {\n\t\t\t\t\t// Row click handler (left click)\n\t\t\t\t\trow.addEventListener('click', function(e) {\n\t\t\t\t\t\tconst isCtrlClick = e.ctrlKey || e.metaKey;\n\t\t\t\t\t\tconst isShiftClick = e.shiftKey;\n\n\t\t\t\t\t\tif (isShiftClick && lastSelectedIndex !== null) {\n\t\t\t\t\t\t\t// Shift+click: select range\n\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex, index);\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\trows.forEach((r, i) => {\n\t\t\t\t\t\t\t\tif (i >= start && i <= end) {\n\t\t\t\t\t\t\t\t\tr.setAttribute('data-selected', 'true');\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t} else if (isCtrlClick) {\n\t\t\t\t\t\t\t// Ctrl/Cmd+click: toggle this item\n\t\t\t\t\t\t\tconst isSelected = row.getAttribute('data-selected') === 'true';\n\t\t\t\t\t\t\trow.setAttribute('data-selected', isSelected ? 'false' : 'true');\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t// Regular click: select only this item\n\t\t\t\t\t\t\trows.forEach(r => r.setAttribute('data-selected', 'false'));\n\t\t\t\t\t\t\trow.setAttribute('data-selected', 'true');\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\tlastSelectedIndex = index;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t});\n\n\t\t\t\t\t// Double click to open\n\t\t\t\t\trow.addEventListener('dblclick', function(e) {\n\t\t\t\t\t\tconst assetId = this.getAttribute('data-asset-id');\n\t\t\t\t\t\twindow.location.href = '/media/' + assetId;\n\t\t\t\t\t});\n\n\t\t\t\t\t// Right click for context menu\n\t\t\t\t\trow.addEventListener('contextmenu', function(e) {\n\t\t\t\t\t\tshowContextMenu(e, row);\n\t\t\t\t\t});\n\t\t\t\t});\n\n\t\t\t\t// Keyboard shortcuts\n\t\t\t\tdocument.addEventListener('keydown', function(e) {\n\t\t\t\t\t// Ctrl+A: Select all\n\t\t\t\t\tif ((e.ctrlKey || e.metaKey) && e.key === 'a') {\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\trows.forEach(row => {\n\t\t\t\t\t\t\trow.setAttribute('data-selected', 'true');\n\t\t\t\t\t\t});\n\t\t\t\t\t\tlastSelectedIndex = rows.length - 1;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Escape: Deselect all\n\t\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\t\trows.forEach(row => {\n\t\t\t\t\t\t\trow.setAttribute('data-selected', 'false');\n\t\t\t\t\t\t});\n\t\t\t\t\t\tlastSelectedIndex = null;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t\thideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Space: Toggle selection of focused row\n\t\t\t\t\tif (e.key === ' ' && document.activeElement.classList.contains('file-row')) {\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tconst focusedRow = document.activeElement;\n\t\t\t\t\t\tconst isSelected = focusedRow.getAttribute('data-selected') === 'true';\n\t\t\t\t\t\tfocusedRow.setAttribute('data-selected', isSelected ? 'false' : 'true');\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Arrow keys: Navigate and optionally select\n\t\t\t\t\tif (['ArrowUp', 'ArrowDown'].includes(e.key)) {\n\t\t\t\t\t\tconst currentFocus = document.activeElement;\n\t\t\t\t\t\tlet currentIndex = Array.from(rows).indexOf(currentFocus);\n\t\t\t\t\t\t\n\t\t\t\t\t\t// If nothing is focused, focus the first row\n\t\t\t\t\t\tif (currentIndex === -1) {\n\t\t\t\t\t\t\tcurrentIndex = 0;\n\t\t\t\t\t\t\tif (rows.length > 0) {\n\t\t\t\t\t\t\t\trows[0].focus();\n\t\t\t\t\t\t\t\tif (!e.shiftKey) {\n\t\t\t\t\t\t\t\t\t// Clear selection on simple arrow navigation\n\t\t\t\t\t\t\t\t\trows.forEach(row => row.setAttribute('data-selected', 'false'));\n\t\t\t\t\t\t\t\t\trows[0].setAttribute('data-selected', 'true');\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t\t\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tlet newIndex = currentIndex;\n\t\t\t\t\t\t\n\t\t\t\t\t\tif (e.key === 'ArrowUp' && currentIndex > 0) {\n\t\t\t\t\t\t\tnewIndex = currentIndex - 1;\n\t\t\t\t\t\t} else if (e.key === 'ArrowDown' && currentIndex < rows.length - 1) {\n\t\t\t\t\t\t\tnewIndex = currentIndex + 1;\n\t\t\t\t\t\t}\n\t\t\t\t\t\t\n\t\t\t\t\t\tif (newIndex !== currentIndex) {\n\t\t\t\t\t\t\trows[newIndex].focus();\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tif (e.shiftKey) {\n\t\t\t\t\t\t\t\t// Shift+Arrow: Select range\n\t\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);\n\t\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\trows.forEach((row, i) => {\n\t\t\t\t\t\t\t\t\trow.setAttribute('data-selected', i >= start && i <= end ? 'true' : 'false');\n\t\t\t\t\t\t\t\t});\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t// Simple arrow: Move selection to new row\n\t\t\t\t\t\t\t\trows.forEach(row => row.setAttribute('data-selected', 'false'));\n\t\t\t\t\t\t\t\trows[newIndex].setAttribute('data-selected', 'true');\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tlastSelectedIndex = newIndex;\n\t\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t});\n\t\t</script></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -259,76 +246,76 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var8 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var8 == nil {
-			templ_7745c5c3_Var8 = templ.NopComponent
+		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var7 == nil {
+			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div id=\"assets-thumbnail-container\"><!-- Context Menu --><div id=\"thumbnail-context-menu\" class=\"hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg\"><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg\" id=\"thumb-ctx-download\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"></path><polyline points=\"7 10 12 15 17 10\"></polyline><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"></line></svg> <span>Download</span></div><div class=\"h-px bg-base-300 my-1\"></div><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error\" id=\"thumb-ctx-delete\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"></path></svg> <span>Move to trash</span></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div id=\"assets-thumbnail-container\"><!-- Context Menu --><div id=\"thumbnail-context-menu\" class=\"hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg\"><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg\" id=\"thumb-ctx-download\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"></path><polyline points=\"7 10 12 15 17 10\"></polyline><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"></line></svg> <span>Download</span></div><div class=\"h-px bg-base-300 my-1\"></div><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error\" id=\"thumb-ctx-delete\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"></path></svg> <span>Move to trash</span></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(data.Assets) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<div class=\"flex flex-col items-center justify-center py-16 text-base-content/60\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"mb-4 opacity-50\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"></path> <polyline points=\"14 2 14 8 20 8\"></polyline></svg><p class=\"text-lg font-medium mb-2\">No files in your library</p><p class=\"text-sm mb-4\">Click \"Upload\" to add files.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"flex flex-col items-center justify-center py-16 text-base-content/60\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"mb-4 opacity-50\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"></path> <polyline points=\"14 2 14 8 20 8\"></polyline></svg><p class=\"text-lg font-medium mb-2\">No files in your library</p><p class=\"text-sm mb-4\">Click \"Upload\" to add files.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<div class=\"grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<div class=\"grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, asset := range data.Assets {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"card card-compact bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 cursor-pointer group\" data-asset-id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<div class=\"card card-compact bg-base-100 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group p-2\" data-asset-id=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var9 string
-				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(asset.PublicID)
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(asset.PublicID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 458, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 413, Col: 36}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" tabindex=\"0\"><figure class=\"aspect-video bg-base-200 relative overflow-hidden\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" data-selected=\"false\" tabindex=\"0\"><figure class=\"aspect-video bg-base-200 rounded-lg relative overflow-hidden\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if strings.HasPrefix(asset.Type, "image/") {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<img src=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<img src=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var9 string
+					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(getAssetURL(asset.PublicID, 400))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 420, Col: 47}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" alt=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var10 string
-					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(getAssetURL(asset.PublicID, 400))
+					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(asset.Filename)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 464, Col: 47}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 421, Col: 29}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" alt=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var11 string
-					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(asset.Filename)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 465, Col: 29}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" class=\"w-full h-full object-cover group-hover:scale-105 transition-transform duration-200\" loading=\"lazy\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" class=\"w-full h-full object-cover group-hover:scale-105 transition-transform duration-200\" loading=\"lazy\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"w-full h-full flex items-center justify-center\"><div class=\"p-4 rounded-lg bg-base-300/50\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<div class=\"w-full h-full flex items-center justify-center\"><div class=\"p-4 rounded-lg bg-base-300/50\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -349,87 +336,74 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</div></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</div></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<!-- Checkbox overlay --><div class=\"absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150\"><input type=\"checkbox\" class=\"thumb-checkbox checkbox checkbox-sm bg-base-100/80\" data-asset-id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</figure><div class=\"card-body p-2 pt-3\"><h3 class=\"card-title text-sm font-medium truncate\" title=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var11 string
+				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(asset.Filename)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 441, Col: 81}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var12 string
-				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(asset.PublicID)
+				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(asset.Filename)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 488, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 442, Col: 24}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"></div></figure><div class=\"card-body p-3\"><h3 class=\"card-title text-sm font-medium truncate\" title=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</h3><div class=\"flex items-center justify-between text-xs text-base-content/60\"><span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var13 string
-				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(asset.Filename)
+				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(formatFileSize(asset.Size))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 493, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 445, Col: 42}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</span> <span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var14 string
-				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(asset.Filename)
+				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(formatDate(asset))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 494, Col: 24}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 446, Col: 33}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</h3><div class=\"flex items-center justify-between text-xs text-base-content/60\"><span>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var15 string
-				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(formatFileSize(asset.Size))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 497, Col: 42}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</span> <span>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(formatDate(asset))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 498, Col: 33}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</span></div></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</span></div></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<script>\n\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\tconst cards = document.querySelectorAll('#assets-thumbnail-container .card');\n\t\t\t\tconst checkboxes = document.querySelectorAll('.thumb-checkbox');\n\t\t\t\tconst contextMenu = document.getElementById('thumbnail-context-menu');\n\t\t\t\tconst ctxDownload = document.getElementById('thumb-ctx-download');\n\t\t\t\tconst ctxDelete = document.getElementById('thumb-ctx-delete');\n\t\t\t\t\n\t\t\t\tlet lastSelectedIndex = null;\n\t\t\t\tlet contextMenuTarget = null;\n\n\t\t\t\tfunction getSelectedAssetIds() {\n\t\t\t\t\treturn Array.from(document.querySelectorAll('.thumb-checkbox:checked'))\n\t\t\t\t\t\t.map(cb => cb.getAttribute('data-asset-id'));\n\t\t\t\t}\n\n\t\t\t\tfunction updateCardSelection() {\n\t\t\t\t\tcards.forEach(card => {\n\t\t\t\t\t\tconst checkbox = card.querySelector('.thumb-checkbox');\n\t\t\t\t\t\tif (checkbox.checked) {\n\t\t\t\t\t\t\tcard.classList.add('border-primary', 'ring-2', 'ring-primary/20');\n\t\t\t\t\t\t\tcheckbox.classList.add('opacity-100');\n\t\t\t\t\t\t\tcheckbox.classList.remove('opacity-0');\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tcard.classList.remove('border-primary', 'ring-2', 'ring-primary/20');\n\t\t\t\t\t\t\tcheckbox.classList.remove('opacity-100');\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\tfunction deleteSelectedAssets() {\n\t\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\t\tif (confirm(`Move ${selected.length} file(s) to trash?`)) {\n\t\t\t\t\t\tfetch('/assets/delete', {\n\t\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t\t'Content-Type': 'application/json',\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tbody: JSON.stringify(selected)\n\t\t\t\t\t\t})\n\t\t\t\t\t\t\t.then(response => {\n\t\t\t\t\t\t\t\tif (response.ok) {\n\t\t\t\t\t\t\t\t\twindow.location.reload();\n\t\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t})\n\t\t\t\t\t\t\t.catch(error => {\n\t\t\t\t\t\t\t\tconsole.error('Error:', error);\n\t\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction downloadSelectedAssets() {\n\t\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\t\tif (selected.length === 1) {\n\t\t\t\t\t\twindow.location.href = '/assets/download/' + selected[0];\n\t\t\t\t\t} else {\n\t\t\t\t\t\twindow.location.href = '/assets/download?ids=' + selected.join(',');\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction showContextMenu(e, targetCard) {\n\t\t\t\t\te.preventDefault();\n\t\t\t\t\tcontextMenuTarget = targetCard;\n\t\t\t\t\t\n\t\t\t\t\tconst checkbox = targetCard.querySelector('.thumb-checkbox');\n\t\t\t\t\tconst isSelected = checkbox.checked;\n\t\t\t\t\t\n\t\t\t\t\t// If right-clicked card is not selected, select only this card\n\t\t\t\t\tif (!isSelected) {\n\t\t\t\t\t\tcheckboxes.forEach(cb => {\n\t\t\t\t\t\t\tcb.checked = false;\n\t\t\t\t\t\t\tcb.closest('.card').classList.remove('border-primary', 'ring-2', 'ring-primary/20');\n\t\t\t\t\t\t});\n\t\t\t\t\t\tcheckbox.checked = true;\n\t\t\t\t\t\ttargetCard.classList.add('border-primary', 'ring-2', 'ring-primary/20');\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Position context menu\n\t\t\t\t\tconst x = e.clientX;\n\t\t\t\t\tconst y = e.clientY;\n\t\t\t\t\t\n\t\t\t\t\t// Prevent menu from going off-screen\n\t\t\t\t\tconst menuWidth = 180;\n\t\t\t\t\tconst menuHeight = 100;\n\t\t\t\t\tconst winWidth = window.innerWidth;\n\t\t\t\t\tconst winHeight = window.innerHeight;\n\t\t\t\t\t\n\t\t\t\t\tlet finalX = x;\n\t\t\t\t\tlet finalY = y;\n\t\t\t\t\t\n\t\t\t\t\tif (x + menuWidth > winWidth) {\n\t\t\t\t\t\tfinalX = x - menuWidth;\n\t\t\t\t\t}\n\t\t\t\t\tif (y + menuHeight > winHeight) {\n\t\t\t\t\t\tfinalY = y - menuHeight;\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\tcontextMenu.style.left = finalX + 'px';\n\t\t\t\t\tcontextMenu.style.top = finalY + 'px';\n\t\t\t\t\tcontextMenu.classList.remove('hidden');\n\t\t\t\t\tcontextMenu.classList.add('block');\n\t\t\t\t}\n\n\t\t\t\tfunction hideContextMenu() {\n\t\t\t\t\tcontextMenu.classList.add('hidden');\n\t\t\t\t\tcontextMenu.classList.remove('block');\n\t\t\t\t\tcontextMenuTarget = null;\n\t\t\t\t}\n\n\t\t\t\t// Context menu event listeners\n\t\t\t\tctxDownload.addEventListener('click', function() {\n\t\t\t\t\thideContextMenu();\n\t\t\t\t\tdownloadSelectedAssets();\n\t\t\t\t});\n\n\t\t\t\tctxDelete.addEventListener('click', function() {\n\t\t\t\t\thideContextMenu();\n\t\t\t\t\tdeleteSelectedAssets();\n\t\t\t\t});\n\n\t\t\t\t// Hide context menu on click elsewhere\n\t\t\t\tdocument.addEventListener('click', function(e) {\n\t\t\t\t\tif (!contextMenu.contains(e.target)) {\n\t\t\t\t\t\thideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t});\n\n\t\t\t\tcards.forEach((card, index) => {\n\t\t\t\t\tconst checkbox = card.querySelector('.thumb-checkbox');\n\n\t\t\t\t\t// Checkbox click handler\n\t\t\t\t\tcheckbox.addEventListener('click', function(e) {\n\t\t\t\t\t\te.stopPropagation();\n\t\t\t\t\t\t\n\t\t\t\t\t\tconst isShiftClick = e.shiftKey && lastSelectedIndex !== null;\n\t\t\t\t\t\tconst isCtrlClick = e.ctrlKey || e.metaKey;\n\n\t\t\t\t\t\tif (isShiftClick) {\n\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst allCheckboxes = document.querySelectorAll('.thumb-checkbox');\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tfor (let i = start; i <= end; i++) {\n\t\t\t\t\t\t\t\tallCheckboxes[i].checked = this.checked;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t} else if (!isCtrlClick) {\n\t\t\t\t\t\t\t// Clear other selections if not Ctrl/Cmd click\n\t\t\t\t\t\t\tcheckboxes.forEach((cb, i) => {\n\t\t\t\t\t\t\t\tif (i !== index) {\n\t\t\t\t\t\t\t\t\tcb.checked = false;\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\tlastSelectedIndex = index;\n\t\t\t\t\t\tupdateCardSelection();\n\t\t\t\t\t});\n\n\t\t\t\t\t// Card click handler (left click)\n\t\t\t\t\tcard.addEventListener('click', function(e) {\n\t\t\t\t\t\t// Ignore if clicking on checkbox directly\n\t\t\t\t\t\tif (e.target.classList.contains('thumb-checkbox')) return;\n\t\t\t\t\t\t\n\t\t\t\t\t\tconst isCtrlClick = e.ctrlKey || e.metaKey;\n\t\t\t\t\t\tconst isShiftClick = e.shiftKey;\n\n\t\t\t\t\t\tif (isShiftClick && lastSelectedIndex !== null) {\n\t\t\t\t\t\t\t// Shift+click: select range\n\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex, index);\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tcheckboxes.forEach((cb, i) => {\n\t\t\t\t\t\t\t\tif (i >= start && i <= end) {\n\t\t\t\t\t\t\t\t\tcb.checked = true;\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t} else if (isCtrlClick) {\n\t\t\t\t\t\t\t// Ctrl/Cmd+click: toggle this item\n\t\t\t\t\t\t\tcheckbox.checked = !checkbox.checked;\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t// Regular click: open the file\n\t\t\t\t\t\t\tconst assetId = this.getAttribute('data-asset-id');\n\t\t\t\t\t\t\twindow.location.href = '/media/' + assetId;\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\tlastSelectedIndex = index;\n\t\t\t\t\t\tupdateCardSelection();\n\t\t\t\t\t});\n\n\t\t\t\t\t// Double click to open\n\t\t\t\t\tcard.addEventListener('dblclick', function(e) {\n\t\t\t\t\t\tconst assetId = this.getAttribute('data-asset-id');\n\t\t\t\t\t\twindow.location.href = '/media/' + assetId;\n\t\t\t\t\t});\n\n\t\t\t\t\t// Right click for context menu\n\t\t\t\t\tcard.addEventListener('contextmenu', function(e) {\n\t\t\t\t\t\tshowContextMenu(e, card);\n\t\t\t\t\t});\n\t\t\t\t});\n\n\t\t\t\t// Keyboard shortcuts\n\t\t\t\tdocument.addEventListener('keydown', function(e) {\n\t\t\t\t\t// Ctrl+A: Select all\n\t\t\t\t\tif ((e.ctrlKey || e.metaKey) && e.key === 'a') {\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tcheckboxes.forEach(cb => {\n\t\t\t\t\t\t\tcb.checked = true;\n\t\t\t\t\t\t});\n\t\t\t\t\t\tlastSelectedIndex = cards.length - 1;\n\t\t\t\t\t\tupdateCardSelection();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Escape: Deselect all\n\t\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\t\tcheckboxes.forEach(cb => {\n\t\t\t\t\t\t\tcb.checked = false;\n\t\t\t\t\t\t});\n\t\t\t\t\t\tlastSelectedIndex = null;\n\t\t\t\t\t\tupdateCardSelection();\n\t\t\t\t\t\thideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Space: Toggle selection of focused card\n\t\t\t\t\tif (e.key === ' ' && document.activeElement.classList.contains('card')) {\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tconst focusedCard = document.activeElement;\n\t\t\t\t\t\tconst checkbox = focusedCard.querySelector('.thumb-checkbox');\n\t\t\t\t\t\tcheckbox.checked = !checkbox.checked;\n\t\t\t\t\t\tupdateCardSelection();\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t});\n\t\t</script></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<script>\n\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\tconst cards = document.querySelectorAll('#assets-thumbnail-container .card');\n\t\t\tconst contextMenu = document.getElementById('thumbnail-context-menu');\n\t\t\tconst ctxDownload = document.getElementById('thumb-ctx-download');\n\t\t\tconst ctxDelete = document.getElementById('thumb-ctx-delete');\n\t\t\t\n\t\t\tlet lastSelectedIndex = null;\n\t\t\tlet contextMenuTarget = null;\n\n\t\t\tfunction getSelectedAssetIds() {\n\t\t\t\treturn Array.from(document.querySelectorAll('#assets-thumbnail-container .card[data-selected=\"true\"]'))\n\t\t\t\t\t.map(card => card.getAttribute('data-asset-id'));\n\t\t\t}\n\n\t\t\tfunction updateCardSelection() {\n\t\t\t\tcards.forEach(card => {\n\t\t\t\t\tconst isSelected = card.getAttribute('data-selected') === 'true';\n\t\t\t\t\tif (isSelected) {\n\t\t\t\t\t\tcard.classList.add('bg-primary/20');\n\t\t\t\t\t} else {\n\t\t\t\t\t\tcard.classList.remove('bg-primary/20');\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t}\n\n\t\t\tfunction deleteSelectedAssets() {\n\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\tif (confirm(`Move ${selected.length} file(s) to trash?`)) {\n\t\t\t\t\tfetch('/assets/delete', {\n\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t'Content-Type': 'application/json',\n\t\t\t\t\t\t},\n\t\t\t\t\t\tbody: JSON.stringify(selected)\n\t\t\t\t\t})\n\t\t\t\t\t\t.then(response => {\n\t\t\t\t\t\t\tif (response.ok) {\n\t\t\t\t\t\t\t\twindow.location.reload();\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t})\n\t\t\t\t\t\t.catch(error => {\n\t\t\t\t\t\t\tconsole.error('Error:', error);\n\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tfunction downloadSelectedAssets() {\n\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\tif (selected.length === 1) {\n\t\t\t\t\twindow.location.href = '/assets/download/' + selected[0];\n\t\t\t\t} else {\n\t\t\t\t\twindow.location.href = '/assets/download?ids=' + selected.join(',');\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tfunction showContextMenu(e, targetCard) {\n\t\t\t\te.preventDefault();\n\t\t\t\tcontextMenuTarget = targetCard;\n\t\t\t\t\n\t\t\t\tconst isSelected = targetCard.getAttribute('data-selected') === 'true';\n\t\t\t\t\n\t\t\t\t// If right-clicked card is not selected, select only this card\n\t\t\t\tif (!isSelected) {\n\t\t\t\t\tcards.forEach(card => {\n\t\t\t\t\t\tcard.setAttribute('data-selected', 'false');\n\t\t\t\t\t\tcard.classList.remove('bg-primary/20');\n\t\t\t\t\t});\n\t\t\t\t\ttargetCard.setAttribute('data-selected', 'true');\n\t\t\t\t\ttargetCard.classList.add('bg-primary/20');\n\t\t\t\t}\n\t\t\t\t\n\t\t\t\t// Position context menu\n\t\t\t\tconst x = e.clientX;\n\t\t\t\tconst y = e.clientY;\n\t\t\t\t\n\t\t\t\t// Prevent menu from going off-screen\n\t\t\t\tconst menuWidth = 180;\n\t\t\t\tconst menuHeight = 100;\n\t\t\t\tconst winWidth = window.innerWidth;\n\t\t\t\tconst winHeight = window.innerHeight;\n\t\t\t\t\n\t\t\t\tlet finalX = x;\n\t\t\t\tlet finalY = y;\n\t\t\t\t\n\t\t\t\tif (x + menuWidth > winWidth) {\n\t\t\t\t\tfinalX = x - menuWidth;\n\t\t\t\t}\n\t\t\t\tif (y + menuHeight > winHeight) {\n\t\t\t\t\tfinalY = y - menuHeight;\n\t\t\t\t}\n\t\t\t\t\n\t\t\t\tcontextMenu.style.left = finalX + 'px';\n\t\t\t\tcontextMenu.style.top = finalY + 'px';\n\t\t\t\tcontextMenu.classList.remove('hidden');\n\t\t\t\tcontextMenu.classList.add('block');\n\t\t\t}\n\n\t\t\tfunction hideContextMenu() {\n\t\t\t\tcontextMenu.classList.add('hidden');\n\t\t\t\tcontextMenu.classList.remove('block');\n\t\t\t\tcontextMenuTarget = null;\n\t\t\t}\n\n\t\t\t// Context menu event listeners\n\t\t\tctxDownload.addEventListener('click', function() {\n\t\t\t\thideContextMenu();\n\t\t\t\tdownloadSelectedAssets();\n\t\t\t});\n\n\t\t\tctxDelete.addEventListener('click', function() {\n\t\t\t\thideContextMenu();\n\t\t\t\tdeleteSelectedAssets();\n\t\t\t});\n\n\t\t\t// Hide context menu on click elsewhere\n\t\t\tdocument.addEventListener('click', function(e) {\n\t\t\t\tif (!contextMenu.contains(e.target)) {\n\t\t\t\t\thideContextMenu();\n\t\t\t\t}\n\t\t\t});\n\n\t\t\tcards.forEach((card, index) => {\n\t\t\t\t// Card click handler (left click)\n\t\t\t\tcard.addEventListener('click', function(e) {\n\t\t\t\t\tconst isCtrlClick = e.ctrlKey || e.metaKey;\n\t\t\t\t\tconst isShiftClick = e.shiftKey;\n\n\t\t\t\t\tif (isShiftClick && lastSelectedIndex !== null) {\n\t\t\t\t\t\t// Shift+click: select range\n\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex, index);\n\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex, index);\n\t\t\t\t\t\t\n\t\t\t\t\t\tcards.forEach((c, i) => {\n\t\t\t\t\t\t\tif (i >= start && i <= end) {\n\t\t\t\t\t\t\t\tc.setAttribute('data-selected', 'true');\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t});\n\t\t\t\t\t} else if (isCtrlClick) {\n\t\t\t\t\t\t// Ctrl/Cmd+click: toggle this item\n\t\t\t\t\t\tconst isSelected = card.getAttribute('data-selected') === 'true';\n\t\t\t\t\t\tcard.setAttribute('data-selected', isSelected ? 'false' : 'true');\n\t\t\t\t\t} else {\n\t\t\t\t\t\t// Regular click: select only this item (same as list view)\n\t\t\t\t\t\tcards.forEach(c => c.setAttribute('data-selected', 'false'));\n\t\t\t\t\t\tcard.setAttribute('data-selected', 'true');\n\t\t\t\t\t}\n\n\t\t\t\t\tlastSelectedIndex = index;\n\t\t\t\t\tupdateCardSelection();\n\t\t\t\t});\n\n\t\t\t\t// Double click to open\n\t\t\t\tcard.addEventListener('dblclick', function(e) {\n\t\t\t\t\tconst assetId = this.getAttribute('data-asset-id');\n\t\t\t\t\twindow.location.href = '/media/' + assetId;\n\t\t\t\t});\n\n\t\t\t\t// Right click for context menu\n\t\t\t\tcard.addEventListener('contextmenu', function(e) {\n\t\t\t\t\tshowContextMenu(e, card);\n\t\t\t\t});\n\t\t\t});\n\n\t\t\t// Keyboard shortcuts\n\t\t\tdocument.addEventListener('keydown', function(e) {\n\t\t\t\t// Ctrl+A: Select all\n\t\t\t\tif ((e.ctrlKey || e.metaKey) && e.key === 'a') {\n\t\t\t\t\te.preventDefault();\n\t\t\t\t\tcards.forEach(card => {\n\t\t\t\t\t\tcard.setAttribute('data-selected', 'true');\n\t\t\t\t\t});\n\t\t\t\t\tlastSelectedIndex = cards.length - 1;\n\t\t\t\t\tupdateCardSelection();\n\t\t\t\t}\n\t\t\t\t\n\t\t\t\t// Escape: Deselect all\n\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\tcards.forEach(card => {\n\t\t\t\t\t\tcard.setAttribute('data-selected', 'false');\n\t\t\t\t\t});\n\t\t\t\t\tlastSelectedIndex = null;\n\t\t\t\t\tupdateCardSelection();\n\t\t\t\t\thideContextMenu();\n\t\t\t\t}\n\t\t\t\t\n\t\t\t\t// Space: Toggle selection of focused card\n\t\t\t\tif (e.key === ' ' && document.activeElement.classList.contains('card')) {\n\t\t\t\t\te.preventDefault();\n\t\t\t\t\tconst focusedCard = document.activeElement;\n\t\t\t\t\tconst isSelected = focusedCard.getAttribute('data-selected') === 'true';\n\t\t\t\t\tfocusedCard.setAttribute('data-selected', isSelected ? 'false' : 'true');\n\t\t\t\t\tupdateCardSelection();\n\t\t\t\t}\n\t\t\t});\n\t\t});\n\t</script></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
