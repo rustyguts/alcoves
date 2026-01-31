@@ -32,6 +32,16 @@ go generate ./...
 
 # Build CSS (after editing styles)
 tailwindcss -i static/css/input.css -o static/css/main.css
+
+# UI/E2E Tests (Playwright)
+cd e2e
+npm install                          # Install test dependencies
+npx playwright install              # Install browser binaries
+npm test                            # Run all E2E tests (headless)
+npm run test:headed                 # Run tests with visible browser
+npm run test:debug                  # Run tests in debug mode
+npx playwright test auth.spec.ts    # Run specific test file
+npx playwright show-report          # View HTML test report
 ```
 
 ## Project Structure
@@ -41,12 +51,18 @@ Domain-driven organization:
 internal/
 ├── auth/         # Auth, sessions, users, routes
 ├── files/        # File upload, retrieval, image processing, routes
+├── folders/      # Folder CRUD, nested folder management
 ├── libraries/    # Library CRUD, routes
 ├── components/   # Templ templates (.templ files)
 ├── models/       # GORM models
 ├── db/           # DB initialization
 ├── testing/      # Test utilities
 └── config/       # Configuration
+
+e2e/              # End-to-end UI tests (Playwright)
+├── tests/        # Test files (*.spec.ts)
+├── fixtures.ts   # Test fixtures and page objects
+└── package.json  # Node.js dependencies
 ```
 
 Each domain package registers routes via `RegisterRoutes(e)` called from `main.go`.
@@ -170,4 +186,7 @@ func TestSomething(t *testing.T) {
 ## Environment Variables
 
 Required: `ALCOVES_DATABASE_URL` (PostgreSQL or SQLite)
+- **PostgreSQL**: `postgres://user:password@localhost/dbname`
+- **SQLite**: `sqlite:./path/to/database.db` or `sqlite::memory:`
+
 Optional: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `OTEL_SERVICE_NAME`

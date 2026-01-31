@@ -3,9 +3,11 @@ package db
 import (
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/rustyguts/alcoves/internal/models"
 	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -46,7 +48,22 @@ func Initialize() (*gorm.DB, error) {
 	}
 
 	databaseURL := getDatabaseURL()
-	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
+
+	var db *gorm.DB
+	var err error
+
+	// Detect database type from connection string
+	if strings.HasPrefix(databaseURL, "sqlite:") {
+		// SQLite connection string format: sqlite:path/to/db.db or sqlite::memory:
+		dbPath := strings.TrimPrefix(databaseURL, "sqlite:")
+		db, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+		slog.Info("using SQLite database", "path", dbPath)
+	} else {
+		// Assume PostgreSQL
+		db, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
+		slog.Info("using PostgreSQL database")
+	}
+
 	if err != nil {
 		return nil, err
 	}
