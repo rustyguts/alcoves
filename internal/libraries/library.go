@@ -57,6 +57,7 @@ func GetUserLibraries(userID uint) ([]models.Library, error) {
 func GetLibraryByPublicID(publicID string, userID uint) (*models.Library, error) {
 	var library models.Library
 	err := db.Connection.
+		Preload("Files").
 		Where("public_id = ? AND owner_id = ?", publicID, userID).
 		First(&library).Error
 	if err != nil {
@@ -96,9 +97,6 @@ func DeleteLibrary(publicID string, userID uint) error {
 	library, err := GetLibraryByPublicID(publicID, userID)
 	if err != nil {
 		return err
-	}
-	if library.IsPersonal {
-		return fmt.Errorf("cannot delete personal library")
 	}
 	if err := db.Connection.Delete(library).Error; err != nil {
 		return fmt.Errorf("failed to delete library: %w", err)

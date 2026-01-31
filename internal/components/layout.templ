@@ -31,13 +31,7 @@ func getAssetURL(publicID string, width int) string {
 
 templ Layout(data LayoutData) {
 	@Root(data.Title, data.Theme) {
-		<div
-			class="drawer lg:drawer-open"
-			data-signals-renamingLibrary=""
-			data-signals-renameValue=""
-			data-signals-showCreateLibrary="false"
-			data-signals-newLibraryName=""
-		>
+		<div class="drawer lg:drawer-open">
 			<input id="drawer-sidebar-toggle" type="checkbox" class="drawer-toggle"/>
 			<div class="bg-base-300 drawer-content flex flex-col">
 				<div class="navbar bg-base-300 sticky top-0 z-30">
@@ -184,19 +178,13 @@ templ Layout(data LayoutData) {
 				</div>
 				<div class="flex flex-col h-[calc(100vh-64px)] px-4 pb-4">
 					<div class="p-4 rounded-xl bg-base-200 overflow-y-auto flex-1 pr-2">
-						<div>
-							@Assets(AssetsData{Assets: data.Assets})
-						</div>
+						{ children... }
 					</div>
 				</div>
 			</div>
 			<div class="drawer-side z-10">
 				<label for="drawer-sidebar-toggle" aria-label="close sidebar" class="drawer-overlay"></label>
-				   <div
-					   class="bg-base-300 min-h-full min-w-[180px]"
-					   data-signals-showCreateLibrary="false"
-					   data-signals-newLibraryName=""
-				   >
+		   <div class="bg-base-300 min-h-full min-w-[180px]">
 					<div class="flex justify-start items-center text-2xl h-16 p-2 pl-6">
 						<a href="/">Alcoves</a>
 					</div>
@@ -213,8 +201,6 @@ templ Layout(data LayoutData) {
 				</div>
 			</div>
 		</div>
-		@CreateLibraryModal()
-		@RenameLibraryModal()
 		<script>
 			// Save scroll position when navigating to media
 			function saveScrollPosition() {

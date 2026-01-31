@@ -1,20 +1,22 @@
 package components
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/rustyguts/alcoves/internal/models"
 )
 
 type LibraryViewData struct {
-	Title           string
-	UserEmail       string
-	Theme           string
-	CreatedAt       time.Time
-	Assets          []models.File
-	Libraries       []models.Library
-	LibraryName     string
-	LibraryPublicID string
+	Title            string
+	UserEmail        string
+	Theme            string
+	CreatedAt        time.Time
+	Assets           []models.File
+	Libraries        []models.Library
+	LibraryName      string
+	LibraryPublicID  string
+	LibraryIsPersonal bool
 }
 
 templ LibraryView(data LibraryViewData) {
@@ -26,9 +28,31 @@ templ LibraryView(data LibraryViewData) {
 		Assets:    data.Assets,
 		Libraries: data.Libraries,
 	}) {
-		<div class="flex flex-col h-full">
+		<div class="flex flex-col h-full" data-signals="{renamingLibrary: '', renameValue: ''}">
 			<div class="flex items-center justify-between mb-4">
-				<h1 class="text-xl font-bold">{data.LibraryName}</h1>
+				<div class="flex items-center gap-2">
+					<h1 class="text-xl font-bold">{data.LibraryName}</h1>
+					<div class="dropdown dropdown-end">
+						<div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-circle">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+						</div>
+						<ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-40">
+							<li>
+							<button data-on:click={ fmt.Sprintf("$renamingLibrary = '%s'; $renameValue = '%s'", data.LibraryPublicID, data.LibraryName) }>
+								Rename
+							</button>
+							</li>
+							<li>
+							<button
+								class="text-error"
+								data-on:click={ fmt.Sprintf("@delete('/libraries/%s')", data.LibraryPublicID) }
+							>
+								Delete
+							</button>
+							</li>
+						</ul>
+					</div>
+				</div>
 				<button
 					class="btn btn-primary"
 					onclick="upload_modal.showModal()"
@@ -41,5 +65,6 @@ templ LibraryView(data LibraryViewData) {
 			</div>
 		</div>
 		@UploadModal(UploadModalData{LibraryPublicID: data.LibraryPublicID})
+		@RenameLibraryModal()
 	}
 }

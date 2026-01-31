@@ -1,13 +1,15 @@
 package libraries
 
 import (
-	"log"
+	"bytes"
+	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/rustyguts/alcoves/internal/auth"
 	"github.com/rustyguts/alcoves/internal/components"
-	datastar "github.com/starfederation/datastar/sdk/go"
+	"github.com/starfederation/datastar-go/datastar"
 )
 
 // GetLibraryView displays the files in a specific library
@@ -35,53 +37,35 @@ func GetLibraryView(c echo.Context) error {
 	}
 
 	data := components.LibraryViewData{
-		Title:           library.Name,
-		UserEmail:       user.Email,
-		Theme:           user.Theme,
-		CreatedAt:       user.CreatedAt,
-		Assets:          assets,
-		Libraries:       libraries,
-		LibraryName:     library.Name,
-		LibraryPublicID: library.PublicID,
+		Title:             library.Name,
+		UserEmail:         user.Email,
+		Theme:             user.Theme,
+		CreatedAt:         user.CreatedAt,
+		Assets:            assets,
+		Libraries:         libraries,
+		LibraryName:       library.Name,
+		LibraryPublicID:   library.PublicID,
+		LibraryIsPersonal: library.IsPersonal,
 	}
 	component := components.LibraryView(data)
 	return component.Render(c.Request().Context(), c.Response().Writer)
 }
 
-// PostCreateLibrary creates a new library and returns updated sidebar fragment via SSE
+// PostCreateLibrary creates a new library with a default name and returns updated sidebar fragment via SSE
 func PostCreateLibrary(c echo.Context) error {
 	userID := auth.GetCurrentUserID(c)
-	log.Printf("PostCreateLibrary called for user ID: %d", userID)
+	slog.Info("PostCreateLibrary called", "user_id", userID)
 
-	type Signals struct {
-		NewLibraryName string `json:"newLibraryName"`
-	}
-
-	signals := &Signals{}
-	if err := datastar.ReadSignals(c.Request(), signals); err != nil {
-		log.Printf("Failed to read signals: %v", err)
-		return c.String(http.StatusBadRequest, "Invalid request")
-	}
-
-	log.Printf("Received signals: %+v", signals)
-
-	name := signals.NewLibraryName
-	if name == "" {
-		log.Println("Library name is empty")
-		return c.String(http.StatusBadRequest, "Library name is required")
-	}
+	name := "New Library"
 
 	_, err := CreateLibrary(userID, name)
 	if err != nil {
-		log.Printf("Failed to create library: %v", err)
+		slog.Error("Failed to create library", "error", err)
 		return c.String(http.StatusInternalServerError, "Failed to create library")
 	}
 
-	log.Printf("Successfully created library: %s", name)
-	return sendSidebarUpdate(c, userID, map[string]any{
-		"newLibraryName":    "",
-		"showCreateLibrary": false,
-	})
+	slog.Info("Successfully created library", "name", name)
+	return sendSidebarUpdate(c, userID, nil)
 }
 
 // PutRenameLibrary renames a library and returns updated sidebar fragment via SSE
@@ -111,7 +95,7 @@ func PutRenameLibrary(c echo.Context) error {
 	})
 }
 
-// DeleteLibraryHandler deletes a library and returns updated sidebar fragment via SSE
+// DeleteLibraryHandler deletes a library and redirects to home page via SSE
 func DeleteLibraryHandler(c echo.Context) error {
 	userID := auth.GetCurrentUserID(c)
 	publicID := c.Param("publicID")
@@ -121,7 +105,9 @@ func DeleteLibraryHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, err.Error())
 	}
 
-	return sendSidebarUpdate(c, userID, nil)
+	sse := datastar.NewSSE(c.Response().Writer, c.Request())
+	sse.ExecuteScript("window.location.href = '/'")
+	return nil
 }
 
 // sendSidebarUpdate fetches updated libraries and sends the sidebar fragment via SSE
@@ -134,13 +120,22 @@ func sendSidebarUpdate(c echo.Context, userID uint, signalUpdates map[string]any
 	sse := datastar.NewSSE(c.Response().Writer, c.Request())
 
 	if signalUpdates != nil {
-		if err := sse.MarshalAndMergeSignals(signalUpdates); err != nil {
+		signalsJSON, err := json.Marshal(signalUpdates)
+		if err != nil {
 			return err
 		}
+		sse.PatchSignals(signalsJSON)
 	}
 
 	component := components.SidebarLibraries(components.SidebarData{
 		Libraries: libraries,
 	})
-	return sse.MergeFragmentTempl(component, datastar.WithSelectorID("sidebar-libraries"))
+
+	var buf bytes.Buffer
+	if err := component.Render(c.Request().Context(), &buf); err != nil {
+		return err
+	}
+
+	sse.PatchElements(buf.String(), datastar.WithSelectorID("sidebar-libraries"))
+	return nil
 }

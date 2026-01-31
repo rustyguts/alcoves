@@ -41,7 +41,7 @@ func Home(data LayoutData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex items-center justify-center h-full\"><h1 class=\"text-2xl font-bold text-base-content/70\">Not Implemented</h1></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex items-center justify-center h-full\"><h1 class=\"text-2xl font-bold text-base-content/70\">In Progress</h1></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

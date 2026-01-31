@@ -40,7 +40,7 @@ func SidebarLibraries(data SidebarData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"sidebar-libraries\"><div class=\"flex flex-col px-4 pt-4 pb-2 gap-2\"><span class=\"text-xs font-semibold uppercase tracking-wider text-base-content/50\">Libraries</span> <button class=\"btn btn-primary btn-sm w-full\" data-on-click=\"$showCreateLibrary = true; $newLibraryName = ''\">Create Library</button></div><ul class=\"menu menu-md text-base-content gap-1 w-full px-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"sidebar-libraries\" data-signals=\"{renamingLibrary: '', renameValue: ''}\"><div class=\"flex flex-col px-4 pt-4 pb-2 gap-2\"><span class=\"text-xs font-semibold uppercase tracking-wider text-base-content/50\">Libraries</span> <button class=\"btn btn-primary btn-sm w-full\" type=\"button\" data-on:click=\"@post('/libraries/create')\">Create Library</button></div><ul class=\"menu menu-md text-base-content gap-1 w-full px-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -52,7 +52,7 @@ func SidebarLibraries(data SidebarData) templ.Component {
 			var templ_7745c5c3_Var2 templ.SafeURL
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(getLibraryURL(lib.PublicID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 29, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 30, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -76,83 +76,18 @@ func SidebarLibraries(data SidebarData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(lib.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 35, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 36, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</a> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if !lib.IsPersonal {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"dropdown dropdown-end opacity-0 group-hover:opacity-100 transition-opacity\"><div tabindex=\"0\" role=\"button\" class=\"btn btn-ghost btn-xs btn-circle\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"1\"></circle><circle cx=\"12\" cy=\"5\" r=\"1\"></circle><circle cx=\"12\" cy=\"19\" r=\"1\"></circle></svg></div><ul tabindex=\"0\" class=\"dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-40\"><li><button data-on-click=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("$renamingLibrary = '%s'; $renameValue = '%s'", lib.PublicID, lib.Name))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 44, Col: 117}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\">Rename</button></li><li><button class=\"text-error\" data-on-click=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var5 string
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("@delete('/libraries/%s')", lib.PublicID))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 51, Col: 80}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">Delete</button></li></ul></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></li>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</a></div></li>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</ul></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-func CreateLibraryModal() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var6 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var6 == nil {
-			templ_7745c5c3_Var6 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div id=\"create-library-modal\" class=\"modal\" data-class-modal-open=\"$showCreateLibrary\" style=\"display: none\"><div class=\"modal-box\"><h3 class=\"font-bold text-lg\">Create Library</h3><div class=\"py-4\"><input type=\"text\" data-bind=\"newLibraryName\" placeholder=\"Library name\" class=\"input input-bordered w-full\" data-on-keydown.enter=\"@post('/libraries/create')\"></div><div class=\"modal-action\"><button class=\"btn\" data-on-click=\"$showCreateLibrary = false\">Cancel</button> <button class=\"btn btn-primary\" data-on-click=\"@post('/libraries/create')\">Create</button></div></div><div class=\"modal-backdrop\" data-on-click=\"$showCreateLibrary = false\"></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</ul></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -176,12 +111,12 @@ func RenameLibraryModal() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var7 == nil {
-			templ_7745c5c3_Var7 = templ.NopComponent
+		templ_7745c5c3_Var4 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var4 == nil {
+			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div id=\"rename-library-modal\" class=\"modal\" data-class-modal-open=\"$renamingLibrary !== ''\"><div class=\"modal-box\"><h3 class=\"font-bold text-lg\">Rename Library</h3><div class=\"py-4\"><input type=\"text\" data-bind=\"renameValue\" placeholder=\"New name\" class=\"input input-bordered w-full\" data-on-keydown.enter=\"@put('/libraries/rename')\"></div><div class=\"modal-action\"><button class=\"btn\" data-on-click=\"$renamingLibrary = ''\">Cancel</button> <button class=\"btn btn-primary\" data-on-click=\"@put('/libraries/rename')\">Save</button></div></div><div class=\"modal-backdrop\" data-on-click=\"$renamingLibrary = ''\"></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div data-show=\"$renamingLibrary !== ''\" style=\"display: none\"><div class=\"modal modal-open z-50\"><div class=\"modal-box\"><h3 class=\"font-bold text-lg\">Rename Library</h3><div class=\"py-4\"><input type=\"text\" data-bind:renameValue placeholder=\"New name\" class=\"input input-bordered w-full\" data-on:keydown.enter=\"@put('/libraries/rename')\"></div><div class=\"modal-action\"><button type=\"button\" class=\"btn\" data-on:click=\"$renamingLibrary = ''\">Cancel</button> <button type=\"button\" class=\"btn btn-primary\" data-on:click=\"@put('/libraries/rename')\">Save</button></div></div><div class=\"modal-backdrop\" data-on:click=\"$renamingLibrary = ''\"></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

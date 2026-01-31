@@ -155,21 +155,21 @@ Alcoves uses [Datastar](https://data-star.dev/) as its hypermedia framework for 
 
 **CDN**: Loaded in `root.templ` via:
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/[email protected]/bundles/datastar.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"></script>
 ```
 
-**Go SDK**: `github.com/starfederation/datastar/sdk/go` (package name `datastar`)
+**Go SDK**: `github.com/starfederation/datastar-go/datastar` (package name `datastar`)
 
 **Key Patterns**:
 
-1. **Signals**: Declare reactive state with `data-signals-*` attributes on a parent element:
+1. **Signals**: Declare reactive state with `data-signals` attribute on a parent element:
    ```html
-   <div data-signals-showForm="false" data-signals-inputValue="">
+   <div data-signals="{showForm: false, inputValue: ''}">
    ```
 
-2. **Two-way binding**: Bind inputs with `data-bind-*`:
+2. **Two-way binding**: Bind inputs with `data-bind`:
    ```html
-   <input data-bind-inputValue />
+   <input data-bind:inputValue />
    ```
 
 3. **Visibility**: Toggle elements with `data-show`:
@@ -177,11 +177,11 @@ Alcoves uses [Datastar](https://data-star.dev/) as its hypermedia framework for 
    <div data-show="$showForm">...</div>
    ```
 
-4. **Actions**: Trigger backend SSE requests with `data-on-click` using the Go SDK helpers:
-   ```go
-   // In .templ files, use the Go SDK helper functions:
-   data-on-click={ datastar.PostSSE("/endpoint") }
-   data-on-click={ datastar.DeleteSSE("/items/%s", item.PublicID) }
+4. **Actions**: Trigger backend requests with `data-on-click` using Datastar actions:
+   ```html
+   <!-- In .templ files, use Datastar action syntax: -->
+   data-on-click="@post('/endpoint')"
+   data-on-click="@delete('/items/' + $itemId)"
    ```
 
 5. **Backend SSE responses**: Handlers use the Datastar Go SDK to send SSE events:
@@ -189,10 +189,14 @@ Alcoves uses [Datastar](https://data-star.dev/) as its hypermedia framework for 
    sse := datastar.NewSSE(c.Response().Writer, c.Request())
 
    // Send updated HTML fragment (morphs element by ID)
-   sse.MergeFragmentTempl(component, datastar.WithSelectorID("target-id"))
+   // Render templ component to string first
+   var buf bytes.Buffer
+   component.Render(ctx, &buf)
+   sse.PatchElements(buf.String(), datastar.WithSelectorID("target-id"))
 
    // Update client signals
-   sse.MarshalAndMergeSignals(map[string]any{"signal": "value"})
+   signalsJSON, _ := json.Marshal(map[string]any{"signal": "value"})
+   sse.PatchSignals(signalsJSON)
    ```
 
 6. **Reading signals**: Datastar sends all signals as JSON in the request body. Read them with:
@@ -204,7 +208,7 @@ Alcoves uses [Datastar](https://data-star.dev/) as its hypermedia framework for 
    ```
    **Important**: Call `ReadSignals` *before* creating the SSE generator with `NewSSE`.
 
-7. **Fragment pattern**: Mutating handlers (POST/PUT/DELETE) should return the updated HTML fragment via `MergeFragmentTempl` so the UI updates in-place without a full page reload. Each fragment must have a stable `id` attribute that the server targets with `WithSelectorID`.
+7. **Fragment pattern**: Mutating handlers (POST/PUT/DELETE) should return the updated HTML fragment via `PatchElements` so the UI updates in-place without a full page reload. Each fragment must have a stable `id` attribute that the server targets with `WithSelectorID`.
 
 ### Router Organization
 
@@ -245,7 +249,7 @@ Optional:
 
 8. **User operations**: User-related functions (`FindUserByEmail`, `FindUserByID`, `UpdateUserTheme`) are in the `auth` package, not a separate `user` package.
 
-9. **Datastar signal naming**: Signal names in `data-signals-*`, `data-bind-*` attributes and Go struct JSON tags must match exactly (camelCase). Signals prefixed with `_` are not sent to the server.
+9. **Datastar signal naming**: Signal names in `data-signals`, `data-bind:` attributes and Go struct JSON tags must match exactly (camelCase). Signals prefixed with `_` are not sent to the server.
 
 10. **Datastar SSE handlers**: Must use `datastar.NewSSE(c.Response().Writer, c.Request())` rather than returning Echo JSON/HTML responses. The Content-Type is set automatically to `text/event-stream`.
 

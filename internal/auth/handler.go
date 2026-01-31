@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"net/mail"
 
@@ -72,17 +72,17 @@ func PostRegister(c echo.Context) error {
 
 	existingUser, err := FindUserByEmail(email)
 	if err != nil {
-		log.Println("Failed to check existing user", "error", err, "email", email)
+		slog.Error("Failed to check existing user", "error", err, "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to check existing user")
 	}
 	if existingUser != nil {
-		log.Println("User already exists", "email", email)
-		return c.String(http.StatusInternalServerError, "User already exists")
+		slog.Info("User already exists", "email", email)
+		return c.String(http.StatusConflict, "User already exists")
 	}
 
 	hashedPassword, err := HashPassword(insecurePassword)
 	if err != nil {
-		log.Println("Failed to hash password", "error", err)
+		slog.Error("Failed to hash password", "error", err)
 		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 
@@ -92,21 +92,21 @@ func PostRegister(c echo.Context) error {
 	}
 
 	if err := db.Connection.Create(&user).Error; err != nil {
-		log.Println("Failed to create user in database", "error", err, "email", email)
+		slog.Error("Failed to create user in database", "error", err, "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to create user")
 	}
 
 	// Create personal library for the user
 	_, err = models.CreatePersonalLibrary(db.Connection, user.ID, email)
 	if err != nil {
-		log.Println("Failed to create personal library", "error", err, "user_id", user.ID)
+		slog.Error("Failed to create personal library", "error", err, "user_id", user.ID)
 		// Note: We don't fail user creation if library creation fails
 		// The user can still use the system, just without their personal library initially
 	}
 
 	_, err = CreateSession(c, user.ID)
 	if err != nil {
-		log.Println("Failed to create user session", "error", err, "user_id", user.ID)
+		slog.Error("Failed to create user session", "error", err, "user_id", user.ID)
 		return c.String(http.StatusInternalServerError, "Failed to create user session")
 	}
 
@@ -118,28 +118,28 @@ func PostLogin(c echo.Context) error {
 	insecurePassword := c.FormValue("password")
 
 	if !valid(email) {
-		return c.String(http.StatusInternalServerError, "Failed to login")
+		return c.String(http.StatusBadRequest, "Invalid email format")
 	}
 
 	foundUser, err := FindUserByEmail(email)
 	if err != nil {
-		log.Println("Failed to check existing user", "error", err, "email", email)
+		slog.Error("Failed to check existing user", "error", err, "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to check existing user")
 	}
 	if foundUser == nil {
-		log.Println("User not found", "email", email)
-		return c.String(http.StatusInternalServerError, "Failed to login")
+		slog.Info("User not found", "email", email)
+		return c.String(http.StatusUnauthorized, "Invalid credentials")
 	}
 
 	passwordVerified := VerifyPassword(insecurePassword, foundUser.Password)
 
 	if !passwordVerified {
-		return c.String(http.StatusInternalServerError, "Failed to login")
+		return c.String(http.StatusUnauthorized, "Invalid credentials")
 	}
 
 	_, err = CreateSession(c, foundUser.ID)
 	if err != nil {
-		log.Println("Failed to create user session", "error", err, "user_id", foundUser.ID)
+		slog.Error("Failed to create user session", "error", err, "user_id", foundUser.ID)
 		return c.String(http.StatusInternalServerError, "Failed to create user session")
 	}
 
@@ -150,7 +150,7 @@ func PostLogout(c echo.Context) error {
 	err := InvalidateSession(c)
 	if err != nil {
 		// Log the error but don't fail the logout - user might not have a session
-		log.Println("Failed to invalidate session", "error", err)
+		slog.Error("Failed to invalidate session", "error", err)
 	}
 	return c.Redirect(http.StatusFound, "/login")
 }

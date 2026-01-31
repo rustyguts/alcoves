@@ -105,7 +105,7 @@ func TestPostRegister_DuplicateEmail(t *testing.T) {
 
 	err := PostRegister(c)
 	assert.NoError(t, err)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusConflict, rec.Code)
 	assert.Contains(t, rec.Body.String(), "User already exists")
 }
 
@@ -151,8 +151,8 @@ func TestPostLogin_InvalidEmail(t *testing.T) {
 
 	err := PostLogin(c)
 	assert.NoError(t, err)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Failed to login")
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Invalid email format")
 }
 
 func TestPostLogin_UserNotFound(t *testing.T) {
@@ -170,7 +170,7 @@ func TestPostLogin_UserNotFound(t *testing.T) {
 
 	err := PostLogin(c)
 	assert.NoError(t, err)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestPostLogin_WrongPassword(t *testing.T) {
@@ -196,8 +196,8 @@ func TestPostLogin_WrongPassword(t *testing.T) {
 
 	err := PostLogin(c)
 	assert.NoError(t, err)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Failed to login")
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Invalid credentials")
 }
 
 func TestGetLogin(t *testing.T) {
@@ -338,5 +338,5 @@ func TestPostLogin_EmptyFields(t *testing.T) {
 
 	err := PostLogin(c)
 	assert.NoError(t, err)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

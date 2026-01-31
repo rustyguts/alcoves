@@ -3,7 +3,7 @@ package auth
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -85,37 +85,6 @@ func CreateSession(c echo.Context, userID uint) (models.Session, error) {
 	return session, nil
 }
 
-func ValidateSession(c echo.Context, sessionID string) (bool, error) {
-	var session models.Session
-	result := db.Connection.Where("session_id = ?", sessionID).First(&session)
-	if result.Error != nil {
-		log.Println("Session not found:", result.Error)
-		return false, result.Error
-	}
-
-	if session.ExpiresAt.Before(time.Now()) {
-		log.Println("Session expired:", sessionID)
-		return false, nil
-	}
-
-	duration := time.Until(session.ExpiresAt)
-	log.Printf("Session valid: %s, expires in: %v\n", sessionID, duration)
-
-	// Refresh the user session if it is about to expire (within 2 hours)
-	if duration < 2*time.Hour {
-		log.Println("Refreshing session due to approaching expiration")
-		session.ExpiresAt = time.Now().Add(sessionDuration)
-		result = db.Connection.Save(&session)
-		if result.Error != nil {
-			log.Println("Failed to refresh session:", result.Error)
-			return false, result.Error
-		}
-		SetSessionCookie(c, session.SessionID)
-	}
-
-	return true, nil
-}
-
 func InvalidateSession(c echo.Context) error {
 	InvalidateSessionCookie(c)
 
@@ -155,11 +124,11 @@ func GetSession(c echo.Context) (*models.Session, error) {
 	// Refresh session if it's about to expire (within 2 hours)
 	duration := time.Until(session.ExpiresAt)
 	if duration < 2*time.Hour {
-		log.Println("Refreshing session due to approaching expiration")
+		slog.Info("Refreshing session due to approaching expiration")
 		session.ExpiresAt = time.Now().Add(sessionDuration)
 		result = db.Connection.Save(&session)
 		if result.Error != nil {
-			log.Println("Failed to refresh session:", result.Error)
+			slog.Error("Failed to refresh session", "error", result.Error)
 			return &session, nil // Return session even if refresh failed
 		}
 		SetSessionCookie(c, session.SessionID)

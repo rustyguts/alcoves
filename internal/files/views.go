@@ -1,8 +1,7 @@
 package files
 
 import (
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -21,7 +20,7 @@ func GetRoot(c echo.Context) error {
 	userID := auth.GetCurrentUserID(c)
 	currentUser, err := auth.FindUserByID(userID)
 	if err != nil {
-		log.Println("Failed to find user for root handler", "error", err, "user_id", userID)
+		slog.Error("Failed to find user for root handler", "error", err, "user_id", userID)
 	}
 
 	var userEmail string
@@ -35,7 +34,7 @@ func GetRoot(c echo.Context) error {
 
 	userLibraries, err := libraries.GetUserLibraries(userID)
 	if err != nil {
-		log.Println("Failed to load user libraries", "error", err, "user_id", userID)
+		slog.Error("Failed to load user libraries", "error", err, "user_id", userID)
 	}
 
 	data := components.LayoutData{
@@ -53,7 +52,6 @@ func GetRoot(c echo.Context) error {
 
 func GetMedia(c echo.Context) error {
 	fileId := c.Param("assetId")
-	fmt.Println(fileId)
 
 	file := GetFileByPublicID(fileId)
 	if file == nil {
@@ -63,7 +61,7 @@ func GetMedia(c echo.Context) error {
 	userID := auth.GetCurrentUserID(c)
 	currentUser, err := auth.FindUserByID(userID)
 	if err != nil {
-		log.Println("Failed to find user for media handler", "error", err, "user_id", userID)
+		slog.Error("Failed to find user for media handler", "error", err, "user_id", userID)
 		currentUser = nil
 	}
 

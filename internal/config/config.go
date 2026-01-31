@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 )
@@ -12,10 +12,7 @@ type Config struct {
 	GoogleOauthClientID     string
 	GoogleOauthClientSecret string
 	ServiceName             string
-	ServiceVersion          string
 	Environment             string
-	CollectorURL            string
-	SamplingRatio           float64
 }
 
 const (
@@ -34,19 +31,19 @@ func getEnvOrDefault(key, defaultValue string) string {
 }
 
 func InitializeConfig() *Config {
-	DatabaseURL := os.Getenv("DATABASE_URL")
-	if DatabaseURL == "" {
-		log.Println("DATABASE_URL environment variable is not set")
+	databaseURL := os.Getenv("ALCOVES_DATABASE_URL")
+	if databaseURL == "" {
+		slog.Warn("ALCOVES_DATABASE_URL environment variable is not set")
 	}
 
 	GoogleOauthClientID := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
 	if GoogleOauthClientID == "" {
-		log.Println("GOOGLE_OAUTH_CLIENT_ID environment variable is not set")
+		slog.Warn("GOOGLE_OAUTH_CLIENT_ID environment variable is not set")
 	}
 
 	GoogleOauthClientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
 	if GoogleOauthClientSecret == "" {
-		log.Println("GOOGLE_OAUTH_CLIENT_SECRET environment variable is not set")
+		slog.Warn("GOOGLE_OAUTH_CLIENT_SECRET environment variable is not set")
 	}
 
 	GoogleAuthEnabled := GoogleOauthClientID != "" && GoogleOauthClientSecret != ""
@@ -60,20 +57,18 @@ func InitializeConfig() *Config {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			err := os.MkdirAll(dir, os.ModePerm)
 			if err != nil {
-				log.Fatalf("Failed to create directory %s: %v", dir, err)
+				slog.Error("Failed to create directory", "dir", dir, "error", err)
+				os.Exit(1)
 			}
 		}
 	}
 
 	return &Config{
-		DatabaseURL:             DatabaseURL,
+		DatabaseURL:             databaseURL,
 		GoogleAuthEnabled:       GoogleAuthEnabled,
 		GoogleOauthClientID:     GoogleOauthClientID,
 		GoogleOauthClientSecret: GoogleOauthClientSecret,
 		ServiceName:             getEnvOrDefault("OTEL_SERVICE_NAME", "alcoves"),
-		ServiceVersion:          getEnvOrDefault("OTEL_SERVICE_VERSION", "0.0.1"),
 		Environment:             getEnvOrDefault("ENVIRONMENT", "development"),
-		CollectorURL:            getEnvOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317"),
-		SamplingRatio:           1.0, // Always sample for now
 	}
 }
