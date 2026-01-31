@@ -147,7 +147,7 @@ func Assets(data AssetsData) templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div><div class=\"breadcrumbs text-sm\"><ul><li><a>Home</a></li><li>Library</li></ul></div><div class=\"overflow-x-auto\"><table class=\"table table-auto w-full select-none\"><thead><tr><th class=\"text-left\">Name</th><th class=\"w-[120px] whitespace-nowrap\">Size</th><th class=\"w-[160px] whitespace-nowrap\">Date</th><th class=\"w-[50px] whitespace-nowrap\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div id=\"assets-container\"><div class=\"breadcrumbs text-sm\"><ul><li><a>Home</a></li><li>Library</li></ul></div><!-- Context Menu --><div id=\"context-menu\" class=\"hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg\"><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg\" id=\"ctx-download\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"></path><polyline points=\"7 10 12 15 17 10\"></polyline><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"></line></svg> <span>Download</span></div><div class=\"h-px bg-base-300 my-1\"></div><div class=\"px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error\" id=\"ctx-delete\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"></path></svg> <span>Move to trash</span></div></div><div class=\"overflow-x-auto\"><table class=\"table table-auto w-full select-none\" id=\"files-table\"><thead><tr><th class=\"w-[40px]\"></th><th class=\"text-left\">Name</th><th class=\"w-[120px] whitespace-nowrap\">Size</th><th class=\"w-[160px] whitespace-nowrap\">Date</th><th class=\"w-[50px] whitespace-nowrap\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -160,26 +160,39 @@ func Assets(data AssetsData) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if len(data.Assets) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<tr><td colspan=\"4\" class=\"text-center py-8 text-base-content/60\">No files in your library. Click \"Upload\" to add files.</td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<tr><td colspan=\"5\" class=\"text-center py-8 text-base-content/60\">No files in your library. Click \"Upload\" to add files.</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		for _, asset := range data.Assets {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<tr class=\"h-10 max-h-10 hover:bg-base-200 file-row\" data-asset-id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<tr class=\"h-10 max-h-10 file-row cursor-pointer group hover:bg-base-200 [&:has(.file-checkbox:checked)]:hover:bg-primary/20\" data-asset-id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(asset.PublicID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 101, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 114, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"><td>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" tabindex=\"0\"><td><input type=\"checkbox\" class=\"file-checkbox checkbox checkbox-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150\" data-asset-id=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var5 string
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(asset.PublicID)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 121, Col: 39}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\"></td><td>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -187,33 +200,33 @@ func Assets(data AssetsData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</td><td><div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(formatFileSize(asset.Size))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 108, Col: 37}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></td><td>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</td><td><div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(formatDate(asset))
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(formatFileSize(asset.Size))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 111, Col: 30}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 129, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</td><td>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div></td><td>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var7 string
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(formatDate(asset))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 132, Col: 30}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</td><td>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -221,12 +234,12 @@ func Assets(data AssetsData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</tbody></table></div><script>\n\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\tconst rows = document.querySelectorAll('.file-row');\n\n\t\t\t\trows.forEach(row => {\n\t\t\t\t\t// Single click to select\n\t\t\t\t\trow.addEventListener('click', function(e) {\n\t\t\t\t\t\t// Deselect all rows\n\t\t\t\t\t\trows.forEach(r => {\n\t\t\t\t\t\t\tr.classList.remove('!bg-primary', '!bg-opacity-20');\n\t\t\t\t\t\t});\n\t\t\t\t\t\t// Select this row with blue background\n\t\t\t\t\t\tthis.classList.add('!bg-primary', '!bg-opacity-20');\n\t\t\t\t\t});\n\n\t\t\t\t\t// Double click to open (no delay)\n\t\t\t\t\trow.addEventListener('dblclick', function(e) {\n\t\t\t\t\t\tconst assetId = this.getAttribute('data-asset-id');\n\t\t\t\t\t\twindow.location.href = '/media/' + assetId;\n\t\t\t\t\t});\n\t\t\t\t});\n\t\t\t});\n\t\t</script></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</tbody></table></div><script>\n\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\tconst rows = document.querySelectorAll('.file-row');\n\t\t\t\tconst checkboxes = document.querySelectorAll('.file-checkbox');\n\t\t\t\tconst contextMenu = document.getElementById('context-menu');\n\t\t\t\tconst ctxDownload = document.getElementById('ctx-download');\n\t\t\t\tconst ctxDelete = document.getElementById('ctx-delete');\n\t\t\t\t\n\t\t\t\tlet lastSelectedIndex = null;\n\t\t\t\tlet contextMenuTarget = null;\n\n\t\t\t\tfunction getSelectedAssetIds() {\n\t\t\t\t\treturn Array.from(document.querySelectorAll('.file-checkbox:checked'))\n\t\t\t\t\t\t.map(cb => cb.getAttribute('data-asset-id'));\n\t\t\t\t}\n\n\t\t\t\tfunction updateRowSelection() {\n\t\t\t\t\trows.forEach(row => {\n\t\t\t\t\t\tconst checkbox = row.querySelector('.file-checkbox');\n\t\t\t\t\t\tif (checkbox.checked) {\n\t\t\t\t\t\t\trow.classList.add('bg-primary/20');\n\t\t\t\t\t\t\tcheckbox.classList.add('opacity-100');\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\trow.classList.remove('bg-primary/20');\n\t\t\t\t\t\t\tcheckbox.classList.remove('opacity-100');\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\tfunction deleteSelectedAssets() {\n\t\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\t\tif (confirm(`Move ${selected.length} file(s) to trash?`)) {\n\t\t\t\t\t\tfetch('/assets/delete', {\n\t\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t\t'Content-Type': 'application/json',\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tbody: JSON.stringify(selected)\n\t\t\t\t\t\t})\n\t\t\t\t\t\t\t.then(response => {\n\t\t\t\t\t\t\t\tif (response.ok) {\n\t\t\t\t\t\t\t\t\twindow.location.reload();\n\t\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t})\n\t\t\t\t\t\t\t.catch(error => {\n\t\t\t\t\t\t\t\tconsole.error('Error:', error);\n\t\t\t\t\t\t\t\talert('Failed to delete files');\n\t\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction downloadSelectedAssets() {\n\t\t\t\t\tconst selected = getSelectedAssetIds();\n\t\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\t\tif (selected.length === 1) {\n\t\t\t\t\t\twindow.location.href = '/assets/download/' + selected[0];\n\t\t\t\t\t} else {\n\t\t\t\t\t\twindow.location.href = '/assets/download?ids=' + selected.join(',');\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction showContextMenu(e, targetRow) {\n\t\t\t\t\te.preventDefault();\n\t\t\t\t\tcontextMenuTarget = targetRow;\n\t\t\t\t\t\n\t\t\t\t\tconst checkbox = targetRow.querySelector('.file-checkbox');\n\t\t\t\t\tconst isSelected = checkbox.checked;\n\t\t\t\t\t\n\t\t\t\t\t// If right-clicked row is not selected, select only this row\n\t\t\t\t\tif (!isSelected) {\n\t\t\t\t\t\tcheckboxes.forEach(cb => {\n\t\t\t\t\t\t\tcb.checked = false;\n\t\t\t\t\t\t\tcb.closest('.file-row').classList.remove('bg-primary/20');\n\t\t\t\t\t\t\tcb.classList.remove('opacity-100');\n\t\t\t\t\t\t});\n\t\t\t\t\t\tcheckbox.checked = true;\n\t\t\t\t\t\ttargetRow.classList.add('bg-primary/20');\n\t\t\t\t\t\tcheckbox.classList.add('opacity-100');\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Position context menu\n\t\t\t\t\tconst x = e.clientX;\n\t\t\t\t\tconst y = e.clientY;\n\t\t\t\t\t\n\t\t\t\t\t// Prevent menu from going off-screen\n\t\t\t\t\tconst menuWidth = 180;\n\t\t\t\t\tconst menuHeight = 100;\n\t\t\t\t\tconst winWidth = window.innerWidth;\n\t\t\t\t\tconst winHeight = window.innerHeight;\n\t\t\t\t\t\n\t\t\t\t\tlet finalX = x;\n\t\t\t\t\tlet finalY = y;\n\t\t\t\t\t\n\t\t\t\t\tif (x + menuWidth > winWidth) {\n\t\t\t\t\t\tfinalX = x - menuWidth;\n\t\t\t\t\t}\n\t\t\t\t\tif (y + menuHeight > winHeight) {\n\t\t\t\t\t\tfinalY = y - menuHeight;\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\tcontextMenu.style.left = finalX + 'px';\n\t\t\t\t\tcontextMenu.style.top = finalY + 'px';\n\t\t\t\t\tcontextMenu.classList.remove('hidden');\n\t\t\t\t\tcontextMenu.classList.add('block');\n\t\t\t\t}\n\n\t\t\t\tfunction hideContextMenu() {\n\t\t\t\t\tcontextMenu.classList.add('hidden');\n\t\t\t\t\tcontextMenu.classList.remove('block');\n\t\t\t\t\tcontextMenuTarget = null;\n\t\t\t\t}\n\n\t\t\t\t// Context menu event listeners\n\t\t\t\tctxDownload.addEventListener('click', function() {\n\t\t\t\t\thideContextMenu();\n\t\t\t\t\tdownloadSelectedAssets();\n\t\t\t\t});\n\n\t\t\t\tctxDelete.addEventListener('click', function() {\n\t\t\t\t\thideContextMenu();\n\t\t\t\t\tdeleteSelectedAssets();\n\t\t\t\t});\n\n\t\t\t\t// Hide context menu on click elsewhere\n\t\t\t\tdocument.addEventListener('click', function(e) {\n\t\t\t\t\tif (!contextMenu.contains(e.target)) {\n\t\t\t\t\t\thideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t});\n\n\t\t\t\trows.forEach((row, index) => {\n\t\t\t\t\tconst checkbox = row.querySelector('.file-checkbox');\n\n\t\t\t\t\t// Checkbox click handler\n\t\t\t\t\tcheckbox.addEventListener('click', function(e) {\n\t\t\t\t\t\te.stopPropagation();\n\t\t\t\t\t\t\n\t\t\t\t\t\tconst isShiftClick = e.shiftKey && lastSelectedIndex !== null;\n\t\t\t\t\t\tconst isCtrlClick = e.ctrlKey || e.metaKey;\n\n\t\t\t\t\t\tif (isShiftClick) {\n\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst allCheckboxes = document.querySelectorAll('.file-checkbox');\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tfor (let i = start; i <= end; i++) {\n\t\t\t\t\t\t\t\tallCheckboxes[i].checked = this.checked;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t} else if (!isCtrlClick) {\n\t\t\t\t\t\t\t// Clear other selections if not Ctrl/Cmd click\n\t\t\t\t\t\t\tcheckboxes.forEach((cb, i) => {\n\t\t\t\t\t\t\t\tif (i !== index) {\n\t\t\t\t\t\t\t\t\tcb.checked = false;\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\tlastSelectedIndex = index;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t});\n\n\t\t\t\t\t// Row click handler (left click)\n\t\t\t\t\trow.addEventListener('click', function(e) {\n\t\t\t\t\t\t// Ignore if clicking on checkbox directly\n\t\t\t\t\t\tif (e.target.classList.contains('file-checkbox')) return;\n\t\t\t\t\t\t\n\t\t\t\t\t\tconst isCtrlClick = e.ctrlKey || e.metaKey;\n\t\t\t\t\t\tconst isShiftClick = e.shiftKey;\n\n\t\t\t\t\t\tif (isShiftClick && lastSelectedIndex !== null) {\n\t\t\t\t\t\t\t// Shift+click: select range\n\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex, index);\n\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex, index);\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tcheckboxes.forEach((cb, i) => {\n\t\t\t\t\t\t\t\tif (i >= start && i <= end) {\n\t\t\t\t\t\t\t\t\tcb.checked = true;\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t} else if (isCtrlClick) {\n\t\t\t\t\t\t\t// Ctrl/Cmd+click: toggle this item\n\t\t\t\t\t\t\tcheckbox.checked = !checkbox.checked;\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t// Regular click: select only this item\n\t\t\t\t\t\t\tcheckboxes.forEach(cb => cb.checked = false);\n\t\t\t\t\t\t\tcheckbox.checked = true;\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\tlastSelectedIndex = index;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t});\n\n\t\t\t\t\t// Double click to open\n\t\t\t\t\trow.addEventListener('dblclick', function(e) {\n\t\t\t\t\t\tconst assetId = this.getAttribute('data-asset-id');\n\t\t\t\t\t\twindow.location.href = '/media/' + assetId;\n\t\t\t\t\t});\n\n\t\t\t\t\t// Right click for context menu\n\t\t\t\t\trow.addEventListener('contextmenu', function(e) {\n\t\t\t\t\t\tshowContextMenu(e, row);\n\t\t\t\t\t});\n\t\t\t\t});\n\n\t\t\t\t// Keyboard shortcuts\n\t\t\t\tdocument.addEventListener('keydown', function(e) {\n\t\t\t\t\t// Ctrl+A: Select all\n\t\t\t\t\tif ((e.ctrlKey || e.metaKey) && e.key === 'a') {\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tcheckboxes.forEach(cb => {\n\t\t\t\t\t\t\tcb.checked = true;\n\t\t\t\t\t\t});\n\t\t\t\t\t\tlastSelectedIndex = rows.length - 1;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Escape: Deselect all\n\t\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\t\tcheckboxes.forEach(cb => {\n\t\t\t\t\t\t\tcb.checked = false;\n\t\t\t\t\t\t});\n\t\t\t\t\t\tlastSelectedIndex = null;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t\thideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Space: Toggle selection of focused row\n\t\t\t\t\tif (e.key === ' ' && document.activeElement.classList.contains('file-row')) {\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tconst focusedRow = document.activeElement;\n\t\t\t\t\t\tconst checkbox = focusedRow.querySelector('.file-checkbox');\n\t\t\t\t\t\tcheckbox.checked = !checkbox.checked;\n\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t}\n\t\t\t\t\t\n\t\t\t\t\t// Arrow keys: Navigate and optionally select\n\t\t\t\t\tif (['ArrowUp', 'ArrowDown'].includes(e.key)) {\n\t\t\t\t\t\tconst currentFocus = document.activeElement;\n\t\t\t\t\t\tlet currentIndex = Array.from(rows).indexOf(currentFocus);\n\t\t\t\t\t\t\n\t\t\t\t\t\t// If nothing is focused, focus the first row\n\t\t\t\t\t\tif (currentIndex === -1) {\n\t\t\t\t\t\t\tcurrentIndex = 0;\n\t\t\t\t\t\t\tif (rows.length > 0) {\n\t\t\t\t\t\t\t\trows[0].focus();\n\t\t\t\t\t\t\t\tif (!e.shiftKey) {\n\t\t\t\t\t\t\t\t\t// Clear selection on simple arrow navigation\n\t\t\t\t\t\t\t\t\tcheckboxes.forEach(cb => cb.checked = false);\n\t\t\t\t\t\t\t\t\trows[0].querySelector('.file-checkbox').checked = true;\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t\t\n\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\tlet newIndex = currentIndex;\n\t\t\t\t\t\t\n\t\t\t\t\t\tif (e.key === 'ArrowUp' && currentIndex > 0) {\n\t\t\t\t\t\t\tnewIndex = currentIndex - 1;\n\t\t\t\t\t\t} else if (e.key === 'ArrowDown' && currentIndex < rows.length - 1) {\n\t\t\t\t\t\t\tnewIndex = currentIndex + 1;\n\t\t\t\t\t\t}\n\t\t\t\t\t\t\n\t\t\t\t\t\tif (newIndex !== currentIndex) {\n\t\t\t\t\t\t\trows[newIndex].focus();\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tif (e.shiftKey) {\n\t\t\t\t\t\t\t\t// Shift+Arrow: Select range\n\t\t\t\t\t\t\t\tconst start = Math.min(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);\n\t\t\t\t\t\t\t\tconst end = Math.max(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\tcheckboxes.forEach((cb, i) => {\n\t\t\t\t\t\t\t\t\tcb.checked = i >= start && i <= end;\n\t\t\t\t\t\t\t\t});\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t// Simple arrow: Move selection to new row\n\t\t\t\t\t\t\t\tcheckboxes.forEach(cb => cb.checked = false);\n\t\t\t\t\t\t\t\trows[newIndex].querySelector('.file-checkbox').checked = true;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\n\t\t\t\t\t\t\tlastSelectedIndex = newIndex;\n\t\t\t\t\t\t\tupdateRowSelection();\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t});\n\t\t</script></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

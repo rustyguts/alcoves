@@ -1,0 +1,426 @@
+package components
+
+import (
+	"fmt"
+	"github.com/rustyguts/alcoves/internal/models"
+)
+
+type FolderViewData struct {
+	LibraryPublicID string
+	LibraryName     string
+	Folders         []models.Folder
+	Files           []models.File
+	CurrentFolder   string
+}
+
+func formatFolderItemCount(folder models.Folder) string {
+	count := len(folder.Children) + len(folder.Files)
+	if count == 0 {
+		return "Empty"
+	}
+	if count == 1 {
+		return "1 item"
+	}
+	return fmt.Sprintf("%d items", count)
+}
+
+templ FolderIconLarge() {
+	<div class="flex items-center justify-center w-16 h-16 rounded-lg bg-primary/10 text-primary mb-3">
+		<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+			<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+		</svg>
+	</div>
+}
+
+templ FolderView(data FolderViewData) {
+	<div id="folder-view" class="h-full" data-signals="{folderContextMenu: {show: false, x: 0, y: 0, folderId: '', folderName: ''}}">
+		<!-- Header with Create Folder button -->
+		<div class="flex items-center justify-between mb-4">
+			<div class="flex items-center gap-2">
+				<h2 class="text-lg font-semibold">
+					if data.CurrentFolder == "" {
+						{ data.LibraryName }
+					} else {
+							Folder
+					}
+				</h2>
+				<span class="text-sm text-base-content/60">
+					{ fmt.Sprintf("%d items", len(data.Folders)+len(data.Files)) }
+				</span>
+			</div>
+			<div class="flex items-center gap-2">
+				<button
+					class="btn btn-sm btn-outline gap-2"
+					onclick="folder_modal.showModal()"
+					title="Create new folder"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+						<line x1="12" y1="11" x2="12" y2="17"></line>
+						<line x1="9" y1="14" x2="15" y2="14"></line>
+					</svg>
+					New Folder
+				</button>
+				<input type="hidden" id="currentFolderId" value={ data.CurrentFolder }/>
+				<input type="hidden" id="libraryPublicID" value={ data.LibraryPublicID }/>
+			</div>
+		</div>
+
+		<!-- Folders Grid -->
+		if len(data.Folders) > 0 {
+			<div class="mb-6">
+				<h3 class="text-sm font-medium text-base-content/60 mb-3">Folders</h3>
+				<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+					for _, folder := range data.Folders {
+						<div
+							class="folder-item group flex flex-col items-center p-4 rounded-lg hover:bg-base-200 cursor-pointer transition-colors duration-150 relative"
+							data-folder-id={ folder.PublicID }
+							data-folder-name={ folder.Name }
+							data-signals={ fmt.Sprintf("{folderName_%s: '%s'}", folder.PublicID, folder.Name) }
+						>
+							@FolderIconLarge()
+							<div class="text-center w-full">
+								<div class="font-medium text-sm truncate max-w-[120px] mx-auto" title={ folder.Name }>
+									{ folder.Name }
+								</div>
+								<div class="text-xs text-base-content/50 mt-1">
+									{ formatFolderItemCount(folder) }
+								</div>
+							</div>
+							<!-- Hover actions -->
+							<div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+								<button class="btn btn-ghost btn-xs btn-circle p-1" data-on:click.prevent={ fmt.Sprintf("$folderContextMenu = {show: true, x: $event.clientX, y: $event.clientY, folderId: '%s', folderName: '%s'}; $event.stopPropagation()", folder.PublicID, folder.Name) }>
+									<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<circle cx="12" cy="12" r="1"></circle>
+										<circle cx="12" cy="5" r="1"></circle>
+										<circle cx="12" cy="19" r="1"></circle>
+									</svg>
+								</button>
+							</div>
+						</div>
+					}
+				</div>
+			</div>
+		}
+
+		<!-- Files List (when in folder view) -->
+		if len(data.Files) > 0 {
+			<div class="mb-6">
+				<h3 class="text-sm font-medium text-base-content/60 mb-3">Files</h3>
+				<div class="overflow-x-auto">
+					<table class="table table-sm w-full">
+						<thead>
+							<tr>
+								<th class="w-[40px]"></th>
+								<th class="text-left">Name</th>
+								<th class="w-[100px]">Size</th>
+								<th class="w-[120px]">Date</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, file := range data.Files {
+								<tr class="file-row hover:bg-base-200 cursor-pointer group" data-file-id={ file.PublicID }>
+									<td>
+										<input type="checkbox" class="file-checkbox checkbox checkbox-sm opacity-0 group-hover:opacity-100"/>
+									</td>
+									<td>
+										@IconAndName(file.Filename, getFileType(file.Filename, file.Type))
+									</td>
+									<td>{ formatFileSize(file.Size) }</td>
+									<td>{ formatDate(file) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		}
+
+		<!-- Empty State -->
+		if len(data.Folders) == 0 && len(data.Files) == 0 {
+			<div class="flex flex-col items-center justify-center py-16 text-base-content/60">
+				<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 opacity-50">
+					<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+				</svg>
+				<p class="text-lg font-medium mb-2">This folder is empty</p>
+				<p class="text-sm mb-4">Create folders or upload files to get started</p>
+				<button class="btn btn-primary btn-sm" onclick="folder_modal.showModal()">
+					Create New Folder
+				</button>
+			</div>
+		}
+
+		<!-- Folder Context Menu -->
+		<div
+			id="folder-context-menu"
+			class="fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg py-1"
+			data-class={ fmt.Sprintf("{'hidden': !$folderContextMenu.show}") }
+			style={ fmt.Sprintf("left: %dpx; top: %dpx", 0, 0) }
+			data-signals-watch="$folderContextMenu"
+		>
+			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200" data-on:click="openRenameFolderModal()">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+					<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+				</svg>
+				<span>Rename</span>
+			</div>
+			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200" data-on:click="createSubfolder()">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+					<line x1="12" y1="11" x2="12" y2="17"></line>
+					<line x1="9" y1="14" x2="15" y2="14"></line>
+				</svg>
+				<span>Create Subfolder</span>
+			</div>
+			<div class="h-px bg-base-300 my-1"></div>
+			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 text-error" data-on:click="deleteFolder()">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polyline points="3 6 5 6 21 6"></polyline>
+					<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+				</svg>
+				<span>Delete</span>
+			</div>
+		</div>
+
+		<script>
+			(function() {
+				// Folder context menu positioning
+				const contextMenu = document.getElementById('folder-context-menu');
+				let currentFolderId = '';
+				let currentFolderName = '';
+
+				// Close context menu on click elsewhere
+				document.addEventListener('click', function(e) {
+					if (!contextMenu.contains(e.target)) {
+						hideContextMenu();
+					}
+				});
+
+				function hideContextMenu() {
+					if (contextMenu) {
+						contextMenu.classList.add('hidden');
+					}
+				}
+
+				// Double-click to open folder
+				document.querySelectorAll('.folder-item').forEach(item => {
+					item.addEventListener('dblclick', function(e) {
+						const folderId = this.getAttribute('data-folder-id');
+						const libraryId = document.getElementById('libraryPublicID')?.value;
+						if (folderId && libraryId) {
+							window.location.href = '/libraries/' + libraryId + '/folders/' + folderId;
+						}
+					});
+				});
+
+				// Global functions for context menu actions
+				window.openRenameFolderModal = function() {
+					const folderId = contextMenu?.getAttribute('data-current-folder-id');
+					const folderName = contextMenu?.getAttribute('data-current-folder-name');
+					if (folderId && folderName) {
+						document.getElementById('folderModalTitle').textContent = 'Rename Folder';
+						document.getElementById('folderName').value = folderName;
+						document.getElementById('folderId').value = folderId;
+						document.getElementById('folderFormAction').value = 'rename';
+						document.getElementById('folder_modal').showModal();
+					}
+					hideContextMenu();
+				};
+
+				window.createSubfolder = function() {
+					const parentId = contextMenu?.getAttribute('data-current-folder-id');
+					const libraryId = document.getElementById('libraryPublicID')?.value;
+					if (parentId && libraryId) {
+						document.getElementById('folderModalTitle').textContent = 'Create Subfolder';
+						document.getElementById('folderName').value = '';
+						document.getElementById('folderId').value = '';
+						document.getElementById('parentFolderId').value = parentId;
+						document.getElementById('folderFormAction').value = 'create';
+						document.getElementById('folder_modal').showModal();
+					}
+					hideContextMenu();
+				};
+
+				window.deleteFolder = function() {
+					const folderId = contextMenu?.getAttribute('data-current-folder-id');
+					const folderName = contextMenu?.getAttribute('data-current-folder-name');
+					if (folderId && folderName) {
+						if (confirm(`Are you sure you want to delete "${folderName}" and all its contents?`)) {
+							fetch('/folders/' + folderId, {
+								method: 'DELETE',
+								headers: {
+									'Content-Type': 'application/json'
+								}
+							})
+							.then(response => {
+								if (response.ok) {
+									window.location.reload();
+								} else {
+									alert('Failed to delete folder');
+								}
+							})
+							.catch(error => {
+								console.error('Error:', error);
+								alert('Failed to delete folder');
+							});
+						}
+					}
+					hideContextMenu();
+				};
+
+				// Handle right-click on folders
+				document.querySelectorAll('.folder-item').forEach(item => {
+					item.addEventListener('contextmenu', function(e) {
+						e.preventDefault();
+						const folderId = this.getAttribute('data-folder-id');
+						const folderName = this.getAttribute('data-folder-name');
+						
+						if (contextMenu) {
+							contextMenu.setAttribute('data-current-folder-id', folderId);
+							contextMenu.setAttribute('data-current-folder-name', folderName);
+							
+							// Position menu
+							const x = e.clientX;
+							const y = e.clientY;
+							const menuWidth = 180;
+							const menuHeight = 130;
+							const winWidth = window.innerWidth;
+							const winHeight = window.innerHeight;
+							
+							let finalX = x;
+							let finalY = y;
+							
+							if (x + menuWidth > winWidth) {
+								finalX = x - menuWidth;
+							}
+							if (y + menuHeight > winHeight) {
+								finalY = y - menuHeight;
+							}
+							
+							contextMenu.style.left = finalX + 'px';
+							contextMenu.style.top = finalY + 'px';
+							contextMenu.classList.remove('hidden');
+						}
+					});
+				});
+
+				// Keyboard shortcuts
+				document.addEventListener('keydown', function(e) {
+					if (e.key === 'Escape') {
+						hideContextMenu();
+					}
+				});
+			})();
+		</script>
+	</div>
+}
+
+templ FolderModal() {
+	<dialog id="folder_modal" class="modal">
+		<div class="modal-box max-w-md bg-base-100">
+			<h3 class="font-bold text-xl mb-4" id="folderModalTitle">Create New Folder</h3>
+			<form id="folderForm" class="space-y-4">
+				<input type="hidden" id="folderId" value=""/>
+				<input type="hidden" id="parentFolderId" value=""/>
+				<input type="hidden" id="folderFormAction" value="create"/>
+				<div class="form-control">
+					<label class="label">
+						<span class="label-text">Folder Name</span>
+					</label>
+					<input
+						type="text"
+						id="folderName"
+						placeholder="Enter folder name"
+						class="input input-bordered w-full"
+						required
+						maxlength="255"
+					/>
+				</div>
+				<div class="modal-action">
+					<button type="button" class="btn btn-ghost" onclick="folder_modal.close()">Cancel</button>
+					<button type="submit" class="btn btn-primary">Save</button>
+				</div>
+			</form>
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button onclick="resetFolderForm()">close</button>
+		</form>
+		<script>
+			(function() {
+				const form = document.getElementById('folderForm');
+				const modal = document.getElementById('folder_modal');
+				
+				form.addEventListener('submit', function(e) {
+					e.preventDefault();
+					
+					const name = document.getElementById('folderName').value.trim();
+					const folderId = document.getElementById('folderId').value;
+					const parentFolderId = document.getElementById('parentFolderId').value;
+					const action = document.getElementById('folderFormAction').value;
+					const libraryId = document.getElementById('libraryPublicID')?.value;
+					
+					if (!name) {
+						alert('Please enter a folder name');
+						return;
+					}
+					
+					let url = '/folders';
+					let method = 'POST';
+					let body = {
+						name: name,
+						libraryId: libraryId
+					};
+					
+					if (action === 'rename' && folderId) {
+						url = '/folders/' + folderId;
+						method = 'PUT';
+						body = { name: name };
+					} else if (action === 'create' && parentFolderId) {
+						body.parentId = parentFolderId;
+					}
+					
+					fetch(url, {
+						method: method,
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify(body)
+					})
+					.then(response => {
+						if (response.ok) {
+							modal.close();
+							resetFolderForm();
+							window.location.reload();
+						} else {
+							return response.json().then(err => {
+								throw new Error(err.message || 'Failed to save folder');
+							});
+						}
+					})
+					.catch(error => {
+						console.error('Error:', error);
+						alert(error.message || 'Failed to save folder');
+					});
+				});
+				
+				window.resetFolderForm = function() {
+					document.getElementById('folderName').value = '';
+					document.getElementById('folderId').value = '';
+					document.getElementById('parentFolderId').value = '';
+					document.getElementById('folderFormAction').value = 'create';
+					document.getElementById('folderModalTitle').textContent = 'Create New Folder';
+				};
+				
+				// Reset form when modal is opened for new folder
+				modal?.addEventListener('showModal', function() {
+					const action = document.getElementById('folderFormAction').value;
+					if (action === 'create' && !document.getElementById('parentFolderId').value) {
+						document.getElementById('folderName').value = '';
+						document.getElementById('folderName').focus();
+					}
+				});
+			})();
+		</script>
+	</dialog>
+}

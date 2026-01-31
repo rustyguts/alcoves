@@ -11,12 +11,13 @@ type Asset struct {
 }
 
 type LayoutData struct {
-	Title     string
-	UserEmail string
-	Theme     string
-	CreatedAt time.Time
-	Assets    []models.File
-	Libraries []models.Library
+	Title           string
+	UserEmail       string
+	Theme           string
+	CreatedAt       time.Time
+	Assets          []models.File
+	Libraries       []models.Library
+	ActiveLibraryID string
 }
 
 func getAssetPreviewURL(publicID string) string {
@@ -197,7 +198,7 @@ templ Layout(data LayoutData) {
 						</li>
 					</ul>
 					<div class="divider px-4 my-0"></div>
-					@SidebarLibraries(SidebarData{Libraries: data.Libraries})
+					@SidebarLibraries(SidebarData{Libraries: data.Libraries, ActiveLibraryID: data.ActiveLibraryID})
 				</div>
 			</div>
 		</div>

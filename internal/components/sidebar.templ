@@ -4,7 +4,8 @@ import "github.com/rustyguts/alcoves/internal/models"
 import "fmt"
 
 type SidebarData struct {
-	Libraries []models.Library
+	Libraries       []models.Library
+	ActiveLibraryID string
 }
 
 func getLibraryURL(publicID string) string {
@@ -25,7 +26,7 @@ templ SidebarLibraries(data SidebarData) {
 		</div>
 		<ul class="menu menu-md text-base-content gap-1 w-full px-2">
 			for _, lib := range data.Libraries {
-				<li class="group">
+				<li class={ "group", templ.KV("bg-primary/20 rounded-lg", lib.PublicID == data.ActiveLibraryID) }>
 					<div class="flex items-center justify-between w-full">
 						<a href={ templ.SafeURL(getLibraryURL(lib.PublicID)) } class="flex-1 truncate flex items-center gap-2">
 							if lib.IsPersonal {

@@ -6,15 +6,20 @@ type UploadModalData struct {
 
 templ UploadModal(data UploadModalData) {
 	<dialog id="upload_modal" class="modal">
-		<div class="modal-box max-w-4xl">
-			<h3 class="font-bold text-lg mb-4">File Upload</h3>
+		<div class="modal-box max-w-4xl bg-base-100">
+			<div class="flex items-center justify-between mb-4">
+				<h3 class="font-bold text-xl flex items-center gap-2">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+					Upload Files
+				</h3>
+			</div>
 			<input type="hidden" id="libraryPublicID" value={ data.LibraryPublicID }/>
-			<div class="my-4">
+			<div class="my-4 bg-base-200 rounded-lg overflow-hidden">
 				<div id="uploader"></div>
 			</div>
 			<div class="modal-action">
-				<form method="dialog" style="display: inline;">
-					<button class="btn" id="close_upload_modal">Close</button>
+				<form method="dialog" class="inline">
+					<button class="btn btn-ghost" id="close_upload_modal">Cancel</button>
 				</form>
 			</div>
 		</div>
@@ -34,22 +39,22 @@ templ UploadModal(data UploadModalData) {
 				showProgressDetails: true,
 				proudlyDisplayPoweredByUppy: false,
 				height: 400,
-				note: 'Up to 5000 files'
+				note: 'Up to 5000 files',
+				theme: 'auto'
 			})
 			.use(XHRUpload, {
 				endpoint: '/assets/upload',
 				fieldName: 'files',
 				formData: true,
 				bundle: true,
-				// This function runs before each upload, allowing us to modify the request.
-				prepareRequest: (files, req) => {
-					const libraryPublicID = document.getElementById('libraryPublicID').value;
-					if (libraryPublicID) {
-						req.formData.append('libraryPublicID', libraryPublicID);
-					}
-					return req;
-				}
+				allowedMetaFields: ['libraryPublicID']
 			})
+
+			// Set the libraryPublicID as metadata before upload
+			const libraryPublicID = document.getElementById('libraryPublicID').value;
+			if (libraryPublicID) {
+				uppy.setMeta({ libraryPublicID: libraryPublicID });
+			}
 
 			uppy.on('complete', (result) => {
 				console.log('Upload complete:', result)

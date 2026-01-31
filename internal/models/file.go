@@ -20,6 +20,8 @@ type File struct {
 	CTime     time.Time `json:"ctime"`
 	UserID    uint      `json:"user_id" gorm:"index"`
 	LibraryID uint      `json:"library_id" gorm:"index"`
+	FolderID  *uint     `json:"folder_id" gorm:"index"` // Nullable for files not in folders
+	Folder    *Folder   `json:"folder" gorm:"foreignKey:FolderID"`
 }
 
 func (file *File) BeforeCreate(tx *gorm.DB) error {

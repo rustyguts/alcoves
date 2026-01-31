@@ -68,17 +68,30 @@ templ IconAndName(name string, filetype string) {
 }
 
 templ Assets(data AssetsData) {
-	<div>
+	<div id="assets-container">
 		<div class="breadcrumbs text-sm">
 			<ul>
 				<li><a>Home</a></li>
 				<li>Library</li>
 			</ul>
 		</div>
+		<!-- Context Menu -->
+		<div id="context-menu" class="hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg">
+			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg" id="ctx-download">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+				<span>Download</span>
+			</div>
+			<div class="h-px bg-base-300 my-1"></div>
+			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error" id="ctx-delete">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+				<span>Move to trash</span>
+			</div>
+		</div>
 		<div class="overflow-x-auto">
-			<table class="table table-auto w-full select-none">
+			<table class="table table-auto w-full select-none" id="files-table">
 				<thead>
 					<tr>
+						<th class="w-[40px]"></th>
 						<th class="text-left">Name</th>
 						<th class="w-[120px] whitespace-nowrap">Size</th>
 						<th class="w-[160px] whitespace-nowrap">Date</th>
@@ -90,16 +103,24 @@ templ Assets(data AssetsData) {
 				<tbody>
 					if len(data.Assets) == 0 {
 						<tr>
-							<td colspan="4" class="text-center py-8 text-base-content/60">
+							<td colspan="5" class="text-center py-8 text-base-content/60">
 								No files in your library. Click "Upload" to add files.
 							</td>
 						</tr>
 					}
 					for _, asset := range data.Assets {
 						<tr
-							class="h-10 max-h-10 hover:bg-base-200 file-row"
+							class="h-10 max-h-10 file-row cursor-pointer group hover:bg-base-200 [&:has(.file-checkbox:checked)]:hover:bg-primary/20"
 							data-asset-id={ asset.PublicID }
+							tabindex="0"
 						>
+							<td>
+								<input
+									type="checkbox"
+									class="file-checkbox checkbox checkbox-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+									data-asset-id={ asset.PublicID }
+								/>
+							</td>
 							<td>
 								@IconAndName(asset.Filename, getFileType(asset.Filename, asset.Type))
 							</td>
@@ -120,23 +141,293 @@ templ Assets(data AssetsData) {
 		<script>
 			document.addEventListener('DOMContentLoaded', function() {
 				const rows = document.querySelectorAll('.file-row');
+				const checkboxes = document.querySelectorAll('.file-checkbox');
+				const contextMenu = document.getElementById('context-menu');
+				const ctxDownload = document.getElementById('ctx-download');
+				const ctxDelete = document.getElementById('ctx-delete');
+				
+				let lastSelectedIndex = null;
+				let contextMenuTarget = null;
 
-				rows.forEach(row => {
-					// Single click to select
-					row.addEventListener('click', function(e) {
-						// Deselect all rows
-						rows.forEach(r => {
-							r.classList.remove('!bg-primary', '!bg-opacity-20');
+				function getSelectedAssetIds() {
+					return Array.from(document.querySelectorAll('.file-checkbox:checked'))
+						.map(cb => cb.getAttribute('data-asset-id'));
+				}
+
+				function updateRowSelection() {
+					rows.forEach(row => {
+						const checkbox = row.querySelector('.file-checkbox');
+						if (checkbox.checked) {
+							row.classList.add('bg-primary/20');
+							checkbox.classList.add('opacity-100');
+						} else {
+							row.classList.remove('bg-primary/20');
+							checkbox.classList.remove('opacity-100');
+						}
+					});
+				}
+
+				function deleteSelectedAssets() {
+					const selected = getSelectedAssetIds();
+					if (selected.length === 0) return;
+
+					if (confirm(`Move ${selected.length} file(s) to trash?`)) {
+						fetch('/assets/delete', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify(selected)
+						})
+							.then(response => {
+								if (response.ok) {
+									window.location.reload();
+								} else {
+									alert('Failed to delete files');
+								}
+							})
+							.catch(error => {
+								console.error('Error:', error);
+								alert('Failed to delete files');
+							});
+					}
+				}
+
+				function downloadSelectedAssets() {
+					const selected = getSelectedAssetIds();
+					if (selected.length === 0) return;
+
+					if (selected.length === 1) {
+						window.location.href = '/assets/download/' + selected[0];
+					} else {
+						window.location.href = '/assets/download?ids=' + selected.join(',');
+					}
+				}
+
+				function showContextMenu(e, targetRow) {
+					e.preventDefault();
+					contextMenuTarget = targetRow;
+					
+					const checkbox = targetRow.querySelector('.file-checkbox');
+					const isSelected = checkbox.checked;
+					
+					// If right-clicked row is not selected, select only this row
+					if (!isSelected) {
+						checkboxes.forEach(cb => {
+							cb.checked = false;
+							cb.closest('.file-row').classList.remove('bg-primary/20');
+							cb.classList.remove('opacity-100');
 						});
-						// Select this row with blue background
-						this.classList.add('!bg-primary', '!bg-opacity-20');
+						checkbox.checked = true;
+						targetRow.classList.add('bg-primary/20');
+						checkbox.classList.add('opacity-100');
+					}
+					
+					// Position context menu
+					const x = e.clientX;
+					const y = e.clientY;
+					
+					// Prevent menu from going off-screen
+					const menuWidth = 180;
+					const menuHeight = 100;
+					const winWidth = window.innerWidth;
+					const winHeight = window.innerHeight;
+					
+					let finalX = x;
+					let finalY = y;
+					
+					if (x + menuWidth > winWidth) {
+						finalX = x - menuWidth;
+					}
+					if (y + menuHeight > winHeight) {
+						finalY = y - menuHeight;
+					}
+					
+					contextMenu.style.left = finalX + 'px';
+					contextMenu.style.top = finalY + 'px';
+					contextMenu.classList.remove('hidden');
+					contextMenu.classList.add('block');
+				}
+
+				function hideContextMenu() {
+					contextMenu.classList.add('hidden');
+					contextMenu.classList.remove('block');
+					contextMenuTarget = null;
+				}
+
+				// Context menu event listeners
+				ctxDownload.addEventListener('click', function() {
+					hideContextMenu();
+					downloadSelectedAssets();
+				});
+
+				ctxDelete.addEventListener('click', function() {
+					hideContextMenu();
+					deleteSelectedAssets();
+				});
+
+				// Hide context menu on click elsewhere
+				document.addEventListener('click', function(e) {
+					if (!contextMenu.contains(e.target)) {
+						hideContextMenu();
+					}
+				});
+
+				rows.forEach((row, index) => {
+					const checkbox = row.querySelector('.file-checkbox');
+
+					// Checkbox click handler
+					checkbox.addEventListener('click', function(e) {
+						e.stopPropagation();
+						
+						const isShiftClick = e.shiftKey && lastSelectedIndex !== null;
+						const isCtrlClick = e.ctrlKey || e.metaKey;
+
+						if (isShiftClick) {
+							const start = Math.min(lastSelectedIndex, index);
+							const end = Math.max(lastSelectedIndex, index);
+							const allCheckboxes = document.querySelectorAll('.file-checkbox');
+							
+							for (let i = start; i <= end; i++) {
+								allCheckboxes[i].checked = this.checked;
+							}
+						} else if (!isCtrlClick) {
+							// Clear other selections if not Ctrl/Cmd click
+							checkboxes.forEach((cb, i) => {
+								if (i !== index) {
+									cb.checked = false;
+								}
+							});
+						}
+
+						lastSelectedIndex = index;
+						updateRowSelection();
 					});
 
-					// Double click to open (no delay)
+					// Row click handler (left click)
+					row.addEventListener('click', function(e) {
+						// Ignore if clicking on checkbox directly
+						if (e.target.classList.contains('file-checkbox')) return;
+						
+						const isCtrlClick = e.ctrlKey || e.metaKey;
+						const isShiftClick = e.shiftKey;
+
+						if (isShiftClick && lastSelectedIndex !== null) {
+							// Shift+click: select range
+							const start = Math.min(lastSelectedIndex, index);
+							const end = Math.max(lastSelectedIndex, index);
+							
+							checkboxes.forEach((cb, i) => {
+								if (i >= start && i <= end) {
+									cb.checked = true;
+								}
+							});
+						} else if (isCtrlClick) {
+							// Ctrl/Cmd+click: toggle this item
+							checkbox.checked = !checkbox.checked;
+						} else {
+							// Regular click: select only this item
+							checkboxes.forEach(cb => cb.checked = false);
+							checkbox.checked = true;
+						}
+
+						lastSelectedIndex = index;
+						updateRowSelection();
+					});
+
+					// Double click to open
 					row.addEventListener('dblclick', function(e) {
 						const assetId = this.getAttribute('data-asset-id');
 						window.location.href = '/media/' + assetId;
 					});
+
+					// Right click for context menu
+					row.addEventListener('contextmenu', function(e) {
+						showContextMenu(e, row);
+					});
+				});
+
+				// Keyboard shortcuts
+				document.addEventListener('keydown', function(e) {
+					// Ctrl+A: Select all
+					if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+						e.preventDefault();
+						checkboxes.forEach(cb => {
+							cb.checked = true;
+						});
+						lastSelectedIndex = rows.length - 1;
+						updateRowSelection();
+					}
+					
+					// Escape: Deselect all
+					if (e.key === 'Escape') {
+						checkboxes.forEach(cb => {
+							cb.checked = false;
+						});
+						lastSelectedIndex = null;
+						updateRowSelection();
+						hideContextMenu();
+					}
+					
+					// Space: Toggle selection of focused row
+					if (e.key === ' ' && document.activeElement.classList.contains('file-row')) {
+						e.preventDefault();
+						const focusedRow = document.activeElement;
+						const checkbox = focusedRow.querySelector('.file-checkbox');
+						checkbox.checked = !checkbox.checked;
+						updateRowSelection();
+					}
+					
+					// Arrow keys: Navigate and optionally select
+					if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
+						const currentFocus = document.activeElement;
+						let currentIndex = Array.from(rows).indexOf(currentFocus);
+						
+						// If nothing is focused, focus the first row
+						if (currentIndex === -1) {
+							currentIndex = 0;
+							if (rows.length > 0) {
+								rows[0].focus();
+								if (!e.shiftKey) {
+									// Clear selection on simple arrow navigation
+									checkboxes.forEach(cb => cb.checked = false);
+									rows[0].querySelector('.file-checkbox').checked = true;
+								}
+								updateRowSelection();
+							}
+							return;
+						}
+						
+						e.preventDefault();
+						let newIndex = currentIndex;
+						
+						if (e.key === 'ArrowUp' && currentIndex > 0) {
+							newIndex = currentIndex - 1;
+						} else if (e.key === 'ArrowDown' && currentIndex < rows.length - 1) {
+							newIndex = currentIndex + 1;
+						}
+						
+						if (newIndex !== currentIndex) {
+							rows[newIndex].focus();
+							
+							if (e.shiftKey) {
+								// Shift+Arrow: Select range
+								const start = Math.min(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);
+								const end = Math.max(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);
+								
+								checkboxes.forEach((cb, i) => {
+									cb.checked = i >= start && i <= end;
+								});
+							} else {
+								// Simple arrow: Move selection to new row
+								checkboxes.forEach(cb => cb.checked = false);
+								rows[newIndex].querySelector('.file-checkbox').checked = true;
+							}
+							
+							lastSelectedIndex = newIndex;
+							updateRowSelection();
+						}
+					}
 				});
 			});
 		</script>

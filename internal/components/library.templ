@@ -21,14 +21,15 @@ type LibraryViewData struct {
 
 templ LibraryView(data LibraryViewData) {
 	@Layout(LayoutData{
-		Title:     data.Title,
-		UserEmail: data.UserEmail,
-		Theme:     data.Theme,
-		CreatedAt: data.CreatedAt,
-		Assets:    data.Assets,
-		Libraries: data.Libraries,
+		Title:           data.Title,
+		UserEmail:       data.UserEmail,
+		Theme:           data.Theme,
+		CreatedAt:       data.CreatedAt,
+		Assets:          data.Assets,
+		Libraries:       data.Libraries,
+		ActiveLibraryID: data.LibraryPublicID,
 	}) {
-		<div class="flex flex-col h-full" data-signals="{renamingLibrary: '', renameValue: ''}">
+		<div class="flex flex-col h-full" data-signals="{renamingLibrary: '', renameValue: '', viewMode: 'list', currentFolder: ''}">
 			<div class="flex items-center justify-between mb-4">
 				<div class="flex items-center gap-2">
 					<h1 class="text-xl font-bold">{data.LibraryName}</h1>
@@ -53,18 +54,52 @@ templ LibraryView(data LibraryViewData) {
 						</ul>
 					</div>
 				</div>
-				<button
-					class="btn btn-primary"
-					onclick="upload_modal.showModal()"
-				>
-					Upload
-				</button>
+				<div class="flex items-center gap-2">
+					<!-- View Toggle -->
+					<div class="join">
+						<button
+							class={"join-item btn btn-sm", templ.KV("btn-primary", true), templ.KV("btn-ghost", false)}
+							data-on:click="$viewMode = 'list'"
+							title="List view"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+						</button>
+						<button
+							class={"join-item btn btn-sm", templ.KV("btn-primary", false), templ.KV("btn-ghost", true)}
+							data-on:click="$viewMode = 'folder'"
+							title="Folder view"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+						</button>
+					</div>
+					<button
+						class="btn btn-primary"
+						onclick="upload_modal.showModal()"
+					>
+						Upload
+					</button>
+				</div>
+			</div>
+			<!-- Folder Navigation Breadcrumb -->
+			<div class="breadcrumbs text-sm mb-4" data-show="$viewMode === 'folder' && $currentFolder !== ''">
+				<ul>
+					<li><a href="/libraries/{data.LibraryPublicID}">{data.LibraryName}</a></li>
+					<li class="breadcrumb-current">Folder</li>
+				</ul>
 			</div>
 			<div class="flex-1 overflow-y-auto">
-				@Assets(AssetsData{Assets: data.Assets})
+				<!-- List View -->
+				<div data-show="$viewMode === 'list'">
+					@Assets(AssetsData{Assets: data.Assets})
+				</div>
+				<!-- Folder View -->
+				<div data-show="$viewMode === 'folder'">
+					@FolderView(FolderViewData{LibraryPublicID: data.LibraryPublicID, LibraryName: data.LibraryName, Folders: nil, Files: data.Assets, CurrentFolder: ""})
+				</div>
 			</div>
 		</div>
 		@UploadModal(UploadModalData{LibraryPublicID: data.LibraryPublicID})
 		@RenameLibraryModal()
+		@FolderModal()
 	}
 }

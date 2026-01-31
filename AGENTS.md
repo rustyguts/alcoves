@@ -1,5 +1,15 @@
 # AGENTS.md - Alcoves Developer Guide
 
+Alcoves is a Google Drive-like personal file storage and management application. Users can upload, organize, view, and manage their files through a web interface with features similar to Google Drive including:
+- File upload and download
+- Folder/library organization
+- **Hierarchical folders** - Create, rename, move, and delete folders within libraries
+- **Dual view modes** - Toggle between list view and folder view
+- Multi-select with Ctrl+click and Shift+click
+- Right-click context menus for file operations
+- Trash/recycle bin with restore functionality
+- Image viewing with navigation
+
 ## Build & Development Commands
 
 ```bash
@@ -155,6 +165,7 @@ func TestSomething(t *testing.T) {
 4. **Test DB mirrors production** - see `internal/testing/db.go`
 5. **Signal names match JSON tags** - use camelCase consistently
 6. **libvips required** - system dependency for image processing
+7. **TailwindCSS only** - No custom `<style>` tags or inline CSS in .templ files. Use Tailwind utility classes exclusively.
 
 ## Environment Variables
 

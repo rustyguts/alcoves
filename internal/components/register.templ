@@ -7,42 +7,68 @@ type RegisterData struct {
 	Errors map[string]string
 }
 
+templ AlcovesLogo(size string) {
+	<svg xmlns="http://www.w3.org/2000/svg" width={ size } height={ size } viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+		<path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+		<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path>
+		<circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"></circle>
+	</svg>
+}
+
 templ Register(data RegisterData) {
 	@Root(data.Title, data.Theme) {
-		<div class="flex flex-col h-screen w-screen bg-base-300">
-			<div class="bg-base-100 max-w-md w-90 mx-auto mt-10 p-6 rounded-lg shadow-md">
-				<h2 class="text-2xl font-bold mb-4 card">Register</h2>
-				<form method="post">
-					<div class="mb-4">
-						<label for="email" class="block text-sm font-medium mb-1">Email</label>
+		<div class="min-h-screen flex items-center justify-center bg-base-300 p-4">
+			<div class="bg-base-100 w-full max-w-md p-8 rounded-xl shadow-lg">
+				<div class="flex flex-col items-center mb-6">
+					@AlcovesLogo("48")
+					<h1 class="text-3xl font-bold mt-4">Alcoves</h1>
+					<p class="text-base-content/60 mt-2">Create your account</p>
+				</div>
+				<form method="post" class="space-y-4">
+					<div class="form-control">
+						<label for="email" class="label">
+							<span class="label-text">Email</span>
+						</label>
 						<input
-							type="text"
+							type="email"
 							name="email"
 							id="email"
-							class="input input-bordered w-full"
+							class={ "input input-bordered w-full", templ.KV("input-error", data.Errors != nil && data.Errors["Email"] != "") }
 							value={ data.Email }
+							placeholder="your@email.com"
 							required
 						/>
 						if data.Errors != nil && data.Errors["Email"] != "" {
-							<p class="text-error text-xs mt-1">{ data.Errors["Email"] }</p>
+							<label class="label">
+								<span class="label-text-alt text-error">{ data.Errors["Email"] }</span>
+							</label>
 						}
 					</div>
-					<div class="mb-4">
-						<label for="password" class="block text-sm font-medium mb-1">Password</label>
+					<div class="form-control">
+						<label for="password" class="label">
+							<span class="label-text">Password</span>
+						</label>
 						<input
 							type="password"
 							name="password"
 							id="password"
 							class={ "input input-bordered w-full", templ.KV("input-error", data.Errors != nil && data.Errors["Password"] != "") }
+							placeholder="Create a password"
 							required
 						/>
 						if data.Errors != nil && data.Errors["Password"] != "" {
-							<p class="text-error text-xs mt-1">{ data.Errors["Password"] }</p>
+							<label class="label">
+								<span class="label-text-alt text-error">{ data.Errors["Password"] }</span>
+							</label>
 						}
 					</div>
-					<button type="submit" class="btn btn-primary w-full">Register</button>
+					<button type="submit" class="btn btn-primary w-full mt-2">Create Account</button>
 				</form>
-				<p class="mt-4">Already have an account? <a href="/login" class="link">Login</a></p>
+				<div class="divider my-6"></div>
+				<p class="text-center text-sm text-base-content/60">
+					Already have an account? 
+					<a href="/login" class="link link-primary font-medium">Sign in</a>
+				</p>
 			</div>
 		</div>
 	}

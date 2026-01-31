@@ -46,7 +46,15 @@ func Login(data LoginData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex flex-col h-screen w-screen bg-base-300\"><div class=\"bg-base-100 max-w-md w-90 mx-auto mt-10 p-6 rounded-lg shadow-md\"><h2 class=\"text-2xl font-bold mb-4\">Login</h2><form method=\"post\"><div class=\"mb-4\"><label for=\"email\" class=\"block text-sm font-medium mb-1\">Email</label> <input type=\"text\" name=\"email\" id=\"email\" class=\"input input-bordered w-full\" required><p class=\"text-error text-xs mt-1\"></p></div><div class=\"mb-4\"><label for=\"password\" class=\"block text-sm font-medium mb-1\">Password</label> <input type=\"password\" name=\"password\" id=\"password\" class=\"input input-bordered w-full\" required><p class=\"text-error text-xs mt-1\"></p></div><button type=\"submit\" class=\"btn btn-primary w-full\">Login</button></form><p class=\"mt-4\">Don't have an account? <a href=\"/register\" class=\"link\">Register</a></p></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"min-h-screen flex items-center justify-center bg-base-300 p-4\"><div class=\"bg-base-100 w-full max-w-md p-8 rounded-xl shadow-lg\"><div class=\"flex flex-col items-center mb-6\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = AlcovesLogo("48").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<h1 class=\"text-3xl font-bold mt-4\">Alcoves</h1><p class=\"text-base-content/60 mt-2\">Welcome back</p></div><form method=\"post\" class=\"space-y-4\"><div class=\"form-control\"><label for=\"email\" class=\"label\"><span class=\"label-text\">Email</span></label> <input type=\"email\" name=\"email\" id=\"email\" class=\"input input-bordered w-full\" placeholder=\"your@email.com\" required></div><div class=\"form-control\"><label for=\"password\" class=\"label\"><span class=\"label-text\">Password</span></label> <input type=\"password\" name=\"password\" id=\"password\" class=\"input input-bordered w-full\" placeholder=\"Enter your password\" required></div><button type=\"submit\" class=\"btn btn-primary w-full mt-2\">Sign In</button></form><div class=\"divider my-6\"></div><p class=\"text-center text-sm text-base-content/60\">Don't have an account?  <a href=\"/register\" class=\"link link-primary font-medium\">Create one</a></p></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
