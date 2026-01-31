@@ -8,14 +8,14 @@ import (
 )
 
 type LibraryViewData struct {
-	Title            string
-	UserEmail        string
-	Theme            string
-	CreatedAt        time.Time
-	Assets           []models.File
-	Libraries        []models.Library
-	LibraryName      string
-	LibraryPublicID  string
+	Title             string
+	UserEmail         string
+	Theme             string
+	CreatedAt         time.Time
+	Assets            []models.File
+	Libraries         []models.Library
+	LibraryName       string
+	LibraryPublicID   string
 	LibraryIsPersonal bool
 }
 
@@ -29,27 +29,27 @@ templ LibraryView(data LibraryViewData) {
 		Libraries:       data.Libraries,
 		ActiveLibraryID: data.LibraryPublicID,
 	}) {
-		<div class="flex flex-col h-full" data-signals="{renamingLibrary: '', renameValue: '', viewMode: 'list', currentFolder: ''}">
+		<div class="flex flex-col h-full" data-signals="{renamingLibrary: '', renameValue: '', viewMode: 'list'}">
 			<div class="flex items-center justify-between mb-4">
 				<div class="flex items-center gap-2">
-					<h1 class="text-xl font-bold">{data.LibraryName}</h1>
+					<h1 class="text-xl font-bold">{ data.LibraryName }</h1>
 					<div class="dropdown dropdown-start">
 						<div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-circle">
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
 						</div>
 						<ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-40">
 							<li>
-							<button data-on:click={ fmt.Sprintf("$renamingLibrary = '%s'; $renameValue = '%s'", data.LibraryPublicID, data.LibraryName) }>
-								Rename
-							</button>
+								<button data-on:click={ fmt.Sprintf("$renamingLibrary = '%s'; $renameValue = '%s'", data.LibraryPublicID, data.LibraryName) }>
+									Rename
+								</button>
 							</li>
 							<li>
-							<button
-								class="text-error"
-								data-on:click={ fmt.Sprintf("@delete('/libraries/%s')", data.LibraryPublicID) }
-							>
-								Delete
-							</button>
+								<button
+									class="text-error"
+									data-on:click={ fmt.Sprintf("@delete('/libraries/%s')", data.LibraryPublicID) }
+								>
+									Delete
+								</button>
 							</li>
 						</ul>
 					</div>
@@ -58,18 +58,20 @@ templ LibraryView(data LibraryViewData) {
 					<!-- View Toggle -->
 					<div class="join">
 						<button
-							class={"join-item btn btn-sm", templ.KV("btn-primary", true), templ.KV("btn-ghost", false)}
+							class="join-item btn btn-sm btn-ghost"
+							data-class="{ 'bg-primary/20': $viewMode === 'list' }"
 							data-on:click="$viewMode = 'list'"
 							title="List view"
 						>
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
 						</button>
 						<button
-							class={"join-item btn btn-sm", templ.KV("btn-primary", false), templ.KV("btn-ghost", true)}
-							data-on:click="$viewMode = 'folder'"
-							title="Folder view"
+							class="join-item btn btn-sm btn-ghost"
+							data-class="{ 'bg-primary/20': $viewMode === 'thumbnail' }"
+							data-on:click="$viewMode = 'thumbnail'"
+							title="Thumbnail view"
 						>
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
 						</button>
 					</div>
 					<button
@@ -80,26 +82,18 @@ templ LibraryView(data LibraryViewData) {
 					</button>
 				</div>
 			</div>
-			<!-- Folder Navigation Breadcrumb -->
-			<div class="breadcrumbs text-sm mb-4" data-show="$viewMode === 'folder' && $currentFolder !== ''">
-				<ul>
-					<li><a href="/libraries/{data.LibraryPublicID}">{data.LibraryName}</a></li>
-					<li class="breadcrumb-current">Folder</li>
-				</ul>
-			</div>
 			<div class="flex-1 overflow-y-auto">
 				<!-- List View -->
 				<div data-show="$viewMode === 'list'">
-					@Assets(AssetsData{Assets: data.Assets})
+					@AssetsList(AssetsData{Assets: data.Assets})
 				</div>
-				<!-- Folder View -->
-				<div data-show="$viewMode === 'folder'">
-					@FolderView(FolderViewData{LibraryPublicID: data.LibraryPublicID, LibraryName: data.LibraryName, Folders: nil, Files: data.Assets, CurrentFolder: ""})
+				<!-- Thumbnail View -->
+				<div data-show="$viewMode === 'thumbnail'">
+					@AssetsThumbnail(AssetsData{Assets: data.Assets})
 				</div>
 			</div>
 		</div>
 		@UploadModal(UploadModalData{LibraryPublicID: data.LibraryPublicID})
 		@RenameLibraryModal()
-		@FolderModal()
 	}
 }

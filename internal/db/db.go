@@ -29,7 +29,6 @@ func migrate(db *gorm.DB) error {
 		&models.Library{},
 		&models.File{},
 		&models.Session{},
-		&models.Folder{},
 	}
 
 	for _, model := range modelsToMigrate {

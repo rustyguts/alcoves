@@ -51,13 +51,10 @@ test.describe('Folder Management - Using Shared Test User', () => {
   });
 
   test('user can access profile menu', async ({ page }) => {
-    // Use keyboard navigation to open profile dropdown
-    // Tab to the dropdown trigger, then Enter to open
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Enter');
-    
-    // Should see user email and logout option
+    // Click the profile avatar button to open dropdown
+    await page.locator('#profile-dropdown [role="button"]').click();
+
+    // Should see logout option in the dropdown
     await expect(page.locator('button:has-text("Log Out")')).toBeVisible();
   });
 

@@ -7,7 +7,6 @@ import (
 )
 
 const (
-	AssetTypeFolder  string = "folder"
 	AssetTypeFilePDF string = "pdf"
 	AssetTypeFile    string = "txt"
 	AssetTypeImage   string = "image"
@@ -49,8 +48,6 @@ templ IconAndName(name string, filetype string) {
 	<div class="flex w-full">
 		<div class="ml-2 mr-4 h-full flex items-center justify-center">
 			switch filetype {
-				case AssetTypeFolder:
-					@FolderIcon("22", "22", "1.5")
 				case AssetTypeFilePDF:
 					@TextFileIcon("22", "22", "1.5")
 				case AssetTypeFile:
@@ -67,14 +64,9 @@ templ IconAndName(name string, filetype string) {
 	</div>
 }
 
-templ Assets(data AssetsData) {
+// AssetsList shows files in a row-based table format
+templ AssetsList(data AssetsData) {
 	<div id="assets-container">
-		<div class="breadcrumbs text-sm">
-			<ul>
-				<li><a>Home</a></li>
-				<li>Library</li>
-			</ul>
-		</div>
 		<!-- Context Menu -->
 		<div id="context-menu" class="hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg">
 			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg" id="ctx-download">
@@ -427,6 +419,327 @@ templ Assets(data AssetsData) {
 							lastSelectedIndex = newIndex;
 							updateRowSelection();
 						}
+					}
+				});
+			});
+		</script>
+	</div>
+}
+
+// AssetsThumbnail shows files in a card-based grid gallery
+templ AssetsThumbnail(data AssetsData) {
+	<div id="assets-thumbnail-container">
+		<!-- Context Menu -->
+		<div id="thumbnail-context-menu" class="hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg">
+			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg" id="thumb-ctx-download">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+				<span>Download</span>
+			</div>
+			<div class="h-px bg-base-300 my-1"></div>
+			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error" id="thumb-ctx-delete">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+				<span>Move to trash</span>
+			</div>
+		</div>
+		if len(data.Assets) == 0 {
+			<div class="flex flex-col items-center justify-center py-16 text-base-content/60">
+				<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 opacity-50">
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+					<polyline points="14 2 14 8 20 8"></polyline>
+				</svg>
+				<p class="text-lg font-medium mb-2">No files in your library</p>
+				<p class="text-sm mb-4">Click "Upload" to add files.</p>
+			</div>
+		} else {
+			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4">
+				for _, asset := range data.Assets {
+					<div
+						class="card card-compact bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 cursor-pointer group"
+						data-asset-id={ asset.PublicID }
+						tabindex="0"
+					>
+						<figure class="aspect-video bg-base-200 relative overflow-hidden">
+							if strings.HasPrefix(asset.Type, "image/") {
+								<img
+									src={ getAssetURL(asset.PublicID, 400) }
+									alt={ asset.Filename }
+									class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+									loading="lazy"
+								/>
+							} else {
+								<div class="w-full h-full flex items-center justify-center">
+									<div class="p-4 rounded-lg bg-base-300/50">
+										switch getFileType(asset.Filename, asset.Type) {
+											case AssetTypeFilePDF:
+												@TextFileIcon("48", "48", "1.5")
+											case AssetTypeImage:
+												@ImageFileIcon("48", "48", "1.5")
+											default:
+												@FileIcon("48", "48", "1.5")
+										}
+									</div>
+								</div>
+							}
+							<!-- Checkbox overlay -->
+							<div class="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+								<input
+									type="checkbox"
+									class="thumb-checkbox checkbox checkbox-sm bg-base-100/80"
+									data-asset-id={ asset.PublicID }
+								/>
+							</div>
+						</figure>
+						<div class="card-body p-3">
+							<h3 class="card-title text-sm font-medium truncate" title={ asset.Filename }>
+								{ asset.Filename }
+							</h3>
+							<div class="flex items-center justify-between text-xs text-base-content/60">
+								<span>{ formatFileSize(asset.Size) }</span>
+								<span>{ formatDate(asset) }</span>
+							</div>
+						</div>
+					</div>
+				}
+			</div>
+		}
+		<script>
+			document.addEventListener('DOMContentLoaded', function() {
+				const cards = document.querySelectorAll('#assets-thumbnail-container .card');
+				const checkboxes = document.querySelectorAll('.thumb-checkbox');
+				const contextMenu = document.getElementById('thumbnail-context-menu');
+				const ctxDownload = document.getElementById('thumb-ctx-download');
+				const ctxDelete = document.getElementById('thumb-ctx-delete');
+				
+				let lastSelectedIndex = null;
+				let contextMenuTarget = null;
+
+				function getSelectedAssetIds() {
+					return Array.from(document.querySelectorAll('.thumb-checkbox:checked'))
+						.map(cb => cb.getAttribute('data-asset-id'));
+				}
+
+				function updateCardSelection() {
+					cards.forEach(card => {
+						const checkbox = card.querySelector('.thumb-checkbox');
+						if (checkbox.checked) {
+							card.classList.add('border-primary', 'ring-2', 'ring-primary/20');
+							checkbox.classList.add('opacity-100');
+							checkbox.classList.remove('opacity-0');
+						} else {
+							card.classList.remove('border-primary', 'ring-2', 'ring-primary/20');
+							checkbox.classList.remove('opacity-100');
+						}
+					});
+				}
+
+				function deleteSelectedAssets() {
+					const selected = getSelectedAssetIds();
+					if (selected.length === 0) return;
+
+					if (confirm(`Move ${selected.length} file(s) to trash?`)) {
+						fetch('/assets/delete', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify(selected)
+						})
+							.then(response => {
+								if (response.ok) {
+									window.location.reload();
+								} else {
+									alert('Failed to delete files');
+								}
+							})
+							.catch(error => {
+								console.error('Error:', error);
+								alert('Failed to delete files');
+							});
+					}
+				}
+
+				function downloadSelectedAssets() {
+					const selected = getSelectedAssetIds();
+					if (selected.length === 0) return;
+
+					if (selected.length === 1) {
+						window.location.href = '/assets/download/' + selected[0];
+					} else {
+						window.location.href = '/assets/download?ids=' + selected.join(',');
+					}
+				}
+
+				function showContextMenu(e, targetCard) {
+					e.preventDefault();
+					contextMenuTarget = targetCard;
+					
+					const checkbox = targetCard.querySelector('.thumb-checkbox');
+					const isSelected = checkbox.checked;
+					
+					// If right-clicked card is not selected, select only this card
+					if (!isSelected) {
+						checkboxes.forEach(cb => {
+							cb.checked = false;
+							cb.closest('.card').classList.remove('border-primary', 'ring-2', 'ring-primary/20');
+						});
+						checkbox.checked = true;
+						targetCard.classList.add('border-primary', 'ring-2', 'ring-primary/20');
+					}
+					
+					// Position context menu
+					const x = e.clientX;
+					const y = e.clientY;
+					
+					// Prevent menu from going off-screen
+					const menuWidth = 180;
+					const menuHeight = 100;
+					const winWidth = window.innerWidth;
+					const winHeight = window.innerHeight;
+					
+					let finalX = x;
+					let finalY = y;
+					
+					if (x + menuWidth > winWidth) {
+						finalX = x - menuWidth;
+					}
+					if (y + menuHeight > winHeight) {
+						finalY = y - menuHeight;
+					}
+					
+					contextMenu.style.left = finalX + 'px';
+					contextMenu.style.top = finalY + 'px';
+					contextMenu.classList.remove('hidden');
+					contextMenu.classList.add('block');
+				}
+
+				function hideContextMenu() {
+					contextMenu.classList.add('hidden');
+					contextMenu.classList.remove('block');
+					contextMenuTarget = null;
+				}
+
+				// Context menu event listeners
+				ctxDownload.addEventListener('click', function() {
+					hideContextMenu();
+					downloadSelectedAssets();
+				});
+
+				ctxDelete.addEventListener('click', function() {
+					hideContextMenu();
+					deleteSelectedAssets();
+				});
+
+				// Hide context menu on click elsewhere
+				document.addEventListener('click', function(e) {
+					if (!contextMenu.contains(e.target)) {
+						hideContextMenu();
+					}
+				});
+
+				cards.forEach((card, index) => {
+					const checkbox = card.querySelector('.thumb-checkbox');
+
+					// Checkbox click handler
+					checkbox.addEventListener('click', function(e) {
+						e.stopPropagation();
+						
+						const isShiftClick = e.shiftKey && lastSelectedIndex !== null;
+						const isCtrlClick = e.ctrlKey || e.metaKey;
+
+						if (isShiftClick) {
+							const start = Math.min(lastSelectedIndex, index);
+							const end = Math.max(lastSelectedIndex, index);
+							const allCheckboxes = document.querySelectorAll('.thumb-checkbox');
+							
+							for (let i = start; i <= end; i++) {
+								allCheckboxes[i].checked = this.checked;
+							}
+						} else if (!isCtrlClick) {
+							// Clear other selections if not Ctrl/Cmd click
+							checkboxes.forEach((cb, i) => {
+								if (i !== index) {
+									cb.checked = false;
+								}
+							});
+						}
+
+						lastSelectedIndex = index;
+						updateCardSelection();
+					});
+
+					// Card click handler (left click)
+					card.addEventListener('click', function(e) {
+						// Ignore if clicking on checkbox directly
+						if (e.target.classList.contains('thumb-checkbox')) return;
+						
+						const isCtrlClick = e.ctrlKey || e.metaKey;
+						const isShiftClick = e.shiftKey;
+
+						if (isShiftClick && lastSelectedIndex !== null) {
+							// Shift+click: select range
+							const start = Math.min(lastSelectedIndex, index);
+							const end = Math.max(lastSelectedIndex, index);
+							
+							checkboxes.forEach((cb, i) => {
+								if (i >= start && i <= end) {
+									cb.checked = true;
+								}
+							});
+						} else if (isCtrlClick) {
+							// Ctrl/Cmd+click: toggle this item
+							checkbox.checked = !checkbox.checked;
+						} else {
+							// Regular click: open the file
+							const assetId = this.getAttribute('data-asset-id');
+							window.location.href = '/media/' + assetId;
+							return;
+						}
+
+						lastSelectedIndex = index;
+						updateCardSelection();
+					});
+
+					// Double click to open
+					card.addEventListener('dblclick', function(e) {
+						const assetId = this.getAttribute('data-asset-id');
+						window.location.href = '/media/' + assetId;
+					});
+
+					// Right click for context menu
+					card.addEventListener('contextmenu', function(e) {
+						showContextMenu(e, card);
+					});
+				});
+
+				// Keyboard shortcuts
+				document.addEventListener('keydown', function(e) {
+					// Ctrl+A: Select all
+					if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+						e.preventDefault();
+						checkboxes.forEach(cb => {
+							cb.checked = true;
+						});
+						lastSelectedIndex = cards.length - 1;
+						updateCardSelection();
+					}
+					
+					// Escape: Deselect all
+					if (e.key === 'Escape') {
+						checkboxes.forEach(cb => {
+							cb.checked = false;
+						});
+						lastSelectedIndex = null;
+						updateCardSelection();
+						hideContextMenu();
+					}
+					
+					// Space: Toggle selection of focused card
+					if (e.key === ' ' && document.activeElement.classList.contains('card')) {
+						e.preventDefault();
+						const focusedCard = document.activeElement;
+						const checkbox = focusedCard.querySelector('.thumb-checkbox');
+						checkbox.checked = !checkbox.checked;
+						updateCardSelection();
 					}
 				});
 			});

@@ -162,6 +162,11 @@ func TestSomething(t *testing.T) {
 - Binding: `data-bind:foo` (colon syntax)
 - Events: `data-on:click="@post('/endpoint')"` (colon syntax)
 - SSE handlers: Use `datastar.NewSSE()` and return `PatchElements`/`PatchSignals`
+- **Dynamic classes**: Use `data-class` for reactive class binding (preferred over `templ.KV()`):
+  ```html
+  <button class="btn btn-ghost" data-class="{ 'bg-primary/20': $viewMode === 'list' }">
+  ```
+  This enables reactive class toggling based on signal values without page reloads.
 
 ### File Storage
 - Uploads: `data/assets/` (UUID-based filenames)

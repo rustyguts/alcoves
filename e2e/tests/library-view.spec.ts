@@ -27,23 +27,17 @@ test.describe('Library View Toggle - Using Shared Test User', () => {
   });
 
   test('profile dropdown works', async ({ page }) => {
-    // Use keyboard navigation to open profile dropdown
-    // Tab to the dropdown trigger, then Enter to open
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Enter');
-    
+    // Click the profile avatar button to open dropdown
+    await page.locator('#profile-dropdown [role="button"]').click();
+
     // Should see logout option
     await expect(page.locator('button:has-text("Log Out")')).toBeVisible();
   });
 
   test('theme selector is available', async ({ page }) => {
-    // Use keyboard navigation to open profile dropdown
-    // Tab to the dropdown trigger, then Enter to open
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Enter');
-    
+    // Click the profile avatar button to open dropdown
+    await page.locator('#profile-dropdown [role="button"]').click();
+
     // Should see theme options
     await expect(page.locator('text=Theme')).toBeVisible();
   });

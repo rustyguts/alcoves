@@ -10,7 +10,6 @@ import (
 	"github.com/rustyguts/alcoves/internal/config"
 	"github.com/rustyguts/alcoves/internal/db"
 	"github.com/rustyguts/alcoves/internal/files"
-	"github.com/rustyguts/alcoves/internal/folders"
 	"github.com/rustyguts/alcoves/internal/libraries"
 )
 
@@ -44,7 +43,6 @@ func main() {
 
 	auth.RegisterRoutes(e)
 	files.RegisterRoutes(e)
-	folders.RegisterRoutes(e)
 	libraries.RegisterRoutes(e)
 
 	log.Println("setting up static routers...")
