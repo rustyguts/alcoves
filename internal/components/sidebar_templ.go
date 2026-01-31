@@ -41,7 +41,7 @@ func SidebarLibraries(data SidebarData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"sidebar-libraries\" data-signals=\"{renamingLibrary: '', renameValue: ''}\"><div class=\"flex flex-col px-4 pt-4 pb-2 gap-2\"><span class=\"text-xs font-semibold uppercase tracking-wider text-base-content/50\">Libraries</span> <button class=\"btn btn-primary btn-sm w-full\" type=\"button\" data-on:click=\"@post('/libraries/create')\">Create Library</button></div><ul class=\"menu menu-md text-base-content gap-1 w-full px-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"sidebar-libraries\"><div class=\"flex flex-col px-4 pt-4 pb-2 gap-2\"><span class=\"text-xs font-semibold uppercase tracking-wider text-base-content/50\">Libraries</span> <button class=\"btn btn-primary btn-sm w-full\" type=\"button\" data-on:click=\"@post('/libraries/create')\">Create Library</button></div><ul class=\"menu menu-md text-base-content gap-1 w-full px-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

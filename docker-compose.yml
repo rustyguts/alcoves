@@ -31,5 +31,13 @@ services:
       timeout: 5s
       retries: 30
 
+  e2e:
+    profiles: ["e2e"]
+    build:
+      context: .
+      dockerfile: e2e/Dockerfile
+    environment:
+      - CI=true
+
 volumes:
   postgres_data:

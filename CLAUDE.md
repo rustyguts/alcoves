@@ -42,6 +42,23 @@ go test ./internal/auth/... -v -run TestPostRegister_Success
 go test ./... -cover
 ```
 
+### E2E Testing
+
+End-to-end tests use Playwright and live in the `e2e/` directory. The recommended way to run them is via Docker, which handles all system dependencies (Go, libvips, Node.js, Playwright browsers):
+
+```bash
+# Run e2e tests in Docker (one-liner)
+docker compose --profile e2e run --build --rm e2e
+```
+
+To run locally without Docker (requires Go, libvips, Node.js installed):
+
+```bash
+cd e2e && npm install && npm test
+```
+
+The Playwright config (`e2e/playwright.config.ts`) automatically starts the Go server with a SQLite test database before running tests.
+
 ### Code Generation
 
 The project uses code generation for templates and CSS:

@@ -65,7 +65,7 @@ func PostCreateLibrary(c echo.Context) error {
 	}
 
 	slog.Info("Successfully created library", "name", name)
-	return sendSidebarUpdate(c, userID, nil)
+	return sendSidebarUpdate(c, userID, "", nil)
 }
 
 // PutRenameLibrary renames a library and returns updated sidebar fragment via SSE
@@ -84,12 +84,12 @@ func PutRenameLibrary(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Library ID and new name are required")
 	}
 
-	_, err := RenameLibrary(signals.RenamingLibrary, userID, signals.RenameValue)
+	library, err := RenameLibrary(signals.RenamingLibrary, userID, signals.RenameValue)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to rename library")
 	}
 
-	return sendSidebarUpdate(c, userID, map[string]any{
+	return sendSidebarUpdate(c, userID, library.Name, map[string]any{
 		"renamingLibrary": "",
 		"renameValue":     "",
 	})
@@ -111,7 +111,7 @@ func DeleteLibraryHandler(c echo.Context) error {
 }
 
 // sendSidebarUpdate fetches updated libraries and sends the sidebar fragment via SSE
-func sendSidebarUpdate(c echo.Context, userID uint, signalUpdates map[string]any) error {
+func sendSidebarUpdate(c echo.Context, userID uint, newLibraryName string, signalUpdates map[string]any) error {
 	libraries, err := GetUserLibraries(userID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load libraries")
@@ -127,6 +127,7 @@ func sendSidebarUpdate(c echo.Context, userID uint, signalUpdates map[string]any
 		sse.PatchSignals(signalsJSON)
 	}
 
+	// Update sidebar
 	component := components.SidebarLibraries(components.SidebarData{
 		Libraries: libraries,
 	})
@@ -137,5 +138,11 @@ func sendSidebarUpdate(c echo.Context, userID uint, signalUpdates map[string]any
 	}
 
 	sse.PatchElements(buf.String(), datastar.WithSelectorID("sidebar-libraries"))
+
+	// Update library name in the view if provided
+	if newLibraryName != "" {
+		sse.PatchElements(newLibraryName, datastar.WithSelectorID("library-name"))
+	}
+
 	return nil
 }

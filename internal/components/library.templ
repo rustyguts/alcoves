@@ -32,14 +32,14 @@ templ LibraryView(data LibraryViewData) {
 		<div class="flex flex-col h-full" data-signals="{renamingLibrary: '', renameValue: '', viewMode: 'list'}">
 			<div class="flex items-center justify-between mb-4">
 				<div class="flex items-center gap-2">
-					<h1 class="text-xl font-bold">{ data.LibraryName }</h1>
+					<h1 id="library-name" class="text-xl font-bold">{ data.LibraryName }</h1>
 					<div class="dropdown dropdown-start">
 						<div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-circle">
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
 						</div>
 						<ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-40">
 							<li>
-								<button data-on:click={ fmt.Sprintf("$renamingLibrary = '%s'; $renameValue = '%s'", data.LibraryPublicID, data.LibraryName) }>
+								<button data-on:click={ fmt.Sprintf("$renamingLibrary = '%s'; $renameValue = %q", data.LibraryPublicID, data.LibraryName) }>
 									Rename
 								</button>
 							</li>

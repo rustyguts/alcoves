@@ -2,3 +2,7 @@ tmp
 data
 Dockerfile
 docker-compose.yml
+e2e/node_modules
+e2e/test-results
+e2e/playwright-report
+e2e/test-user-state.json
