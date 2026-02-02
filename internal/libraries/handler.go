@@ -81,7 +81,6 @@ func getLibraryFragment(c echo.Context) error {
 		}),
 		datastar.WithSelectorID("main-content"),
 		datastar.WithModeInner(),
-		datastar.WithViewTransitions(),
 	)
 
 	sse.PatchElementTempl(
