@@ -157,7 +157,7 @@ func TestSomething(t *testing.T) {
 - Use type-safe data structs defined in templates
 
 ### Datastar
-- Use only Datastar for reactivity (no htmx/Alpine)
+- Use only Datastar for reactivity
 - Signals: `data-signals="{foo: ''}"` with JSON object syntax
 - Binding: `data-bind:foo` (colon syntax)
 - Events: `data-on:click="@post('/endpoint')"` (colon syntax)
@@ -195,3 +195,175 @@ Required: `ALCOVES_DATABASE_URL` (PostgreSQL or SQLite)
 - **SQLite**: `sqlite:./path/to/database.db` or `sqlite::memory:`
 
 Optional: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `OTEL_SERVICE_NAME`
+
+## Datastar Quick Reference
+
+Alcoves uses [Datastar](https://data-star.dev/) as its sole frontend framework for reactivity and backend communication.
+
+### Core Attributes
+
+| Attribute | Purpose | Example |
+|-----------|---------|---------|
+| `data-signals` | Initialize reactive signals | `<div data-signals="{count: 0}">` |
+| `data-bind` | Two-way binding to inputs | `<input data-bind:searchQuery />` |
+| `data-text` | Display signal value as text | `<span data-text="$searchQuery"></span>` |
+| `data-show` | Toggle visibility | `<div data-show="$isLoading"></div>` |
+| `data-class` | Toggle CSS classes | `<button data-class:active="$isActive">` |
+| `data-attr` | Set any attribute | `<button data-attr:disabled="$isDisabled">` |
+| `data-on` | Event handlers | `<button data-on:click="$count++">` |
+| `data-computed` | Derived signals | `<div data-computed:fullName="$firstName + ' ' + $lastName">` |
+
+### Backend Actions
+
+Use `@action()` syntax to trigger backend requests:
+
+```html
+<button data-on:click="@get('/api/data')">Load</button>
+<button data-on:click="@post('/api/save')">Save</button>
+<button data-on:click="@put('/api/update')">Update</button>
+<button data-on:click="@delete('/api/item')">Delete</button>
+<button data-on:click="@patch('/api/modify')">Patch</button>
+```
+
+### Signals in Go
+
+**Define signals in templates:**
+```html
+<div data-signals="{searchQuery: '', isLoading: false, results: []}">
+```
+
+**Read signals in handlers:**
+```go
+import "github.com/starfederation/datastar-go/datastar"
+
+type SearchSignals struct {
+    SearchQuery string   `json:"searchQuery"`
+    IsLoading   bool     `json:"isLoading"`
+    Results     []string `json:"results"`
+}
+
+func SearchHandler(c echo.Context) error {
+    var signals SearchSignals
+    if err := datastar.ReadSignals(c.Request(), &signals); err != nil {
+        return c.String(http.StatusBadRequest, "Invalid request")
+    }
+    // Use signals.SearchQuery, signals.IsLoading, etc.
+}
+```
+
+### Server-Sent Events (SSE)
+
+**Send updates to frontend:**
+```go
+sse := datastar.NewSSE(c.Response().Writer, c.Request())
+
+// Update DOM elements
+sse.PatchElements("<div id='results'>New content</div>")
+
+// Update signals
+sse.PatchSignals([]byte(`{isLoading: false, results: ['a', 'b']}`))
+
+// Execute JavaScript
+sse.ExecuteScript("alert('Done!')")
+```
+
+**Multiple events in one response:**
+```go
+sse := datastar.NewSSE(c.Response().Writer, c.Request())
+sse.PatchSignals([]byte(`{isLoading: true}`))
+sse.PatchElements(updatedSidebar)
+sse.PatchSignals([]byte(`{isLoading: false}`))
+```
+
+### Common Patterns
+
+**Loading indicator:**
+```html
+<button data-on:click="@get('/api/data')" data-indicator:isFetching>
+  Load Data
+</button>
+<div data-show="$isFetching">Loading...</div>
+```
+
+**Conditional classes:**
+```html
+<button data-class="{ 'btn-primary': $isActive, 'btn-ghost': !$isActive }">
+  Toggle
+</button>
+```
+
+**Form with validation:**
+```html
+<form data-signals="{email: '', error: ''}">
+  <input data-bind:email data-on:input="$error = ''" />
+  <div data-text="$error" data-show="$error"></div>
+  <button data-on:click="@post('/api/submit')">Submit</button>
+</form>
+```
+
+**Modal open/close:**
+```html
+<div data-signals="{showModal: false}">
+  <button data-on:click="$showModal = true">Open</button>
+  <div data-show="$showModal" style="display: none">
+    <div class="modal" data-on:click="$showModal = false">
+      <div class="modal-box">Content here</div>
+    </div>
+  </div>
+</div>
+```
+
+### Key Rules
+
+1. **Signal naming**: Use camelCase, match Go JSON tags exactly
+2. **Expressions**: Use `$` prefix for signals (e.g., `$foo`)
+3. **Local signals**: Prefix with `_` to prevent sending to backend (e.g., `_localVar`)
+4. **All signals sent**: By default, all signals are included in every backend request
+5. **Nested signals**: Use dot notation: `data-signals:user.name="John"`
+6. **Casing**: Hyphenated attribute names convert to camelCase (`data-bind:foo-bar` → `$fooBar`)
+7. **Class/Attr casing**: Convert to kebab-case (`data-class:font-bold` → class `font-bold`)
+
+### Expressions
+
+Datastar expressions support JavaScript operators:
+```html
+<!-- Ternary -->
+<div data-text="$isAdmin ? 'Admin' : 'User'">
+
+<!-- Logical OR/AND -->
+<button data-show="$isLoggedIn || $isGuest">
+<button data-on:click="$isReady && @post('/go')">
+
+<!-- Multiple statements (use semicolons) -->
+<button data-on:click="$count++; @post('/save')">
+```
+
+### SDK Reference (Go)
+
+```go
+import "github.com/starfederation/datastar-go/datastar"
+
+// Create SSE generator
+sse := datastar.NewSSE(writer, request)
+
+// Patch elements (morphs DOM by ID)
+sse.PatchElements(htmlString, datastar.WithSelectorID("target-id"))
+sse.PatchElements(htmlString, datastar.WithModeAppend())  // Append instead of morph
+
+// Patch signals (merges with frontend signals)
+sse.PatchSignals([]byte(`{key: 'value'}`))
+
+// Execute JavaScript
+sse.ExecuteScript("console.log('Hello')")
+
+// Read signals from request
+var signals MySignalsStruct
+err := datastar.ReadSignals(request, &signals)
+```
+
+### Useful Resources
+
+- [Datastar Docs](https://data-star.dev/docs) - Full documentation
+- [Datastar Reference](https://data-star.dev/reference) - Complete attribute/action reference
+- [Examples](https://data-star.dev/examples) - Sample implementations
+- [VSCode Extension](https://marketplace.visualstudio.com/items?itemName=starfederation.datastar-vscode) - Autocompletion

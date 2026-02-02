@@ -164,7 +164,7 @@ return component.Render(c.Request().Context(), c.Response().Writer)
 The frontend follows a strict separation of concerns:
 
 - **Templ** is used **only** for building HTML structure (layout, components, static markup). Do not add inline `<script>` blocks for UI interactions that Datastar can handle.
-- **Datastar** is the **only** library used for reactivity and data fetching. Do not use htmx, Alpine.js, or other JS frameworks. All dynamic behavior (show/hide, form submission, data fetching, DOM updates) must use Datastar data attributes.
+- **Datastar** is the **only** library used for reactivity and data fetching. All dynamic behavior (show/hide, form submission, data fetching, DOM updates) must use Datastar data attributes.
 
 ### Datastar Integration
 
@@ -269,5 +269,3 @@ Optional:
 9. **Datastar signal naming**: Signal names in `data-signals`, `data-bind:` attributes and Go struct JSON tags must match exactly (camelCase). Signals prefixed with `_` are not sent to the server.
 
 10. **Datastar SSE handlers**: Must use `datastar.NewSSE(c.Response().Writer, c.Request())` rather than returning Echo JSON/HTML responses. The Content-Type is set automatically to `text/event-stream`.
-
-11. **No htmx**: htmx has been replaced by Datastar. Do not add htmx attributes or load the htmx script. Use Datastar for all reactive behavior.

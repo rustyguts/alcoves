@@ -7,7 +7,7 @@
 ## Key Architecture & Patterns
 - **Domain-driven structure**: Each domain (auth, files, libraries) has its own package, handlers, routes, and models.
 - **Templates**: `.templ` files (source) generate `*_templ.go` (never edit generated files). Regenerate with `go generate ./...` after changes.
-- **Frontend**: Only Templ for HTML, only Datastar for reactivity (no htmx/Alpine/other JS frameworks).
+- **Frontend**: Only Templ for HTML, only Datastar for reactivity.
 - **Datastar**: Use `data-signals-*`, `data-bind-*`, and Go SDK helpers for all dynamic UI. SSE handlers must use `datastar.NewSSE` and return fragments/signals.
 - **File storage**: Uploaded files in `data/assets/`, resized/cached in `data/cache/`. Soft deletion (trash) is default.
 - **Auth**: Session cookies, bcrypt password hashing, personal library auto-created on registration.
@@ -21,7 +21,7 @@
 
 ## Conventions & Gotchas
 - Never edit `*_templ.go` files directly.
-- All dynamic UI must use Datastar (no htmx/Alpine).
+- All dynamic UI must use Datastar.
 - Model `File` maps to `/assets/*` routes for legacy reasons.
 - Test DB setup must mirror production migrations (see `internal/testing/db.go`).
 - User-related logic is in `auth`, not a separate `user` package.

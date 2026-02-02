@@ -3,6 +3,7 @@ package libraries
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -14,6 +15,10 @@ import (
 
 // GetLibraryView displays the files in a specific library
 func GetLibraryView(c echo.Context) error {
+	if c.QueryParam("_fragment") == "1" {
+		return getLibraryFragment(c)
+	}
+
 	userID := auth.GetCurrentUserID(c)
 	publicID := c.Param("publicID")
 
@@ -49,6 +54,54 @@ func GetLibraryView(c echo.Context) error {
 	}
 	component := components.LibraryView(data)
 	return component.Render(c.Request().Context(), c.Response().Writer)
+}
+
+func getLibraryFragment(c echo.Context) error {
+	userID := auth.GetCurrentUserID(c)
+	publicID := c.Param("publicID")
+
+	library, err := GetLibraryByPublicID(publicID, userID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Library not found")
+	}
+
+	allLibraries, err := GetUserLibraries(userID)
+	if err != nil {
+		slog.Error("Failed to load user libraries for fragment", "error", err, "user_id", userID)
+	}
+
+	sse := datastar.NewSSE(c.Response().Writer, c.Request())
+
+	sse.PatchElementTempl(
+		components.LibraryContent(components.LibraryContentData{
+			Assets:            library.Files,
+			LibraryName:       library.Name,
+			LibraryPublicID:   library.PublicID,
+			LibraryIsPersonal: library.IsPersonal,
+		}),
+		datastar.WithSelectorID("main-content"),
+		datastar.WithModeInner(),
+		datastar.WithViewTransitions(),
+	)
+
+	sse.PatchElementTempl(
+		components.SidebarLibraries(components.SidebarData{
+			Libraries:       allLibraries,
+			ActiveLibraryID: library.PublicID,
+		}),
+		datastar.WithSelectorID("sidebar-libraries"),
+	)
+
+	if c.QueryParam("push") == "1" {
+		sse.ExecuteScript(fmt.Sprintf(
+			"history.pushState(null, '', '/libraries/%s'); document.title = '%s'",
+			library.PublicID, library.Name,
+		))
+	} else {
+		sse.ExecuteScript(fmt.Sprintf("document.title = '%s'", library.Name))
+	}
+
+	return nil
 }
 
 // PostCreateLibrary creates a new library with a default name and returns updated sidebar fragment via SSE
@@ -95,7 +148,7 @@ func PutRenameLibrary(c echo.Context) error {
 	})
 }
 
-// DeleteLibraryHandler deletes a library and redirects to home page via SSE
+// DeleteLibraryHandler deletes a library and navigates to home via SSE fragment
 func DeleteLibraryHandler(c echo.Context) error {
 	userID := auth.GetCurrentUserID(c)
 	publicID := c.Param("publicID")
@@ -105,8 +158,29 @@ func DeleteLibraryHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, err.Error())
 	}
 
+	userLibraries, err := GetUserLibraries(userID)
+	if err != nil {
+		slog.Error("Failed to load user libraries after delete", "error", err, "user_id", userID)
+	}
+
 	sse := datastar.NewSSE(c.Response().Writer, c.Request())
-	sse.ExecuteScript("window.location.href = '/'")
+
+	sse.PatchElementTempl(
+		components.HomeContent(),
+		datastar.WithSelectorID("main-content"),
+		datastar.WithModeInner(),
+	)
+
+	sse.PatchElementTempl(
+		components.SidebarLibraries(components.SidebarData{
+			Libraries:       userLibraries,
+			ActiveLibraryID: "",
+		}),
+		datastar.WithSelectorID("sidebar-libraries"),
+	)
+
+	sse.ExecuteScript("history.pushState(null, '', '/'); document.title = 'Home'")
+
 	return nil
 }
 

@@ -1,0 +1,170 @@
+package components
+
+import "time"
+import "strings"
+import "github.com/rustyguts/alcoves/internal/models"
+
+type ProfileData struct {
+	Title     string
+	UserEmail string
+	Theme     string
+	CreatedAt time.Time
+	Libraries []models.Library
+}
+
+templ Profile(data ProfileData) {
+	@Layout(LayoutData{
+		Title:           data.Title,
+		UserEmail:       data.UserEmail,
+		Theme:           data.Theme,
+		CreatedAt:       data.CreatedAt,
+		Libraries:       data.Libraries,
+		ActiveLibraryID: "",
+	}) {
+		<div data-init="@get('/profile?_fragment=1')">
+			@ContentLoading()
+		</div>
+	}
+}
+
+templ ProfileContent(data ProfileData) {
+	<div class="max-w-4xl mx-auto p-6">
+		<!-- Profile Header Card -->
+		<div class="card bg-base-100 shadow-xl mb-6">
+			<div class="card-body">
+				<div class="flex flex-col md:flex-row items-center md:items-start gap-6">
+					<!-- Large Avatar -->
+					<div class="avatar avatar-placeholder">
+						<div class="bg-neutral text-neutral-content w-32 h-32 rounded-full">
+							<span class="text-4xl font-bold">{ strings.ToUpper(string(data.UserEmail[0])) }</span>
+						</div>
+					</div>
+					<!-- User Info -->
+					<div class="flex-1 text-center md:text-left">
+						<h1 class="text-3xl font-bold mb-2">{ data.UserEmail }</h1>
+						<div class="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-4">
+							<span class="badge badge-neutral">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-icon lucide-user mr-1"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+								Member
+							</span>
+							<span class="badge badge-outline">
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-icon lucide-calendar mr-1"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+								Member since { data.CreatedAt.Format("January 2, 2006") }
+							</span>
+						</div>
+						<p class="text-base-content/70">
+							Manage your account settings and preferences below.
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- Settings Grid -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<!-- Appearance Settings -->
+			<div class="card bg-base-100 shadow-xl">
+				<div class="card-body">
+					<h2 class="card-title flex items-center gap-2 mb-4">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-palette-icon lucide-palette"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.025a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>
+						Appearance
+					</h2>
+					<p class="text-sm text-base-content/70 mb-4">
+						Choose your preferred theme for the application interface.
+					</p>
+					<form action="/update-theme" method="post">
+						<div class="space-y-2">
+							<label class="flex items-center gap-3 p-3 rounded-lg border border-base-300 hover:bg-base-200 cursor-pointer transition-colors">
+								<input
+									type="radio"
+									name="theme"
+									value="light"
+									class="radio radio-primary"
+									if data.Theme == "light" {
+										checked
+									}
+									onchange="this.form.submit()"
+								/>
+								<div class="flex items-center gap-2">
+									<div class="w-6 h-6 rounded-full bg-white border border-gray-300 shadow-sm"></div>
+									<span class="font-medium">Light</span>
+								</div>
+							</label>
+							<label class="flex items-center gap-3 p-3 rounded-lg border border-base-300 hover:bg-base-200 cursor-pointer transition-colors">
+								<input
+									type="radio"
+									name="theme"
+									value="dark"
+									class="radio radio-primary"
+									if data.Theme == "dark" {
+										checked
+									}
+									onchange="this.form.submit()"
+								/>
+								<div class="flex items-center gap-2">
+									<div class="w-6 h-6 rounded-full bg-gray-900 border border-gray-700 shadow-sm"></div>
+									<span class="font-medium">Dark</span>
+								</div>
+							</label>
+							<label class="flex items-center gap-3 p-3 rounded-lg border border-base-300 hover:bg-base-200 cursor-pointer transition-colors">
+								<input
+									type="radio"
+									name="theme"
+									value="cupcake"
+									class="radio radio-primary"
+									if data.Theme == "cupcake" {
+										checked
+									}
+									onchange="this.form.submit()"
+								/>
+								<div class="flex items-center gap-2">
+									<div class="w-6 h-6 rounded-full bg-pink-100 border border-pink-300 shadow-sm"></div>
+									<span class="font-medium">Cupcake</span>
+								</div>
+							</label>
+							<label class="flex items-center gap-3 p-3 rounded-lg border border-base-300 hover:bg-base-200 cursor-pointer transition-colors">
+								<input
+									type="radio"
+									name="theme"
+									value="sunset"
+									class="radio radio-primary"
+									if data.Theme == "sunset" {
+										checked
+									}
+									onchange="this.form.submit()"
+								/>
+								<div class="flex items-center gap-2">
+									<div class="w-6 h-6 rounded-full bg-orange-500 border border-orange-600 shadow-sm"></div>
+									<span class="font-medium">Sunset</span>
+								</div>
+							</label>
+						</div>
+					</form>
+				</div>
+			</div>
+			<!-- Account Actions -->
+			<div class="card bg-base-100 shadow-xl">
+				<div class="card-body">
+					<h2 class="card-title flex items-center gap-2 mb-4">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings-icon lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+						Account
+					</h2>
+					<p class="text-sm text-base-content/70 mb-4">
+						Manage your account session and security.
+					</p>
+					<div class="space-y-3">
+						<a href="/" class="btn btn-outline w-full justify-start" data-on:click.prevent="@get('/?_fragment=1&push=1')">
+							<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home-icon lucide-home mr-2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+							Back to Home
+						</a>
+						<form action="/logout" method="post" class="w-full">
+							<button type="submit" class="btn btn-outline btn-error w-full justify-start">
+								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out-icon lucide-log-out mr-2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+								Sign Out
+							</button>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}

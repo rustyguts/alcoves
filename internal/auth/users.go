@@ -51,5 +51,5 @@ func PostUpdateTheme(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to update theme")
 	}
 
-	return c.Redirect(http.StatusSeeOther, "/")
+	return c.Redirect(http.StatusSeeOther, "/profile")
 }

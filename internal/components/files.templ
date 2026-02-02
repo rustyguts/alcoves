@@ -124,7 +124,7 @@ templ AssetsList(data AssetsData) {
 			</table>
 		</div>
 		<script>
-			document.addEventListener('DOMContentLoaded', function() {
+			(function() {
 				const rows = document.querySelectorAll('.file-row');
 				const contextMenu = document.getElementById('context-menu');
 				const ctxDownload = document.getElementById('ctx-download');
@@ -376,7 +376,7 @@ templ AssetsList(data AssetsData) {
 						}
 					}
 				});
-			});
+			})();
 		</script>
 	</div>
 }
@@ -451,7 +451,7 @@ templ AssetsThumbnail(data AssetsData) {
 			</div>
 		}
 	<script>
-		document.addEventListener('DOMContentLoaded', function() {
+		(function() {
 			const cards = document.querySelectorAll('#assets-thumbnail-container .card');
 			const contextMenu = document.getElementById('thumbnail-context-menu');
 			const ctxDownload = document.getElementById('thumb-ctx-download');
@@ -652,7 +652,7 @@ templ AssetsThumbnail(data AssetsData) {
 					updateCardSelection();
 				}
 			});
-		});
+		})();
 	</script>
 	</div>
 }

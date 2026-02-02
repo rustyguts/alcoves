@@ -24,5 +24,6 @@ func RegisterRoutes(e *echo.Echo) {
 	// Page view routes (from root/)
 	e.GET("/health", GetHealthcheck)
 	e.GET("/", GetRoot, auth.SessionAuthMiddleware())
+	e.GET("/profile", GetProfile, auth.SessionAuthMiddleware())
 	e.GET("/media/:assetId", GetMedia, auth.SessionAuthMiddleware())
 }
