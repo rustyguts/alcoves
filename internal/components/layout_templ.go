@@ -21,6 +21,7 @@ type Asset struct {
 type LayoutData struct {
 	Title           string
 	UserEmail       string
+	UserRole        string
 	Theme           string
 	CreatedAt       time.Time
 	Assets          []models.File
@@ -78,13 +79,23 @@ func Layout(data LayoutData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(strings.ToUpper(string(data.UserEmail[0])))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 57, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 58, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span></div></div><ul tabindex=\"0\" class=\"dropdown-content z-[1] menu p-2 shadow-xl bg-base-100 rounded-box w-48 mt-3\"><li><a href=\"/profile\" data-on:click.prevent=\"@get('/profile?_fragment=1&push=1')\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-user-icon lucide-user\"><path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\"></path><circle cx=\"12\" cy=\"7\" r=\"4\"></circle></svg> My Profile</a></li><li></li><li><form action=\"/logout\" method=\"post\" class=\"w-full\"><button type=\"submit\" class=\"w-full text-left flex items-center gap-2 px-4 py-2 hover:bg-base-200 rounded-lg text-error\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-log-out-icon lucide-log-out\"><path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"></path><polyline points=\"16 17 21 12 16 7\"></polyline><line x1=\"21\" x2=\"9\" y1=\"12\" y2=\"12\"></line></svg> Logout</button></form></li></ul></div></div></div></div><div class=\"flex flex-col h-[calc(100vh-64px)] px-4 pb-4\"><div id=\"main-content\" class=\"p-4 rounded-xl bg-base-200 overflow-y-auto flex-1 pr-2\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span></div></div><ul tabindex=\"0\" class=\"dropdown-content z-[1] menu p-2 shadow-xl bg-base-100 rounded-box w-48 mt-3\"><li><a href=\"/profile\" data-on:click.prevent=\"@get('/profile?_fragment=1&push=1')\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-user-icon lucide-user\"><path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\"></path><circle cx=\"12\" cy=\"7\" r=\"4\"></circle></svg> My Profile</a></li>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.UserRole == "admin" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<li><a href=\"/admin\" data-on:click.prevent=\"@get('/admin?_fragment=1&push=1')\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-shield-icon lucide-shield\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"></path></svg> Admin</a></li>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<li></li><li><form action=\"/logout\" method=\"post\" class=\"w-full\"><button type=\"submit\" class=\"w-full text-left flex items-center gap-2 px-4 py-2 hover:bg-base-200 rounded-lg text-error\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-log-out-icon lucide-log-out\"><path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"></path><polyline points=\"16 17 21 12 16 7\"></polyline><line x1=\"21\" x2=\"9\" y1=\"12\" y2=\"12\"></line></svg> Logout</button></form></li></ul></div></div></div></div><div class=\"flex flex-col h-[calc(100vh-64px)] px-4 pb-4\"><div id=\"main-content\" class=\"p-4 rounded-xl bg-base-200 overflow-y-auto flex-1 pr-2\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -92,7 +103,7 @@ func Layout(data LayoutData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></div></div><div class=\"drawer-side z-10\"><label for=\"drawer-sidebar-toggle\" aria-label=\"close sidebar\" class=\"drawer-overlay\"></label><div class=\"bg-base-300 min-h-full min-w-[180px]\"><div class=\"flex justify-start items-center text-2xl h-16 p-2 pl-6\"><a href=\"/\" data-on:click.prevent=\"@get('/?_fragment=1&push=1')\">Alcoves</a></div><ul class=\"menu menu-md text-base-content gap-2 w-full p-2\"><li class=\"text-md\"><a href=\"/\" data-on:click.prevent=\"@get('/?_fragment=1&push=1')\" class=\"menu-item\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-house-icon lucide-house\"><path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\"></path><path d=\"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path></svg> Home</a></li></ul><div class=\"divider px-4 my-0\"></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div></div></div><div class=\"drawer-side z-10\"><label for=\"drawer-sidebar-toggle\" aria-label=\"close sidebar\" class=\"drawer-overlay\"></label><div class=\"bg-base-300 min-h-full min-w-[180px]\"><div class=\"flex justify-start items-center text-2xl h-16 p-2 pl-6\"><a href=\"/\" data-on:click.prevent=\"@get('/?_fragment=1&push=1')\">Alcoves</a></div><ul class=\"menu menu-md text-base-content gap-2 w-full p-2\"><li class=\"text-md\"><a href=\"/\" data-on:click.prevent=\"@get('/?_fragment=1&push=1')\" class=\"menu-item\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-house-icon lucide-house\"><path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\"></path><path d=\"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path></svg> Home</a></li></ul><div class=\"divider px-4 my-0\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -100,7 +111,7 @@ func Layout(data LayoutData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

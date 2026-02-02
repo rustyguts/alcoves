@@ -91,6 +91,13 @@ func PostRegister(c echo.Context) error {
 		Password: hashedPassword,
 	}
 
+	// First user registered becomes admin, all others are member (default)
+	var userCount int64
+	db.Connection.Model(&models.User{}).Count(&userCount)
+	if userCount == 0 {
+		user.Role = "admin"
+	}
+
 	if err := db.Connection.Create(&user).Error; err != nil {
 		slog.Error("Failed to create user in database", "error", err, "email", email)
 		return c.String(http.StatusInternalServerError, "Failed to create user")

@@ -6,6 +6,7 @@ import (
 	"github.com/davidbyttow/govips/v2/vips"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/rustyguts/alcoves/internal/admin"
 	"github.com/rustyguts/alcoves/internal/auth"
 	"github.com/rustyguts/alcoves/internal/config"
 	"github.com/rustyguts/alcoves/internal/db"
@@ -44,6 +45,7 @@ func main() {
 	auth.RegisterRoutes(e)
 	files.RegisterRoutes(e)
 	libraries.RegisterRoutes(e)
+	admin.RegisterRoutes(e)
 
 	log.Println("setting up static routers...")
 	e.Static("/", "./static")

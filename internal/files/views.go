@@ -29,10 +29,12 @@ func GetRoot(c echo.Context) error {
 	}
 
 	var userEmail string
+	var userRole string
 	theme := "dark"
 	var createdAt time.Time
 	if currentUser != nil {
 		userEmail = currentUser.Email
+		userRole = currentUser.Role
 		theme = currentUser.Theme
 		createdAt = currentUser.CreatedAt
 	}
@@ -45,6 +47,7 @@ func GetRoot(c echo.Context) error {
 	data := components.LayoutData{
 		Title:     "Home",
 		UserEmail: userEmail,
+		UserRole:  userRole,
 		Theme:     theme,
 		CreatedAt: createdAt,
 		Assets:    []models.File{}, // Empty slice for home page
@@ -147,6 +150,7 @@ func GetProfile(c echo.Context) error {
 	data := components.ProfileData{
 		Title:     "Profile",
 		UserEmail: currentUser.Email,
+		UserRole:  currentUser.Role,
 		Theme:     currentUser.Theme,
 		CreatedAt: currentUser.CreatedAt,
 		Libraries: userLibraries,
@@ -178,6 +182,7 @@ func getProfileFragment(c echo.Context) error {
 	profileContent := components.ProfileContent(components.ProfileData{
 		Title:     "Profile",
 		UserEmail: currentUser.Email,
+		UserRole:  currentUser.Role,
 		Theme:     currentUser.Theme,
 		CreatedAt: currentUser.CreatedAt,
 		Libraries: userLibraries,

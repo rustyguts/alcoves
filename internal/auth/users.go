@@ -29,6 +29,20 @@ func FindUserByID(userID uint) (*models.User, error) {
 	return &user, nil
 }
 
+func GetAllUsers() ([]models.User, error) {
+	var users []models.User
+	result := db.Connection.Order("created_at asc").Find(&users)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return users, nil
+}
+
+func UpdateUserRole(userID uint, role string) error {
+	result := db.Connection.Model(&models.User{}).Where("id = ?", userID).Update("role", role)
+	return result.Error
+}
+
 func UpdateUserTheme(userID uint, theme string) error {
 	result := db.Connection.Model(&models.User{}).Where("id = ?", userID).Update("theme", theme)
 	return result.Error

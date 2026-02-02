@@ -10,6 +10,7 @@ import (
 type LibraryViewData struct {
 	Title             string
 	UserEmail         string
+	UserRole          string
 	Theme             string
 	CreatedAt         time.Time
 	Assets            []models.File
@@ -99,6 +100,7 @@ templ LibraryView(data LibraryViewData) {
 	@Layout(LayoutData{
 		Title:           data.Title,
 		UserEmail:       data.UserEmail,
+		UserRole:        data.UserRole,
 		Theme:           data.Theme,
 		CreatedAt:       data.CreatedAt,
 		Assets:          data.Assets,

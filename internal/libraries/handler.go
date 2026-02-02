@@ -44,6 +44,7 @@ func GetLibraryView(c echo.Context) error {
 	data := components.LibraryViewData{
 		Title:             library.Name,
 		UserEmail:         user.Email,
+		UserRole:          user.Role,
 		Theme:             user.Theme,
 		CreatedAt:         user.CreatedAt,
 		Assets:            assets,

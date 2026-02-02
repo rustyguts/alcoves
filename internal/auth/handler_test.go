@@ -37,6 +37,7 @@ func TestPostRegister_Success(t *testing.T) {
 	assert.Equal(t, "test@example.com", user.Email)
 	assert.NotEmpty(t, user.Password)
 	assert.True(t, VerifyPassword("password123", user.Password))
+	assert.Equal(t, "admin", user.Role) // First user is admin
 
 	// Verify personal library was created
 	var library models.Library
@@ -45,6 +46,47 @@ func TestPostRegister_Success(t *testing.T) {
 	assert.Equal(t, user.ID, library.OwnerID)
 	assert.True(t, library.IsPersonal)
 	assert.Equal(t, "My Library", library.Name)
+}
+
+func TestPostRegister_SecondUserIsMember(t *testing.T) {
+	testutil.SetupTestDatabase(t)
+	e := testutil.SetupTestEcho()
+
+	// Register first user (becomes admin)
+	form1 := url.Values{}
+	form1.Add("email", "first@example.com")
+	form1.Add("password", "password123")
+
+	req1 := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form1.Encode()))
+	req1.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec1 := httptest.NewRecorder()
+	c1 := e.NewContext(req1, rec1)
+
+	err := PostRegister(c1)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusFound, rec1.Code)
+
+	// Register second user (becomes member)
+	form2 := url.Values{}
+	form2.Add("email", "second@example.com")
+	form2.Add("password", "password123")
+
+	req2 := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form2.Encode()))
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec2 := httptest.NewRecorder()
+	c2 := e.NewContext(req2, rec2)
+
+	err = PostRegister(c2)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusFound, rec2.Code)
+
+	var firstUser models.User
+	db.Connection.Where("email = ?", "first@example.com").First(&firstUser)
+	assert.Equal(t, "admin", firstUser.Role)
+
+	var secondUser models.User
+	db.Connection.Where("email = ?", "second@example.com").First(&secondUser)
+	assert.Equal(t, "member", secondUser.Role)
 }
 
 func TestPostRegister_InvalidEmail(t *testing.T) {

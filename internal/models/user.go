@@ -8,6 +8,7 @@ type User struct {
 	gorm.Model
 	Email    string    `gorm:"uniqueIndex;not null"`
 	Password string    `gorm:"not null"`
+	Role     string    `gorm:"default:'member';not null"`
 	Theme    string    `gorm:"default:'dark'"`
 	Sessions []Session `gorm:"foreignKey:UserID"`
 	Files    []File    `gorm:"foreignKey:UserID"`

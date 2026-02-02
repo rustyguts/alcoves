@@ -18,6 +18,7 @@ import (
 type LibraryViewData struct {
 	Title             string
 	UserEmail         string
+	UserRole          string
 	Theme             string
 	CreatedAt         time.Time
 	Assets            []models.File
@@ -62,7 +63,7 @@ func LibraryContent(data LibraryContentData) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(data.LibraryName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `library.templ`, Line: 33, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `library.templ`, Line: 34, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -75,7 +76,7 @@ func LibraryContent(data LibraryContentData) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("$renamingLibrary = '%s'; $renameValue = %q", data.LibraryPublicID, data.LibraryName))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `library.templ`, Line: 40, Col: 128}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `library.templ`, Line: 41, Col: 128}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -88,7 +89,7 @@ func LibraryContent(data LibraryContentData) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("@delete('/libraries/%s')", data.LibraryPublicID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `library.templ`, Line: 47, Col: 85}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `library.templ`, Line: 48, Col: 85}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -166,7 +167,7 @@ func LibraryView(data LibraryViewData) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("@get('/libraries/%s?_fragment=1')", data.LibraryPublicID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `library.templ`, Line: 108, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `library.templ`, Line: 110, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -189,6 +190,7 @@ func LibraryView(data LibraryViewData) templ.Component {
 		templ_7745c5c3_Err = Layout(LayoutData{
 			Title:           data.Title,
 			UserEmail:       data.UserEmail,
+			UserRole:        data.UserRole,
 			Theme:           data.Theme,
 			CreatedAt:       data.CreatedAt,
 			Assets:          data.Assets,

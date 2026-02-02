@@ -25,6 +25,19 @@ func SessionAuthMiddleware() echo.MiddlewareFunc {
 	}
 }
 
+func AdminMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			userID := GetCurrentUserID(c)
+			user, err := FindUserByID(userID)
+			if err != nil || user.Role != "admin" {
+				return c.String(http.StatusForbidden, "Forbidden")
+			}
+			return next(c)
+		}
+	}
+}
+
 // GetCurrentUserID extracts the user ID from the Echo context
 // This should be used in handlers protected by SessionAuthMiddleware
 func GetCurrentUserID(c echo.Context) uint {

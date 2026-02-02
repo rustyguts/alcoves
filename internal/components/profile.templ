@@ -4,9 +4,17 @@ import "time"
 import "strings"
 import "github.com/rustyguts/alcoves/internal/models"
 
+func capitalizeRole(role string) string {
+	if len(role) == 0 {
+		return role
+	}
+	return strings.ToUpper(role[:1]) + role[1:]
+}
+
 type ProfileData struct {
 	Title     string
 	UserEmail string
+	UserRole  string
 	Theme     string
 	CreatedAt time.Time
 	Libraries []models.Library
@@ -16,6 +24,7 @@ templ Profile(data ProfileData) {
 	@Layout(LayoutData{
 		Title:           data.Title,
 		UserEmail:       data.UserEmail,
+		UserRole:        data.UserRole,
 		Theme:           data.Theme,
 		CreatedAt:       data.CreatedAt,
 		Libraries:       data.Libraries,
@@ -45,7 +54,7 @@ templ ProfileContent(data ProfileData) {
 						<div class="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-4">
 							<span class="badge badge-neutral">
 								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-icon lucide-user mr-1"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-								Member
+								{ capitalizeRole(data.UserRole) }
 							</span>
 							<span class="badge badge-outline">
 								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-icon lucide-calendar mr-1"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
