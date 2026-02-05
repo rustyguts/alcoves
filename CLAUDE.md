@@ -1,271 +1,375 @@
-# CLAUDE.md
+# AGENTS.md - Alcoves Developer Guide
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Alcoves is a Google Drive-like personal file storage and management application. Users can upload, organize, view, and manage their files through a web interface with features similar to Google Drive including:
+- File upload and download
+- Folder/library organization
+- **Hierarchical folders** - Create, rename, move, and delete folders within libraries
+- **Dual view modes** - Toggle between list view and folder view
+- Multi-select with Ctrl+click and Shift+click
+- Right-click context menus for file operations
+- Trash/recycle bin with restore functionality
+- Image viewing with navigation
+- Video playback and proxy creation
+- File tagging at a library level
+- Sorting files by tags
+- Search within library for files
+- Facial recognition for images (entirely optional, runs locally)
+- Add and remove people to librarys. Manage their access
 
-## Project Overview
+## Build & Development Commands
 
-Alcoves is a Go-based web application for managing and viewing media files (images). It uses:
-- **Echo** web framework for HTTP routing
-- **GORM** for database ORM (PostgreSQL in production, SQLite in tests)
-- **Templ** for type-safe HTML templating (UI structure only)
-- **Datastar** for hypermedia-driven reactivity and data fetching (SSE-based)
-- **libvips** (via govips) for high-performance image processing and on-demand resizing
-- **DaisyUI v5** + **TailwindCSS** for styling
-
-## Build and Development Commands
-
-### Running the Application
 ```bash
-# Set required environment variable
-export ALCOVES_DATABASE_URL="postgres://user:pass@localhost/dbname"
-# or for SQLite
-export ALCOVES_DATABASE_URL="sqlite:alcoves.db"
-
-# Build and run
+# Run the application
+export ALCOVES_DATABASE_URL="postgres://user:pass@localhost/dbname"  # or "sqlite:alcoves.db"
 go run main.go
-```
 
-The server starts on port 8080. Access at http://localhost:8080
-
-### Testing
-```bash
 # Run all tests
 go test ./...
 
-# Run tests for a specific package
-go test ./internal/auth/...
-
-# Run a specific test
+# Run a single test
 go test ./internal/auth/... -v -run TestPostRegister_Success
 
-# Run tests with coverage
-go test ./... -cover
-```
+# Run tests for a specific package
+go test ./internal/auth/... -v
 
-### E2E Testing
-
-End-to-end tests use Playwright and live in the `e2e/` directory. The recommended way to run them is via Docker, which handles all system dependencies (Go, libvips, Node.js, Playwright browsers):
-
-```bash
-# Run e2e tests in Docker (one-liner)
-docker compose --profile e2e run --build --rm e2e
-```
-
-To run locally without Docker (requires Go, libvips, Node.js installed):
-
-```bash
-cd e2e && npm install && npm test
-```
-
-The Playwright config (`e2e/playwright.config.ts`) automatically starts the Go server with a SQLite test database before running tests.
-
-### Code Generation
-
-The project uses code generation for templates and CSS:
-
-```bash
-# Generate templ templates (required after modifying .templ files)
+# Generate templates (after editing .templ files)
 go generate ./...
-# Or directly:
-templ generate -path internal/components
+# Or: templ generate -path internal/components
 
-# Generate Tailwind CSS (required after modifying styles)
+# Build CSS (after editing styles)
 tailwindcss -i static/css/input.css -o static/css/main.css
+
+# UI/E2E Tests (Playwright)
+cd e2e
+npm install                          # Install test dependencies
+npx playwright install              # Install browser binaries
+npm test                            # Run all E2E tests (headless)
+npm run test:headed                 # Run tests with visible browser
+npm run test:debug                  # Run tests in debug mode
+npx playwright test auth.spec.ts    # Run specific test file
+npx playwright show-report          # View HTML test report
 ```
 
-**Important**: After modifying any `.templ` file, you must run `go generate ./...` or `templ generate` to regenerate the corresponding `_templ.go` files. Never manually edit `_templ.go` files.
+## Project Structure
 
-## Architecture
-
-### Directory Structure
-
+Domain-driven organization:
 ```
 internal/
-├── auth/           # Authentication, sessions, users, password hashing, and auth routes
-├── components/     # Templ templates (.templ files and generated _templ.go)
-├── config/         # Configuration and environment setup
-├── db/             # Database initialization and migrations
-├── files/          # File handlers (upload, retrieval, image processing) and page views
-├── libraries/      # Library retrieval/on-demand creation (GetUserLibrary) and routes
-├── models/         # GORM database models and domain logic
-└── testing/        # Test utilities and mock database setup
+├── auth/         # Auth, sessions, users, routes
+├── files/        # File upload, retrieval, image processing, routes
+├── folders/      # Folder CRUD, nested folder management
+├── libraries/    # Library CRUD, routes
+├── components/   # Templ templates (.templ files)
+├── models/       # GORM models
+├── db/           # DB initialization
+├── testing/      # Test utilities
+└── config/       # Configuration
+
+e2e/              # End-to-end UI tests (Playwright)
+├── tests/        # Test files (*.spec.ts)
+├── fixtures.ts   # Test fixtures and page objects
+└── package.json  # Node.js dependencies
 ```
 
-### Key Models
+Each domain package registers routes via `RegisterRoutes(e)` called from `main.go`.
 
-The database schema centers around these core models:
+## Code Style Guidelines
 
-- **User**: Email/password authentication, theme preference
-- **Session**: Cookie-based session management (24-hour expiry with auto-refresh)
-- **Library**: File collections with ownership. Each user has a personal library (`is_personal=true`) created automatically on registration. Users can also create/join shared libraries.
-- **File**: Uploaded media files with metadata (dimensions, hash, EXIF timestamps, etc.)
+### Imports
+Group imports in this order:
+1. Standard library
+2. Third-party packages
+3. Internal project packages (github.com/rustyguts/alcoves/...)
 
-Relationships:
-- User → Sessions (1:many)
-- User → Files (1:many) 
-- User → Libraries (1:many via ownership)
-- Library → Files (1:many)
-
-### Database Migrations
-
-GORM AutoMigrate runs on startup in `internal/db/db.go`. The migration order is critical:
-1. User
-2. Library
-3. File
-4. Session
-
-When adding models, update both `internal/db/db.go` and `internal/testing/db.go`.
-
-### File Storage and Image Processing
-
-Files are stored in `./data/assets/` with UUID-based filenames. The `/files` package handles:
-
-1. **Upload**: Files are hashed (SHA-256), EXIF data extracted, and metadata stored in DB
-2. **On-demand resizing**: Images are resized via libvips when requested with `?width=X` parameter
-3. **Caching**: Resized images cached in `./data/cache/` with deterministic UUIDs based on original ID + query params
-4. **Soft deletion**: Files are soft-deleted (GORM `deleted_at`), viewable in trash for 30 days
-
-### Authentication Flow
-
-1. User registers via `/register` → `auth.PostRegister`
-   - Password hashed with bcrypt (cost 14)
-   - Personal library created automatically via `models.CreatePersonalLibrary`
-   - Session created and cookie set
-
-2. Session middleware (`auth.SessionAuthMiddleware`) validates session cookie on protected routes
-   - Sessions auto-refresh when <2 hours until expiry
-   - User ID stored in Echo context as `c.Get("user")`
-
-3. Logout invalidates session in DB and clears cookie
-
-### Template System (Templ)
-
-Templ provides type-safe Go templates compiled to Go code. Key patterns:
-
-- **Source files**: `*.templ` (human-written)
-- **Generated files**: `*_templ.go` (never edit directly)
-- **Data structs**: Defined in `.templ` files (e.g., `MediaViewData`, `LayoutData`)
-- **Component calls**: `@ComponentName(data)` syntax
-- **Helper functions**: Can be defined alongside templates for URL building, etc.
-
-Example component usage in handlers:
 ```go
-data := components.MediaViewData{
-    Title: "Media",
-    Theme: user.Theme,
-    Asset: file,
+import (
+    "bytes"
+    "encoding/json"
+    "net/http"
+
+    "github.com/labstack/echo/v4"
+    "github.com/starfederation/datastar-go/datastar"
+
+    "github.com/rustyguts/alcoves/internal/auth"
+    "github.com/rustyguts/alcoves/internal/components"
+)
+```
+
+### Naming Conventions
+- **Files**: `snake_case.go` (e.g., `handler.go`, `handler_test.go`)
+- **Functions**: PascalCase for exported, camelCase for unexported
+- **Models**: PascalCase (e.g., `User`, `Library`, `File`)
+- **GORM fields**: PascalCase with json tags in snake_case
+- **Constants**: PascalCase (e.g., `URLNamespace`)
+- **Variables**: camelCase (e.g., `userID`, `libraryName`)
+
+### Error Handling
+Always check errors explicitly. Log with context, return HTTP errors to client:
+
+```go
+user, err := auth.FindUserByID(userID)
+if err != nil {
+    log.Println("Failed to find user", "error", err, "userID", userID)
+    return c.String(http.StatusInternalServerError, "User not found")
 }
-component := components.Media(data)
-return component.Render(c.Request().Context(), c.Response().Writer)
 ```
 
-### Frontend Architecture
-
-The frontend follows a strict separation of concerns:
-
-- **Templ** is used **only** for building HTML structure (layout, components, static markup). Do not add inline `<script>` blocks for UI interactions that Datastar can handle.
-- **Datastar** is the **only** library used for reactivity and data fetching. All dynamic behavior (show/hide, form submission, data fetching, DOM updates) must use Datastar data attributes.
-
-### Datastar Integration
-
-Alcoves uses [Datastar](https://data-star.dev/) as its hypermedia framework for reactive UI updates via Server-Sent Events (SSE).
-
-**CDN**: Loaded in `root.templ` via:
-```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"></script>
+Use `fmt.Errorf` with `%w` verb when wrapping errors:
+```go
+return fmt.Errorf("failed to create library: %w", err)
 ```
 
-**Go SDK**: `github.com/starfederation/datastar-go/datastar` (package name `datastar`)
+### Types & Models
+Use GORM model embedding and appropriate tags:
 
-**Key Patterns**:
+```go
+type User struct {
+    gorm.Model
+    Email    string    `gorm:"uniqueIndex;not null"`
+    Password string    `gorm:"not null"`
+    Theme    string    `gorm:"default:'dark'"`
+    Sessions []Session `gorm:"foreignKey:UserID"`
+}
+```
 
-1. **Signals**: Declare reactive state with `data-signals` attribute on a parent element:
-   ```html
-   <div data-signals="{showForm: false, inputValue: ''}">
-   ```
+### Handler Functions
+Echo handlers follow this pattern:
+```go
+func HandlerName(c echo.Context) error {
+    userID := auth.GetCurrentUserID(c)
+    // ... logic ...
+    return component.Render(c.Request().Context(), c.Response().Writer)
+}
+```
 
-2. **Two-way binding**: Bind inputs with `data-bind`:
-   ```html
-   <input data-bind:inputValue />
-   ```
+### Testing
+Use `testutil.SetupTestDatabase(t)` and `testutil.SetupTestEcho()`:
 
-3. **Visibility**: Toggle elements with `data-show`:
-   ```html
-   <div data-show="$showForm">...</div>
-   ```
+```go
+func TestSomething(t *testing.T) {
+    testutil.SetupTestDatabase(t)
+    e := testutil.SetupTestEcho()
+    // ... test code ...
+    assert.NoError(t, err)
+    assert.Equal(t, http.StatusOK, rec.Code)
+}
+```
 
-4. **Actions**: Trigger backend requests with `data-on-click` using Datastar actions:
-   ```html
-   <!-- In .templ files, use Datastar action syntax: -->
-   data-on-click="@post('/endpoint')"
-   data-on-click="@delete('/items/' + $itemId)"
-   ```
+## Architecture Patterns
 
-5. **Backend SSE responses**: Handlers use the Datastar Go SDK to send SSE events:
-   ```go
-   sse := datastar.NewSSE(c.Response().Writer, c.Request())
+### Templates (Templ)
+- Edit only `.templ` files, never `*_templ.go`
+- Run `go generate ./...` after changes
+- Use type-safe data structs defined in templates
 
-   // Send updated HTML fragment (morphs element by ID)
-   // Render templ component to string first
-   var buf bytes.Buffer
-   component.Render(ctx, &buf)
-   sse.PatchElements(buf.String(), datastar.WithSelectorID("target-id"))
+### Datastar
+- Use only Datastar for reactivity
+- Signals: `data-signals="{foo: ''}"` with JSON object syntax
+- Binding: `data-bind:foo` (colon syntax)
+- Events: `data-on:click="@post('/endpoint')"` (colon syntax)
+- SSE handlers: Use `datastar.NewSSE()` and return `PatchElements`/`PatchSignals`
+- **Dynamic classes**: Use `data-class` for reactive class binding (preferred over `templ.KV()`):
+  ```html
+  <button class="btn btn-ghost" data-class="{ 'bg-primary/20': $viewMode === 'list' }">
+  ```
+  This enables reactive class toggling based on signal values without page reloads.
 
-   // Update client signals
-   signalsJSON, _ := json.Marshal(map[string]any{"signal": "value"})
-   sse.PatchSignals(signalsJSON)
-   ```
+### File Storage
+- Uploads: `data/assets/` (UUID-based filenames)
+- Cache: `data/cache/` (resized images)
+- Soft deletion default (GORM `deleted_at`)
 
-6. **Reading signals**: Datastar sends all signals as JSON in the request body. Read them with:
-   ```go
-   var signals struct {
-       FieldName string `json:"fieldName"`
-   }
-   datastar.ReadSignals(c.Request(), &signals)
-   ```
-   **Important**: Call `ReadSignals` *before* creating the SSE generator with `NewSSE`.
+### Auth
+- Session cookies with 24h expiry
+- bcrypt cost 14 for passwords
+- Personal library auto-created on registration
 
-7. **Fragment pattern**: Mutating handlers (POST/PUT/DELETE) should return the updated HTML fragment via `PatchElements` so the UI updates in-place without a full page reload. Each fragment must have a stable `id` attribute that the server targets with `WithSelectorID`.
+## Important Rules
 
-### Router Organization
-
-Each domain package registers its own routes via `RegisterRoutes(e)` called from `main.go`:
-
-- `auth.RegisterRoutes()`: Login, register, logout, theme updates
-- `files.RegisterRoutes()`: File operations (`/assets/*`) AND page views (`/`, `/media/:id`, `/trash`, `/health`)
-- `libraries.RegisterRoutes()`: Library CRUD via Datastar SSE (`/libraries/*`)
-
-Note: The `files` package handles both API routes (`/assets/*`) and page rendering routes. The `/assets/*` URL path is preserved for backward compatibility even though the internal package is named `files`.
+1. **Never edit `*_templ.go` files** - always regenerate
+2. **Use Datastar exclusively** - no other JS frameworks for UI
+3. **Domain packages self-register** - add `routes.go` to each domain
+4. **Test DB mirrors production** - see `internal/testing/db.go`
+5. **Signal names match JSON tags** - use camelCase consistently
+6. **libvips required** - system dependency for image processing
+7. **TailwindCSS only** - No custom `<style>` tags or inline CSS in .templ files. Use Tailwind utility classes exclusively.
 
 ## Environment Variables
 
-Required:
-- `ALCOVES_DATABASE_URL`: Database connection string (PostgreSQL or SQLite)
+Required: `ALCOVES_DATABASE_URL` (PostgreSQL or SQLite)
+- **PostgreSQL**: `postgres://user:password@localhost/dbname`
+- **SQLite**: `sqlite:./path/to/database.db` or `sqlite::memory:`
 
-Optional:
-- `GOOGLE_OAUTH_CLIENT_ID`: Google OAuth client ID
-- `GOOGLE_OAUTH_CLIENT_SECRET`: Google OAuth client secret
-- `OTEL_SERVICE_NAME`: OpenTelemetry service name (default: "alcoves")
-- `ENVIRONMENT`: Environment name (default: "development")
+Optional: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `OTEL_SERVICE_NAME`
 
-## Common Gotchas
+## Datastar Quick Reference
 
-1. **libvips dependency**: The `govips` package requires libvips C library. Build failures with "Package 'vips' not found" indicate missing system dependency (not a Go issue).
+Alcoves uses [Datastar](https://data-star.dev/) as its sole frontend framework for reactivity and backend communication.
 
-2. **Generated files**: Never manually edit `*_templ.go` files. Always modify `.templ` source and regenerate.
+### Core Attributes
 
-3. **Test database**: Tests use in-memory SQLite. The test setup in `internal/testing/db.go` must mirror production migrations.
+| Attribute | Purpose | Example |
+|-----------|---------|---------|
+| `data-signals` | Initialize reactive signals | `<div data-signals="{count: 0}">` |
+| `data-bind` | Two-way binding to inputs | `<input data-bind:searchQuery />` |
+| `data-text` | Display signal value as text | `<span data-text="$searchQuery"></span>` |
+| `data-show` | Toggle visibility | `<div data-show="$isLoading"></div>` |
+| `data-class` | Toggle CSS classes | `<button data-class:active="$isActive">` |
+| `data-attr` | Set any attribute | `<button data-attr:disabled="$isDisabled">` |
+| `data-on` | Event handlers | `<button data-on:click="$count++">` |
+| `data-computed` | Derived signals | `<div data-computed:fullName="$firstName + ' ' + $lastName">` |
 
-4. **Session cookies**: Domain is set to `c.Request().Host`. In tests, cookies may not persist across requests without proper setup.
+### Backend Actions
 
-5. **Model naming**: The model is `File` but URLs use `/assets/*` for historical reasons. Don't confuse the two.
+Use `@action()` syntax to trigger backend requests:
 
-6. **Personal libraries**: Every user gets a personal library (`IsPersonal=true`) created automatically on registration. Don't create duplicates.
+```html
+<button data-on:click="@get('/api/data')">Load</button>
+<button data-on:click="@post('/api/save')">Save</button>
+<button data-on:click="@put('/api/update')">Update</button>
+<button data-on:click="@delete('/api/item')">Delete</button>
+<button data-on:click="@patch('/api/modify')">Patch</button>
+```
 
-7. **Route registration**: Each package registers its own routes. Don't create a separate `routers` package - add `routes.go` to the domain package instead.
+### Signals in Go
 
-8. **User operations**: User-related functions (`FindUserByEmail`, `FindUserByID`, `UpdateUserTheme`) are in the `auth` package, not a separate `user` package.
+**Define signals in templates:**
+```html
+<div data-signals="{searchQuery: '', isLoading: false, results: []}">
+```
 
-9. **Datastar signal naming**: Signal names in `data-signals`, `data-bind:` attributes and Go struct JSON tags must match exactly (camelCase). Signals prefixed with `_` are not sent to the server.
+**Read signals in handlers:**
+```go
+import "github.com/starfederation/datastar-go/datastar"
 
-10. **Datastar SSE handlers**: Must use `datastar.NewSSE(c.Response().Writer, c.Request())` rather than returning Echo JSON/HTML responses. The Content-Type is set automatically to `text/event-stream`.
+type SearchSignals struct {
+    SearchQuery string   `json:"searchQuery"`
+    IsLoading   bool     `json:"isLoading"`
+    Results     []string `json:"results"`
+}
+
+func SearchHandler(c echo.Context) error {
+    var signals SearchSignals
+    if err := datastar.ReadSignals(c.Request(), &signals); err != nil {
+        return c.String(http.StatusBadRequest, "Invalid request")
+    }
+    // Use signals.SearchQuery, signals.IsLoading, etc.
+}
+```
+
+### Server-Sent Events (SSE)
+
+**Send updates to frontend:**
+```go
+sse := datastar.NewSSE(c.Response().Writer, c.Request())
+
+// Update DOM elements
+sse.PatchElements("<div id='results'>New content</div>")
+
+// Update signals
+sse.PatchSignals([]byte(`{isLoading: false, results: ['a', 'b']}`))
+
+// Execute JavaScript
+sse.ExecuteScript("alert('Done!')")
+```
+
+**Multiple events in one response:**
+```go
+sse := datastar.NewSSE(c.Response().Writer, c.Request())
+sse.PatchSignals([]byte(`{isLoading: true}`))
+sse.PatchElements(updatedSidebar)
+sse.PatchSignals([]byte(`{isLoading: false}`))
+```
+
+### Common Patterns
+
+**Loading indicator:**
+```html
+<button data-on:click="@get('/api/data')" data-indicator:isFetching>
+  Load Data
+</button>
+<div data-show="$isFetching">Loading...</div>
+```
+
+**Conditional classes:**
+```html
+<button data-class="{ 'btn-primary': $isActive, 'btn-ghost': !$isActive }">
+  Toggle
+</button>
+```
+
+**Form with validation:**
+```html
+<form data-signals="{email: '', error: ''}">
+  <input data-bind:email data-on:input="$error = ''" />
+  <div data-text="$error" data-show="$error"></div>
+  <button data-on:click="@post('/api/submit')">Submit</button>
+</form>
+```
+
+**Modal open/close:**
+```html
+<div data-signals="{showModal: false}">
+  <button data-on:click="$showModal = true">Open</button>
+  <div data-show="$showModal" style="display: none">
+    <div class="modal" data-on:click="$showModal = false">
+      <div class="modal-box">Content here</div>
+    </div>
+  </div>
+</div>
+```
+
+### Key Rules
+
+1. **Signal naming**: Use camelCase, match Go JSON tags exactly
+2. **Expressions**: Use `$` prefix for signals (e.g., `$foo`)
+3. **Local signals**: Prefix with `_` to prevent sending to backend (e.g., `_localVar`)
+4. **All signals sent**: By default, all signals are included in every backend request
+5. **Nested signals**: Use dot notation: `data-signals:user.name="John"`
+6. **Casing**: Hyphenated attribute names convert to camelCase (`data-bind:foo-bar` → `$fooBar`)
+7. **Class/Attr casing**: Convert to kebab-case (`data-class:font-bold` → class `font-bold`)
+
+### Expressions
+
+Datastar expressions support JavaScript operators:
+```html
+<!-- Ternary -->
+<div data-text="$isAdmin ? 'Admin' : 'User'">
+
+<!-- Logical OR/AND -->
+<button data-show="$isLoggedIn || $isGuest">
+<button data-on:click="$isReady && @post('/go')">
+
+<!-- Multiple statements (use semicolons) -->
+<button data-on:click="$count++; @post('/save')">
+```
+
+### SDK Reference (Go)
+
+```go
+import "github.com/starfederation/datastar-go/datastar"
+
+// Create SSE generator
+sse := datastar.NewSSE(writer, request)
+
+// Patch elements (morphs DOM by ID)
+sse.PatchElements(htmlString, datastar.WithSelectorID("target-id"))
+sse.PatchElements(htmlString, datastar.WithModeAppend())  // Append instead of morph
+
+// Patch signals (merges with frontend signals)
+sse.PatchSignals([]byte(`{key: 'value'}`))
+
+// Execute JavaScript
+sse.ExecuteScript("console.log('Hello')")
+
+// Read signals from request
+var signals MySignalsStruct
+err := datastar.ReadSignals(request, &signals)
+```
+
+### Useful Resources
+
+- [Datastar Docs](https://data-star.dev/docs) - Full documentation
+- [Datastar Reference](https://data-star.dev/reference) - Complete attribute/action reference
+- [Examples](https://data-star.dev/examples) - Sample implementations
+- [VSCode Extension](https://marketplace.visualstudio.com/items?itemName=starfederation.datastar-vscode) - Autocompletion

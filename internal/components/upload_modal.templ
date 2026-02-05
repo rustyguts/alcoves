@@ -5,33 +5,51 @@ type UploadModalData struct {
 }
 
 templ UploadModal(data UploadModalData) {
-	<dialog id="upload_modal" class="modal z-50" closedby="any">
-		<div class="modal-box max-w-4xl bg-base-100" onclick="event.stopPropagation()">
-			<div class="flex items-center justify-between mb-4">
+	<dialog id="upload_modal" class="modal" closedby="any">
+		<div class="modal-box max-w-4xl">
+			<!-- Modal Header -->
+			<div class="flex items-center justify-between mb-6">
 				<h3 class="font-bold text-xl flex items-center gap-2">
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+						<polyline points="17 8 12 3 7 8"></polyline>
+						<line x1="12" y1="3" x2="12" y2="15"></line>
+					</svg>
 					Upload Files
 				</h3>
+				<form method="dialog">
+					<button class="btn btn-sm btn-circle btn-ghost">✕</button>
+				</form>
 			</div>
+			<!-- Uploader Container -->
+			<div id="uploader"></div>
 			<input type="hidden" id="libraryPublicID" value={ data.LibraryPublicID }/>
-			<div class="my-4 bg-base-200 rounded-lg overflow-hidden">
-				<div id="uploader"></div>
-			</div>
+			<!-- Modal Actions -->
 			<div class="modal-action">
-				<form method="dialog" class="inline">
+				<form method="dialog">
 					<button class="btn btn-ghost" id="close_upload_modal">Cancel</button>
 				</form>
 			</div>
 		</div>
+		<!-- External Resources -->
 		<link href="/css/uppy.min.css" rel="stylesheet"/>
 		<script type="module">
 			import { Uppy, Dashboard, XHRUpload } from "/js/uppy.min.mjs"
 
+			// Prevent multiple initializations
+			if (window.uppyInstance) {
+				window.uppyInstance.close();
+				window.uppyInstance = null;
+			}
+
+			// Initialize Uppy
 			const uppy = new Uppy({
+				id: 'upload_modal_uppy',
 				restrictions: {
 					maxNumberOfFiles: 5000
 				},
-				autoProceed: false
+				autoProceed: false,
+				debug: false
 			})
 			.use(Dashboard, {
 				inline: true,
@@ -39,7 +57,7 @@ templ UploadModal(data UploadModalData) {
 				showProgressDetails: true,
 				proudlyDisplayPoweredByUppy: false,
 				height: 400,
-				note: 'Up to 5000 files',
+				note: 'Upload up to 5000 files',
 				theme: 'auto'
 			})
 			.use(XHRUpload, {
@@ -50,24 +68,43 @@ templ UploadModal(data UploadModalData) {
 				allowedMetaFields: ['libraryPublicID']
 			})
 
-			// Set the libraryPublicID as metadata before upload
-			const libraryPublicID = document.getElementById('libraryPublicID').value;
+			// Store instance globally to prevent duplicates
+			window.uppyInstance = uppy;
+
+			// Set metadata before upload
+			const libraryPublicID = document.getElementById('libraryPublicID')?.value;
 			if (libraryPublicID) {
 				uppy.setMeta({ libraryPublicID: libraryPublicID });
 			}
 
+			// Handle successful upload
 			uppy.on('complete', (result) => {
 				console.log('Upload complete:', result)
-				if (result.successful.length > 0) {
-					// Reload the page to show new uploads
+				if (result.successful && result.successful.length > 0) {
 					window.location.reload()
 				}
 			})
 
-			// Close modal when close button is clicked
-			document.getElementById('close_upload_modal').addEventListener('click', () => {
-				uppy.cancelAll()
+			// Handle upload errors
+			uppy.on('upload-error', (file, error, response) => {
+				console.error('Upload error:', error)
 			})
+
+			// Cleanup on modal close
+			const closeButton = document.getElementById('close_upload_modal');
+			const modal = document.getElementById('upload_modal');
+			
+			if (closeButton) {
+				closeButton.addEventListener('click', () => {
+					uppy.cancelAll()
+				})
+			}
+
+			if (modal) {
+				modal.addEventListener('close', () => {
+					uppy.cancelAll()
+				})
+			}
 		</script>
 	</dialog>
 }

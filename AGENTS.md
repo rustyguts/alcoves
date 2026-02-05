@@ -9,6 +9,12 @@ Alcoves is a Google Drive-like personal file storage and management application.
 - Right-click context menus for file operations
 - Trash/recycle bin with restore functionality
 - Image viewing with navigation
+- Video playback and proxy creation
+- File tagging at a library level
+- Sorting files by tags
+- Search within library for files
+- Facial recognition for images (entirely optional, runs locally)
+- Add and remove people to librarys. Manage their access
 
 ## Build & Development Commands
 

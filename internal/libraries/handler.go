@@ -179,7 +179,7 @@ func DeleteLibraryHandler(c echo.Context) error {
 		datastar.WithSelectorID("sidebar-libraries"),
 	)
 
-	sse.ExecuteScript("history.pushState(null, '', '/'); document.title = 'Home'")
+	sse.ExecuteScript("history.pushState(null, '', '/'); document.title = 'Alcoves'")
 
 	return nil
 }

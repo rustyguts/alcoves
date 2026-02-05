@@ -50,8 +50,16 @@ templ Layout(data LayoutData) {
 						</label>
 					</div>
 					<div class="flex justify-end w-full">
-						   <div class="mr-4 flex items-center gap-2">
-							   <!-- Upload button moved to library page -->
+						<div class="mr-4 flex items-center gap-2">
+							<div class="pr-2">
+								<button
+									class="btn btn-primary btn-sm w-full"
+									type="button"
+									data-on:click="@post('/libraries/create')"
+								>
+									Create Library
+								</button>
+							</div>
 							<div id="profile-dropdown" class="dropdown dropdown-end">
 								<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar avatar-placeholder">
 									<div class="bg-neutral text-neutral-content w-12 rounded-full">
@@ -95,19 +103,10 @@ templ Layout(data LayoutData) {
 			</div>
 			<div class="drawer-side z-10">
 				<label for="drawer-sidebar-toggle" aria-label="close sidebar" class="drawer-overlay"></label>
-		   <div class="bg-base-300 min-h-full min-w-[180px]">
+				<div class="bg-base-300 min-h-full min-w-[180px]">
 					<div class="flex justify-start items-center text-2xl h-16 p-2 pl-6">
 						<a href="/" data-on:click.prevent="@get('/?_fragment=1&push=1')">Alcoves</a>
 					</div>
-					<ul class="menu menu-md text-base-content gap-2 w-full p-2">
-						<li class="text-md">
-							<a href="/" data-on:click.prevent="@get('/?_fragment=1&push=1')" class="menu-item">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
-								Home
-							</a>
-						</li>
-					</ul>
-					<div class="divider px-4 my-0"></div>
 					@SidebarLibraries(SidebarData{Libraries: data.Libraries, ActiveLibraryID: data.ActiveLibraryID})
 				</div>
 			</div>

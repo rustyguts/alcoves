@@ -42,7 +42,7 @@ func SidebarLibraries(data SidebarData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"sidebar-libraries\"><div class=\"flex flex-col px-4 pt-4 pb-2 gap-2\"><span class=\"text-xs font-semibold uppercase tracking-wider text-base-content/50\">Libraries</span> <button class=\"btn btn-primary btn-sm w-full\" type=\"button\" data-on:click=\"@post('/libraries/create')\">Create Library</button></div><ul class=\"menu menu-md text-base-content gap-1 w-full px-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"sidebar-libraries\"><ul class=\"menu menu-md text-base-content gap-1 w-full px-2 pt-0\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -63,7 +63,7 @@ func SidebarLibraries(data SidebarData) templ.Component {
 			var templ_7745c5c3_Var3 templ.SafeURL
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(getLibraryURL(lib.PublicID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 32, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 22, Col: 55}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -76,7 +76,7 @@ func SidebarLibraries(data SidebarData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(datastar.GetSSE("/libraries/%s?_fragment=1&push=1", lib.PublicID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 33, Col: 95}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 23, Col: 95}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -113,7 +113,7 @@ func SidebarLibraries(data SidebarData) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(lib.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 41, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar.templ`, Line: 31, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {

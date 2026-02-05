@@ -2,8 +2,8 @@ package components
 
 import (
 	"fmt"
-	"strings"
 	"github.com/rustyguts/alcoves/internal/models"
+	"strings"
 )
 
 const (
@@ -64,24 +64,185 @@ templ IconAndName(name string, filetype string) {
 	</div>
 }
 
+// Shared context menu component
+templ AssetsContextMenu(idPrefix string) {
+	<div
+		id={ idPrefix + "-context-menu" }
+		class="hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg"
+	>
+		<div
+			class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg"
+			onclick="window.assetsDownloadSelected(); window.assetsHideContextMenu()"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+			<span>Download</span>
+		</div>
+		<div class="h-px bg-base-300 my-1"></div>
+		<div
+			class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error"
+			onclick="window.assetsDeleteSelected(); window.assetsHideContextMenu()"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+			<span>Move to trash</span>
+		</div>
+	</div>
+}
+
+// Shared assets script - handles both list and thumbnail views
+templ AssetsScript() {
+	<script>
+		(function() {
+			// Selection state stored on body for persistence
+			if (!document.body._assetsState) {
+				document.body._assetsState = {
+					selected: new Set(),
+					lastIndex: -1
+				};
+			}
+			const state = document.body._assetsState;
+
+			// Selection management
+			window.assetsGetSelected = () => Array.from(state.selected);
+
+			window.assetsSetSelected = function(el, selected) {
+				const id = el.dataset.assetId;
+				if (selected) {
+					state.selected.add(id);
+					el.classList.add('bg-primary/20');
+				} else {
+					state.selected.delete(id);
+					el.classList.remove('bg-primary/20');
+				}
+			};
+
+			window.assetsIsSelected = (el) => state.selected.has(el.dataset.assetId);
+
+			window.assetsClearSelection = function() {
+				state.selected.clear();
+				document.querySelectorAll('[data-asset-id]').forEach(el => {
+					el.classList.remove('bg-primary/20');
+				});
+			};
+
+			window.assetsSelectAll = function() {
+				document.querySelectorAll('[data-asset-id]').forEach(el => {
+					state.selected.add(el.dataset.assetId);
+					el.classList.add('bg-primary/20');
+				});
+			};
+
+			// Actions
+			window.assetsDeleteSelected = function() {
+				const selected = window.assetsGetSelected();
+				if (selected.length === 0) return;
+
+				if (confirm(`Move ${selected.length} file(s) to trash?`)) {
+					fetch('/assets/delete', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(selected)
+					}).then(r => r.ok ? location.reload() : alert('Failed to delete files'))
+					  .catch(() => alert('Failed to delete files'));
+				}
+			};
+
+			window.assetsDownloadSelected = function() {
+				const selected = window.assetsGetSelected();
+				if (selected.length === 0) return;
+
+				location.href = selected.length === 1
+					? '/assets/download/' + selected[0]
+					: '/assets/download?ids=' + selected.join(',');
+			};
+
+			// Open item on double-click
+			window.assetsOpenItem = function(el) {
+				location.href = '/media/' + el.dataset.assetId;
+			};
+
+			// Click handler for asset items
+			window.assetsHandleClick = function(e, el) {
+				const items = Array.from(document.querySelectorAll('[data-asset-id]'));
+				const index = items.indexOf(el);
+
+				if (e.shiftKey && state.lastIndex >= 0) {
+					// Shift+click: select range
+					const [start, end] = [Math.min(state.lastIndex, index), Math.max(state.lastIndex, index)];
+					items.forEach((item, i) => {
+						if (i >= start && i <= end) window.assetsSetSelected(item, true);
+					});
+				} else if (e.ctrlKey || e.metaKey) {
+					// Ctrl/Cmd+click: toggle
+					window.assetsSetSelected(el, !window.assetsIsSelected(el));
+				} else {
+					// Regular click: select only this
+					window.assetsClearSelection();
+					window.assetsSetSelected(el, true);
+				}
+				state.lastIndex = index;
+			};
+
+			// Context menu
+			window.assetsShowContextMenu = function(e, el) {
+				e.preventDefault();
+				
+				if (!window.assetsIsSelected(el)) {
+					window.assetsClearSelection();
+					window.assetsSetSelected(el, true);
+				}
+
+				const menu = el.closest('[id$="-container"]').querySelector('[id$="-context-menu"]');
+				if (!menu) return;
+
+				menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+				menu.style.top = Math.min(e.clientY, window.innerHeight - 100) + 'px';
+				menu.classList.remove('hidden');
+			};
+
+			window.assetsHideContextMenu = function() {
+				document.querySelectorAll('[id$="-context-menu"]').forEach(m => m.classList.add('hidden'));
+			};
+
+			// Global listeners (only attach once)
+			if (!document.body._assetsListenersAttached) {
+				document.body._assetsListenersAttached = true;
+
+				document.addEventListener('click', function(e) {
+					if (!e.target.closest('[id$="-context-menu"]')) {
+						window.assetsHideContextMenu();
+					}
+				});
+
+				document.addEventListener('keydown', function(e) {
+					if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+						if (document.querySelectorAll('[data-asset-id]').length > 0) {
+							e.preventDefault();
+							window.assetsSelectAll();
+						}
+					}
+					if (e.key === 'Escape') {
+						window.assetsClearSelection();
+						window.assetsHideContextMenu();
+					}
+					if (e.key === 'Delete' || e.key === 'Backspace') {
+						if (state.selected.size > 0 && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+							e.preventDefault();
+							window.assetsDeleteSelected();
+						}
+					}
+				});
+			}
+		})();
+	</script>
+}
+
 // AssetsList shows files in a row-based table format
 templ AssetsList(data AssetsData) {
 	<div id="assets-container">
-		<!-- Context Menu -->
-		<div id="context-menu" class="hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg">
-			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg" id="ctx-download">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-				<span>Download</span>
-			</div>
-			<div class="h-px bg-base-300 my-1"></div>
-			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error" id="ctx-delete">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-				<span>Move to trash</span>
-			</div>
-		</div>
-		<div class="overflow-x-auto">
+		@AssetsContextMenu("list")
+		<div class="overflow-auto max-h-[calc(100vh-12rem)]">
 			<table class="table table-auto w-full select-none" id="files-table">
-				<thead>
+				<thead class="sticky top-0 bg-base-200 z-10">
 					<tr>
 						<th class="text-left">Name</th>
 						<th class="w-[120px] whitespace-nowrap">Size</th>
@@ -99,303 +260,38 @@ templ AssetsList(data AssetsData) {
 							</td>
 						</tr>
 					}
-				for _, asset := range data.Assets {
-					<tr
-						class="h-10 max-h-10 file-row cursor-pointer [&:not([data-selected='true']):hover]:bg-base-200 [&[data-selected='true']]:bg-primary/20"
-						data-asset-id={ asset.PublicID }
-						data-selected="false"
-						tabindex="0"
-					>
-						<td>
-							@IconAndName(asset.Filename, getFileType(asset.Filename, asset.Type))
-						</td>
-						<td>
-							<div>
-								{ formatFileSize(asset.Size) }
-							</div>
-						</td>
-						<td>{ formatDate(asset) }</td>
-						<td>
-							@MoreIcon("18", "18", "2")
-						</td>
-					</tr>
-				}
+					for _, asset := range data.Assets {
+						<tr
+							class="h-10 max-h-10 cursor-pointer hover:saturate-150"
+							data-asset-id={ asset.PublicID }
+							tabindex="0"
+							onclick="window.assetsHandleClick(event, this)"
+							ondblclick="window.assetsOpenItem(this)"
+							oncontextmenu="window.assetsShowContextMenu(event, this)"
+						>
+							<td>
+								@IconAndName(asset.Filename, getFileType(asset.Filename, asset.Type))
+							</td>
+							<td>
+								<div>{ formatFileSize(asset.Size) }</div>
+							</td>
+							<td>{ formatDate(asset) }</td>
+							<td>
+								@MoreIcon("18", "18", "2")
+							</td>
+						</tr>
+					}
 				</tbody>
 			</table>
 		</div>
-		<script>
-			(function() {
-				const rows = document.querySelectorAll('.file-row');
-				const contextMenu = document.getElementById('context-menu');
-				const ctxDownload = document.getElementById('ctx-download');
-				const ctxDelete = document.getElementById('ctx-delete');
-				
-				let lastSelectedIndex = null;
-				let contextMenuTarget = null;
-
-				function getSelectedAssetIds() {
-					return Array.from(document.querySelectorAll('.file-row[data-selected="true"]'))
-						.map(row => row.getAttribute('data-asset-id'));
-				}
-
-				function updateRowSelection() {
-					rows.forEach(row => {
-						const isSelected = row.getAttribute('data-selected') === 'true';
-						if (isSelected) {
-							row.classList.add('bg-primary/20');
-						} else {
-							row.classList.remove('bg-primary/20');
-						}
-					});
-				}
-
-				function deleteSelectedAssets() {
-					const selected = getSelectedAssetIds();
-					if (selected.length === 0) return;
-
-					if (confirm(`Move ${selected.length} file(s) to trash?`)) {
-						fetch('/assets/delete', {
-							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json',
-							},
-							body: JSON.stringify(selected)
-						})
-							.then(response => {
-								if (response.ok) {
-									window.location.reload();
-								} else {
-									alert('Failed to delete files');
-								}
-							})
-							.catch(error => {
-								console.error('Error:', error);
-								alert('Failed to delete files');
-							});
-					}
-				}
-
-				function downloadSelectedAssets() {
-					const selected = getSelectedAssetIds();
-					if (selected.length === 0) return;
-
-					if (selected.length === 1) {
-						window.location.href = '/assets/download/' + selected[0];
-					} else {
-						window.location.href = '/assets/download?ids=' + selected.join(',');
-					}
-				}
-
-				function showContextMenu(e, targetRow) {
-					e.preventDefault();
-					contextMenuTarget = targetRow;
-					
-					const isSelected = targetRow.getAttribute('data-selected') === 'true';
-					
-					// If right-clicked row is not selected, select only this row
-					if (!isSelected) {
-						rows.forEach(row => {
-							row.setAttribute('data-selected', 'false');
-							row.classList.remove('bg-primary/20');
-						});
-						targetRow.setAttribute('data-selected', 'true');
-						targetRow.classList.add('bg-primary/20');
-					}
-					
-					// Position context menu
-					const x = e.clientX;
-					const y = e.clientY;
-					
-					// Prevent menu from going off-screen
-					const menuWidth = 180;
-					const menuHeight = 100;
-					const winWidth = window.innerWidth;
-					const winHeight = window.innerHeight;
-					
-					let finalX = x;
-					let finalY = y;
-					
-					if (x + menuWidth > winWidth) {
-						finalX = x - menuWidth;
-					}
-					if (y + menuHeight > winHeight) {
-						finalY = y - menuHeight;
-					}
-					
-					contextMenu.style.left = finalX + 'px';
-					contextMenu.style.top = finalY + 'px';
-					contextMenu.classList.remove('hidden');
-					contextMenu.classList.add('block');
-				}
-
-				function hideContextMenu() {
-					contextMenu.classList.add('hidden');
-					contextMenu.classList.remove('block');
-					contextMenuTarget = null;
-				}
-
-				// Context menu event listeners
-				ctxDownload.addEventListener('click', function() {
-					hideContextMenu();
-					downloadSelectedAssets();
-				});
-
-				ctxDelete.addEventListener('click', function() {
-					hideContextMenu();
-					deleteSelectedAssets();
-				});
-
-				// Hide context menu on click elsewhere
-				document.addEventListener('click', function(e) {
-					if (!contextMenu.contains(e.target)) {
-						hideContextMenu();
-					}
-				});
-
-				rows.forEach((row, index) => {
-					// Row click handler (left click)
-					row.addEventListener('click', function(e) {
-						const isCtrlClick = e.ctrlKey || e.metaKey;
-						const isShiftClick = e.shiftKey;
-
-						if (isShiftClick && lastSelectedIndex !== null) {
-							// Shift+click: select range
-							const start = Math.min(lastSelectedIndex, index);
-							const end = Math.max(lastSelectedIndex, index);
-							
-							rows.forEach((r, i) => {
-								if (i >= start && i <= end) {
-									r.setAttribute('data-selected', 'true');
-								}
-							});
-						} else if (isCtrlClick) {
-							// Ctrl/Cmd+click: toggle this item
-							const isSelected = row.getAttribute('data-selected') === 'true';
-							row.setAttribute('data-selected', isSelected ? 'false' : 'true');
-						} else {
-							// Regular click: select only this item
-							rows.forEach(r => r.setAttribute('data-selected', 'false'));
-							row.setAttribute('data-selected', 'true');
-						}
-
-						lastSelectedIndex = index;
-						updateRowSelection();
-					});
-
-					// Double click to open
-					row.addEventListener('dblclick', function(e) {
-						const assetId = this.getAttribute('data-asset-id');
-						window.location.href = '/media/' + assetId;
-					});
-
-					// Right click for context menu
-					row.addEventListener('contextmenu', function(e) {
-						showContextMenu(e, row);
-					});
-				});
-
-				// Keyboard shortcuts
-				document.addEventListener('keydown', function(e) {
-					// Ctrl+A: Select all
-					if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-						e.preventDefault();
-						rows.forEach(row => {
-							row.setAttribute('data-selected', 'true');
-						});
-						lastSelectedIndex = rows.length - 1;
-						updateRowSelection();
-					}
-					
-					// Escape: Deselect all
-					if (e.key === 'Escape') {
-						rows.forEach(row => {
-							row.setAttribute('data-selected', 'false');
-						});
-						lastSelectedIndex = null;
-						updateRowSelection();
-						hideContextMenu();
-					}
-					
-					// Space: Toggle selection of focused row
-					if (e.key === ' ' && document.activeElement.classList.contains('file-row')) {
-						e.preventDefault();
-						const focusedRow = document.activeElement;
-						const isSelected = focusedRow.getAttribute('data-selected') === 'true';
-						focusedRow.setAttribute('data-selected', isSelected ? 'false' : 'true');
-						updateRowSelection();
-					}
-					
-					// Arrow keys: Navigate and optionally select
-					if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
-						const currentFocus = document.activeElement;
-						let currentIndex = Array.from(rows).indexOf(currentFocus);
-						
-						// If nothing is focused, focus the first row
-						if (currentIndex === -1) {
-							currentIndex = 0;
-							if (rows.length > 0) {
-								rows[0].focus();
-								if (!e.shiftKey) {
-									// Clear selection on simple arrow navigation
-									rows.forEach(row => row.setAttribute('data-selected', 'false'));
-									rows[0].setAttribute('data-selected', 'true');
-								}
-								updateRowSelection();
-							}
-							return;
-						}
-						
-						e.preventDefault();
-						let newIndex = currentIndex;
-						
-						if (e.key === 'ArrowUp' && currentIndex > 0) {
-							newIndex = currentIndex - 1;
-						} else if (e.key === 'ArrowDown' && currentIndex < rows.length - 1) {
-							newIndex = currentIndex + 1;
-						}
-						
-						if (newIndex !== currentIndex) {
-							rows[newIndex].focus();
-							
-							if (e.shiftKey) {
-								// Shift+Arrow: Select range
-								const start = Math.min(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);
-								const end = Math.max(lastSelectedIndex !== null ? lastSelectedIndex : currentIndex, newIndex);
-								
-								rows.forEach((row, i) => {
-									row.setAttribute('data-selected', i >= start && i <= end ? 'true' : 'false');
-								});
-							} else {
-								// Simple arrow: Move selection to new row
-								rows.forEach(row => row.setAttribute('data-selected', 'false'));
-								rows[newIndex].setAttribute('data-selected', 'true');
-							}
-							
-							lastSelectedIndex = newIndex;
-							updateRowSelection();
-						}
-					}
-				});
-			})();
-		</script>
+		@AssetsScript()
 	</div>
 }
 
 // AssetsThumbnail shows files in a card-based grid gallery
 templ AssetsThumbnail(data AssetsData) {
 	<div id="assets-thumbnail-container">
-		<!-- Context Menu -->
-		<div id="thumbnail-context-menu" class="hidden fixed z-50 min-w-[180px] bg-base-100 border border-base-300 rounded-lg shadow-lg">
-			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-t-lg" id="thumb-ctx-download">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-				<span>Download</span>
-			</div>
-			<div class="h-px bg-base-300 my-1"></div>
-			<div class="px-4 py-2 cursor-pointer flex items-center gap-3 transition-colors duration-150 text-sm hover:bg-base-200 rounded-b-lg text-error" id="thumb-ctx-delete">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-				<span>Move to trash</span>
-			</div>
-		</div>
+		@AssetsContextMenu("thumb")
 		if len(data.Assets) == 0 {
 			<div class="flex flex-col items-center justify-center py-16 text-base-content/60">
 				<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 opacity-50">
@@ -411,8 +307,10 @@ templ AssetsThumbnail(data AssetsData) {
 					<div
 						class="card card-compact bg-base-100 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group p-2"
 						data-asset-id={ asset.PublicID }
-						data-selected="false"
 						tabindex="0"
+						onclick="window.assetsHandleClick(event, this)"
+						ondblclick="window.assetsOpenItem(this)"
+						oncontextmenu="window.assetsShowContextMenu(event, this)"
 					>
 						<figure class="aspect-video bg-base-200 rounded-lg relative overflow-hidden">
 							if strings.HasPrefix(asset.Type, "image/") {
@@ -450,209 +348,6 @@ templ AssetsThumbnail(data AssetsData) {
 				}
 			</div>
 		}
-	<script>
-		(function() {
-			const cards = document.querySelectorAll('#assets-thumbnail-container .card');
-			const contextMenu = document.getElementById('thumbnail-context-menu');
-			const ctxDownload = document.getElementById('thumb-ctx-download');
-			const ctxDelete = document.getElementById('thumb-ctx-delete');
-			
-			let lastSelectedIndex = null;
-			let contextMenuTarget = null;
-
-			function getSelectedAssetIds() {
-				return Array.from(document.querySelectorAll('#assets-thumbnail-container .card[data-selected="true"]'))
-					.map(card => card.getAttribute('data-asset-id'));
-			}
-
-			function updateCardSelection() {
-				cards.forEach(card => {
-					const isSelected = card.getAttribute('data-selected') === 'true';
-					if (isSelected) {
-						card.classList.add('bg-primary/20');
-					} else {
-						card.classList.remove('bg-primary/20');
-					}
-				});
-			}
-
-			function deleteSelectedAssets() {
-				const selected = getSelectedAssetIds();
-				if (selected.length === 0) return;
-
-				if (confirm(`Move ${selected.length} file(s) to trash?`)) {
-					fetch('/assets/delete', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-						},
-						body: JSON.stringify(selected)
-					})
-						.then(response => {
-							if (response.ok) {
-								window.location.reload();
-							} else {
-								alert('Failed to delete files');
-							}
-						})
-						.catch(error => {
-							console.error('Error:', error);
-							alert('Failed to delete files');
-						});
-				}
-			}
-
-			function downloadSelectedAssets() {
-				const selected = getSelectedAssetIds();
-				if (selected.length === 0) return;
-
-				if (selected.length === 1) {
-					window.location.href = '/assets/download/' + selected[0];
-				} else {
-					window.location.href = '/assets/download?ids=' + selected.join(',');
-				}
-			}
-
-			function showContextMenu(e, targetCard) {
-				e.preventDefault();
-				contextMenuTarget = targetCard;
-				
-				const isSelected = targetCard.getAttribute('data-selected') === 'true';
-				
-				// If right-clicked card is not selected, select only this card
-				if (!isSelected) {
-					cards.forEach(card => {
-						card.setAttribute('data-selected', 'false');
-						card.classList.remove('bg-primary/20');
-					});
-					targetCard.setAttribute('data-selected', 'true');
-					targetCard.classList.add('bg-primary/20');
-				}
-				
-				// Position context menu
-				const x = e.clientX;
-				const y = e.clientY;
-				
-				// Prevent menu from going off-screen
-				const menuWidth = 180;
-				const menuHeight = 100;
-				const winWidth = window.innerWidth;
-				const winHeight = window.innerHeight;
-				
-				let finalX = x;
-				let finalY = y;
-				
-				if (x + menuWidth > winWidth) {
-					finalX = x - menuWidth;
-				}
-				if (y + menuHeight > winHeight) {
-					finalY = y - menuHeight;
-				}
-				
-				contextMenu.style.left = finalX + 'px';
-				contextMenu.style.top = finalY + 'px';
-				contextMenu.classList.remove('hidden');
-				contextMenu.classList.add('block');
-			}
-
-			function hideContextMenu() {
-				contextMenu.classList.add('hidden');
-				contextMenu.classList.remove('block');
-				contextMenuTarget = null;
-			}
-
-			// Context menu event listeners
-			ctxDownload.addEventListener('click', function() {
-				hideContextMenu();
-				downloadSelectedAssets();
-			});
-
-			ctxDelete.addEventListener('click', function() {
-				hideContextMenu();
-				deleteSelectedAssets();
-			});
-
-			// Hide context menu on click elsewhere
-			document.addEventListener('click', function(e) {
-				if (!contextMenu.contains(e.target)) {
-					hideContextMenu();
-				}
-			});
-
-			cards.forEach((card, index) => {
-				// Card click handler (left click)
-				card.addEventListener('click', function(e) {
-					const isCtrlClick = e.ctrlKey || e.metaKey;
-					const isShiftClick = e.shiftKey;
-
-					if (isShiftClick && lastSelectedIndex !== null) {
-						// Shift+click: select range
-						const start = Math.min(lastSelectedIndex, index);
-						const end = Math.max(lastSelectedIndex, index);
-						
-						cards.forEach((c, i) => {
-							if (i >= start && i <= end) {
-								c.setAttribute('data-selected', 'true');
-							}
-						});
-					} else if (isCtrlClick) {
-						// Ctrl/Cmd+click: toggle this item
-						const isSelected = card.getAttribute('data-selected') === 'true';
-						card.setAttribute('data-selected', isSelected ? 'false' : 'true');
-					} else {
-						// Regular click: select only this item (same as list view)
-						cards.forEach(c => c.setAttribute('data-selected', 'false'));
-						card.setAttribute('data-selected', 'true');
-					}
-
-					lastSelectedIndex = index;
-					updateCardSelection();
-				});
-
-				// Double click to open
-				card.addEventListener('dblclick', function(e) {
-					const assetId = this.getAttribute('data-asset-id');
-					window.location.href = '/media/' + assetId;
-				});
-
-				// Right click for context menu
-				card.addEventListener('contextmenu', function(e) {
-					showContextMenu(e, card);
-				});
-			});
-
-			// Keyboard shortcuts
-			document.addEventListener('keydown', function(e) {
-				// Ctrl+A: Select all
-				if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-					e.preventDefault();
-					cards.forEach(card => {
-						card.setAttribute('data-selected', 'true');
-					});
-					lastSelectedIndex = cards.length - 1;
-					updateCardSelection();
-				}
-				
-				// Escape: Deselect all
-				if (e.key === 'Escape') {
-					cards.forEach(card => {
-						card.setAttribute('data-selected', 'false');
-					});
-					lastSelectedIndex = null;
-					updateCardSelection();
-					hideContextMenu();
-				}
-				
-				// Space: Toggle selection of focused card
-				if (e.key === ' ' && document.activeElement.classList.contains('card')) {
-					e.preventDefault();
-					const focusedCard = document.activeElement;
-					const isSelected = focusedCard.getAttribute('data-selected') === 'true';
-					focusedCard.setAttribute('data-selected', isSelected ? 'false' : 'true');
-					updateCardSelection();
-				}
-			});
-		})();
-	</script>
+		@AssetsScript()
 	</div>
 }

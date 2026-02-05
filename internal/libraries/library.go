@@ -85,6 +85,11 @@ func RenameLibrary(publicID string, userID uint, newName string) (*models.Librar
 	if err != nil {
 		return nil, err
 	}
+
+	if library.IsPersonal {
+		return nil, fmt.Errorf("cannot rename your personal library")
+	}
+
 	library.Name = newName
 	if err := db.Connection.Save(library).Error; err != nil {
 		return nil, fmt.Errorf("failed to rename library: %w", err)
