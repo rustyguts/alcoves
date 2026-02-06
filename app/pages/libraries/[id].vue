@@ -349,12 +349,14 @@ async function deleteLibrary() {
                 @click="handleRowClick(file.id, $event)"
                 @dblclick="openPreview(file)"
               >
-                <td class="px-3 py-2 text-center">
-                  <UIcon
-                    :name="getMimeIcon(file.mimeType)"
-                    class="size-5 text-muted"
-                    :class="showTrashed ? 'opacity-50' : ''"
-                  />
+                <td class="px-3 py-2">
+                  <div class="flex items-center justify-center">
+                    <UIcon
+                      :name="getMimeIcon(file.mimeType)"
+                      class="size-5 text-muted"
+                      :class="showTrashed ? 'opacity-50' : ''"
+                    />
+                  </div>
                 </td>
                 <td class="px-3 py-2">
                   <UInput
