@@ -148,7 +148,6 @@ function downloadFile() {
             Preview not available for this file type ({{ file.mimeType }})
           </p>
         </div>
-
       </div>
     </template>
 
