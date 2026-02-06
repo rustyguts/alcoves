@@ -8,7 +8,8 @@ const mimeIconMap: Record<string, string> = {
   "application/json": "i-lucide-file-json",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "i-lucide-file-text",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "i-lucide-file-spreadsheet",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "i-lucide-file-image",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+    "i-lucide-file-image",
   "application/msword": "i-lucide-file-text",
   "application/vnd.ms-excel": "i-lucide-file-spreadsheet",
   "application/vnd.ms-powerpoint": "i-lucide-file-image",

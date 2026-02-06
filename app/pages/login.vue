@@ -44,8 +44,14 @@ function onSubmit(payload: FormSubmitEvent<Schema>) {
   <UApp>
     <div class="flex min-h-svh items-center justify-center bg-default p-4">
       <UPageCard class="w-full max-w-md">
-        <UAuthForm :schema="schema" :fields="fields" title="Welcome back"
-          description="Sign in to your account to continue." icon="i-lucide-lock" @submit="onSubmit">
+        <UAuthForm
+          :schema="schema"
+          :fields="fields"
+          title="Welcome back"
+          description="Sign in to your account to continue."
+          icon="i-lucide-lock"
+          @submit="onSubmit"
+        >
           <template #password-hint>
             <ULink to="#" class="text-primary font-medium" tabindex="-1"> Forgot password? </ULink>
           </template>

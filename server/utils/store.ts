@@ -286,10 +286,7 @@ export function addFile(
   return file;
 }
 
-export function renameFile(
-  fileId: string,
-  name: string,
-): LibraryFile | undefined {
+export function renameFile(fileId: string, name: string): LibraryFile | undefined {
   const file = files.find((f) => f.id === fileId);
   if (!file) return undefined;
   file.name = name;

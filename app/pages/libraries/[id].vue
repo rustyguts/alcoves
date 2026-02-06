@@ -158,8 +158,12 @@ watch(library, () => {
           <tr class="border-b border-default bg-elevated/50">
             <th class="w-10 px-3 py-2" />
             <th class="text-left text-xs font-medium text-muted px-3 py-2">Name</th>
-            <th class="text-left text-xs font-medium text-muted px-3 py-2 hidden sm:table-cell">Modified</th>
-            <th class="text-right text-xs font-medium text-muted px-3 py-2 hidden sm:table-cell">Size</th>
+            <th class="text-left text-xs font-medium text-muted px-3 py-2 hidden sm:table-cell">
+              Modified
+            </th>
+            <th class="text-right text-xs font-medium text-muted px-3 py-2 hidden sm:table-cell">
+              Size
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -204,10 +208,6 @@ watch(library, () => {
       </table>
     </div>
 
-    <UploadModal
-      v-model:open="uploadOpen"
-      :library-id="libraryId"
-      @complete="onUploadComplete"
-    />
+    <UploadModal v-model:open="uploadOpen" :library-id="libraryId" @complete="onUploadComplete" />
   </div>
 </template>

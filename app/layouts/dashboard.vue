@@ -77,18 +77,18 @@ const navbarTitle = computed(() => {
 
 <template>
   <UDashboardGroup>
-    <UDashboardSidebar
-      collapsible
-      resizable
-      :ui="{ footer: 'border-t border-default' }"
-    >
+    <UDashboardSidebar collapsible resizable :ui="{ footer: 'border-t border-default' }">
       <template #header="{ collapsed }">
         <span v-if="!collapsed" class="text-lg font-bold truncate">Alcoves</span>
         <UIcon v-else name="i-lucide-layout-dashboard" class="size-5 text-primary mx-auto" />
       </template>
 
       <template #default="{ collapsed }">
-        <UNavigationMenu :collapsed="collapsed" :items="defaultLibraryItems" orientation="vertical" />
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="defaultLibraryItems"
+          orientation="vertical"
+        />
 
         <USeparator />
 
@@ -116,7 +116,12 @@ const navbarTitle = computed(() => {
 
         <UNavigationMenu :collapsed="collapsed" :items="libraryItems" orientation="vertical" />
 
-        <UNavigationMenu :collapsed="collapsed" :items="bottomItems" orientation="vertical" class="mt-auto" />
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="bottomItems"
+          orientation="vertical"
+          class="mt-auto"
+        />
       </template>
 
       <template #footer>
