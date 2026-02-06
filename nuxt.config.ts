@@ -15,12 +15,13 @@ export default defineNuxtConfig({
     },
   },
   image: {
+    format: ["avif", "webp", "jpeg"],
     ipx: {
       sharpOptions: {
         autoOrient: true,
       },
       fs: {
-        dir: resolve(process.env.ALCOVES_STORAGE_PATH || "./data"),
+        dir: resolve(process.env.ALCOVES_STORAGE_PATH || "./data", "files"),
       },
     },
   },
@@ -37,7 +38,7 @@ export default defineNuxtConfig({
     },
     databaseUrl:
       process.env.ALCOVES_DATABASE_URL || "postgres://postgres:postgres@localhost:5432/alcoves",
-    storagePath: process.env.ALCOVES_STORAGE_PATH || "./data",
+    storagePath: resolve(process.env.ALCOVES_STORAGE_PATH || "./data", "files"),
     public: {
       googleAuthEnabled: !!process.env.NUXT_OAUTH_GOOGLE_CLIENT_ID,
     },
