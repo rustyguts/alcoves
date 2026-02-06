@@ -19,6 +19,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@nuxt/image": "^2.0.0",
     "@nuxt/ui": "^4.4.0",
     "bcryptjs": "^3.0.3",
     "busboy": "^1.6.0",

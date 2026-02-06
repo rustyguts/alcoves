@@ -4,7 +4,7 @@ import "vidstack/player/styles/default/layouts/audio.css";
 import "vidstack/player/styles/default/layouts/video.css";
 
 import type { LibraryFile } from "~~/server/utils/types";
-import { getMimeIcon, formatFileSize, formatDate } from "~/utils/mime-icons";
+import { getMimeIcon } from "~/utils/mime-icons";
 
 const props = defineProps<{
   file: LibraryFile;
@@ -16,6 +16,8 @@ const open = defineModel<boolean>("open", { default: false });
 const fileUrl = computed(
   () => `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`,
 );
+
+const imgSrc = computed(() => `/${props.libraryId}/${props.file.id}/blob`);
 
 const mediaSrc = computed(() => ({
   src: fileUrl.value,
@@ -69,7 +71,7 @@ function downloadFile() {
   <UModal
     v-model:open="open"
     :title="file.name"
-    :ui="{ content: previewType === 'unsupported' ? '' : 'sm:max-w-4xl' }"
+    :ui="{ content: previewType === 'unsupported' ? '' : 'sm:max-w-4xl', body: 'overflow-hidden' }"
   >
     <template #body>
       <div class="flex flex-col gap-4">
@@ -111,11 +113,14 @@ function downloadFile() {
         </div>
 
         <!-- Image -->
-        <div v-else-if="previewType === 'image'" class="flex justify-center">
-          <img
-            :src="fileUrl"
+        <div v-else-if="previewType === 'image'" class="flex justify-center overflow-hidden">
+          <NuxtImg
+            :src="imgSrc"
             :alt="file.name"
-            class="max-h-[70vh] max-w-full object-contain rounded"
+            width="896"
+            quality="80"
+            fit="inside"
+            class="max-h-[70vh] max-w-full object-contain rounded block"
           />
         </div>
 
@@ -144,21 +149,11 @@ function downloadFile() {
           </p>
         </div>
 
-        <!-- File info -->
-        <div
-          class="flex items-center justify-between text-xs text-muted pt-2 border-t border-default"
-        >
-          <span>{{ formatFileSize(file.size) }}</span>
-          <span>{{ formatDate(file.createdAt) }}</span>
-        </div>
       </div>
     </template>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton label="Close" color="neutral" variant="outline" @click="open = false" />
-        <UButton label="Download" icon="i-lucide-download" @click="downloadFile" />
-      </div>
+      <UButton label="Download" icon="i-lucide-download" @click="downloadFile" />
     </template>
   </UModal>
 </template>
