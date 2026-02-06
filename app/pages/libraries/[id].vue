@@ -15,6 +15,8 @@ definePageMeta({
 const route = useRoute();
 const libraryId = computed(() => route.params.id as string);
 
+const { user } = useAuth();
+
 const { data: library, refresh: refreshLibrary } = await useFetch<Library>(
   () => `/api/libraries/${libraryId.value}`,
 );
@@ -45,6 +47,10 @@ function openPreview(file: LibraryFile) {
   previewFile.value = file;
   previewOpen.value = true;
 }
+
+// Library delete state
+const deleteLibraryOpen = ref(false);
+const deleteLibraryConfirmation = ref("");
 
 // Trash permanent delete state
 const purgeModalOpen = ref(false);
@@ -123,7 +129,7 @@ async function trashFiles(ids: string[]) {
     body: { fileIds: ids },
   });
   ids.forEach((id) => selected.delete(id));
-  await refreshFiles();
+  await Promise.all([refreshFiles(), refreshTrashedFiles()]);
 }
 
 async function restoreFiles(ids: string[]) {
@@ -132,7 +138,7 @@ async function restoreFiles(ids: string[]) {
     body: { fileIds: ids },
   });
   ids.forEach((id) => selected.delete(id));
-  await refreshFiles();
+  await Promise.all([refreshFiles(), refreshTrashedFiles()]);
 }
 
 function openPurgeModal(ids: string[]) {
@@ -150,7 +156,7 @@ async function handlePermanentDelete() {
   purgeModalOpen.value = false;
   purgeConfirmation.value = "";
   filesToPurge.value = [];
-  await refreshFiles();
+  await Promise.all([refreshFiles(), refreshTrashedFiles()]);
 }
 
 function getContextMenuItems(fileId: string): ContextMenuItem[][] {
@@ -228,6 +234,28 @@ const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
 watch(library, () => {
   refreshLibraries?.();
 });
+
+// Fetch trashed files separately to check if library is truly empty
+const { data: trashedFiles, refresh: refreshTrashedFiles } = await useFetch<LibraryFile[]>(
+  () => `/api/libraries/${libraryId.value}/files`,
+  { query: { trashed: "true" } },
+);
+
+const canDeleteLibrary = computed(() => {
+  if (!library.value || !user.value) return false;
+  if (library.value.isDefault) return false;
+  if (library.value.ownerId !== user.value.id) return false;
+  if (showTrashed.value) return false;
+  if (files.value?.length || trashedFiles.value?.length) return false;
+  return true;
+});
+
+async function deleteLibrary() {
+  await $fetch(`/api/libraries/${libraryId.value}`, { method: "DELETE" });
+  deleteLibraryOpen.value = false;
+  await refreshLibraries?.();
+  await navigateTo("/");
+}
 </script>
 
 <template>
@@ -260,6 +288,15 @@ watch(library, () => {
           variant="soft"
           size="sm"
           @click="openPurgeModal(files!.map((f) => f.id))"
+        />
+        <UButton
+          v-if="canDeleteLibrary"
+          label="Delete Library"
+          icon="i-lucide-trash-2"
+          color="error"
+          variant="soft"
+          size="sm"
+          @click="deleteLibraryOpen = true"
         />
         <UButton
           v-if="!showTrashed"
@@ -370,6 +407,38 @@ watch(library, () => {
       :file="previewFile"
       :library-id="libraryId"
     />
+
+    <UModal v-model:open="deleteLibraryOpen" title="Delete Library">
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <p class="text-sm text-muted">
+            This will permanently delete the library
+            <strong>{{ library?.name }}</strong
+            >. This action cannot be undone.
+          </p>
+          <UFormField label="Type 'delete' to confirm">
+            <UInput v-model="deleteLibraryConfirmation" placeholder="delete" class="w-full" />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="outline"
+            @click="deleteLibraryOpen = false"
+          />
+          <UButton
+            label="Delete Library"
+            color="error"
+            icon="i-lucide-trash-2"
+            :disabled="deleteLibraryConfirmation !== 'delete'"
+            @click="deleteLibrary"
+          />
+        </div>
+      </template>
+    </UModal>
 
     <UModal v-model:open="purgeModalOpen" title="Permanently Delete Files">
       <template #body>

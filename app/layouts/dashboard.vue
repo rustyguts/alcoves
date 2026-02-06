@@ -88,7 +88,11 @@ const navbarTitle = computed(() => {
 
 <template>
   <UDashboardGroup>
-    <UDashboardSidebar collapsible resizable :ui="{ footer: 'border-t border-default' }">
+    <UDashboardSidebar
+      collapsible
+      resizable
+      :ui="{ root: 'max-w-xs', footer: 'border-t border-default' }"
+    >
       <template #header="{ collapsed }">
         <span v-if="!collapsed" class="text-lg font-bold truncate">Alcoves</span>
         <UIcon v-else name="i-lucide-layout-dashboard" class="size-5 text-primary mx-auto" />
