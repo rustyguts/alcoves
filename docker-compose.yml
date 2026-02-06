@@ -1,20 +1,20 @@
 services:
-  app:
-    build:
-      context: .
-      target: development
-    environment:
-      - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
-    volumes:
-      - .:/app
-      - node_modules:/app/node_modules
-      - nuxt_cache:/app/.nuxt
-      - ./data:/app/data
-    ports:
-      - 3000:3000
-    depends_on:
-      postgres:
-        condition: service_healthy
+  # app:
+  #   build:
+  #     context: .
+  #     target: development
+  #   environment:
+  #     - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
+  #   volumes:
+  #     - .:/app
+  #     - node_modules:/app/node_modules
+  #     - nuxt_cache:/app/.nuxt
+  #     - ./data:/app/data
+  #   ports:
+  #     - 3000:3000
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
   postgres:
     image: postgres:18
     environment:
@@ -22,7 +22,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - "5432:5432"
+      - "5455:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:

@@ -5,6 +5,6 @@ export default defineConfig({
   out: "./server/database/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.ALCOVES_DATABASE_URL || "postgres://postgres:postgres@localhost:5432/alcoves",
+    url: process.env.ALCOVES_DATABASE_URL || "postgres://postgres:postgres@localhost:5455/alcoves",
   },
 });
