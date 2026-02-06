@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import type { NavigationMenuItem, DropdownMenuItem } from "@nuxt/ui";
-import type { Library } from "~~/server/utils/types";
+
+interface Library {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const { user, logout } = useAuth();
 
 const { data: libraries, refresh: refreshLibraries } = await useFetch<Library[]>("/api/libraries");
 
@@ -30,32 +40,33 @@ const libraryItems = computed<NavigationMenuItem[]>(() => {
   );
 });
 
-const bottomItems: NavigationMenuItem[] = [
-  {
-    label: "Settings",
-    icon: "i-lucide-settings",
-    to: "/settings",
-  },
-];
+const bottomItems = computed<NavigationMenuItem[]>(() => {
+  if (user.value?.role !== "owner") return [];
+  return [
+    {
+      label: "Settings",
+      icon: "i-lucide-settings",
+      to: "/settings",
+    },
+  ];
+});
 
-const userMenuItems: DropdownMenuItem[][] = [
+const userMenuItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
       label: "Profile",
       icon: "i-lucide-user",
-    },
-    {
-      label: "Settings",
-      icon: "i-lucide-settings",
+      to: "/profile",
     },
   ],
   [
     {
       label: "Sign out",
       icon: "i-lucide-log-out",
+      onSelect: () => logout(),
     },
   ],
-];
+]);
 
 async function createLibrary() {
   await $fetch("/api/libraries", {
@@ -138,7 +149,7 @@ const navbarTitle = computed(() => {
                 icon="i-lucide-user"
                 color="neutral"
                 variant="ghost"
-                label="John Doe"
+                :label="user?.displayName ?? 'User'"
                 trailing-icon="i-lucide-chevron-down"
               />
             </UDropdownMenu>

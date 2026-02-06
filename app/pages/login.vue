@@ -6,6 +6,9 @@ definePageMeta({
   layout: false,
 });
 
+const { login } = useAuth();
+const error = ref("");
+
 const fields: AuthFormField[] = [
   {
     name: "email",
@@ -21,11 +24,6 @@ const fields: AuthFormField[] = [
     placeholder: "Enter your password",
     required: true,
   },
-  {
-    name: "remember",
-    label: "Remember me",
-    type: "checkbox",
-  },
 ];
 
 const schema = z.object({
@@ -35,8 +33,15 @@ const schema = z.object({
 
 type Schema = z.output<typeof schema>;
 
-function onSubmit(payload: FormSubmitEvent<Schema>) {
-  console.log("Submitted", payload);
+async function onSubmit(payload: FormSubmitEvent<Schema>) {
+  error.value = "";
+  try {
+    await login(payload.data.email, payload.data.password);
+    await navigateTo("/");
+  } catch (err: unknown) {
+    const msg = (err as { data?: { message?: string } })?.data?.message;
+    error.value = msg || "Invalid email or password";
+  }
 }
 </script>
 
@@ -52,8 +57,9 @@ function onSubmit(payload: FormSubmitEvent<Schema>) {
           icon="i-lucide-lock"
           @submit="onSubmit"
         >
-          <template #password-hint>
-            <ULink to="#" class="text-primary font-medium" tabindex="-1"> Forgot password? </ULink>
+          <template #description>
+            <p class="text-sm text-muted">Sign in to your account to continue.</p>
+            <p v-if="error" class="text-sm text-error mt-2">{{ error }}</p>
           </template>
           <template #footer>
             Don't have an account?

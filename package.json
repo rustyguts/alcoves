@@ -12,17 +12,30 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check"
+    "fmt:check": "oxfmt --check",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@nuxt/ui": "^4.4.0",
+    "bcryptjs": "^3.0.3",
+    "busboy": "^1.6.0",
+    "drizzle-orm": "^0.45.1",
     "nuxt": "^4.3.0",
+    "postgres": "^3.4.8",
     "tailwindcss": "^4.1.18",
+    "vidstack": "^1.12.13",
     "vue": "^3.5.27",
     "vue-router": "^4.6.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "^1.2.88",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/busboy": "^1.5.4",
+    "drizzle-kit": "^0.31.8",
     "husky": "^9.1.7",
     "oxfmt": "^0.28.0",
     "oxlint": "^1.43.0",

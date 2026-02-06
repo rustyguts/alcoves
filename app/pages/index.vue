@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { Library } from "~~/server/utils/types";
+interface Library {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
 
 const { data: libraries } = await useFetch<Library[]>("/api/libraries");
 

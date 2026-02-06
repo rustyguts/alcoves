@@ -1,9 +1,20 @@
-import { createLibrary } from "~~/server/utils/store";
+import { db, schema } from "~~/server/database";
 
 export default defineEventHandler(async (event) => {
+  const userId = event.context.userId as string;
   const body = await readBody<{ name: string }>(event);
-  if (!body?.name) {
+
+  if (!body?.name?.trim()) {
     throw createError({ statusCode: 400, statusMessage: "Name is required" });
   }
-  return createLibrary(body.name);
+
+  const [library] = await db
+    .insert(schema.libraries)
+    .values({
+      name: body.name.trim(),
+      ownerId: userId,
+    })
+    .returning();
+
+  return library;
 });

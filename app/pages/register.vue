@@ -6,6 +6,9 @@ definePageMeta({
   layout: false,
 });
 
+const { register } = useAuth();
+const error = ref("");
+
 const fields: AuthFormField[] = [
   {
     name: "name",
@@ -51,8 +54,15 @@ const schema = z
 
 type Schema = z.output<typeof schema>;
 
-function onSubmit(payload: FormSubmitEvent<Schema>) {
-  console.log("Registered", payload);
+async function onSubmit(payload: FormSubmitEvent<Schema>) {
+  error.value = "";
+  try {
+    await register(payload.data.name, payload.data.email, payload.data.password);
+    await navigateTo("/");
+  } catch (err: unknown) {
+    const msg = (err as { data?: { message?: string } })?.data?.message;
+    error.value = msg || "Registration failed";
+  }
 }
 </script>
 
@@ -64,11 +74,14 @@ function onSubmit(payload: FormSubmitEvent<Schema>) {
           :schema="schema"
           :fields="fields"
           title="Create an account"
-          description="Get started with Alcoves."
           icon="i-lucide-user-plus"
           :submit="{ label: 'Create account' }"
           @submit="onSubmit"
         >
+          <template #description>
+            <p class="text-sm text-muted">Get started with Alcoves.</p>
+            <p v-if="error" class="text-sm text-error mt-2">{{ error }}</p>
+          </template>
           <template #footer>
             Already have an account?
             <ULink to="/login" class="text-primary font-medium">Sign in</ULink>.

@@ -1,50 +1,34 @@
 <script setup lang="ts">
-import { getMimeTypeFromFilename } from "~/utils/mime-icons";
-
 const props = defineProps<{
   libraryId: string;
+  libraryName: string;
 }>();
 
 const open = defineModel<boolean>("open", { default: false });
-const emit = defineEmits<{
-  complete: [];
-}>();
 
-const uploadFiles = ref<File[]>([]);
-const uploading = ref(false);
+const { addFiles } = useUploadQueue();
+const selectedFiles = ref<File[]>([]);
 
-async function handleUpload() {
-  if (!uploadFiles.value.length) return;
-  uploading.value = true;
-
-  for (const file of uploadFiles.value) {
-    await $fetch(`/api/libraries/${props.libraryId}/files`, {
-      method: "POST",
-      body: {
-        name: file.name,
-        mimeType: getMimeTypeFromFilename(file.name),
-        size: file.size,
-      },
-    });
-  }
-
-  uploading.value = false;
-  uploadFiles.value = [];
-  emit("complete");
+function handleUpload() {
+  if (!selectedFiles.value.length) return;
+  addFiles(selectedFiles.value, props.libraryId, props.libraryName);
+  selectedFiles.value = [];
+  open.value = false;
 }
 
 function handleClose() {
-  if (!uploading.value) {
-    uploadFiles.value = [];
-  }
+  selectedFiles.value = [];
 }
 </script>
 
 <template>
   <UModal v-model:open="open" title="Upload Files" @after:leave="handleClose">
     <template #body>
+      <p class="text-sm text-muted mb-3">
+        Uploading to <strong>{{ libraryName }}</strong>
+      </p>
       <UFileUpload
-        v-model="uploadFiles"
+        v-model="selectedFiles"
         multiple
         label="Drop files here or click to browse"
         description="Any file type accepted"
@@ -55,18 +39,11 @@ function handleClose() {
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <UButton
-          label="Cancel"
-          color="neutral"
-          variant="outline"
-          :disabled="uploading"
-          @click="open = false"
-        />
+        <UButton label="Cancel" color="neutral" variant="outline" @click="open = false" />
         <UButton
           label="Upload"
           icon="i-lucide-upload"
-          :loading="uploading"
-          :disabled="!uploadFiles.length"
+          :disabled="!selectedFiles.length"
           @click="handleUpload"
         />
       </div>
