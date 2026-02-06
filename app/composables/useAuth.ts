@@ -26,9 +26,12 @@ export function useAuth() {
   }
 
   async function logout() {
-    await $fetch("/api/auth/logout", { method: "POST" });
-    await clear();
-    await navigateTo("/login");
+    try {
+      await $fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      await clear();
+      await navigateTo("/login", { replace: true });
+    }
   }
 
   async function updateProfile(updates: { displayName?: string; avatarUrl?: string }) {

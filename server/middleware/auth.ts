@@ -3,7 +3,7 @@ export default defineEventHandler(async (event) => {
 
   // Skip auth for non-API/non-IPX routes, and public auth routes
   const needsAuth = path.startsWith("/api/") || path.startsWith("/_ipx/");
-  if (!needsAuth || path.startsWith("/api/auth/")) return;
+  if (!needsAuth || path.startsWith("/api/auth/") || path.startsWith("/api/_auth/")) return;
 
   // getUserSession triggers the session fetch hook which validates the
   // session token against the database and clears revoked sessions.
