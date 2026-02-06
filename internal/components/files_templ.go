@@ -18,6 +18,7 @@ const (
 	AssetTypeFilePDF string = "pdf"
 	AssetTypeFile    string = "txt"
 	AssetTypeImage   string = "image"
+	AssetTypeVideo   string = "video"
 )
 
 type AssetsData struct {
@@ -106,7 +107,7 @@ func IconAndName(name string, filetype string) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 62, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 63, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -149,7 +150,7 @@ func AssetsContextMenu(idPrefix string) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(idPrefix + "-context-menu")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 70, Col: 33}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 71, Col: 33}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -185,7 +186,7 @@ func AssetsScript() templ.Component {
 			templ_7745c5c3_Var5 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<script>\n\t\t(function() {\n\t\t\t// Selection state stored on body for persistence\n\t\t\tif (!document.body._assetsState) {\n\t\t\t\tdocument.body._assetsState = {\n\t\t\t\t\tselected: new Set(),\n\t\t\t\t\tlastIndex: -1\n\t\t\t\t};\n\t\t\t}\n\t\t\tconst state = document.body._assetsState;\n\n\t\t\t// Selection management\n\t\t\twindow.assetsGetSelected = () => Array.from(state.selected);\n\n\t\t\twindow.assetsSetSelected = function(el, selected) {\n\t\t\t\tconst id = el.dataset.assetId;\n\t\t\t\tif (selected) {\n\t\t\t\t\tstate.selected.add(id);\n\t\t\t\t\tel.classList.add('bg-primary/20');\n\t\t\t\t} else {\n\t\t\t\t\tstate.selected.delete(id);\n\t\t\t\t\tel.classList.remove('bg-primary/20');\n\t\t\t\t}\n\t\t\t};\n\n\t\t\twindow.assetsIsSelected = (el) => state.selected.has(el.dataset.assetId);\n\n\t\t\twindow.assetsClearSelection = function() {\n\t\t\t\tstate.selected.clear();\n\t\t\t\tdocument.querySelectorAll('[data-asset-id]').forEach(el => {\n\t\t\t\t\tel.classList.remove('bg-primary/20');\n\t\t\t\t});\n\t\t\t};\n\n\t\t\twindow.assetsSelectAll = function() {\n\t\t\t\tdocument.querySelectorAll('[data-asset-id]').forEach(el => {\n\t\t\t\t\tstate.selected.add(el.dataset.assetId);\n\t\t\t\t\tel.classList.add('bg-primary/20');\n\t\t\t\t});\n\t\t\t};\n\n\t\t\t// Actions\n\t\t\twindow.assetsDeleteSelected = function() {\n\t\t\t\tconst selected = window.assetsGetSelected();\n\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\tif (confirm(`Move ${selected.length} file(s) to trash?`)) {\n\t\t\t\t\tfetch('/assets/delete', {\n\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\theaders: { 'Content-Type': 'application/json' },\n\t\t\t\t\t\tbody: JSON.stringify(selected)\n\t\t\t\t\t}).then(r => r.ok ? location.reload() : alert('Failed to delete files'))\n\t\t\t\t\t  .catch(() => alert('Failed to delete files'));\n\t\t\t\t}\n\t\t\t};\n\n\t\t\twindow.assetsDownloadSelected = function() {\n\t\t\t\tconst selected = window.assetsGetSelected();\n\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\tlocation.href = selected.length === 1\n\t\t\t\t\t? '/assets/download/' + selected[0]\n\t\t\t\t\t: '/assets/download?ids=' + selected.join(',');\n\t\t\t};\n\n\t\t\t// Open item on double-click\n\t\t\twindow.assetsOpenItem = function(el) {\n\t\t\t\tlocation.href = '/media/' + el.dataset.assetId;\n\t\t\t};\n\n\t\t\t// Click handler for asset items\n\t\t\twindow.assetsHandleClick = function(e, el) {\n\t\t\t\tconst items = Array.from(document.querySelectorAll('[data-asset-id]'));\n\t\t\t\tconst index = items.indexOf(el);\n\n\t\t\t\tif (e.shiftKey && state.lastIndex >= 0) {\n\t\t\t\t\t// Shift+click: select range\n\t\t\t\t\tconst [start, end] = [Math.min(state.lastIndex, index), Math.max(state.lastIndex, index)];\n\t\t\t\t\titems.forEach((item, i) => {\n\t\t\t\t\t\tif (i >= start && i <= end) window.assetsSetSelected(item, true);\n\t\t\t\t\t});\n\t\t\t\t} else if (e.ctrlKey || e.metaKey) {\n\t\t\t\t\t// Ctrl/Cmd+click: toggle\n\t\t\t\t\twindow.assetsSetSelected(el, !window.assetsIsSelected(el));\n\t\t\t\t} else {\n\t\t\t\t\t// Regular click: select only this\n\t\t\t\t\twindow.assetsClearSelection();\n\t\t\t\t\twindow.assetsSetSelected(el, true);\n\t\t\t\t}\n\t\t\t\tstate.lastIndex = index;\n\t\t\t};\n\n\t\t\t// Context menu\n\t\t\twindow.assetsShowContextMenu = function(e, el) {\n\t\t\t\te.preventDefault();\n\t\t\t\t\n\t\t\t\tif (!window.assetsIsSelected(el)) {\n\t\t\t\t\twindow.assetsClearSelection();\n\t\t\t\t\twindow.assetsSetSelected(el, true);\n\t\t\t\t}\n\n\t\t\t\tconst menu = el.closest('[id$=\"-container\"]').querySelector('[id$=\"-context-menu\"]');\n\t\t\t\tif (!menu) return;\n\n\t\t\t\tmenu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';\n\t\t\t\tmenu.style.top = Math.min(e.clientY, window.innerHeight - 100) + 'px';\n\t\t\t\tmenu.classList.remove('hidden');\n\t\t\t};\n\n\t\t\twindow.assetsHideContextMenu = function() {\n\t\t\t\tdocument.querySelectorAll('[id$=\"-context-menu\"]').forEach(m => m.classList.add('hidden'));\n\t\t\t};\n\n\t\t\t// Global listeners (only attach once)\n\t\t\tif (!document.body._assetsListenersAttached) {\n\t\t\t\tdocument.body._assetsListenersAttached = true;\n\n\t\t\t\tdocument.addEventListener('click', function(e) {\n\t\t\t\t\tif (!e.target.closest('[id$=\"-context-menu\"]')) {\n\t\t\t\t\t\twindow.assetsHideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t});\n\n\t\t\t\tdocument.addEventListener('keydown', function(e) {\n\t\t\t\t\tif ((e.ctrlKey || e.metaKey) && e.key === 'a') {\n\t\t\t\t\t\tif (document.querySelectorAll('[data-asset-id]').length > 0) {\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\twindow.assetsSelectAll();\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\t\twindow.assetsClearSelection();\n\t\t\t\t\t\twindow.assetsHideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t\tif (e.key === 'Delete' || e.key === 'Backspace') {\n\t\t\t\t\t\tif (state.selected.size > 0 && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\twindow.assetsDeleteSelected();\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t}\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<script>\n\t\t(function() {\n\t\t\t// Selection state stored on body for persistence\n\t\t\tif (!document.body._assetsState) {\n\t\t\t\tdocument.body._assetsState = {\n\t\t\t\t\tselected: new Set(),\n\t\t\t\t\tlastIndex: -1\n\t\t\t\t};\n\t\t\t}\n\t\t\tconst state = document.body._assetsState;\n\n\t\t\t// Selection management\n\t\t\twindow.assetsGetSelected = () => Array.from(state.selected);\n\n\t\t\t// Update Datastar signal for selection count\n\t\t\tfunction updateSelectionSignal() {\n\t\t\t\tconst signalEl = document.querySelector('[data-signals*=\"selectedCount\"]');\n\t\t\t\tif (signalEl && signalEl._dsSignals) {\n\t\t\t\t\tsignalEl._dsSignals.selectedCount.value = state.selected.size;\n\t\t\t\t}\n\t\t\t}\n\n\t\t\twindow.assetsSetSelected = function(el, selected) {\n\t\t\t\tconst id = el.dataset.assetId;\n\t\t\t\tif (selected) {\n\t\t\t\t\tstate.selected.add(id);\n\t\t\t\t\tel.classList.add('bg-primary/20');\n\t\t\t\t} else {\n\t\t\t\t\tstate.selected.delete(id);\n\t\t\t\t\tel.classList.remove('bg-primary/20');\n\t\t\t\t}\n\t\t\t\tupdateSelectionSignal();\n\t\t\t};\n\n\t\t\twindow.assetsIsSelected = (el) => state.selected.has(el.dataset.assetId);\n\n\t\t\twindow.assetsClearSelection = function() {\n\t\t\t\tstate.selected.clear();\n\t\t\t\tdocument.querySelectorAll('[data-asset-id]').forEach(el => {\n\t\t\t\t\tel.classList.remove('bg-primary/20');\n\t\t\t\t});\n\t\t\t\tupdateSelectionSignal();\n\t\t\t};\n\n\t\t\twindow.assetsSelectAll = function() {\n\t\t\t\tdocument.querySelectorAll('[data-asset-id]').forEach(el => {\n\t\t\t\t\tstate.selected.add(el.dataset.assetId);\n\t\t\t\t\tel.classList.add('bg-primary/20');\n\t\t\t\t});\n\t\t\t\tupdateSelectionSignal();\n\t\t\t};\n\n\t\t\t// Actions\n\t\t\twindow.assetsDeleteSelected = function() {\n\t\t\t\tconst selected = window.assetsGetSelected();\n\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\tif (confirm(`Move ${selected.length} file(s) to trash?`)) {\n\t\t\t\t\tfetch('/assets/delete', {\n\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\theaders: { 'Content-Type': 'application/json' },\n\t\t\t\t\t\tbody: JSON.stringify(selected)\n\t\t\t\t\t}).then(r => r.ok ? location.reload() : alert('Failed to delete files'))\n\t\t\t\t\t  .catch(() => alert('Failed to delete files'));\n\t\t\t\t}\n\t\t\t};\n\n\t\t\twindow.assetsDownloadSelected = function() {\n\t\t\t\tconst selected = window.assetsGetSelected();\n\t\t\t\tif (selected.length === 0) return;\n\n\t\t\t\tlocation.href = selected.length === 1\n\t\t\t\t\t? '/assets/download/' + selected[0]\n\t\t\t\t\t: '/assets/download?ids=' + selected.join(',');\n\t\t\t};\n\n\t\t\t// Open item on double-click\n\t\t\twindow.assetsOpenItem = function(el) {\n\t\t\t\tlocation.href = '/media/' + el.dataset.assetId;\n\t\t\t};\n\n\t\t\t// Click handler for asset items\n\t\t\twindow.assetsHandleClick = function(e, el) {\n\t\t\t\tconst items = Array.from(document.querySelectorAll('[data-asset-id]'));\n\t\t\t\tconst index = items.indexOf(el);\n\n\t\t\t\tif (e.shiftKey && state.lastIndex >= 0) {\n\t\t\t\t\t// Shift+click: select range\n\t\t\t\t\tconst [start, end] = [Math.min(state.lastIndex, index), Math.max(state.lastIndex, index)];\n\t\t\t\t\titems.forEach((item, i) => {\n\t\t\t\t\t\tif (i >= start && i <= end) window.assetsSetSelected(item, true);\n\t\t\t\t\t});\n\t\t\t\t} else if (e.ctrlKey || e.metaKey) {\n\t\t\t\t\t// Ctrl/Cmd+click: toggle\n\t\t\t\t\twindow.assetsSetSelected(el, !window.assetsIsSelected(el));\n\t\t\t\t} else {\n\t\t\t\t\t// Regular click: select only this\n\t\t\t\t\twindow.assetsClearSelection();\n\t\t\t\t\twindow.assetsSetSelected(el, true);\n\t\t\t\t}\n\t\t\t\tstate.lastIndex = index;\n\t\t\t};\n\n\t\t\t// Context menu\n\t\t\twindow.assetsShowContextMenu = function(e, el) {\n\t\t\t\te.preventDefault();\n\t\t\t\t\n\t\t\t\tif (!window.assetsIsSelected(el)) {\n\t\t\t\t\twindow.assetsClearSelection();\n\t\t\t\t\twindow.assetsSetSelected(el, true);\n\t\t\t\t}\n\n\t\t\t\tconst menu = el.closest('[id$=\"-container\"]').querySelector('[id$=\"-context-menu\"]');\n\t\t\t\tif (!menu) return;\n\n\t\t\t\tmenu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';\n\t\t\t\tmenu.style.top = Math.min(e.clientY, window.innerHeight - 100) + 'px';\n\t\t\t\tmenu.classList.remove('hidden');\n\t\t\t};\n\n\t\t\twindow.assetsHideContextMenu = function() {\n\t\t\t\tdocument.querySelectorAll('[id$=\"-context-menu\"]').forEach(m => m.classList.add('hidden'));\n\t\t\t};\n\n\t\t\t// Global listeners (only attach once)\n\t\t\tif (!document.body._assetsListenersAttached) {\n\t\t\t\tdocument.body._assetsListenersAttached = true;\n\n\t\t\t\tdocument.addEventListener('click', function(e) {\n\t\t\t\t\tif (!e.target.closest('[id$=\"-context-menu\"]')) {\n\t\t\t\t\t\twindow.assetsHideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t});\n\n\t\t\t\tdocument.addEventListener('keydown', function(e) {\n\t\t\t\t\tif ((e.ctrlKey || e.metaKey) && e.key === 'a') {\n\t\t\t\t\t\tif (document.querySelectorAll('[data-asset-id]').length > 0) {\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\twindow.assetsSelectAll();\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\t\twindow.assetsClearSelection();\n\t\t\t\t\t\twindow.assetsHideContextMenu();\n\t\t\t\t\t}\n\t\t\t\t\tif (e.key === 'Delete' || e.key === 'Backspace') {\n\t\t\t\t\t\tif (state.selected.size > 0 && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {\n\t\t\t\t\t\t\te.preventDefault();\n\t\t\t\t\t\t\twindow.assetsDeleteSelected();\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t}\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -249,7 +250,7 @@ func AssetsList(data AssetsData) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(asset.PublicID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 266, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 278, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -270,7 +271,7 @@ func AssetsList(data AssetsData) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(formatFileSize(asset.Size))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 276, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 288, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -283,7 +284,7 @@ func AssetsList(data AssetsData) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(formatDate(asset))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 278, Col: 30}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 290, Col: 30}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -366,7 +367,7 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(asset.PublicID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 309, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 321, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -384,7 +385,7 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(getAssetURL(asset.PublicID, 400))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 318, Col: 47}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 330, Col: 47}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -397,7 +398,7 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(asset.Filename)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 319, Col: 29}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 331, Col: 29}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -423,6 +424,11 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
+					case AssetTypeVideo:
+						templ_7745c5c3_Err = VideoFileIcon("48", "48", "1.5").Render(ctx, templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
 					default:
 						templ_7745c5c3_Err = FileIcon("48", "48", "1.5").Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
@@ -441,7 +447,7 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(asset.Filename)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 339, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 353, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -454,7 +460,7 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(asset.Filename)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 340, Col: 24}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 354, Col: 24}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -467,7 +473,7 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(formatFileSize(asset.Size))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 343, Col: 42}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 357, Col: 42}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -480,7 +486,7 @@ func AssetsThumbnail(data AssetsData) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(formatDate(asset))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 344, Col: 33}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `files.templ`, Line: 358, Col: 33}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {

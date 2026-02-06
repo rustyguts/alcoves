@@ -10,6 +10,7 @@ const (
 	AssetTypeFilePDF string = "pdf"
 	AssetTypeFile    string = "txt"
 	AssetTypeImage   string = "image"
+	AssetTypeVideo   string = "video"
 )
 
 type AssetsData struct {
@@ -104,6 +105,14 @@ templ AssetsScript() {
 			// Selection management
 			window.assetsGetSelected = () => Array.from(state.selected);
 
+			// Update Datastar signal for selection count
+			function updateSelectionSignal() {
+				const signalEl = document.querySelector('[data-signals*="selectedCount"]');
+				if (signalEl && signalEl._dsSignals) {
+					signalEl._dsSignals.selectedCount.value = state.selected.size;
+				}
+			}
+
 			window.assetsSetSelected = function(el, selected) {
 				const id = el.dataset.assetId;
 				if (selected) {
@@ -113,6 +122,7 @@ templ AssetsScript() {
 					state.selected.delete(id);
 					el.classList.remove('bg-primary/20');
 				}
+				updateSelectionSignal();
 			};
 
 			window.assetsIsSelected = (el) => state.selected.has(el.dataset.assetId);
@@ -122,6 +132,7 @@ templ AssetsScript() {
 				document.querySelectorAll('[data-asset-id]').forEach(el => {
 					el.classList.remove('bg-primary/20');
 				});
+				updateSelectionSignal();
 			};
 
 			window.assetsSelectAll = function() {
@@ -129,6 +140,7 @@ templ AssetsScript() {
 					state.selected.add(el.dataset.assetId);
 					el.classList.add('bg-primary/20');
 				});
+				updateSelectionSignal();
 			};
 
 			// Actions
@@ -328,6 +340,8 @@ templ AssetsThumbnail(data AssetsData) {
 												@TextFileIcon("48", "48", "1.5")
 											case AssetTypeImage:
 												@ImageFileIcon("48", "48", "1.5")
+											case AssetTypeVideo:
+												@VideoFileIcon("48", "48", "1.5")
 											default:
 												@FileIcon("48", "48", "1.5")
 										}
