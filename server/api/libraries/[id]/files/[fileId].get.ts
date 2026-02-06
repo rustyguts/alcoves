@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   const rangeHeader = getRequestHeader(event, "range");
   if (rangeHeader) {
     const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
-    if (match) {
+    if (match && match[1]) {
       const start = parseInt(match[1], 10);
       const end = match[2] ? parseInt(match[2], 10) : totalSize - 1;
 
@@ -50,6 +50,6 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  setHeader(event, "Content-Length", String(totalSize));
+  setHeader(event, "Content-Length", totalSize);
   return sendStream(event, createReadStream(blobPath));
 });

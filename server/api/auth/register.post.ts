@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
   // First user is owner, everyone else is member
   const [userCount] = await db.select({ value: count() }).from(schema.users);
-  const role = userCount.value === 0 ? "owner" : "member";
+  const role = userCount?.value === 0 ? "owner" : "member";
 
   const passwordHash = await hashUserPassword(body.password);
 
@@ -46,6 +46,10 @@ export default defineEventHandler(async (event) => {
       avatarUrl: schema.users.avatarUrl,
       role: schema.users.role,
     });
+
+  if (!user) {
+    throw createError({ statusCode: 500, statusMessage: "Failed to create user" });
+  }
 
   // Create credentials account record
   await db.insert(schema.accounts).values({

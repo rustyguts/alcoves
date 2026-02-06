@@ -25,13 +25,18 @@ const showTrashed = ref(false);
 
 // Paginated file state
 // Initial SSR-compatible load - must come before refs that depend on it
+// Forward browser cookies during SSR so auth works for $fetch calls inside useAsyncData
+const ssrHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
 const { data: _init } = await useAsyncData(
-  () => `library-init-${libraryId.value}`,
+  `library-init-${libraryId.value}`,
   async () => {
     const [result, trashedResult] = await Promise.all([
-      $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`),
+      $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, {
+        headers: ssrHeaders,
+      }),
       $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, {
         query: { trashed: "true", limit: "1" },
+        headers: ssrHeaders,
       }),
     ]);
     return { result, trashedCount: trashedResult.totalCount };
@@ -53,7 +58,7 @@ async function fetchPage(cursor?: string): Promise<PaginatedFiles> {
   const query: Record<string, string> = {};
   if (showTrashed.value) query.trashed = "true";
   if (cursor) query.cursor = cursor;
-  return $fetch(`/api/libraries/${libraryId.value}/files`, { query });
+  return $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, { query });
 }
 
 async function loadMore() {
@@ -310,17 +315,17 @@ function getContextMenuItems(fileId: string): ContextMenuItem[][] {
       },
       ...(count === 1
         ? [
-            {
-              label: "Rename",
-              icon: "i-lucide-pencil",
-              onSelect() {
-                const file = files.value.find((f) => f.id === targetIds[0]);
-                if (!file) return;
-                renamingFileId.value = file.id;
-                renameValue.value = file.name;
-              },
+          {
+            label: "Rename",
+            icon: "i-lucide-pencil",
+            onSelect() {
+              const file = files.value.find((f) => f.id === targetIds[0]);
+              if (!file) return;
+              renamingFileId.value = file.id;
+              renameValue.value = file.name;
             },
-          ]
+          },
+        ]
         : []),
     ],
     [
@@ -379,74 +384,33 @@ const purgeFileCount = computed(() =>
   <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between h-10">
       <div class="flex items-center gap-2">
-        <h1
-          v-if="!editingName"
-          class="text-xl font-semibold cursor-pointer hover:text-primary"
-          @click="startLibraryRename"
-        >
+        <h1 v-if="!editingName" class="text-xl font-semibold cursor-pointer hover:text-primary"
+          @click="startLibraryRename">
           {{ library?.name }}
         </h1>
-        <UInput
-          v-else
-          v-model="editName"
-          autofocus
-          size="lg"
-          @blur="saveLibraryName"
-          @keydown.enter="saveLibraryName"
-          @keydown.escape="editingName = false"
-        />
+        <UInput v-else v-model="editName" autofocus size="lg" @blur="saveLibraryName" @keydown.enter="saveLibraryName"
+          @keydown.escape="editingName = false" />
       </div>
       <div class="flex items-center gap-2">
-        <UButton
-          v-if="showTrashed && !filesPending && totalCount > 0"
-          label="Permanently Delete All"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          size="sm"
-          @click="openPurgeAllModal()"
-        />
-        <UButton
-          v-if="canDeleteLibrary"
-          label="Delete Library"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          size="sm"
-          @click="deleteLibraryOpen = true"
-        />
-        <UButton
-          v-if="!showTrashed"
-          icon="i-lucide-upload"
-          label="Upload"
-          @click="uploadOpen = true"
-        />
+        <UButton v-if="showTrashed && !filesPending && totalCount > 0" label="Permanently Delete All"
+          icon="i-lucide-trash-2" color="error" variant="soft" @click="openPurgeAllModal()" />
+        <UButton v-if="canDeleteLibrary" label="Delete Library" icon="i-lucide-trash-2" color="error" variant="soft"
+          @click="deleteLibraryOpen = true" />
+        <UButton v-if="!showTrashed" icon="i-lucide-upload" label="Upload" @click="uploadOpen = true" />
       </div>
     </div>
 
     <div class="flex items-center gap-1">
-      <UButton
-        label="Files"
-        icon="i-lucide-folder"
-        :variant="!showTrashed ? 'soft' : 'ghost'"
-        :color="!showTrashed ? 'primary' : 'neutral'"
-        size="sm"
-        @click="
+      <UButton label="Files" icon="i-lucide-folder" :variant="!showTrashed ? 'soft' : 'ghost'"
+        :color="!showTrashed ? 'primary' : 'neutral'" size="sm" @click="
           userToggledView = true;
-          showTrashed = false;
-        "
-      />
-      <UButton
-        label="Trash"
-        icon="i-lucide-trash-2"
-        :variant="showTrashed ? 'soft' : 'ghost'"
-        :color="showTrashed ? 'primary' : 'neutral'"
-        size="sm"
-        @click="
+        showTrashed = false;
+        " />
+      <UButton label="Trash" icon="i-lucide-trash-2" :variant="showTrashed ? 'soft' : 'ghost'"
+        :color="showTrashed ? 'primary' : 'neutral'" size="sm" @click="
           userToggledView = true;
-          showTrashed = true;
-        "
-      />
+        showTrashed = true;
+        " />
     </div>
 
     <div class="border border-default rounded-lg overflow-hidden">
@@ -466,35 +430,22 @@ const purgeFileCount = computed(() =>
         <tbody class="select-none">
           <template v-for="file in files" :key="file.id">
             <UContextMenu :items="getContextMenuItems(file.id)">
-              <tr
-                class="border-b border-default last:border-b-0 cursor-pointer transition-colors"
+              <tr class="border-b border-default last:border-b-0 cursor-pointer transition-colors"
                 :class="selected.has(file.id) ? 'bg-primary/10' : 'hover:bg-elevated/50'"
-                @click="handleRowClick(file.id, $event)"
-                @dblclick="openPreview(file)"
-              >
+                @click="handleRowClick(file.id, $event)" @dblclick="openPreview(file)">
                 <td class="px-3 py-2">
                   <div class="flex items-center justify-center">
-                    <UIcon
-                      :name="getMimeIcon(file.mimeType)"
-                      class="size-5 text-muted"
-                      :class="showTrashed ? 'opacity-50' : ''"
-                    />
+                    <UIcon :name="getMimeIcon(file.mimeType)" class="size-5 text-muted"
+                      :class="showTrashed ? 'opacity-50' : ''" />
                   </div>
                 </td>
                 <td class="px-3 py-2">
-                  <UInput
-                    v-if="renamingFileId === file.id"
-                    v-model="renameValue"
-                    size="sm"
-                    autofocus
-                    @blur="saveFileRename(file.id)"
-                    @keydown.enter="saveFileRename(file.id)"
-                    @keydown.escape="renamingFileId = null"
-                    @click.stop
-                  />
+                  <UInput v-if="renamingFileId === file.id" v-model="renameValue" size="sm" autofocus
+                    @blur="saveFileRename(file.id)" @keydown.enter="saveFileRename(file.id)"
+                    @keydown.escape="renamingFileId = null" @click.stop />
                   <span v-else class="text-sm" :class="showTrashed ? 'opacity-60' : ''">{{
                     getFileNameWithoutExtension(file.name)
-                  }}</span>
+                    }}</span>
                 </td>
                 <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
                   {{
@@ -512,13 +463,9 @@ const purgeFileCount = computed(() =>
           <tr v-if="!files.length && !filesPending">
             <td colspan="4">
               <div class="flex flex-col items-center justify-center py-16 px-4">
-                <div
-                  class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
-                >
-                  <UIcon
-                    :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
-                    class="size-8 text-(--ui-text-muted)"
-                  />
+                <div class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4">
+                  <UIcon :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
+                    class="size-8 text-(--ui-text-muted)" />
                 </div>
                 <p class="text-lg font-medium text-foreground mb-1">
                   {{ showTrashed ? "Trash is empty" : "No files yet" }}
@@ -530,12 +477,7 @@ const purgeFileCount = computed(() =>
                       : "Upload some files to get started with your library"
                   }}
                 </p>
-                <UButton
-                  v-if="!showTrashed"
-                  icon="i-lucide-upload"
-                  label="Upload files"
-                  @click="uploadOpen = true"
-                />
+                <UButton v-if="!showTrashed" icon="i-lucide-upload" label="Upload files" @click="uploadOpen = true" />
               </div>
             </td>
           </tr>
@@ -547,26 +489,16 @@ const purgeFileCount = computed(() =>
       </div>
     </div>
 
-    <UploadModal
-      v-model:open="uploadOpen"
-      :library-id="libraryId"
-      :library-name="library?.name ?? 'Library'"
-    />
+    <UploadModal v-model:open="uploadOpen" :library-id="libraryId" :library-name="library?.name ?? 'Library'" />
 
-    <FilePreview
-      v-if="previewFile"
-      v-model:open="previewOpen"
-      :file="previewFile"
-      :library-id="libraryId"
-    />
+    <FilePreview v-if="previewFile" v-model:open="previewOpen" :file="previewFile" :library-id="libraryId" />
 
     <UModal v-model:open="deleteLibraryOpen" title="Delete Library">
       <template #body>
         <div class="flex flex-col gap-4">
           <p class="text-sm text-muted">
             This will permanently delete the library
-            <strong>{{ library?.name }}</strong
-            >. This action cannot be undone.
+            <strong>{{ library?.name }}</strong>. This action cannot be undone.
           </p>
           <UFormField label="Type 'delete' to confirm">
             <UInput v-model="deleteLibraryConfirmation" placeholder="delete" class="w-full" />
@@ -575,19 +507,9 @@ const purgeFileCount = computed(() =>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
-            @click="deleteLibraryOpen = false"
-          />
-          <UButton
-            label="Delete Library"
-            color="error"
-            icon="i-lucide-trash-2"
-            :disabled="deleteLibraryConfirmation !== 'delete'"
-            @click="deleteLibrary"
-          />
+          <UButton label="Cancel" color="neutral" variant="outline" @click="deleteLibraryOpen = false" />
+          <UButton label="Delete Library" color="error" icon="i-lucide-trash-2"
+            :disabled="deleteLibraryConfirmation !== 'delete'" @click="deleteLibrary" />
         </div>
       </template>
     </UModal>
@@ -607,19 +529,9 @@ const purgeFileCount = computed(() =>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
-            @click="purgeModalOpen = false"
-          />
-          <UButton
-            label="Delete Permanently"
-            color="error"
-            icon="i-lucide-trash-2"
-            :disabled="purgeConfirmation !== 'delete'"
-            @click="handlePermanentDelete"
-          />
+          <UButton label="Cancel" color="neutral" variant="outline" @click="purgeModalOpen = false" />
+          <UButton label="Delete Permanently" color="error" icon="i-lucide-trash-2"
+            :disabled="purgeConfirmation !== 'delete'" @click="handlePermanentDelete" />
         </div>
       </template>
     </UModal>

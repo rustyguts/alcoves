@@ -68,7 +68,7 @@ export default defineOAuthGoogleEventHandler({
       } else {
         // Create new user
         const [userCount] = await db.select({ value: count() }).from(schema.users);
-        const role = userCount.value === 0 ? "owner" : "member";
+        const role = userCount?.value === 0 ? "owner" : "member";
 
         const [newUser] = await db
           .insert(schema.users)
@@ -86,6 +86,10 @@ export default defineOAuthGoogleEventHandler({
             role: schema.users.role,
           });
 
+        if (!newUser) {
+          return sendRedirect(event, "/login?error=google");
+        }
+
         // Create Google account link
         await db.insert(schema.accounts).values({
           userId: newUser.id,
@@ -102,6 +106,10 @@ export default defineOAuthGoogleEventHandler({
 
         user = newUser;
       }
+    }
+
+    if (!user) {
+      return sendRedirect(event, "/login?error=google");
     }
 
     // Create database session and set cookie session

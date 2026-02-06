@@ -3,7 +3,7 @@ import { db, schema } from "~~/server/database";
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event);
-  const userId = session.user.id;
+  const userId = session.user!.id;
   const sessionId = getRouterParam(event, "id");
 
   if (!sessionId) {

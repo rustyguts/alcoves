@@ -1,4 +1,4 @@
-import { eq, or, exists } from "drizzle-orm";
+import { eq, or, exists, and } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
 
 export default defineEventHandler(async (event) => {
@@ -21,8 +21,12 @@ export default defineEventHandler(async (event) => {
           db
             .select()
             .from(schema.libraryMembers)
-            .where(eq(schema.libraryMembers.libraryId, schema.libraries.id))
-            .where(eq(schema.libraryMembers.userId, userId)),
+            .where(
+              and(
+                eq(schema.libraryMembers.libraryId, schema.libraries.id),
+                eq(schema.libraryMembers.userId, userId),
+              ),
+            ),
         ),
       ),
     )

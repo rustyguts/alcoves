@@ -3,6 +3,7 @@ import { db, schema } from "~~/server/database";
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event);
+  const session = await getUserSession(event);
   const body = await readBody<{ displayName?: string; avatarUrl?: string }>(event);
 
   const updates: Record<string, string> = {};
@@ -17,7 +18,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "No fields to update" });
   }
 
-  const [user] = await db
+  const [updatedUser] = await db
     .update(schema.users)
     .set(updates)
     .where(eq(schema.users.id, userId))
@@ -29,16 +30,21 @@ export default defineEventHandler(async (event) => {
       role: schema.users.role,
     });
 
+  if (!updatedUser) {
+    throw createError({ statusCode: 404, statusMessage: "User not found" });
+  }
+
   // Update the session with fresh user data
   await setUserSession(event, {
     user: {
-      id: user.id,
-      email: user.email,
-      displayName: user.displayName,
-      avatarUrl: user.avatarUrl,
-      role: user.role,
+      id: updatedUser.id,
+      email: updatedUser.email,
+      displayName: updatedUser.displayName,
+      avatarUrl: updatedUser.avatarUrl,
+      role: updatedUser.role,
     },
+    sessionToken: session.sessionToken,
   });
 
-  return user;
+  return updatedUser;
 });

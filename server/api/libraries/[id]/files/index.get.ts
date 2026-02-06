@@ -69,5 +69,15 @@ export default defineEventHandler(async (event): Promise<PaginatedFiles> => {
     nextCursor = btoa(JSON.stringify({ sortValue, id: lastFile.id }));
   }
 
-  return { files, nextCursor, totalCount };
+  return {
+    files: files.map((f) => ({
+      ...f,
+      originalCreatedAt: f.originalCreatedAt ? f.originalCreatedAt.toISOString() : null,
+      trashedAt: f.trashedAt ? f.trashedAt.toISOString() : null,
+      createdAt: f.createdAt.toISOString(),
+      updatedAt: f.updatedAt.toISOString(),
+    })),
+    nextCursor,
+    totalCount,
+  };
 });

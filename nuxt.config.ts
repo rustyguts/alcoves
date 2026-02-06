@@ -6,6 +6,9 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ["@nuxt/ui", "@nuxt/image", "nuxt-auth-utils"],
   css: ["~/assets/css/main.css"],
+  typescript: {
+    typeCheck: true,
+  },
   vue: {
     compilerOptions: {
       isCustomElement: (tag: string) => tag.startsWith("media-"),

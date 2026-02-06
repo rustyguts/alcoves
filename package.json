@@ -13,6 +13,7 @@
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
+    "typecheck": "nuxt typecheck",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -41,7 +42,9 @@
     "husky": "^9.1.7",
     "oxfmt": "^0.28.0",
     "oxlint": "^1.43.0",
-    "oxlint-tsgolint": "^0.11.4"
+    "oxlint-tsgolint": "^0.11.4",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.2.4"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs}": "bun run lint && bun run fmt"

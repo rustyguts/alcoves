@@ -23,10 +23,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Cannot delete your default library" });
   }
 
-  const [{ total }] = await db
+  const fileCountResult = await db
     .select({ total: count() })
     .from(schema.files)
     .where(eq(schema.files.libraryId, id));
+
+  const total = fileCountResult[0]?.total ?? 0;
 
   if (total > 0) {
     throw createError({
