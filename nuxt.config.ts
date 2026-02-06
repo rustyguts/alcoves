@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
-  modules: ["@nuxt/ui", "@nuxt/image", "nuxt-auth-utils"],
+  modules: ["@nuxt/ui", "nuxt-auth-utils"],
   css: ["~/assets/css/main.css"],
   typescript: {
     typeCheck: true,
@@ -12,17 +12,6 @@ export default defineNuxtConfig({
   vue: {
     compilerOptions: {
       isCustomElement: (tag: string) => tag.startsWith("media-"),
-    },
-  },
-  image: {
-    format: ["avif", "webp", "jpeg"],
-    ipx: {
-      sharpOptions: {
-        autoOrient: true,
-      },
-      fs: {
-        dir: resolve(process.env.ALCOVES_STORAGE_PATH || "./data", "files"),
-      },
     },
   },
   runtimeConfig: {

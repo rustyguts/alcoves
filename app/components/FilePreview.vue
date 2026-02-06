@@ -17,8 +17,6 @@ const fileUrl = computed(
   () => `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`,
 );
 
-const imgSrc = computed(() => `/${props.libraryId}/${props.file.id}/blob`);
-
 const mediaSrc = computed(() => ({
   src: fileUrl.value,
   type: props.file.mimeType,
@@ -114,12 +112,11 @@ function downloadFile() {
 
         <!-- Image -->
         <div v-else-if="previewType === 'image'" class="flex justify-center overflow-hidden">
-          <NuxtImg
-            :src="imgSrc"
+          <AlcovesImage
+            :library-id="libraryId"
+            :file-id="file.id"
             :alt="file.name"
-            width="896"
-            quality="80"
-            fit="inside"
+            :width="896"
             class="max-h-[70vh] max-w-full object-contain rounded block"
           />
         </div>
