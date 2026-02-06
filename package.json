@@ -24,7 +24,6 @@
     "bcryptjs": "^3.0.3",
     "busboy": "^1.6.0",
     "drizzle-orm": "^0.45.1",
-    "node-gyp": "^12.2.0",
     "nuxt": "^4.3.0",
     "postgres": "^3.4.8",
     "tailwindcss": "^4.1.18",
