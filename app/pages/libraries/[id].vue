@@ -24,12 +24,30 @@ const { data: library, refresh: refreshLibrary } = await useFetch<Library>(
 const showTrashed = ref(false);
 
 // Paginated file state
-const files = ref<LibraryFile[]>([]);
-const nextCursor = ref<string | null>(null);
-const totalCount = ref(0);
-const trashedCount = ref(0);
+// Initial SSR-compatible load - must come before refs that depend on it
+const { data: _init } = await useAsyncData(
+  () => `library-init-${libraryId.value}`,
+  async () => {
+    const [result, trashedResult] = await Promise.all([
+      $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`),
+      $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, {
+        query: { trashed: "true", limit: "1" },
+      }),
+    ]);
+    return { result, trashedCount: trashedResult.totalCount };
+  },
+  { watch: [libraryId] },
+);
+
+// Initialize refs with SSR data if available
+const files = ref<LibraryFile[]>(_init.value?.result.files ?? []);
+const nextCursor = ref<string | null>(_init.value?.result.nextCursor ?? null);
+const totalCount = ref(_init.value?.result.totalCount ?? 0);
+const trashedCount = ref(_init.value?.trashedCount ?? 0);
 const loadingMore = ref(false);
-const filesPending = ref(true);
+const filesPending = ref(!_init.value);
+
+const selected = reactive(new Set<string>());
 
 async function fetchPage(cursor?: string): Promise<PaginatedFiles> {
   const query: Record<string, string> = {};
@@ -66,22 +84,7 @@ async function resetAndFetch() {
   }
 }
 
-// Initial SSR-compatible load
-const { data: _init } = await useAsyncData(
-  () => `library-init-${libraryId.value}`,
-  async () => {
-    const [result, trashedResult] = await Promise.all([
-      $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`),
-      $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, {
-        query: { trashed: "true", limit: "1" },
-      }),
-    ]);
-    return { result, trashedCount: trashedResult.totalCount };
-  },
-  { watch: [libraryId] },
-);
-
-// Sync from initial/navigation load
+// Sync from SSR initial data
 watchEffect(() => {
   if (!_init.value) return;
   files.value = _init.value.result.files;
@@ -89,10 +92,8 @@ watchEffect(() => {
   totalCount.value = _init.value.result.totalCount;
   trashedCount.value = _init.value.trashedCount;
   filesPending.value = false;
-  showTrashed.value = false;
 });
 
-const selected = reactive(new Set<string>());
 const lastClickedIndex = ref<number | null>(null);
 const editingName = ref(false);
 const editName = ref("");
@@ -126,9 +127,20 @@ onLibraryUploadComplete(libraryId.value, () => {
   if (!showTrashed.value) resetAndFetch();
 });
 
-// View toggle: reset and refetch
+// Track if view toggle was user-initiated
+const userToggledView = ref(false);
+
+// Reset view when navigating between libraries (without triggering refetch)
+watch(libraryId, () => {
+  showTrashed.value = false;
+});
+
+// View toggle: reset and refetch only on user toggle
 watch(showTrashed, () => {
-  resetAndFetch();
+  if (userToggledView.value) {
+    userToggledView.value = false;
+    resetAndFetch();
+  }
 });
 
 // Infinite scroll observer
@@ -419,7 +431,10 @@ const purgeFileCount = computed(() =>
         :variant="!showTrashed ? 'soft' : 'ghost'"
         :color="!showTrashed ? 'primary' : 'neutral'"
         size="sm"
-        @click="showTrashed = false"
+        @click="
+          userToggledView = true;
+          showTrashed = false;
+        "
       />
       <UButton
         label="Trash"
@@ -427,7 +442,10 @@ const purgeFileCount = computed(() =>
         :variant="showTrashed ? 'soft' : 'ghost'"
         :color="showTrashed ? 'primary' : 'neutral'"
         size="sm"
-        @click="showTrashed = true"
+        @click="
+          userToggledView = true;
+          showTrashed = true;
+        "
       />
     </div>
 
@@ -492,10 +510,33 @@ const purgeFileCount = computed(() =>
             </UContextMenu>
           </template>
           <tr v-if="!files.length && !filesPending">
-            <td colspan="4" class="px-3 py-12 text-center text-muted text-sm">
-              {{
-                showTrashed ? "Trash is empty." : "No files yet. Upload some files to get started."
-              }}
+            <td colspan="4">
+              <div class="flex flex-col items-center justify-center py-16 px-4">
+                <div
+                  class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
+                >
+                  <UIcon
+                    :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
+                    class="size-8 text-(--ui-text-muted)"
+                  />
+                </div>
+                <p class="text-lg font-medium text-foreground mb-1">
+                  {{ showTrashed ? "Trash is empty" : "No files yet" }}
+                </p>
+                <p class="text-sm text-muted mb-4">
+                  {{
+                    showTrashed
+                      ? "Deleted files will appear here"
+                      : "Upload some files to get started with your library"
+                  }}
+                </p>
+                <UButton
+                  v-if="!showTrashed"
+                  icon="i-lucide-upload"
+                  label="Upload files"
+                  @click="uploadOpen = true"
+                />
+              </div>
             </td>
           </tr>
         </tbody>

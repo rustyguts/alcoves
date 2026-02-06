@@ -82,6 +82,18 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
             <p class="text-sm text-muted">Get started with Alcoves.</p>
             <p v-if="error" class="text-sm text-error mt-2">{{ error }}</p>
           </template>
+          <template #header>
+            <UButton
+              label="Continue with Google"
+              icon="i-lucide-chrome"
+              color="neutral"
+              variant="outline"
+              block
+              to="/api/auth/google"
+              external
+            />
+            <USeparator label="or" />
+          </template>
           <template #footer>
             Already have an account?
             <ULink to="/login" class="text-primary font-medium">Sign in</ULink>.

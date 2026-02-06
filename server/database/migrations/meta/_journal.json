@@ -8,6 +8,13 @@
       "when": 1770392190377,
       "tag": "0000_bored_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770410820589,
+      "tag": "0001_confused_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }

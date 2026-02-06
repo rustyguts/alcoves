@@ -149,13 +149,22 @@ const navbarTitle = computed(() => {
         <UDashboardNavbar :title="navbarTitle">
           <template #right>
             <UDropdownMenu :items="userMenuItems">
-              <UButton
-                icon="i-lucide-user"
-                color="neutral"
-                variant="ghost"
-                :label="user?.displayName ?? 'User'"
-                trailing-icon="i-lucide-chevron-down"
-              />
+              <button
+                class="flex items-center gap-2 rounded-full p-1 mr-3 hover:bg-(--ui-bg-elevated)/50 transition-colors"
+              >
+                <div
+                  v-if="user?.avatarUrl"
+                  class="size-8 rounded-full overflow-hidden border border-default"
+                >
+                  <img :src="user.avatarUrl" alt="" class="size-full object-cover" />
+                </div>
+                <div
+                  v-else
+                  class="size-8 rounded-full bg-(--ui-primary) text-white flex items-center justify-center font-semibold text-sm"
+                >
+                  {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
+                </div>
+              </button>
             </UDropdownMenu>
           </template>
         </UDashboardNavbar>

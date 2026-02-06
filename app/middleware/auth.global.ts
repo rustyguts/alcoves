@@ -4,17 +4,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const publicRoutes = ["/login", "/register"];
   if (publicRoutes.includes(to.path)) return;
 
-  const { user, fetchUser } = useAuth();
+  const { loggedIn, user, fetch: fetchSession } = useUserSession();
 
-  if (!user.value) {
-    await fetchUser();
+  if (!loggedIn.value) {
+    await fetchSession();
   }
 
-  if (!user.value) {
+  if (!loggedIn.value) {
     return navigateTo("/login");
   }
 
-  if (ownerRoutes.includes(to.path) && user.value.role !== "owner") {
+  if (ownerRoutes.includes(to.path) && user.value?.role !== "owner") {
     return navigateTo("/");
   }
 });

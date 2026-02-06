@@ -5,12 +5,13 @@ export default defineEventHandler(async (event) => {
   const needsAuth = path.startsWith("/api/") || path.startsWith("/_ipx/");
   if (!needsAuth || path.startsWith("/api/auth/")) return;
 
-  const session = await getAuthSession(event);
-  const userId = session.data.userId as string | undefined;
+  // getUserSession triggers the session fetch hook which validates the
+  // session token against the database and clears revoked sessions.
+  const session = await getUserSession(event);
 
-  if (!userId) {
+  if (!session?.user?.id) {
     throw createError({ statusCode: 401, statusMessage: "Unauthorized" });
   }
 
-  event.context.userId = userId;
+  event.context.userId = session.user.id;
 });

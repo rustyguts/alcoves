@@ -7,7 +7,12 @@ definePageMeta({
 });
 
 const { login } = useAuth();
+const route = useRoute();
 const error = ref("");
+
+if (route.query.error === "google") {
+  error.value = "Google sign-in failed. Please try again.";
+}
 
 const fields: AuthFormField[] = [
   {
@@ -60,6 +65,18 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
           <template #description>
             <p class="text-sm text-muted">Sign in to your account to continue.</p>
             <p v-if="error" class="text-sm text-error mt-2">{{ error }}</p>
+          </template>
+          <template #header>
+            <UButton
+              label="Continue with Google"
+              icon="i-lucide-chrome"
+              color="neutral"
+              variant="outline"
+              block
+              to="/api/auth/google"
+              external
+            />
+            <USeparator label="or" />
           </template>
           <template #footer>
             Don't have an account?

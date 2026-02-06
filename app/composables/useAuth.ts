@@ -7,37 +7,27 @@ export interface AuthUser {
 }
 
 export function useAuth() {
-  const user = useState<AuthUser | null>("auth-user", () => null);
-
-  async function fetchUser() {
-    try {
-      user.value = await $fetch<AuthUser>("/api/auth/me");
-    } catch {
-      user.value = null;
-    }
-  }
+  const { user, loggedIn, fetch: fetchSession, clear } = useUserSession();
 
   async function login(email: string, password: string) {
-    const data = await $fetch<AuthUser>("/api/auth/login", {
+    await $fetch("/api/auth/login", {
       method: "POST",
       body: { email, password },
     });
-    user.value = data;
-    return data;
+    await fetchSession();
   }
 
   async function register(name: string, email: string, password: string) {
-    const data = await $fetch<AuthUser>("/api/auth/register", {
+    await $fetch("/api/auth/register", {
       method: "POST",
       body: { name, email, password },
     });
-    user.value = data;
-    return data;
+    await fetchSession();
   }
 
   async function logout() {
     await $fetch("/api/auth/logout", { method: "POST" });
-    user.value = null;
+    await clear();
     await navigateTo("/login");
   }
 
@@ -46,9 +36,9 @@ export function useAuth() {
       method: "PATCH",
       body: updates,
     });
-    user.value = data;
+    await fetchSession();
     return data;
   }
 
-  return { user, fetchUser, login, register, logout, updateProfile };
+  return { user, loggedIn, login, register, logout, updateProfile };
 }

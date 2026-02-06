@@ -1,5 +1,4 @@
 import { db, schema } from "~~/server/database";
-import { requireOwner } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
   await requireOwner(event);

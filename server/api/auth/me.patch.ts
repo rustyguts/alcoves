@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
-import { requireUserId } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event);
@@ -29,6 +28,17 @@ export default defineEventHandler(async (event) => {
       avatarUrl: schema.users.avatarUrl,
       role: schema.users.role,
     });
+
+  // Update the session with fresh user data
+  await setUserSession(event, {
+    user: {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      role: user.role,
+    },
+  });
 
   return user;
 });
