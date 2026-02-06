@@ -1,22 +1,33 @@
-import { inArray, and, isNotNull } from "drizzle-orm";
+import { inArray, and, eq, isNotNull } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ fileIds: string[] }>(event);
+  const libraryId = getRouterParam(event, "id")!;
+  const body = await readBody<{ fileIds?: string[]; all?: boolean }>(event);
 
-  if (!body?.fileIds?.length) {
-    throw createError({ statusCode: 400, statusMessage: "fileIds required" });
+  let filesToDelete;
+
+  if (body?.all) {
+    // Purge all trashed files in this library
+    filesToDelete = await db
+      .select({ id: schema.files.id, libraryId: schema.files.libraryId })
+      .from(schema.files)
+      .where(and(eq(schema.files.libraryId, libraryId), isNotNull(schema.files.trashedAt)));
+  } else if (body?.fileIds?.length) {
+    // Purge specific files (must already be trashed)
+    filesToDelete = await db
+      .select({ id: schema.files.id, libraryId: schema.files.libraryId })
+      .from(schema.files)
+      .where(and(inArray(schema.files.id, body.fileIds), isNotNull(schema.files.trashedAt)));
+  } else {
+    throw createError({ statusCode: 400, statusMessage: "fileIds or all required" });
   }
-
-  // Only purge files that are already trashed
-  const filesToDelete = await db
-    .select({ id: schema.files.id, libraryId: schema.files.libraryId })
-    .from(schema.files)
-    .where(and(inArray(schema.files.id, body.fileIds), isNotNull(schema.files.trashedAt)));
 
   for (const file of filesToDelete) {
     await deleteFileFromDisk(file.libraryId, file.id);
   }
+
+  if (!filesToDelete.length) return { deleted: 0 };
 
   const deleted = await db
     .delete(schema.files)

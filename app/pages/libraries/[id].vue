@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ContextMenuItem } from "@nuxt/ui";
-import type { Library, LibraryFile } from "~~/server/utils/types";
+import type { Library, LibraryFile, PaginatedFiles } from "~~/server/utils/types";
 import {
   getMimeIcon,
   getFileNameWithoutExtension,
@@ -23,12 +23,73 @@ const { data: library, refresh: refreshLibrary } = await useFetch<Library>(
 
 const showTrashed = ref(false);
 
-const {
-  data: files,
-  refresh: refreshFiles,
-  pending: filesPending,
-} = await useFetch<LibraryFile[]>(() => `/api/libraries/${libraryId.value}/files`, {
-  query: { trashed: computed(() => (showTrashed.value ? "true" : undefined)) },
+// Paginated file state
+const files = ref<LibraryFile[]>([]);
+const nextCursor = ref<string | null>(null);
+const totalCount = ref(0);
+const trashedCount = ref(0);
+const loadingMore = ref(false);
+const filesPending = ref(true);
+
+async function fetchPage(cursor?: string): Promise<PaginatedFiles> {
+  const query: Record<string, string> = {};
+  if (showTrashed.value) query.trashed = "true";
+  if (cursor) query.cursor = cursor;
+  return $fetch(`/api/libraries/${libraryId.value}/files`, { query });
+}
+
+async function loadMore() {
+  if (loadingMore.value || !nextCursor.value) return;
+  loadingMore.value = true;
+  try {
+    const result = await fetchPage(nextCursor.value);
+    files.value.push(...result.files);
+    nextCursor.value = result.nextCursor;
+    totalCount.value = result.totalCount;
+  } finally {
+    loadingMore.value = false;
+  }
+}
+
+async function resetAndFetch() {
+  filesPending.value = true;
+  files.value = [];
+  nextCursor.value = null;
+  selected.clear();
+  try {
+    const result = await fetchPage();
+    files.value = result.files;
+    nextCursor.value = result.nextCursor;
+    totalCount.value = result.totalCount;
+  } finally {
+    filesPending.value = false;
+  }
+}
+
+// Initial SSR-compatible load
+const { data: _init } = await useAsyncData(
+  () => `library-init-${libraryId.value}`,
+  async () => {
+    const [result, trashedResult] = await Promise.all([
+      $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`),
+      $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, {
+        query: { trashed: "true", limit: "1" },
+      }),
+    ]);
+    return { result, trashedCount: trashedResult.totalCount };
+  },
+  { watch: [libraryId] },
+);
+
+// Sync from initial/navigation load
+watchEffect(() => {
+  if (!_init.value) return;
+  files.value = _init.value.result.files;
+  nextCursor.value = _init.value.result.nextCursor;
+  totalCount.value = _init.value.result.totalCount;
+  trashedCount.value = _init.value.trashedCount;
+  filesPending.value = false;
+  showTrashed.value = false;
 });
 
 const selected = reactive(new Set<string>());
@@ -56,20 +117,39 @@ const deleteLibraryConfirmation = ref("");
 const purgeModalOpen = ref(false);
 const purgeConfirmation = ref("");
 const filesToPurge = ref<string[]>([]);
+const purgeAll = ref(false);
 
 // Upload queue integration
 const { onLibraryUploadComplete, removeOnComplete } = useUploadQueue();
 
 onLibraryUploadComplete(libraryId.value, () => {
-  if (!showTrashed.value) refreshFiles();
+  if (!showTrashed.value) resetAndFetch();
+});
+
+// View toggle: reset and refetch
+watch(showTrashed, () => {
+  resetAndFetch();
+});
+
+// Infinite scroll observer
+const sentinel = ref<HTMLElement | null>(null);
+
+onMounted(() => {
+  const el = sentinel.value;
+  if (!el) return;
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting && nextCursor.value && !loadingMore.value) {
+        loadMore();
+      }
+    },
+    { rootMargin: "200px" },
+  );
+  observer.observe(el);
+  onUnmounted(() => observer.disconnect());
 });
 
 onUnmounted(() => removeOnComplete(libraryId.value));
-
-// Clear selection when switching views
-watch(showTrashed, () => {
-  selected.clear();
-});
 
 function startLibraryRename() {
   editName.value = library.value?.name ?? "";
@@ -88,7 +168,7 @@ async function saveLibraryName() {
 
 function handleRowClick(fileId: string, event: MouseEvent) {
   event.preventDefault();
-  const fileList = files.value ?? [];
+  const fileList = files.value;
   const clickedIndex = fileList.findIndex((f) => f.id === fileId);
 
   if (event.shiftKey && lastClickedIndex.value !== null) {
@@ -129,7 +209,9 @@ async function trashFiles(ids: string[]) {
     body: { fileIds: ids },
   });
   ids.forEach((id) => selected.delete(id));
-  await Promise.all([refreshFiles(), refreshTrashedFiles()]);
+  files.value = files.value.filter((f) => !ids.includes(f.id));
+  totalCount.value -= ids.length;
+  trashedCount.value += ids.length;
 }
 
 async function restoreFiles(ids: string[]) {
@@ -138,25 +220,49 @@ async function restoreFiles(ids: string[]) {
     body: { fileIds: ids },
   });
   ids.forEach((id) => selected.delete(id));
-  await Promise.all([refreshFiles(), refreshTrashedFiles()]);
+  files.value = files.value.filter((f) => !ids.includes(f.id));
+  totalCount.value -= ids.length;
+  trashedCount.value -= ids.length;
 }
 
 function openPurgeModal(ids: string[]) {
+  purgeAll.value = false;
   filesToPurge.value = ids;
   purgeConfirmation.value = "";
   purgeModalOpen.value = true;
 }
 
+function openPurgeAllModal() {
+  purgeAll.value = true;
+  filesToPurge.value = [];
+  purgeConfirmation.value = "";
+  purgeModalOpen.value = true;
+}
+
 async function handlePermanentDelete() {
-  await $fetch(`/api/libraries/${libraryId.value}/files/purge`, {
-    method: "POST",
-    body: { fileIds: filesToPurge.value },
-  });
-  filesToPurge.value.forEach((id) => selected.delete(id));
+  if (purgeAll.value) {
+    await $fetch(`/api/libraries/${libraryId.value}/files/purge`, {
+      method: "POST",
+      body: { all: true },
+    });
+    files.value = [];
+    nextCursor.value = null;
+    totalCount.value = 0;
+    trashedCount.value = 0;
+  } else {
+    await $fetch(`/api/libraries/${libraryId.value}/files/purge`, {
+      method: "POST",
+      body: { fileIds: filesToPurge.value },
+    });
+    const purgedIds = new Set(filesToPurge.value);
+    purgedIds.forEach((id) => selected.delete(id));
+    files.value = files.value.filter((f) => !purgedIds.has(f.id));
+    totalCount.value -= purgedIds.size;
+    trashedCount.value -= purgedIds.size;
+  }
   purgeModalOpen.value = false;
   purgeConfirmation.value = "";
   filesToPurge.value = [];
-  await Promise.all([refreshFiles(), refreshTrashedFiles()]);
 }
 
 function getContextMenuItems(fileId: string): ContextMenuItem[][] {
@@ -196,7 +302,7 @@ function getContextMenuItems(fileId: string): ContextMenuItem[][] {
               label: "Rename",
               icon: "i-lucide-pencil",
               onSelect() {
-                const file = files.value?.find((f) => f.id === targetIds[0]);
+                const file = files.value.find((f) => f.id === targetIds[0]);
                 if (!file) return;
                 renamingFileId.value = file.id;
                 renameValue.value = file.name;
@@ -226,7 +332,8 @@ async function saveFileRename(fileId: string) {
     body: { name: renameValue.value.trim() },
   });
   renamingFileId.value = null;
-  await refreshFiles();
+  const file = files.value.find((f) => f.id === fileId);
+  if (file) file.name = renameValue.value.trim();
 }
 
 const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
@@ -235,18 +342,12 @@ watch(library, () => {
   refreshLibraries?.();
 });
 
-// Fetch trashed files separately to check if library is truly empty
-const { data: trashedFiles, refresh: refreshTrashedFiles } = await useFetch<LibraryFile[]>(
-  () => `/api/libraries/${libraryId.value}/files`,
-  { query: { trashed: "true" } },
-);
-
 const canDeleteLibrary = computed(() => {
   if (!library.value || !user.value) return false;
   if (library.value.isDefault) return false;
   if (library.value.ownerId !== user.value.id) return false;
   if (showTrashed.value) return false;
-  if (files.value?.length || trashedFiles.value?.length) return false;
+  if (totalCount.value > 0 || trashedCount.value > 0) return false;
   return true;
 });
 
@@ -256,6 +357,10 @@ async function deleteLibrary() {
   await refreshLibraries?.();
   await navigateTo("/");
 }
+
+const purgeFileCount = computed(() =>
+  purgeAll.value ? totalCount.value : filesToPurge.value.length,
+);
 </script>
 
 <template>
@@ -281,13 +386,13 @@ async function deleteLibrary() {
       </div>
       <div class="flex items-center gap-2">
         <UButton
-          v-if="showTrashed && !filesPending && files?.length"
+          v-if="showTrashed && !filesPending && totalCount > 0"
           label="Permanently Delete All"
           icon="i-lucide-trash-2"
           color="error"
           variant="soft"
           size="sm"
-          @click="openPurgeModal(files!.map((f) => f.id))"
+          @click="openPurgeAllModal()"
         />
         <UButton
           v-if="canDeleteLibrary"
@@ -386,7 +491,7 @@ async function deleteLibrary() {
               </tr>
             </UContextMenu>
           </template>
-          <tr v-if="!files?.length">
+          <tr v-if="!files.length && !filesPending">
             <td colspan="4" class="px-3 py-12 text-center text-muted text-sm">
               {{
                 showTrashed ? "Trash is empty." : "No files yet. Upload some files to get started."
@@ -395,6 +500,10 @@ async function deleteLibrary() {
           </tr>
         </tbody>
       </table>
+      <div ref="sentinel" class="h-px" />
+      <div v-if="loadingMore" class="flex items-center justify-center py-4">
+        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+      </div>
     </div>
 
     <UploadModal
@@ -447,9 +556,8 @@ async function deleteLibrary() {
         <div class="flex flex-col gap-4">
           <p class="text-sm text-muted">
             This will permanently delete
-            <strong>{{ filesToPurge.length }}</strong>
-            {{ filesToPurge.length === 1 ? "file" : "files" }} from disk. This action cannot be
-            undone.
+            <strong>{{ purgeFileCount }}</strong>
+            {{ purgeFileCount === 1 ? "file" : "files" }} from disk. This action cannot be undone.
           </p>
           <UFormField label="Type 'delete' to confirm">
             <UInput v-model="purgeConfirmation" placeholder="delete" class="w-full" />

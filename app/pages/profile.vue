@@ -5,6 +5,7 @@ definePageMeta({
 
 const { user, updateProfile } = useAuth();
 const toast = useToast();
+const colorMode = useColorMode();
 
 const displayName = ref(user.value?.displayName ?? "");
 const avatarUrl = ref(user.value?.avatarUrl ?? "");
@@ -59,6 +60,20 @@ async function save() {
         />
         <span class="text-sm text-muted">Preview</span>
       </div>
+
+      <UFormField label="Theme">
+        <USelectMenu
+          :model-value="colorMode.preference"
+          :items="[
+            { label: 'System', value: 'system' },
+            { label: 'Light', value: 'light' },
+            { label: 'Dark', value: 'dark' },
+          ]"
+          value-key="value"
+          class="w-full"
+          @update:model-value="colorMode.preference = $event"
+        />
+      </UFormField>
 
       <div class="flex justify-end">
         <UButton label="Save" :loading="saving" @click="save" />

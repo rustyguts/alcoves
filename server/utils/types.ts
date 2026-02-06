@@ -27,6 +27,12 @@ export interface LibraryFile {
   updatedAt: string;
 }
 
+export interface PaginatedFiles {
+  files: LibraryFile[];
+  nextCursor: string | null;
+  totalCount: number;
+}
+
 export interface LibraryMember {
   id: string;
   libraryId: string;
