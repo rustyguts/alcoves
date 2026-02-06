@@ -1,19 +1,34 @@
 {
   "name": "alcoves",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "prepare": "husky",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check"
   },
   "dependencies": {
     "@nuxt/ui": "^4.4.0",
     "nuxt": "^4.3.0",
     "tailwindcss": "^4.1.18",
     "vue": "^3.5.27",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "oxfmt": "^0.28.0",
+    "oxlint": "^1.43.0",
+    "oxlint-tsgolint": "^0.11.4"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs}": "bun run lint && bun run fmt"
   }
 }

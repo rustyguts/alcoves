@@ -7,8 +7,8 @@ services:
       - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
     volumes:
       - .:/app
-      - /app/.nuxt
-      - /app/node_modules
+      - node_modules:/app/node_modules
+      - nuxt_cache:/app/.nuxt
       # - ./data:/app/data
     ports:
       - 3000:3000
@@ -33,3 +33,5 @@ services:
 
 volumes:
   postgres_data:
+  node_modules:
+  nuxt_cache:
