@@ -64,8 +64,7 @@ export function useUploadQueue() {
   function notifyLibraryIfIdle(libraryId: string) {
     const hasInFlightUploads = queue.value.some(
       (file) =>
-        file.libraryId === libraryId &&
-        (file.status === "pending" || file.status === "uploading"),
+        file.libraryId === libraryId && (file.status === "pending" || file.status === "uploading"),
     );
     if (hasInFlightUploads) return;
 

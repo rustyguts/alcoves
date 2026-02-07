@@ -13,11 +13,11 @@ export default defineNuxtConfig({
   // TODO :: There is a bug where building for prod hangs afer build complete
   hooks: {
     close: () => {
-      process.exit(0)
-    }
+      process.exit(0);
+    },
   },
   nitro: {
-    preset: "bun", 
+    preset: "bun",
   },
   vue: {
     compilerOptions: {
