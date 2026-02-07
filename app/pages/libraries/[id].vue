@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import type { ContextMenuItem } from "@nuxt/ui";
 import type { Library, LibraryFile, PaginatedFiles } from "~~/server/utils/types";
-import {
-  getMimeIcon,
-  getFileNameWithoutExtension,
-  formatFileSize,
-  formatDate,
-} from "~/utils/mime-icons";
+import { getMimeIcon, formatFileSize, formatDate } from "~/utils/mime-icons";
 
 definePageMeta({
   layout: "dashboard",
@@ -113,6 +108,24 @@ const previewOpen = ref(false);
 function openPreview(file: LibraryFile) {
   previewFile.value = file;
   previewOpen.value = true;
+}
+
+async function startFileRename(file: LibraryFile) {
+  if (showTrashed.value) return;
+  renamingFileId.value = file.id;
+  renameValue.value = file.name;
+  await nextTick();
+
+  // Wait one frame so context-menu teardown doesn't steal focus.
+  requestAnimationFrame(() => {
+    const input = document.querySelector<HTMLInputElement>(
+      `[data-rename-input-file-id="${file.id}"] input`,
+    );
+    input?.focus();
+    const lastDot = file.name.lastIndexOf(".");
+    const selectTo = lastDot > 0 ? lastDot : file.name.length;
+    input?.setSelectionRange(0, selectTo);
+  });
 }
 
 // Library delete state
@@ -321,8 +334,7 @@ function getContextMenuItems(fileId: string): ContextMenuItem[][] {
               onSelect() {
                 const file = files.value.find((f) => f.id === targetIds[0]);
                 if (!file) return;
-                renamingFileId.value = file.id;
-                renameValue.value = file.name;
+                startFileRename(file);
               },
             },
           ]
@@ -340,17 +352,30 @@ function getContextMenuItems(fileId: string): ContextMenuItem[][] {
 }
 
 async function saveFileRename(fileId: string) {
-  if (!renameValue.value.trim()) {
+  const rawName = renameValue.value.trim();
+  if (!rawName) {
+    renamingFileId.value = null;
+    return;
+  }
+  const file = files.value.find((f) => f.id === fileId);
+  if (!file) {
+    renamingFileId.value = null;
+    return;
+  }
+  const originalLastDot = file.name.lastIndexOf(".");
+  const originalExt = originalLastDot > 0 ? file.name.slice(originalLastDot) : "";
+  const hasExt = rawName.lastIndexOf(".") > 0;
+  const nextName = !hasExt && originalExt ? `${rawName}${originalExt}` : rawName;
+  if (file.name === nextName) {
     renamingFileId.value = null;
     return;
   }
   await $fetch(`/api/libraries/${libraryId.value}/files/${fileId}`, {
     method: "PATCH",
-    body: { name: renameValue.value.trim() },
+    body: { name: nextName },
   });
   renamingFileId.value = null;
-  const file = files.value.find((f) => f.id === fileId);
-  if (file) file.name = renameValue.value.trim();
+  file.name = nextName;
 }
 
 const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
@@ -488,6 +513,7 @@ const purgeFileCount = computed(() =>
                   <UInput
                     v-if="renamingFileId === file.id"
                     v-model="renameValue"
+                    :data-rename-input-file-id="file.id"
                     size="sm"
                     autofocus
                     @blur="saveFileRename(file.id)"
@@ -495,9 +521,16 @@ const purgeFileCount = computed(() =>
                     @keydown.escape="renamingFileId = null"
                     @click.stop
                   />
-                  <span v-else class="text-sm" :class="showTrashed ? 'opacity-60' : ''">{{
-                    getFileNameWithoutExtension(file.name)
-                  }}</span>
+                  <div v-else class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="text-sm text-left hover:text-primary transition-colors"
+                      :class="showTrashed ? 'opacity-60' : ''"
+                      @click.stop="startFileRename(file)"
+                    >
+                      {{ file.name }}
+                    </button>
+                  </div>
                 </td>
                 <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
                   {{
@@ -561,6 +594,8 @@ const purgeFileCount = computed(() =>
       v-model:open="previewOpen"
       :file="previewFile"
       :library-id="libraryId"
+      :files="files"
+      @navigate="previewFile = $event"
     />
 
     <UModal v-model:open="deleteLibraryOpen" title="Delete Library">

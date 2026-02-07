@@ -5,14 +5,14 @@ interface Props {
   alt?: string;
   width?: number;
   height?: number;
-  format?: "webp" | "avif" | "jpeg" | "png";
+  format?: "jpeg" | "webp" | "avif" | "png";
   quality?: number;
   class?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   alt: "",
-  format: "webp",
+  format: "jpeg",
 });
 
 const proxySrc = computed(() => {

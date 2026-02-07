@@ -1,6 +1,16 @@
 import { eq } from "drizzle-orm";
+import mime from "mime/lite";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { db, schema } from "~~/server/database";
+
+function getDownloadName(name: string, mimeType: string) {
+  const trimmed = name.trim();
+  if (!trimmed) return "download";
+  const lastDot = trimmed.lastIndexOf(".");
+  if (lastDot > 0) return trimmed;
+  const extension = mime.getExtension(mimeType);
+  return extension ? `${trimmed}.${extension}` : trimmed;
+}
 
 export default defineEventHandler(async (event) => {
   const fileId = getRouterParam(event, "fileId")!;
@@ -18,12 +28,13 @@ export default defineEventHandler(async (event) => {
 
   const query = getQuery(event);
   const disposition = query.inline === "true" ? "inline" : "attachment";
+  const downloadName = getDownloadName(file.name, file.mimeType);
   const stat = statSync(blobPath);
   const totalSize = stat.size;
 
   setHeaders(event, {
     "Content-Type": file.mimeType,
-    "Content-Disposition": `${disposition}; filename="${encodeURIComponent(file.name)}"`,
+    "Content-Disposition": `${disposition}; filename="${encodeURIComponent(downloadName)}"`,
     "Accept-Ranges": "bytes",
   });
 

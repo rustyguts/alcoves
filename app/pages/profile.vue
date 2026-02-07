@@ -87,7 +87,7 @@ function parseBrowser(ua: string | null): string {
         {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
       </div>
       <div>
-        <h1 class="text-xl font-semibold">Hey Profile</h1>
+        <h1 class="text-xl font-semibold">My Profile</h1>
         <p class="text-sm text-muted">{{ user?.email }}</p>
       </div>
     </div>
@@ -100,17 +100,6 @@ function parseBrowser(ua: string | null): string {
       <UFormField label="Avatar URL">
         <UInput v-model="avatarUrl" placeholder="https://example.com/avatar.jpg" class="w-full" />
       </UFormField>
-
-      <div v-if="avatarUrl" class="flex items-center gap-3">
-        <img
-          :src="avatarUrl"
-          alt="Avatar preview"
-          class="size-12 rounded-full object-cover border border-default"
-          @error="($event.target as HTMLImageElement).style.display = 'none'"
-        />
-        <span class="text-sm text-muted">Preview</span>
-      </div>
-
       <UFormField label="Theme">
         <USelectMenu
           :model-value="colorMode.preference"
