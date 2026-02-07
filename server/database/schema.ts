@@ -1,4 +1,14 @@
-import { pgTable, uuid, text, boolean, bigint, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  text,
+  boolean,
+  bigint,
+  timestamp,
+  uniqueIndex,
+  index,
+} from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -30,22 +40,62 @@ export const libraries = pgTable("libraries", {
     .$onUpdate(() => new Date()),
 });
 
-export const files = pgTable("files", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  libraryId: uuid("library_id")
-    .notNull()
-    .references(() => libraries.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  mimeType: text("mime_type").notNull().default("application/octet-stream"),
-  size: bigint("size", { mode: "number" }).notNull().default(0),
-  originalCreatedAt: timestamp("original_created_at", { withTimezone: true }),
-  trashedAt: timestamp("trashed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const folders = pgTable(
+  "folders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    libraryId: uuid("library_id")
+      .notNull()
+      .references(() => libraries.id, { onDelete: "cascade" }),
+    parentFolderId: uuid("parent_folder_id").references((): AnyPgColumn => folders.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    trashedAt: timestamp("trashed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("folders_library_trash_parent_name_idx").on(
+      table.libraryId,
+      table.trashedAt,
+      table.parentFolderId,
+      table.name,
+    ),
+  ],
+);
+
+export const files = pgTable(
+  "files",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    libraryId: uuid("library_id")
+      .notNull()
+      .references(() => libraries.id, { onDelete: "cascade" }),
+    parentFolderId: uuid("parent_folder_id").references(() => folders.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    mimeType: text("mime_type").notNull().default("application/octet-stream"),
+    size: bigint("size", { mode: "number" }).notNull().default(0),
+    originalCreatedAt: timestamp("original_created_at", { withTimezone: true }),
+    trashedAt: timestamp("trashed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("files_library_parent_trash_name_idx").on(
+      table.libraryId,
+      table.parentFolderId,
+      table.trashedAt,
+      table.name,
+    ),
+  ],
+);
 
 export const tags = pgTable(
   "tags",
@@ -81,6 +131,21 @@ export const fileTags = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("file_tags_file_tag_idx").on(table.fileId, table.tagId)],
+);
+
+export const folderTags = pgTable(
+  "folder_tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    folderId: uuid("folder_id")
+      .notNull()
+      .references(() => folders.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("folder_tags_folder_tag_idx").on(table.folderId, table.tagId)],
 );
 
 export const libraryMembers = pgTable(

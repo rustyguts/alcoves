@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import Busboy from "busboy";
 import { db, schema } from "~~/server/database";
+import { assertFolderInLibrary, normalizeFolderId } from "~~/server/utils/folders";
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id")!;
@@ -17,6 +18,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const upload = await parseUpload(event, id);
+  const parentFolderId = normalizeFolderId(upload.parentFolderId);
+
+  if (parentFolderId) {
+    await assertFolderInLibrary(id, parentFolderId);
+  }
 
   try {
     const [file] = await db
@@ -24,6 +30,7 @@ export default defineEventHandler(async (event) => {
       .values({
         id: upload.fileId,
         libraryId: id,
+        parentFolderId,
         name: upload.name.trim(),
         mimeType: upload.mimeType,
         size: upload.size,
@@ -50,6 +57,7 @@ function parseUpload(
     mimeType: string;
     size: number;
     originalCreatedAt: string | null;
+    parentFolderId: string | null;
   }>((resolve, reject) => {
     const fields: Record<string, string> = {};
     let fileId = "";
@@ -90,6 +98,7 @@ function parseUpload(
           mimeType: fields.mimeType || busboyMimeType || "application/octet-stream",
           size,
           originalCreatedAt: fields.originalCreatedAt || null,
+          parentFolderId: fields.parentFolderId || null,
         });
       } catch (err) {
         await deleteFileFromDisk(libraryId, fileId).catch(() => {});

@@ -2,6 +2,7 @@
 const props = defineProps<{
   libraryId: string;
   libraryName: string;
+  parentFolderId: string | null;
 }>();
 
 const open = defineModel<boolean>("open", { default: false });
@@ -11,7 +12,7 @@ const selectedFiles = ref<File[]>([]);
 
 function handleUpload() {
   if (!selectedFiles.value.length) return;
-  addFiles(selectedFiles.value, props.libraryId, props.libraryName);
+  addFiles(selectedFiles.value, props.libraryId, props.libraryName, props.parentFolderId);
   selectedFiles.value = [];
   open.value = false;
 }

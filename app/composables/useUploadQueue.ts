@@ -5,6 +5,7 @@ export interface QueuedFile {
   file: File;
   libraryId: string;
   libraryName: string;
+  parentFolderId: string | null;
   status: "pending" | "uploading" | "error" | "done";
   progress: number;
   loaded: number;
@@ -22,12 +23,18 @@ export function useUploadQueue() {
   const isProcessing = useState<boolean>("upload-processing", () => false);
   const uploadSpeed = useState<number>("upload-speed", () => 0);
 
-  function addFiles(files: File[], libraryId: string, libraryName: string) {
+  function addFiles(
+    files: File[],
+    libraryId: string,
+    libraryName: string,
+    parentFolderId: string | null = null,
+  ) {
     const newItems: QueuedFile[] = files.map((file) => ({
       id: crypto.randomUUID(),
       file,
       libraryId,
       libraryName,
+      parentFolderId,
       status: "pending" as const,
       progress: 0,
       loaded: 0,
@@ -65,6 +72,9 @@ export function useUploadQueue() {
       formData.append("name", item.file.name);
       formData.append("mimeType", getMimeTypeFromFilename(item.file.name));
       formData.append("originalCreatedAt", String(item.file.lastModified));
+      if (item.parentFolderId) {
+        formData.append("parentFolderId", item.parentFolderId);
+      }
 
       const xhr = new XMLHttpRequest();
 

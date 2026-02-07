@@ -22,6 +22,27 @@
       "when": 1770436650865,
       "tag": "0002_married_hex",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1770470624525,
+      "tag": "0003_flippant_taskmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1770471254157,
+      "tag": "0004_eager_dexter_bennett",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770471597329,
+      "tag": "0005_rapid_invisible_woman",
+      "breakpoints": true
     }
   ]
 }

@@ -15,7 +15,6 @@ const { user, logout } = useAuth();
 const { data: libraries, refresh: refreshLibraries } = await useFetch<Library[]>("/api/libraries");
 
 const route = useRoute();
-
 const defaultLibraryItems = computed<NavigationMenuItem[]>(() => {
   const def = libraries.value?.find((l) => l.isDefault);
   if (!def) return [];
@@ -149,11 +148,11 @@ const navbarTitle = computed(() => {
 
     <UDashboardPanel>
       <template #header>
-        <UDashboardNavbar :title="navbarTitle">
+        <UDashboardNavbar>
           <template #right>
             <UDropdownMenu :items="userMenuItems">
               <button
-                class="flex items-center gap-2 rounded-full p-1 mr-3 hover:bg-(--ui-bg-elevated)/50 transition-colors"
+                class="flex items-center gap-2 rounded-full p-1 mr-3 hover:bg-elevated/50 transition-colors"
               >
                 <div
                   v-if="user?.avatarUrl"
@@ -163,7 +162,7 @@ const navbarTitle = computed(() => {
                 </div>
                 <div
                   v-else
-                  class="size-8 rounded-full bg-(--ui-primary) text-white flex items-center justify-center font-semibold text-sm"
+                  class="size-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold text-sm"
                 >
                   {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
                 </div>

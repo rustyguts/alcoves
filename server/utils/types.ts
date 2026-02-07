@@ -18,9 +18,11 @@ export interface Library {
 export interface LibraryFile {
   id: string;
   libraryId: string;
+  parentFolderId: string | null;
   name: string;
   mimeType: string;
   size: number;
+  kind: "file";
   originalCreatedAt: string | null;
   trashedAt: string | null;
   createdAt: string;
@@ -28,10 +30,32 @@ export interface LibraryFile {
   tags: LibraryTag[];
 }
 
+export interface LibraryFolder {
+  id: string;
+  libraryId: string;
+  parentFolderId: string | null;
+  name: string;
+  kind: "folder";
+  trashedAt: string | null;
+  trashFileCount?: number;
+  createdAt: string;
+  updatedAt: string;
+  tags: LibraryTag[];
+}
+
+export type LibraryEntry = LibraryFile | LibraryFolder;
+
+export interface FolderBreadcrumb {
+  id: string;
+  name: string;
+}
+
 export interface PaginatedFiles {
-  files: LibraryFile[];
+  entries: LibraryEntry[];
   nextCursor: string | null;
   totalCount: number;
+  breadcrumbs: FolderBreadcrumb[];
+  currentFolderId: string | null;
 }
 
 export interface LibraryMember {

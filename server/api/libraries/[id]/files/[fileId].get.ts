@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import mime from "mime/lite";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { db, schema } from "~~/server/database";
@@ -13,9 +13,14 @@ function getDownloadName(name: string, mimeType: string) {
 }
 
 export default defineEventHandler(async (event) => {
+  const libraryId = getRouterParam(event, "id")!;
   const fileId = getRouterParam(event, "fileId")!;
 
-  const [file] = await db.select().from(schema.files).where(eq(schema.files.id, fileId)).limit(1);
+  const [file] = await db
+    .select()
+    .from(schema.files)
+    .where(and(eq(schema.files.id, fileId), eq(schema.files.libraryId, libraryId)))
+    .limit(1);
 
   if (!file) {
     throw createError({ statusCode: 404, statusMessage: "File not found" });
