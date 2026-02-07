@@ -15,6 +15,33 @@ const { user, logout } = useAuth();
 const { data: libraries, refresh: refreshLibraries } = await useFetch<Library[]>("/api/libraries");
 
 const route = useRoute();
+const globalSearchQuery = ref("");
+
+const routeSearchQuery = computed(() => {
+  const raw = route.query.q;
+  return typeof raw === "string" ? raw : "";
+});
+
+watch(
+  routeSearchQuery,
+  (value) => {
+    globalSearchQuery.value = value;
+  },
+  { immediate: true },
+);
+
+function getSearchTarget(query: string) {
+  if (!query) return { path: "/search" };
+  return {
+    path: "/search",
+    query: { q: query },
+  };
+}
+
+async function submitGlobalSearch() {
+  await navigateTo(getSearchTarget(globalSearchQuery.value.trim()));
+}
+
 const defaultLibraryItems = computed<NavigationMenuItem[]>(() => {
   const def = libraries.value?.find((l) => l.isDefault);
   if (!def) return [];
@@ -79,13 +106,6 @@ async function createLibrary() {
 }
 
 provide("refreshLibraries", refreshLibraries);
-
-const navbarTitle = computed(() => {
-  const id = route.params.id as string | undefined;
-  if (!id || !libraries.value) return "Dashboard";
-  const lib = libraries.value.find((l) => l.id === id);
-  return lib?.name ?? "Dashboard";
-});
 </script>
 
 <template>
@@ -149,6 +169,21 @@ const navbarTitle = computed(() => {
     <UDashboardPanel>
       <template #header>
         <UDashboardNavbar>
+          <template #left>
+            <form class="min-w-0 w-full max-w-2xl" @submit.prevent="submitGlobalSearch">
+              <UInput
+                v-model="globalSearchQuery"
+                type="search"
+                autocomplete="off"
+                enterkeyhint="search"
+                leading-icon="i-lucide-search"
+                placeholder="Search"
+                variant="soft"
+                size="lg"
+                class="w-full"
+              />
+            </form>
+          </template>
           <template #right>
             <UDropdownMenu :items="userMenuItems">
               <button

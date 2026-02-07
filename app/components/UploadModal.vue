@@ -9,9 +9,10 @@ const open = defineModel<boolean>("open", { default: false });
 
 const { addFiles } = useUploadQueue();
 const selectedFiles = ref<File[]>([]);
+const selectedFileCount = computed(() => selectedFiles.value.length);
 
 function handleUpload() {
-  if (!selectedFiles.value.length) return;
+  if (!selectedFileCount.value) return;
   addFiles(selectedFiles.value, props.libraryId, props.libraryName, props.parentFolderId);
   selectedFiles.value = [];
   open.value = false;
@@ -30,12 +31,15 @@ function handleClose() {
       </p>
       <UFileUpload
         v-model="selectedFiles"
+        :preview="false"
         multiple
         label="Drop files here or click to browse"
         description="Any file type accepted"
-        layout="list"
         class="min-h-40"
       />
+      <p v-if="selectedFileCount" class="mt-3 text-sm text-muted">
+        {{ selectedFileCount }} file{{ selectedFileCount === 1 ? "" : "s" }} selected
+      </p>
     </template>
 
     <template #footer>
@@ -44,7 +48,7 @@ function handleClose() {
         <UButton
           label="Upload"
           icon="i-lucide-upload"
-          :disabled="!selectedFiles.length"
+          :disabled="!selectedFileCount"
           @click="handleUpload"
         />
       </div>

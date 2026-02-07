@@ -75,3 +75,23 @@ export interface LibraryTag {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface GlobalSearchResult {
+  id: string;
+  libraryId: string;
+  libraryName: string;
+  parentFolderId: string | null;
+  targetFolderId: string | null;
+  name: string;
+  kind: "file" | "folder";
+  locationPath: string;
+  mimeType?: string;
+  size?: number;
+  updatedAt: string;
+}
+
+export interface GlobalSearchResponse {
+  query: string;
+  totalCount: number;
+  results: GlobalSearchResult[];
+}
