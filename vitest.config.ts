@@ -24,12 +24,7 @@ export default defineVitestConfig({
       reportsDirectory: "./coverage",
       all: true,
       include: ["app/**/*.{ts,vue}"],
-      exclude: [
-        "app/pages/libraries/[id].vue",
-        "app/types/**/*.d.ts",
-        "**/*.d.ts",
-        "**/*.spec.ts",
-      ],
+      exclude: ["app/pages/libraries/[id].vue", "app/types/**/*.d.ts", "**/*.d.ts", "**/*.spec.ts"],
       thresholds: {
         lines: 45,
         functions: 45,

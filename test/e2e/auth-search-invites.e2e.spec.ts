@@ -348,7 +348,9 @@ test.describe("Auth and core app flows", () => {
     await mockApi(page, state);
 
     await page.goto("/invites/test-token");
-    await expect(page.getByText("Accept this invitation to get access to the library.")).toBeVisible();
+    await expect(
+      page.getByText("Accept this invitation to get access to the library."),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Accept Invite" })).toBeVisible();
 
     await page.goto("/invites/revoked-token");
