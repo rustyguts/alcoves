@@ -13,6 +13,9 @@ export default defineNuxtConfig({
   // TODO :: There is a bug where building for prod hangs afer build complete
   hooks: {
     close: () => {
+      if (process.env.VITEST) {
+        return;
+      }
       process.exit(0);
     },
   },
