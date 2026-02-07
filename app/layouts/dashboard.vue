@@ -113,7 +113,7 @@ provide("refreshLibraries", refreshLibraries);
     <UDashboardSidebar
       collapsible
       resizable
-      :ui="{ root: 'max-w-xs', footer: 'border-t border-default' }"
+      :ui="{ root: 'max-w-xs' }"
     >
       <template #header="{ collapsed }">
         <span v-if="!collapsed" class="text-lg font-bold truncate">Alcoves</span>
@@ -191,7 +191,7 @@ provide("refreshLibraries", refreshLibraries);
               >
                 <div
                   v-if="user?.avatarUrl"
-                  class="size-8 rounded-full overflow-hidden border border-default"
+                  class="size-8 rounded-full overflow-hidden"
                 >
                   <img :src="user.avatarUrl" alt="" class="size-full object-cover" />
                 </div>

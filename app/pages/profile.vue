@@ -155,13 +155,13 @@ function getStatusMessage(error: unknown): string | null {
     <div class="flex items-center gap-4">
       <div
         v-if="currentAvatarSrc"
-        class="size-16 rounded-full overflow-hidden border-2 border-default"
+        class="size-16 rounded-full overflow-hidden"
       >
         <img :src="currentAvatarSrc" alt="" class="size-full object-cover" />
       </div>
       <div
         v-else
-        class="size-16 rounded-full bg-(--ui-primary) text-white flex items-center justify-center font-bold text-2xl border-2 border-default"
+        class="size-16 rounded-full bg-(--ui-primary) text-white flex items-center justify-center font-bold text-2xl"
       >
         {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
       </div>
@@ -231,7 +231,7 @@ function getStatusMessage(error: unknown): string | null {
         <div
           v-for="session in sessions"
           :key="session.id"
-          class="flex items-center justify-between rounded-lg border border-default p-3"
+          class="flex items-center justify-between rounded-lg bg-elevated/50 p-3"
         >
           <div class="flex flex-col gap-0.5">
             <div class="flex items-center gap-2">

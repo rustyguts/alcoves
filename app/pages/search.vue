@@ -124,7 +124,7 @@ function getResultIcon(result: GlobalSearchResult): string {
     <UCard
       variant="subtle"
       :ui="{
-        root: 'overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-elevated to-default shadow-sm',
+        root: 'overflow-hidden bg-gradient-to-br from-primary/10 via-elevated to-default shadow-sm',
         body: 'space-y-4',
       }"
     >
@@ -162,7 +162,7 @@ function getResultIcon(result: GlobalSearchResult): string {
       </div>
     </UCard>
 
-    <UCard v-if="activeQuery.length < MIN_QUERY_LENGTH" variant="outline">
+    <UCard v-if="activeQuery.length < MIN_QUERY_LENGTH" variant="soft">
       <div class="flex items-center gap-3 text-muted">
         <UIcon name="i-lucide-search-check" class="size-5" />
         <p>Enter at least {{ MIN_QUERY_LENGTH }} characters to start searching.</p>
@@ -173,14 +173,14 @@ function getResultIcon(result: GlobalSearchResult): string {
       <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
     </div>
 
-    <UCard v-else-if="error" variant="outline">
+    <UCard v-else-if="error" variant="soft">
       <div class="flex items-center gap-3 text-error">
         <UIcon name="i-lucide-alert-circle" class="size-5" />
         <p>Search failed. Try again in a moment.</p>
       </div>
     </UCard>
 
-    <UCard v-else-if="!results.length" variant="outline">
+    <UCard v-else-if="!results.length" variant="soft">
       <div class="flex items-center gap-3 text-muted">
         <UIcon name="i-lucide-folder-search" class="size-5" />
         <p>No results found for "{{ activeQuery }}".</p>
@@ -191,7 +191,7 @@ function getResultIcon(result: GlobalSearchResult): string {
       <UCard
         v-for="group in groupedResults"
         :key="group.libraryId"
-        variant="outline"
+        variant="soft"
         :ui="{
           body: 'p-0',
         }"
@@ -206,15 +206,15 @@ function getResultIcon(result: GlobalSearchResult): string {
           </div>
         </template>
 
-        <div class="divide-y divide-default">
+        <div class="space-y-1 p-1">
           <NuxtLink
             v-for="result in group.results"
             :key="`${result.kind}-${result.id}`"
             :to="getResultLink(result)"
-            class="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-elevated/70"
+            class="group flex items-center gap-3 rounded-lg px-4 py-3 transition-colors hover:bg-elevated/70"
           >
             <div
-              class="flex size-10 shrink-0 items-center justify-center rounded-lg border border-default bg-elevated/80"
+              class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated/80"
             >
               <UIcon :name="getResultIcon(result)" class="size-4 text-primary" />
             </div>

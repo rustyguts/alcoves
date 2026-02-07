@@ -35,6 +35,8 @@ const { data: libraryUsers, refresh: refreshLibraryUsers } = await useFetch<Libr
 );
 
 const viewMode = ref<"files" | "tags" | "trash" | "users">("files");
+const entryViewMode = ref<"file" | "card">("file");
+const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
 const showTrashed = computed(() => viewMode.value === "trash");
 const showTags = computed(() => viewMode.value === "tags");
 const showUsers = computed(() => viewMode.value === "users");
@@ -677,6 +679,10 @@ function openEntry(entry: LibraryEntry) {
   openPreview(entry);
 }
 
+function isImageFile(file: LibraryFile): boolean {
+  return file.mimeType.startsWith("image/");
+}
+
 // Library delete state
 const deleteLibraryOpen = ref(false);
 const deleteLibraryConfirmation = ref("");
@@ -725,6 +731,11 @@ watch(viewMode, () => {
   }
 });
 
+watch(entryViewMode, (next) => {
+  if (!import.meta.client) return;
+  localStorage.setItem(ENTRY_VIEW_STORAGE_KEY, next);
+});
+
 watch(
   canManageUsers,
   (allowed) => {
@@ -753,6 +764,13 @@ watch(
 
 // Infinite scroll observer
 const sentinel = ref<HTMLElement | null>(null);
+
+onMounted(() => {
+  const stored = localStorage.getItem(ENTRY_VIEW_STORAGE_KEY);
+  if (stored === "file" || stored === "card") {
+    entryViewMode.value = stored;
+  }
+});
 
 onMounted(() => {
   const el = sentinel.value;
@@ -1431,7 +1449,25 @@ const emptyStateDescription = computed(() => {
           "
         />
       </div>
-      <div>
+      <div class="flex items-center gap-2">
+        <div v-if="!showTags && !showUsers" class="flex items-center">
+          <UButtonGroup size="sm">
+            <UButton
+              icon="i-lucide-list"
+              :variant="entryViewMode === 'file' ? 'soft' : 'ghost'"
+              :color="entryViewMode === 'file' ? 'primary' : 'neutral'"
+              title="File view"
+              @click="entryViewMode = 'file'"
+            />
+            <UButton
+              icon="i-lucide-layout-grid"
+              :variant="entryViewMode === 'card' ? 'soft' : 'ghost'"
+              :color="entryViewMode === 'card' ? 'primary' : 'neutral'"
+              title="Card view"
+              @click="entryViewMode = 'card'"
+            />
+          </UButtonGroup>
+        </div>
         <UButton
           label="Trash"
           icon="i-lucide-trash-2"
@@ -1760,10 +1796,10 @@ const emptyStateDescription = computed(() => {
       </UCard>
     </div>
 
-    <div v-else class="border border-default rounded-lg overflow-hidden">
-      <table class="w-full">
+    <div v-else class="rounded-lg overflow-hidden bg-default/20">
+      <table v-if="entryViewMode === 'file'" class="w-full">
         <thead>
-          <tr class="border-b border-default bg-elevated/50">
+          <tr class="bg-elevated/50">
             <th class="w-10 px-3 py-2" />
             <th class="text-left text-xs font-medium text-muted px-3 py-2">Name</th>
             <th class="text-left text-xs font-medium text-muted px-3 py-2">Tags</th>
@@ -1782,7 +1818,7 @@ const emptyStateDescription = computed(() => {
           <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
             <UContextMenu :items="getContextMenuItems(entry)">
               <tr
-                class="border-b border-default last:border-b-0 cursor-pointer transition-colors"
+                class="cursor-pointer transition-colors"
                 :class="isEntrySelected(entry) ? 'bg-primary/10' : 'hover:bg-elevated/50'"
                 @click="handleRowClick(entry, $event)"
                 @dblclick="openEntry(entry)"
@@ -1846,13 +1882,13 @@ const emptyStateDescription = computed(() => {
                   </div>
                 </td>
                 <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
-                  <div v-if="entry.kind === 'file' && entry.owner" class="flex items-center gap-2">
+                  <div v-if="entry.kind === 'file' && entry.owner" class="flex items-center">
                     <UAvatar
                       :src="entry.owner.avatarUrl ?? undefined"
                       :alt="entry.owner.displayName"
                       size="xs"
+                      :title="entry.owner.displayName"
                     />
-                    <span class="truncate">{{ entry.owner.displayName }}</span>
                   </div>
                   <span v-else>-</span>
                 </td>
@@ -1869,37 +1905,124 @@ const emptyStateDescription = computed(() => {
               </tr>
             </UContextMenu>
           </template>
-          <tr v-if="!entries.length && !filesPending">
-            <td colspan="6">
-              <div class="flex flex-col items-center justify-center py-16 px-4">
-                <div
-                  class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
-                >
-                  <UIcon
-                    :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
-                    class="size-8 text-(--ui-text-muted)"
-                  />
-                </div>
-                <p class="text-lg font-medium text-foreground mb-1">{{ emptyStateTitle }}</p>
-                <p class="text-sm text-muted mb-4">{{ emptyStateDescription }}</p>
-                <div
-                  v-if="canManageLibrary && !showTrashed && !showTags"
-                  class="flex items-center gap-2"
-                >
-                  <UButton
-                    icon="i-lucide-folder-plus"
-                    label="Create folder"
-                    color="neutral"
-                    variant="outline"
-                    @click="createFolderOpen = true"
-                  />
-                  <UButton icon="i-lucide-upload" label="Upload files" @click="uploadOpen = true" />
-                </div>
-              </div>
-            </td>
-          </tr>
         </tbody>
       </table>
+
+      <div
+        v-else-if="entryViewMode === 'card' && entries.length"
+        class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+      >
+        <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
+          <UContextMenu :items="getContextMenuItems(entry)">
+            <div
+              class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
+              :class="isEntrySelected(entry) ? 'ring-2 ring-primary/50 bg-primary/5' : 'hover:bg-elevated/70'"
+              @click="handleRowClick(entry, $event)"
+              @dblclick="openEntry(entry)"
+            >
+              <div class="h-28 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden">
+                <template v-if="entry.kind === 'folder'">
+                  <UIcon name="i-lucide-folder" class="size-10 text-muted" />
+                </template>
+                <template v-else-if="isImageFile(entry)">
+                  <AlcovesImage
+                    :library-id="libraryId"
+                    :file-id="entry.id"
+                    :alt="entry.name"
+                    :width="720"
+                    :height="360"
+                    format="jpeg"
+                    :quality="82"
+                    class="w-full h-full object-cover"
+                  />
+                </template>
+                <template v-else>
+                  <UIcon
+                    :name="getMimeIcon(entry.mimeType)"
+                    class="size-10 text-muted"
+                    :class="showTrashed ? 'opacity-50' : ''"
+                  />
+                </template>
+              </div>
+
+              <UInput
+                v-if="isRenaming(entry)"
+                v-model="renameValue"
+                :data-rename-input-entry-id="entry.id"
+                size="sm"
+                autofocus
+                @blur="saveEntryRename(entry)"
+                @keydown.enter="saveEntryRename(entry)"
+                @keydown.escape="renamingEntry = null"
+                @click.stop
+              />
+              <div v-else>
+                <button
+                  v-if="entry.kind === 'folder'"
+                  type="button"
+                  class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
+                  @click.stop="openFolder(entry.id)"
+                >
+                  {{
+                    showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name
+                  }}
+                </button>
+                <button
+                  v-else
+                  type="button"
+                  class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
+                  :class="showTrashed ? 'opacity-60' : ''"
+                  @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
+                >
+                  {{ entry.name }}
+                </button>
+
+                <div class="flex items-center justify-between mt-1 gap-2 text-xs text-muted">
+                  <span>{{
+                    showTrashed && entry.trashedAt
+                      ? formatDate(entry.trashedAt)
+                      : formatDate(entry.updatedAt)
+                  }}</span>
+                  <span>{{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span
+                    v-for="tag in entry.tags"
+                    :key="tag.id"
+                    class="size-2.5 rounded-full border border-default/50"
+                    :title="tag.name"
+                    :style="{ backgroundColor: tag.color }"
+                  />
+                </div>
+              </div>
+            </div>
+          </UContextMenu>
+        </template>
+      </div>
+
+      <div v-if="!entries.length && !filesPending" class="flex flex-col items-center justify-center py-16 px-4">
+        <div
+          class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
+        >
+          <UIcon
+            :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
+            class="size-8 text-(--ui-text-muted)"
+          />
+        </div>
+        <p class="text-lg font-medium text-foreground mb-1">{{ emptyStateTitle }}</p>
+        <p class="text-sm text-muted mb-4">{{ emptyStateDescription }}</p>
+        <div v-if="canManageLibrary && !showTrashed && !showTags" class="flex items-center gap-2">
+          <UButton
+            icon="i-lucide-folder-plus"
+            label="Create folder"
+            color="neutral"
+            variant="outline"
+            @click="createFolderOpen = true"
+          />
+          <UButton icon="i-lucide-upload" label="Upload files" @click="uploadOpen = true" />
+        </div>
+      </div>
+
       <div ref="sentinel" class="h-px" />
       <div v-if="loadingMore" class="flex items-center justify-center py-4">
         <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />

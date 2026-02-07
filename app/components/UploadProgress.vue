@@ -17,10 +17,10 @@ const expanded = ref(true);
     >
       <div
         v-if="hasActiveUploads"
-        class="fixed bottom-4 right-4 z-50 w-96 bg-elevated border border-default rounded-lg shadow-xl overflow-hidden"
+        class="fixed bottom-4 right-4 z-50 w-96 bg-elevated rounded-lg shadow-xl overflow-hidden"
       >
         <div
-          class="flex items-center justify-between px-4 py-2.5 border-b border-default cursor-pointer select-none"
+          class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none bg-default/40"
           @click="expanded = !expanded"
         >
           <span class="text-sm font-medium">
@@ -38,8 +38,12 @@ const expanded = ref(true);
           </div>
         </div>
 
-        <div v-if="expanded" class="max-h-64 overflow-y-auto divide-y divide-default">
-          <div v-for="item in activeUploads" :key="item.id" class="px-4 py-2.5">
+        <div v-if="expanded" class="max-h-64 overflow-y-auto px-2 py-2 space-y-1">
+          <div
+            v-for="item in activeUploads"
+            :key="item.id"
+            class="px-2 py-2 rounded-md bg-default/35"
+          >
             <div class="flex items-center justify-between mb-1">
               <span class="text-sm truncate flex-1 mr-2">{{ item.file.name }}</span>
               <span class="text-xs text-muted whitespace-nowrap">{{ item.libraryName }}</span>
