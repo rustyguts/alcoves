@@ -61,6 +61,18 @@ export function useUploadQueue() {
     isProcessing.value = false;
   }
 
+  function notifyLibraryIfIdle(libraryId: string) {
+    const hasInFlightUploads = queue.value.some(
+      (file) =>
+        file.libraryId === libraryId &&
+        (file.status === "pending" || file.status === "uploading"),
+    );
+    if (hasInFlightUploads) return;
+
+    const cb = onCompleteCallbacks.get(libraryId);
+    if (cb) cb();
+  }
+
   function uploadFile(item: QueuedFile): Promise<void> {
     return new Promise((resolve) => {
       item.status = "uploading";
@@ -102,9 +114,6 @@ export function useUploadQueue() {
           item.status = "done";
           item.progress = 100;
 
-          const cb = onCompleteCallbacks.get(item.libraryId);
-          if (cb) cb();
-
           setTimeout(() => {
             queue.value = queue.value.filter((f) => f.id !== item.id);
           }, 2000);
@@ -113,6 +122,7 @@ export function useUploadQueue() {
           item.error = `Upload failed (${xhr.status})`;
           item.retries++;
         }
+        notifyLibraryIfIdle(item.libraryId);
         resolve();
       };
 
@@ -120,6 +130,7 @@ export function useUploadQueue() {
         item.status = "error";
         item.error = "Network error";
         item.retries++;
+        notifyLibraryIfIdle(item.libraryId);
         resolve();
       };
 

@@ -10,6 +10,15 @@ export default defineNuxtConfig({
   typescript: {
     typeCheck: true,
   },
+  // TODO :: There is a bug where building for prod hangs afer build complete
+  hooks: {
+    close: () => {
+      process.exit(0)
+    }
+  },
+  nitro: {
+    preset: "bun", 
+  },
   vue: {
     compilerOptions: {
       isCustomElement: (tag: string) => tag.startsWith("media-"),
