@@ -237,7 +237,8 @@ onUnmounted(() => {
           <pre
             v-if="textContent !== null"
             class="p-4 bg-neutral-900/80 rounded border border-white/20 text-sm text-white whitespace-pre-wrap"
-          >{{ textContent }}</pre>
+            >{{ textContent }}</pre
+          >
           <div v-else class="flex items-center justify-center py-8">
             <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
           </div>
