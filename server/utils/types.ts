@@ -25,6 +25,7 @@ export interface LibraryFile {
   trashedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  tags: LibraryTag[];
 }
 
 export interface PaginatedFiles {
@@ -38,6 +39,15 @@ export interface LibraryMember {
   libraryId: string;
   userId: string;
   role: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LibraryTag {
+  id: string;
+  libraryId: string;
+  name: string;
+  color: string;
   createdAt: string;
   updatedAt: string;
 }

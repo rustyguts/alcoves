@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ContextMenuItem } from "@nuxt/ui";
-import type { Library, LibraryFile, PaginatedFiles } from "~~/server/utils/types";
+import type { Library, LibraryFile, LibraryTag, PaginatedFiles } from "~~/server/utils/types";
 import { getMimeIcon, formatFileSize, formatDate } from "~/utils/mime-icons";
 
 definePageMeta({
@@ -9,6 +9,7 @@ definePageMeta({
 
 const route = useRoute();
 const libraryId = computed(() => route.params.id as string);
+const toast = useToast();
 
 const { user } = useAuth();
 
@@ -16,7 +17,9 @@ const { data: library, refresh: refreshLibrary } = await useFetch<Library>(
   () => `/api/libraries/${libraryId.value}`,
 );
 
-const showTrashed = ref(false);
+const viewMode = ref<"files" | "tags" | "trash">("files");
+const showTrashed = computed(() => viewMode.value === "trash");
+const showTags = computed(() => viewMode.value === "tags");
 
 // Paginated file state
 // Initial SSR-compatible load - must come before refs that depend on it
@@ -25,7 +28,7 @@ const ssrHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefine
 const { data: _init } = await useAsyncData(
   `library-init-${libraryId.value}`,
   async () => {
-    const [result, trashedResult] = await Promise.all([
+    const [result, trashedResult, tags] = await Promise.all([
       $fetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, {
         headers: ssrHeaders,
       }),
@@ -33,8 +36,11 @@ const { data: _init } = await useAsyncData(
         query: { trashed: "true", limit: "1" },
         headers: ssrHeaders,
       }),
+      $fetch<LibraryTag[]>(`/api/libraries/${libraryId.value}/tags`, {
+        headers: ssrHeaders,
+      }),
     ]);
-    return { result, trashedCount: trashedResult.totalCount };
+    return { result, trashedCount: trashedResult.totalCount, tags };
   },
   { watch: [libraryId] },
 );
@@ -44,6 +50,7 @@ const files = ref<LibraryFile[]>(_init.value?.result.files ?? []);
 const nextCursor = ref<string | null>(_init.value?.result.nextCursor ?? null);
 const totalCount = ref(_init.value?.result.totalCount ?? 0);
 const trashedCount = ref(_init.value?.trashedCount ?? 0);
+const libraryTags = ref<LibraryTag[]>(_init.value?.tags ?? []);
 const loadingMore = ref(false);
 const filesPending = ref(!_init.value);
 
@@ -84,6 +91,22 @@ async function resetAndFetch() {
   }
 }
 
+async function refreshTags() {
+  libraryTags.value = await $fetch<LibraryTag[]>(`/api/libraries/${libraryId.value}/tags`);
+}
+
+function getFileTagIds(file: LibraryFile): string[] {
+  return file.tags.map((tag) => tag.id);
+}
+
+function openFileTagEditor(file: LibraryFile) {
+  tagEditorOpenForFileId.value = file.id;
+}
+
+function closeFileTagEditor() {
+  tagEditorOpenForFileId.value = null;
+}
+
 // Sync from SSR initial data
 watchEffect(() => {
   if (!_init.value) return;
@@ -91,6 +114,7 @@ watchEffect(() => {
   nextCursor.value = _init.value.result.nextCursor;
   totalCount.value = _init.value.result.totalCount;
   trashedCount.value = _init.value.trashedCount;
+  libraryTags.value = _init.value.tags;
   filesPending.value = false;
 });
 
@@ -100,6 +124,11 @@ const editName = ref("");
 const renamingFileId = ref<string | null>(null);
 const renameValue = ref("");
 const uploadOpen = ref(false);
+const createTagName = ref("");
+const creatingTag = ref(false);
+const tagEditorOpenForFileId = ref<string | null>(null);
+const savingTagsForFileId = ref<string | null>(null);
+const tagDraftNames = reactive<Record<string, string>>({});
 
 // File preview state
 const previewFile = ref<LibraryFile | null>(null);
@@ -142,7 +171,7 @@ const purgeAll = ref(false);
 const { onLibraryUploadComplete, removeOnComplete } = useUploadQueue();
 
 onLibraryUploadComplete(libraryId.value, () => {
-  if (!showTrashed.value) resetAndFetch();
+  if (viewMode.value === "files") resetAndFetch();
 });
 
 // Track if view toggle was user-initiated
@@ -150,16 +179,39 @@ const userToggledView = ref(false);
 
 // Reset view when navigating between libraries (without triggering refetch)
 watch(libraryId, () => {
-  showTrashed.value = false;
+  viewMode.value = "files";
+  closeFileTagEditor();
 });
 
 // View toggle: reset and refetch only on user toggle
-watch(showTrashed, () => {
-  if (userToggledView.value) {
+watch(viewMode, () => {
+  closeFileTagEditor();
+  if (showTags.value) {
+    refreshTags().catch(() => {
+      toast.add({ title: "Failed to load tags", color: "error" });
+    });
+  }
+  if (userToggledView.value && !showTags.value) {
     userToggledView.value = false;
     resetAndFetch();
   }
 });
+
+watch(
+  libraryTags,
+  (nextTags) => {
+    const keepIds = new Set(nextTags.map((tag) => tag.id));
+    Object.keys(tagDraftNames).forEach((id) => {
+      if (!keepIds.has(id)) {
+        delete tagDraftNames[id];
+      }
+    });
+    nextTags.forEach((tag) => {
+      tagDraftNames[tag.id] = tag.name;
+    });
+  },
+  { immediate: true },
+);
 
 // Infinite scroll observer
 const sentinel = ref<HTMLElement | null>(null);
@@ -328,16 +380,16 @@ function getContextMenuItems(fileId: string): ContextMenuItem[][] {
       },
       ...(count === 1
         ? [
-            {
-              label: "Rename",
-              icon: "i-lucide-pencil",
-              onSelect() {
-                const file = files.value.find((f) => f.id === targetIds[0]);
-                if (!file) return;
-                startFileRename(file);
-              },
+          {
+            label: "Rename",
+            icon: "i-lucide-pencil",
+            onSelect() {
+              const file = files.value.find((f) => f.id === targetIds[0]);
+              if (!file) return;
+              startFileRename(file);
             },
-          ]
+          },
+        ]
         : []),
     ],
     [
@@ -378,6 +430,116 @@ async function saveFileRename(fileId: string) {
   file.name = nextName;
 }
 
+async function saveFileTags(file: LibraryFile, tagIds: string[]) {
+  savingTagsForFileId.value = file.id;
+  try {
+    const result = await $fetch<{ tags: LibraryTag[] }>(
+      `/api/libraries/${libraryId.value}/files/${file.id}/tags`,
+      {
+        method: "PUT",
+        body: { tagIds },
+      },
+    );
+    file.tags = result.tags;
+  } catch {
+    toast.add({ title: "Failed to update file tags", color: "error" });
+  } finally {
+    savingTagsForFileId.value = null;
+  }
+}
+
+function isTagAssigned(file: LibraryFile, tagId: string): boolean {
+  return file.tags.some((tag) => tag.id === tagId);
+}
+
+async function toggleFileTag(file: LibraryFile, tagId: string) {
+  const currentIds = new Set(getFileTagIds(file));
+  if (currentIds.has(tagId)) {
+    currentIds.delete(tagId);
+  } else {
+    currentIds.add(tagId);
+  }
+  await saveFileTags(file, [...currentIds]);
+}
+
+async function createTag() {
+  const name = createTagName.value.trim();
+  if (!name) return;
+  creatingTag.value = true;
+  try {
+    const tag = await $fetch<LibraryTag>(`/api/libraries/${libraryId.value}/tags`, {
+      method: "POST",
+      body: { name },
+    });
+    libraryTags.value = [...libraryTags.value, tag].sort((a, b) => a.name.localeCompare(b.name));
+    createTagName.value = "";
+  } catch {
+    toast.add({ title: "Failed to create tag", color: "error" });
+  } finally {
+    creatingTag.value = false;
+  }
+}
+
+async function updateTagColor(tag: LibraryTag, color: string) {
+  try {
+    const updated = await $fetch<LibraryTag>(`/api/libraries/${libraryId.value}/tags/${tag.id}`, {
+      method: "PATCH",
+      body: { color },
+    });
+    replaceTag(updated);
+  } catch {
+    toast.add({ title: "Failed to update tag color", color: "error" });
+  }
+}
+
+function onTagColorChange(tag: LibraryTag, event: Event) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+  updateTagColor(tag, target.value);
+}
+
+async function renameTag(tag: LibraryTag, nextName: string) {
+  const name = nextName.trim();
+  if (!name || name === tag.name) return;
+  try {
+    const updated = await $fetch<LibraryTag>(`/api/libraries/${libraryId.value}/tags/${tag.id}`, {
+      method: "PATCH",
+      body: { name },
+    });
+    replaceTag(updated);
+  } catch {
+    toast.add({ title: "Failed to rename tag", color: "error" });
+  }
+}
+
+async function saveDraftTagName(tag: LibraryTag) {
+  await renameTag(tag, tagDraftNames[tag.id] ?? tag.name);
+}
+
+async function deleteTag(tagId: string) {
+  try {
+    await $fetch(`/api/libraries/${libraryId.value}/tags/${tagId}`, { method: "DELETE" });
+    libraryTags.value = libraryTags.value.filter((tag) => tag.id !== tagId);
+    for (const file of files.value) {
+      file.tags = file.tags.filter((tag) => tag.id !== tagId);
+    }
+  } catch {
+    toast.add({ title: "Failed to delete tag", color: "error" });
+  }
+}
+
+function replaceTag(updated: LibraryTag) {
+  libraryTags.value = libraryTags.value
+    .map((tag) => (tag.id === updated.id ? updated : tag))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  for (const file of files.value) {
+    file.tags = file.tags
+      .map((tag) => (tag.id === updated.id ? updated : tag))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+}
+
 const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
 
 watch(library, () => {
@@ -409,80 +571,69 @@ const purgeFileCount = computed(() =>
   <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between h-10">
       <div class="flex items-center gap-2">
-        <h1
-          v-if="!editingName"
-          class="text-xl font-semibold cursor-pointer hover:text-primary"
-          @click="startLibraryRename"
-        >
+        <h1 v-if="!editingName" class="text-xl font-semibold cursor-pointer hover:text-primary"
+          @click="startLibraryRename">
           {{ library?.name }}
         </h1>
-        <UInput
-          v-else
-          v-model="editName"
-          autofocus
-          size="lg"
-          @blur="saveLibraryName"
-          @keydown.enter="saveLibraryName"
-          @keydown.escape="editingName = false"
-        />
+        <UInput v-else v-model="editName" autofocus size="lg" @blur="saveLibraryName" @keydown.enter="saveLibraryName"
+          @keydown.escape="editingName = false" />
       </div>
       <div class="flex items-center gap-2">
-        <UButton
-          v-if="showTrashed && !filesPending && totalCount > 0"
-          label="Permanently Delete All"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          @click="openPurgeAllModal()"
-        />
-        <UButton
-          v-if="canDeleteLibrary"
-          label="Delete Library"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          @click="deleteLibraryOpen = true"
-        />
-        <UButton
-          v-if="!showTrashed"
-          icon="i-lucide-upload"
-          label="Upload"
-          @click="uploadOpen = true"
-        />
+        <UButton v-if="showTrashed && !filesPending && totalCount > 0" label="Permanently Delete All"
+          icon="i-lucide-trash-2" color="error" variant="soft" @click="openPurgeAllModal()" />
+        <UButton v-if="canDeleteLibrary" label="Delete Library" icon="i-lucide-trash-2" color="error" variant="soft"
+          @click="deleteLibraryOpen = true" />
+        <UButton v-if="!showTrashed && !showTags" icon="i-lucide-upload" label="Upload" @click="uploadOpen = true" />
       </div>
     </div>
 
     <div class="flex items-center gap-1">
-      <UButton
-        label="Files"
-        icon="i-lucide-folder"
-        :variant="!showTrashed ? 'soft' : 'ghost'"
-        :color="!showTrashed ? 'primary' : 'neutral'"
-        size="sm"
-        @click="
+      <UButton label="Files" icon="i-lucide-folder" :variant="!showTrashed && !showTags ? 'soft' : 'ghost'"
+        :color="!showTrashed && !showTags ? 'primary' : 'neutral'" size="sm" @click="
           userToggledView = true;
-          showTrashed = false;
-        "
-      />
-      <UButton
-        label="Trash"
-        icon="i-lucide-trash-2"
-        :variant="showTrashed ? 'soft' : 'ghost'"
-        :color="showTrashed ? 'primary' : 'neutral'"
-        size="sm"
-        @click="
+        viewMode = 'files';
+        " />
+      <UButton label="Tags" icon="i-lucide-tags" :variant="showTags ? 'soft' : 'ghost'"
+        :color="showTags ? 'primary' : 'neutral'" size="sm" @click="
           userToggledView = true;
-          showTrashed = true;
-        "
-      />
+        viewMode = 'tags';
+        " />
+      <UButton label="Trash" icon="i-lucide-trash-2" :variant="showTrashed ? 'soft' : 'ghost'"
+        :color="showTrashed ? 'primary' : 'neutral'" size="sm" @click="
+          userToggledView = true;
+        viewMode = 'trash';
+        " />
     </div>
 
-    <div class="border border-default rounded-lg overflow-hidden">
+    <div v-if="showTags" class="border border-default rounded-lg p-4">
+      <div class="flex flex-col gap-4">
+        <div class="flex items-end gap-2">
+          <UFormField label="New tag" class="flex-1">
+            <UInput v-model="createTagName" placeholder="Design docs" class="w-full" @keydown.enter="createTag" />
+          </UFormField>
+          <UButton label="Create" :loading="creatingTag" @click="createTag" />
+        </div>
+        <div v-if="libraryTags.length" class="max-h-96 overflow-auto border border-default rounded-lg">
+          <div v-for="tag in libraryTags" :key="tag.id"
+            class="flex items-center gap-2 px-3 py-2 border-b border-default last:border-b-0">
+            <input :value="tag.color" type="color" class="w-8 h-8 rounded-full cursor-pointer overflow-hidden"
+              @change="onTagColorChange(tag, $event)" />
+            <UInput v-model="tagDraftNames[tag.id]" class="flex-1" @blur="saveDraftTagName(tag)"
+              @keydown.enter="saveDraftTagName(tag)" />
+            <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" @click="deleteTag(tag.id)" />
+          </div>
+        </div>
+        <p v-else class="text-sm text-muted">No tags yet.</p>
+      </div>
+    </div>
+
+    <div v-else class="border border-default rounded-lg overflow-hidden">
       <table class="w-full">
         <thead>
           <tr class="border-b border-default bg-elevated/50">
             <th class="w-10 px-3 py-2" />
             <th class="text-left text-xs font-medium text-muted px-3 py-2">Name</th>
+            <th class="text-left text-xs font-medium text-muted px-3 py-2">Tags</th>
             <th class="text-left text-xs font-medium text-muted px-3 py-2 hidden sm:table-cell">
               {{ showTrashed ? "Trashed" : "Modified" }}
             </th>
@@ -494,42 +645,56 @@ const purgeFileCount = computed(() =>
         <tbody class="select-none">
           <template v-for="file in files" :key="file.id">
             <UContextMenu :items="getContextMenuItems(file.id)">
-              <tr
-                class="border-b border-default last:border-b-0 cursor-pointer transition-colors"
+              <tr class="border-b border-default last:border-b-0 cursor-pointer transition-colors"
                 :class="selected.has(file.id) ? 'bg-primary/10' : 'hover:bg-elevated/50'"
-                @click="handleRowClick(file.id, $event)"
-                @dblclick="openPreview(file)"
-              >
+                @click="handleRowClick(file.id, $event)" @dblclick="openPreview(file)">
                 <td class="px-3 py-2">
                   <div class="flex items-center justify-center">
-                    <UIcon
-                      :name="getMimeIcon(file.mimeType)"
-                      class="size-5 text-muted"
-                      :class="showTrashed ? 'opacity-50' : ''"
-                    />
+                    <UIcon :name="getMimeIcon(file.mimeType)" class="size-5 text-muted"
+                      :class="showTrashed ? 'opacity-50' : ''" />
                   </div>
                 </td>
                 <td class="px-3 py-2">
-                  <UInput
-                    v-if="renamingFileId === file.id"
-                    v-model="renameValue"
-                    :data-rename-input-file-id="file.id"
-                    size="sm"
-                    autofocus
-                    @blur="saveFileRename(file.id)"
-                    @keydown.enter="saveFileRename(file.id)"
-                    @keydown.escape="renamingFileId = null"
-                    @click.stop
-                  />
+                  <UInput v-if="renamingFileId === file.id" v-model="renameValue" :data-rename-input-file-id="file.id"
+                    size="sm" autofocus @blur="saveFileRename(file.id)" @keydown.enter="saveFileRename(file.id)"
+                    @keydown.escape="renamingFileId = null" @click.stop />
                   <div v-else class="flex items-center gap-1">
-                    <button
-                      type="button"
-                      class="text-sm text-left hover:text-primary transition-colors"
-                      :class="showTrashed ? 'opacity-60' : ''"
-                      @click.stop="startFileRename(file)"
-                    >
+                    <button type="button" class="text-sm text-left hover:text-primary transition-colors"
+                      :class="showTrashed ? 'opacity-60' : ''" @click.stop="startFileRename(file)">
                       {{ file.name }}
                     </button>
+                  </div>
+                </td>
+                <td class="px-3 py-2">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span v-for="tag in file.tags" :key="tag.id" class="size-2.5 rounded-full border border-default/50"
+                      :title="tag.name" :style="{ backgroundColor: tag.color }" />
+                    <UPopover :open="tagEditorOpenForFileId === file.id" :content="{ side: 'right', align: 'start' }"
+                      @update:open="
+                        (open) =>
+                          open ? openFileTagEditor(file) : closeFileTagEditor()
+                      ">
+                      <UButton v-if="!showTrashed" icon="i-lucide-plus" size="xs" variant="ghost" color="neutral"
+                        class="h-5" @click.stop="openFileTagEditor(file)" />
+                      <template #content>
+                        <div class="w-64 p-3 flex flex-col gap-3" @click.stop>
+                          <p class="text-xs font-medium">Toggle tags</p>
+                          <div v-if="libraryTags.length" class="max-h-56 overflow-auto space-y-1">
+                            <button v-for="tag in libraryTags" :key="tag.id" type="button"
+                              class="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-elevated transition-colors"
+                              :disabled="savingTagsForFileId === file.id" @click.stop="toggleFileTag(file, tag.id)">
+                              <span class="flex items-center gap-2">
+                                <span class="size-2.5 rounded-full" :style="{ backgroundColor: tag.color }" />
+                                <span>{{ tag.name }}</span>
+                              </span>
+                              <UIcon v-if="isTagAssigned(file, tag.id)" name="i-lucide-check"
+                                class="size-3.5 text-primary" />
+                            </button>
+                          </div>
+                          <p v-else class="text-xs text-muted">Create tags in the Tags tab.</p>
+                        </div>
+                      </template>
+                    </UPopover>
                   </div>
                 </td>
                 <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
@@ -546,15 +711,11 @@ const purgeFileCount = computed(() =>
             </UContextMenu>
           </template>
           <tr v-if="!files.length && !filesPending">
-            <td colspan="4">
+            <td colspan="5">
               <div class="flex flex-col items-center justify-center py-16 px-4">
-                <div
-                  class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
-                >
-                  <UIcon
-                    :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
-                    class="size-8 text-(--ui-text-muted)"
-                  />
+                <div class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4">
+                  <UIcon :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
+                    class="size-8 text-(--ui-text-muted)" />
                 </div>
                 <p class="text-lg font-medium text-foreground mb-1">
                   {{ showTrashed ? "Trash is empty" : "No files yet" }}
@@ -566,12 +727,8 @@ const purgeFileCount = computed(() =>
                       : "Upload some files to get started with your library"
                   }}
                 </p>
-                <UButton
-                  v-if="!showTrashed"
-                  icon="i-lucide-upload"
-                  label="Upload files"
-                  @click="uploadOpen = true"
-                />
+                <UButton v-if="!showTrashed && !showTags" icon="i-lucide-upload" label="Upload files"
+                  @click="uploadOpen = true" />
               </div>
             </td>
           </tr>
@@ -583,28 +740,17 @@ const purgeFileCount = computed(() =>
       </div>
     </div>
 
-    <UploadModal
-      v-model:open="uploadOpen"
-      :library-id="libraryId"
-      :library-name="library?.name ?? 'Library'"
-    />
+    <UploadModal v-model:open="uploadOpen" :library-id="libraryId" :library-name="library?.name ?? 'Library'" />
 
-    <FilePreview
-      v-if="previewFile"
-      v-model:open="previewOpen"
-      :file="previewFile"
-      :library-id="libraryId"
-      :files="files"
-      @navigate="previewFile = $event"
-    />
+    <FilePreview v-if="previewFile" v-model:open="previewOpen" :file="previewFile" :library-id="libraryId"
+      :files="files" @navigate="previewFile = $event" />
 
     <UModal v-model:open="deleteLibraryOpen" title="Delete Library">
       <template #body>
         <div class="flex flex-col gap-4">
           <p class="text-sm text-muted">
             This will permanently delete the library
-            <strong>{{ library?.name }}</strong
-            >. This action cannot be undone.
+            <strong>{{ library?.name }}</strong>. This action cannot be undone.
           </p>
           <UFormField label="Type 'delete' to confirm">
             <UInput v-model="deleteLibraryConfirmation" placeholder="delete" class="w-full" />
@@ -613,19 +759,9 @@ const purgeFileCount = computed(() =>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
-            @click="deleteLibraryOpen = false"
-          />
-          <UButton
-            label="Delete Library"
-            color="error"
-            icon="i-lucide-trash-2"
-            :disabled="deleteLibraryConfirmation !== 'delete'"
-            @click="deleteLibrary"
-          />
+          <UButton label="Cancel" color="neutral" variant="outline" @click="deleteLibraryOpen = false" />
+          <UButton label="Delete Library" color="error" icon="i-lucide-trash-2"
+            :disabled="deleteLibraryConfirmation !== 'delete'" @click="deleteLibrary" />
         </div>
       </template>
     </UModal>
@@ -645,19 +781,9 @@ const purgeFileCount = computed(() =>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
-            @click="purgeModalOpen = false"
-          />
-          <UButton
-            label="Delete Permanently"
-            color="error"
-            icon="i-lucide-trash-2"
-            :disabled="purgeConfirmation !== 'delete'"
-            @click="handlePermanentDelete"
-          />
+          <UButton label="Cancel" color="neutral" variant="outline" @click="purgeModalOpen = false" />
+          <UButton label="Delete Permanently" color="error" icon="i-lucide-trash-2"
+            :disabled="purgeConfirmation !== 'delete'" @click="handlePermanentDelete" />
         </div>
       </template>
     </UModal>

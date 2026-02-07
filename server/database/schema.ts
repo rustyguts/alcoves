@@ -47,6 +47,42 @@ export const files = pgTable("files", {
     .$onUpdate(() => new Date()),
 });
 
+export const tags = pgTable(
+  "tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    libraryId: uuid("library_id")
+      .notNull()
+      .references(() => libraries.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("tags_library_name_idx").on(table.libraryId, table.name),
+    uniqueIndex("tags_library_color_idx").on(table.libraryId, table.color),
+  ],
+);
+
+export const fileTags = pgTable(
+  "file_tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fileId: uuid("file_id")
+      .notNull()
+      .references(() => files.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("file_tags_file_tag_idx").on(table.fileId, table.tagId)],
+);
+
 export const libraryMembers = pgTable(
   "library_members",
   {

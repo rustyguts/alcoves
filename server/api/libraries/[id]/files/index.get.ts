@@ -1,4 +1,4 @@
-import { eq, and, isNull, isNotNull, desc, sql, lt, or, count } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc, sql, lt, or, count, inArray } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
 import type { PaginatedFiles } from "~~/server/utils/types";
 
@@ -61,6 +61,37 @@ export default defineEventHandler(async (event): Promise<PaginatedFiles> => {
   const totalCount = countResult[0]?.value ?? 0;
   const hasMore = rows.length > limit;
   const files = hasMore ? rows.slice(0, limit) : rows;
+  const fileIds = files.map((file) => file.id);
+
+  const tagRows = fileIds.length
+    ? await db
+        .select({
+          fileId: schema.fileTags.fileId,
+          id: schema.tags.id,
+          libraryId: schema.tags.libraryId,
+          name: schema.tags.name,
+          color: schema.tags.color,
+          createdAt: schema.tags.createdAt,
+          updatedAt: schema.tags.updatedAt,
+        })
+        .from(schema.fileTags)
+        .innerJoin(schema.tags, eq(schema.tags.id, schema.fileTags.tagId))
+        .where(inArray(schema.fileTags.fileId, fileIds))
+    : [];
+
+  const tagsByFileId = new Map<string, PaginatedFiles["files"][number]["tags"]>();
+  for (const tagRow of tagRows) {
+    const list = tagsByFileId.get(tagRow.fileId) ?? [];
+    list.push({
+      id: tagRow.id,
+      libraryId: tagRow.libraryId,
+      name: tagRow.name,
+      color: tagRow.color,
+      createdAt: tagRow.createdAt.toISOString(),
+      updatedAt: tagRow.updatedAt.toISOString(),
+    });
+    tagsByFileId.set(tagRow.fileId, list);
+  }
 
   let nextCursor: string | null = null;
   if (hasMore) {
@@ -76,6 +107,7 @@ export default defineEventHandler(async (event): Promise<PaginatedFiles> => {
       trashedAt: f.trashedAt ? f.trashedAt.toISOString() : null,
       createdAt: f.createdAt.toISOString(),
       updatedAt: f.updatedAt.toISOString(),
+      tags: (tagsByFileId.get(f.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
     })),
     nextCursor,
     totalCount,
