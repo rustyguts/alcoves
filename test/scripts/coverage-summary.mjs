@@ -13,7 +13,9 @@ const summaryPath = candidates.find((candidate) => existsSync(candidate));
 
 if (!summaryPath) {
   const coverageDir = resolve(root, "coverage");
-  const coverageFiles = existsSync(coverageDir) ? readdirSync(coverageDir).sort().join(", ") : "(coverage directory not found)";
+  const coverageFiles = existsSync(coverageDir)
+    ? readdirSync(coverageDir).sort().join(", ")
+    : "(coverage directory not found)";
   console.warn("Coverage Summary");
   console.warn(`coverage-summary.json not found. Checked: ${candidates.join(", ")}`);
   console.warn(`coverage/ contents: ${coverageFiles}`);
