@@ -25,3 +25,9 @@ data/
 .env
 .env.*
 !.env.example
+
+# Test files
+coverage
+test-results
+playwright-report
+.nuxtrc
