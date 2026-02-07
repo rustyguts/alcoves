@@ -99,14 +99,6 @@ function getFileTagIds(file: LibraryFile): string[] {
   return file.tags.map((tag) => tag.id);
 }
 
-function openFileTagEditor(file: LibraryFile) {
-  tagEditorOpenForFileId.value = file.id;
-}
-
-function closeFileTagEditor() {
-  tagEditorOpenForFileId.value = null;
-}
-
 // Sync from SSR initial data
 watchEffect(() => {
   if (!_init.value) return;
@@ -126,8 +118,6 @@ const renameValue = ref("");
 const uploadOpen = ref(false);
 const createTagName = ref("");
 const creatingTag = ref(false);
-const tagEditorOpenForFileId = ref<string | null>(null);
-const savingTagsForFileId = ref<string | null>(null);
 const tagDraftNames = reactive<Record<string, string>>({});
 
 // File preview state
@@ -180,12 +170,10 @@ const userToggledView = ref(false);
 // Reset view when navigating between libraries (without triggering refetch)
 watch(libraryId, () => {
   viewMode.value = "files";
-  closeFileTagEditor();
 });
 
 // View toggle: reset and refetch only on user toggle
 watch(viewMode, () => {
-  closeFileTagEditor();
   if (showTags.value) {
     refreshTags().catch(() => {
       toast.add({ title: "Failed to load tags", color: "error" });
@@ -371,6 +359,19 @@ function getContextMenuItems(fileId: string): ContextMenuItem[][] {
     ];
   }
 
+  const tagItems: ContextMenuItem[] = libraryTags.value.length
+    ? libraryTags.value.map((tag) => ({
+        label: tag.name,
+        icon: areAllFilesTagged(targetIds, tag.id) ? "i-lucide-check" : "i-lucide-tag",
+        onSelect: () => toggleTagForFiles(targetIds, tag.id),
+      }))
+    : [
+        {
+          label: "No tags yet",
+          disabled: true,
+        },
+      ];
+
   return [
     [
       {
@@ -391,6 +392,11 @@ function getContextMenuItems(fileId: string): ContextMenuItem[][] {
             },
           ]
         : []),
+      {
+        label: count > 1 ? `Tags (${count} files)` : "Tags",
+        icon: "i-lucide-tags",
+        children: tagItems,
+      },
     ],
     [
       {
@@ -431,35 +437,48 @@ async function saveFileRename(fileId: string) {
 }
 
 async function saveFileTags(file: LibraryFile, tagIds: string[]) {
-  savingTagsForFileId.value = file.id;
-  try {
-    const result = await $fetch<{ tags: LibraryTag[] }>(
-      `/api/libraries/${libraryId.value}/files/${file.id}/tags`,
-      {
-        method: "PUT",
-        body: { tagIds },
-      },
-    );
-    file.tags = result.tags;
-  } catch {
-    toast.add({ title: "Failed to update file tags", color: "error" });
-  } finally {
-    savingTagsForFileId.value = null;
-  }
+  const result = await $fetch<{ tags: LibraryTag[] }>(
+    `/api/libraries/${libraryId.value}/files/${file.id}/tags`,
+    {
+      method: "PUT",
+      body: { tagIds },
+    },
+  );
+  file.tags = result.tags;
 }
 
 function isTagAssigned(file: LibraryFile, tagId: string): boolean {
   return file.tags.some((tag) => tag.id === tagId);
 }
 
-async function toggleFileTag(file: LibraryFile, tagId: string) {
-  const currentIds = new Set(getFileTagIds(file));
-  if (currentIds.has(tagId)) {
-    currentIds.delete(tagId);
-  } else {
-    currentIds.add(tagId);
+function areAllFilesTagged(fileIds: string[], tagId: string): boolean {
+  return fileIds.every((id) => {
+    const file = files.value.find((item) => item.id === id);
+    return file ? isTagAssigned(file, tagId) : false;
+  });
+}
+
+async function toggleTagForFiles(fileIds: string[], tagId: string) {
+  const targetFiles = files.value.filter((file) => fileIds.includes(file.id));
+  if (!targetFiles.length) return;
+
+  const shouldAddTag = !targetFiles.every((file) => isTagAssigned(file, tagId));
+
+  try {
+    await Promise.all(
+      targetFiles.map((file) => {
+        const nextTagIds = new Set(getFileTagIds(file));
+        if (shouldAddTag) {
+          nextTagIds.add(tagId);
+        } else {
+          nextTagIds.delete(tagId);
+        }
+        return saveFileTags(file, [...nextTagIds]);
+      }),
+    );
+  } catch {
+    toast.add({ title: "Failed to update file tags", color: "error" });
   }
-  await saveFileTags(file, [...currentIds]);
 }
 
 async function createTag() {
@@ -762,52 +781,6 @@ const purgeFileCount = computed(() =>
                       :title="tag.name"
                       :style="{ backgroundColor: tag.color }"
                     />
-                    <UPopover
-                      :open="tagEditorOpenForFileId === file.id"
-                      :content="{ side: 'right', align: 'start' }"
-                      @update:open="
-                        (open) => (open ? openFileTagEditor(file) : closeFileTagEditor())
-                      "
-                    >
-                      <UButton
-                        v-if="!showTrashed"
-                        icon="i-lucide-plus"
-                        size="xs"
-                        variant="ghost"
-                        color="neutral"
-                        class="h-5"
-                        @click.stop="openFileTagEditor(file)"
-                      />
-                      <template #content>
-                        <div class="w-64 p-3 flex flex-col gap-3" @click.stop>
-                          <p class="text-xs font-medium">Toggle tags</p>
-                          <div v-if="libraryTags.length" class="max-h-56 overflow-auto space-y-1">
-                            <button
-                              v-for="tag in libraryTags"
-                              :key="tag.id"
-                              type="button"
-                              class="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-elevated transition-colors"
-                              :disabled="savingTagsForFileId === file.id"
-                              @click.stop="toggleFileTag(file, tag.id)"
-                            >
-                              <span class="flex items-center gap-2">
-                                <span
-                                  class="size-2.5 rounded-full"
-                                  :style="{ backgroundColor: tag.color }"
-                                />
-                                <span>{{ tag.name }}</span>
-                              </span>
-                              <UIcon
-                                v-if="isTagAssigned(file, tag.id)"
-                                name="i-lucide-check"
-                                class="size-3.5 text-primary"
-                              />
-                            </button>
-                          </div>
-                          <p v-else class="text-xs text-muted">Create tags in the Tags tab.</p>
-                        </div>
-                      </template>
-                    </UPopover>
                   </div>
                 </td>
                 <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
