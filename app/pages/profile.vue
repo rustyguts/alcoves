@@ -153,10 +153,7 @@ function getStatusMessage(error: unknown): string | null {
 <template>
   <div class="mx-auto max-w-lg flex flex-col gap-6">
     <div class="flex items-center gap-4">
-      <div
-        v-if="currentAvatarSrc"
-        class="size-16 rounded-full overflow-hidden"
-      >
+      <div v-if="currentAvatarSrc" class="size-16 rounded-full overflow-hidden">
         <img :src="currentAvatarSrc" alt="" class="size-full object-cover" />
       </div>
       <div

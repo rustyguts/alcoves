@@ -1916,11 +1916,17 @@ const emptyStateDescription = computed(() => {
           <UContextMenu :items="getContextMenuItems(entry)">
             <div
               class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
-              :class="isEntrySelected(entry) ? 'ring-2 ring-primary/50 bg-primary/5' : 'hover:bg-elevated/70'"
+              :class="
+                isEntrySelected(entry)
+                  ? 'ring-2 ring-primary/50 bg-primary/5'
+                  : 'hover:bg-elevated/70'
+              "
               @click="handleRowClick(entry, $event)"
               @dblclick="openEntry(entry)"
             >
-              <div class="h-28 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden">
+              <div
+                class="h-28 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden"
+              >
                 <template v-if="entry.kind === 'folder'">
                   <UIcon name="i-lucide-folder" class="size-10 text-muted" />
                 </template>
@@ -2000,7 +2006,10 @@ const emptyStateDescription = computed(() => {
         </template>
       </div>
 
-      <div v-if="!entries.length && !filesPending" class="flex flex-col items-center justify-center py-16 px-4">
+      <div
+        v-if="!entries.length && !filesPending"
+        class="flex flex-col items-center justify-center py-16 px-4"
+      >
         <div
           class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
         >

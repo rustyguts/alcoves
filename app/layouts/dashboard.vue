@@ -110,11 +110,7 @@ provide("refreshLibraries", refreshLibraries);
 
 <template>
   <UDashboardGroup>
-    <UDashboardSidebar
-      collapsible
-      resizable
-      :ui="{ root: 'max-w-xs' }"
-    >
+    <UDashboardSidebar collapsible resizable :ui="{ root: 'max-w-xs' }">
       <template #header="{ collapsed }">
         <span v-if="!collapsed" class="text-lg font-bold truncate">Alcoves</span>
         <UIcon v-else name="i-lucide-layout-dashboard" class="size-5 text-primary mx-auto" />
@@ -189,10 +185,7 @@ provide("refreshLibraries", refreshLibraries);
               <button
                 class="flex items-center gap-2 rounded-full p-1 mr-3 hover:bg-elevated/50 transition-colors"
               >
-                <div
-                  v-if="user?.avatarUrl"
-                  class="size-8 rounded-full overflow-hidden"
-                >
+                <div v-if="user?.avatarUrl" class="size-8 rounded-full overflow-hidden">
                   <img :src="user.avatarUrl" alt="" class="size-full object-cover" />
                 </div>
                 <div
