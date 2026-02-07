@@ -1003,16 +1003,16 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
 
     const folderTagItems: ContextMenuItem[] = libraryTags.value.length
       ? libraryTags.value.map((tag) => ({
-        label: tag.name,
-        icon: isFolderTagAssigned(entry, tag.id) ? "i-lucide-check" : "i-lucide-tag",
-        onSelect: () => toggleTagForFolder(entry, tag.id),
-      }))
+          label: tag.name,
+          icon: isFolderTagAssigned(entry, tag.id) ? "i-lucide-check" : "i-lucide-tag",
+          onSelect: () => toggleTagForFolder(entry, tag.id),
+        }))
       : [
-        {
-          label: "No tags yet",
-          disabled: true,
-        },
-      ];
+          {
+            label: "No tags yet",
+            disabled: true,
+          },
+        ];
 
     return [
       [
@@ -1086,16 +1086,16 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
 
   const tagItems: ContextMenuItem[] = libraryTags.value.length
     ? libraryTags.value.map((tag) => ({
-      label: tag.name,
-      icon: areAllFilesTagged(targetIds, tag.id) ? "i-lucide-check" : "i-lucide-tag",
-      onSelect: () => toggleTagForFiles(targetIds, tag.id),
-    }))
+        label: tag.name,
+        icon: areAllFilesTagged(targetIds, tag.id) ? "i-lucide-check" : "i-lucide-tag",
+        onSelect: () => toggleTagForFiles(targetIds, tag.id),
+      }))
     : [
-      {
-        label: "No tags yet",
-        disabled: true,
-      },
-    ];
+        {
+          label: "No tags yet",
+          disabled: true,
+        },
+      ];
 
   return [
     [
@@ -1106,14 +1106,14 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
       },
       ...(count === 1
         ? [
-          {
-            label: "Rename",
-            icon: "i-lucide-pencil",
-            onSelect() {
-              startEntryRename(entry);
+            {
+              label: "Rename",
+              icon: "i-lucide-pencil",
+              onSelect() {
+                startEntryRename(entry);
+              },
             },
-          },
-        ]
+          ]
         : []),
       {
         label: count > 1 ? `Tags (${count} files)` : "Tags",
@@ -1344,19 +1344,45 @@ const emptyStateDescription = computed(() => {
   <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between gap-3 min-h-10">
       <div class="flex items-center gap-2">
-        <h1 v-if="!editingName" class="text-xl font-semibold"
-          :class="canManageLibrary ? 'cursor-pointer hover:text-primary' : ''" @click="startLibraryRename">
+        <h1
+          v-if="!editingName"
+          class="text-xl font-semibold"
+          :class="canManageLibrary ? 'cursor-pointer hover:text-primary' : ''"
+          @click="startLibraryRename"
+        >
           {{ library?.name }}
         </h1>
-        <UInput v-else v-model="editName" autofocus size="lg" @blur="saveLibraryName" @keydown.enter="saveLibraryName"
-          @keydown.escape="editingName = false" />
+        <UInput
+          v-else
+          v-model="editName"
+          autofocus
+          size="lg"
+          @blur="saveLibraryName"
+          @keydown.enter="saveLibraryName"
+          @keydown.escape="editingName = false"
+        />
       </div>
       <div class="flex items-center gap-3">
-        <LibraryMemberAvatars v-if="!library?.isDefault && memberAvatars.length" :members="memberAvatars" />
-        <UButton v-if="showTrashed && !filesPending && totalCount > 0" label="Permanently Delete All"
-          icon="i-lucide-trash-2" color="error" variant="soft" @click="openPurgeAllModal()" />
-        <UButton v-if="canDeleteLibrary" label="Delete Library" icon="i-lucide-trash-2" color="error" variant="soft"
-          @click="deleteLibraryOpen = true" />
+        <LibraryMemberAvatars
+          v-if="!library?.isDefault && memberAvatars.length"
+          :members="memberAvatars"
+        />
+        <UButton
+          v-if="showTrashed && !filesPending && totalCount > 0"
+          label="Permanently Delete All"
+          icon="i-lucide-trash-2"
+          color="error"
+          variant="soft"
+          @click="openPurgeAllModal()"
+        />
+        <UButton
+          v-if="canDeleteLibrary"
+          label="Delete Library"
+          icon="i-lucide-trash-2"
+          color="error"
+          variant="soft"
+          @click="deleteLibraryOpen = true"
+        />
         <template v-if="canManageLibrary && !showTrashed && !showTags && !showUsers">
           <UDropdownMenu :items="newMenuItems">
             <UButton icon="i-lucide-plus" label="New" color="neutral" variant="outline" />
@@ -1370,29 +1396,53 @@ const emptyStateDescription = computed(() => {
 
     <div class="flex justify-between gap-1 w-full">
       <div class="flex">
-        <UButton label="Files" icon="i-lucide-folder"
+        <UButton
+          label="Files"
+          icon="i-lucide-folder"
           :variant="!showTrashed && !showTags && !showUsers ? 'soft' : 'ghost'"
-          :color="!showTrashed && !showTags && !showUsers ? 'primary' : 'neutral'" size="sm" @click="
+          :color="!showTrashed && !showTags && !showUsers ? 'primary' : 'neutral'"
+          size="sm"
+          @click="
             userToggledView = true;
-          viewMode = 'files';
-          " />
-        <UButton v-if="canManageUsers" label="Users" icon="i-lucide-users" :variant="showUsers ? 'soft' : 'ghost'"
-          :color="showUsers ? 'primary' : 'neutral'" size="sm" @click="
+            viewMode = 'files';
+          "
+        />
+        <UButton
+          v-if="canManageUsers"
+          label="Users"
+          icon="i-lucide-users"
+          :variant="showUsers ? 'soft' : 'ghost'"
+          :color="showUsers ? 'primary' : 'neutral'"
+          size="sm"
+          @click="
             userToggledView = true;
-          viewMode = 'users';
-          " />
-        <UButton label="Tags" icon="i-lucide-tags" :variant="showTags ? 'soft' : 'ghost'"
-          :color="showTags ? 'primary' : 'neutral'" size="sm" @click="
+            viewMode = 'users';
+          "
+        />
+        <UButton
+          label="Tags"
+          icon="i-lucide-tags"
+          :variant="showTags ? 'soft' : 'ghost'"
+          :color="showTags ? 'primary' : 'neutral'"
+          size="sm"
+          @click="
             userToggledView = true;
-          viewMode = 'tags';
-          " />
+            viewMode = 'tags';
+          "
+        />
       </div>
       <div>
-        <UButton label="Trash" icon="i-lucide-trash-2" :variant="showTrashed ? 'soft' : 'ghost'" :color="'error'"
-          size="sm" @click="
+        <UButton
+          label="Trash"
+          icon="i-lucide-trash-2"
+          :variant="showTrashed ? 'soft' : 'ghost'"
+          :color="'error'"
+          size="sm"
+          @click="
             userToggledView = true;
-          viewMode = 'trash';
-          " />
+            viewMode = 'trash';
+          "
+        />
       </div>
     </div>
 
@@ -1404,18 +1454,31 @@ const emptyStateDescription = computed(() => {
               <p class="text-sm font-semibold">Create Tag</p>
               <p class="text-xs text-muted">Add labels to organize files and folders.</p>
             </div>
-            <UBadge color="neutral" variant="soft"
-              :label="`${libraryTags.length} ${libraryTags.length === 1 ? 'tag' : 'tags'}`" />
+            <UBadge
+              color="neutral"
+              variant="soft"
+              :label="`${libraryTags.length} ${libraryTags.length === 1 ? 'tag' : 'tags'}`"
+            />
           </div>
         </template>
 
         <div class="flex flex-col sm:flex-row sm:items-end gap-2">
           <UFormField label="Tag name" class="flex-1">
-            <UInput v-model="createTagName" placeholder="Design docs" icon="i-lucide-tag" class="w-full"
-              @keydown.enter="createTag" />
+            <UInput
+              v-model="createTagName"
+              placeholder="Design docs"
+              icon="i-lucide-tag"
+              class="w-full"
+              @keydown.enter="createTag"
+            />
           </UFormField>
-          <UButton label="Create Tag" icon="i-lucide-plus" :loading="creatingTag" :disabled="!createTagName.trim()"
-            @click="createTag" />
+          <UButton
+            label="Create Tag"
+            icon="i-lucide-plus"
+            :loading="creatingTag"
+            :disabled="!createTagName.trim()"
+            @click="createTag"
+          />
         </div>
       </UCard>
 
@@ -1427,36 +1490,63 @@ const emptyStateDescription = computed(() => {
           </div>
         </template>
 
-        <div v-if="libraryTags.length" class="divide-y divide-default rounded-lg border border-default">
-          <div v-for="tag in libraryTags" :key="tag.id"
-            class="flex flex-col sm:flex-row sm:items-center gap-3 px-3 py-3 bg-(--ui-bg)/40">
+        <div
+          v-if="libraryTags.length"
+          class="divide-y divide-default rounded-lg border border-default"
+        >
+          <div
+            v-for="tag in libraryTags"
+            :key="tag.id"
+            class="flex flex-col sm:flex-row sm:items-center gap-3 px-3 py-3 bg-(--ui-bg)/40"
+          >
             <UPopover>
-              <button type="button" class="size-8 rounded-full border-2 border-default cursor-pointer shadow-sm"
-                :style="{ backgroundColor: tag.color }" :title="`Tag color: ${tag.color}`" />
+              <button
+                type="button"
+                class="size-8 rounded-full border-2 border-default cursor-pointer shadow-sm"
+                :style="{ backgroundColor: tag.color }"
+                :title="`Tag color: ${tag.color}`"
+              />
               <template #content>
                 <div class="p-2 w-[12rem] sm:w-[16rem] lg:w-[21rem]">
                   <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-1">
-                    <button v-for="color in getTagColorChoices(tag)" :key="`${tag.id}-${color}`" type="button"
+                    <button
+                      v-for="color in getTagColorChoices(tag)"
+                      :key="`${tag.id}-${color}`"
+                      type="button"
                       class="size-5 rounded-full border transition-transform disabled:opacity-35 disabled:cursor-not-allowed"
-                      :class="color === tag.color.toUpperCase()
-                        ? 'border-primary ring-2 ring-primary/30 scale-110'
-                        : 'border-default hover:scale-105'
-                        " :style="{ backgroundColor: color }"
+                      :class="
+                        color === tag.color.toUpperCase()
+                          ? 'border-primary ring-2 ring-primary/30 scale-110'
+                          : 'border-default hover:scale-105'
+                      "
+                      :style="{ backgroundColor: color }"
                       :title="isTagColorUsedByAnotherTag(tag.id, color) ? `${color} (used)` : color"
-                      :disabled="isTagColorUsedByAnotherTag(tag.id, color)" @click="selectTagColor(tag, color)" />
+                      :disabled="isTagColorUsedByAnotherTag(tag.id, color)"
+                      @click="selectTagColor(tag, color)"
+                    />
                   </div>
                 </div>
               </template>
             </UPopover>
 
             <div class="min-w-0 flex-1 flex items-center gap-2">
-              <UInput v-model="tagDraftNames[tag.id]" class="flex-1" @blur="saveDraftTagName(tag)"
-                @keydown.enter="saveDraftTagName(tag)" />
+              <UInput
+                v-model="tagDraftNames[tag.id]"
+                class="flex-1"
+                @blur="saveDraftTagName(tag)"
+                @keydown.enter="saveDraftTagName(tag)"
+              />
               <UBadge color="neutral" variant="outline" :label="tag.color" class="shrink-0" />
             </div>
 
-            <UButton icon="i-lucide-trash-2" color="error" variant="soft" size="sm"
-              class="self-start sm:self-auto sm:ml-auto" @click="deleteTag(tag.id)" />
+            <UButton
+              icon="i-lucide-trash-2"
+              color="error"
+              variant="soft"
+              size="sm"
+              class="self-start sm:self-auto sm:ml-auto"
+              @click="deleteTag(tag.id)"
+            />
           </div>
         </div>
 
@@ -1478,17 +1568,36 @@ const emptyStateDescription = computed(() => {
                 Add a specific user directly or send a targeted invite.
               </p>
             </div>
-            <UBadge color="neutral" variant="soft"
-              :label="`${libraryMembers.length} ${libraryMembers.length === 1 ? 'member' : 'members'}`" />
+            <UBadge
+              color="neutral"
+              variant="soft"
+              :label="`${libraryMembers.length} ${libraryMembers.length === 1 ? 'member' : 'members'}`"
+            />
           </div>
         </template>
 
         <div class="flex flex-col sm:flex-row gap-2">
-          <UInput v-model="inviteEmail" type="email" placeholder="user@example.com" icon="i-lucide-mail" class="flex-1"
-            @keydown.enter="inviteUserByEmail" />
-          <USelectMenu v-model="inviteEmailRole" :items="inviteRoleOptions" value-key="value" class="w-full sm:w-32" />
-          <UButton label="Invite" icon="i-lucide-user-plus" :loading="inviteByEmailLoading"
-            :disabled="!inviteEmail.trim()" @click="inviteUserByEmail" />
+          <UInput
+            v-model="inviteEmail"
+            type="email"
+            placeholder="user@example.com"
+            icon="i-lucide-mail"
+            class="flex-1"
+            @keydown.enter="inviteUserByEmail"
+          />
+          <USelectMenu
+            v-model="inviteEmailRole"
+            :items="inviteRoleOptions"
+            value-key="value"
+            class="w-full sm:w-32"
+          />
+          <UButton
+            label="Invite"
+            icon="i-lucide-user-plus"
+            :loading="inviteByEmailLoading"
+            :disabled="!inviteEmail.trim()"
+            @click="inviteUserByEmail"
+          />
         </div>
       </UCard>
 
@@ -1501,15 +1610,26 @@ const emptyStateDescription = computed(() => {
             </div>
             <div class="flex items-center gap-2">
               <UBadge color="neutral" variant="soft" :label="`${inviteLinks.length} active`" />
-              <UButton label="Create Link" icon="i-lucide-link" size="sm" :loading="createInviteLinkLoading"
-                @click="createInviteLink" />
+              <UButton
+                label="Create Link"
+                icon="i-lucide-link"
+                size="sm"
+                :loading="createInviteLinkLoading"
+                @click="createInviteLink"
+              />
             </div>
           </div>
         </template>
 
-        <div v-if="inviteLinks.length" class="divide-y divide-default rounded-lg border border-default">
-          <div v-for="invite in inviteLinks" :key="invite.id"
-            class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3">
+        <div
+          v-if="inviteLinks.length"
+          class="divide-y divide-default rounded-lg border border-default"
+        >
+          <div
+            v-for="invite in inviteLinks"
+            :key="invite.id"
+            class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
+          >
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium truncate">{{ invite.inviteUrl }}</p>
               <p class="text-xs text-muted">
@@ -1517,10 +1637,21 @@ const emptyStateDescription = computed(() => {
               </p>
             </div>
             <div class="flex items-center gap-2">
-              <UButton icon="i-lucide-copy" color="neutral" variant="outline" size="sm"
-                @click="copyInviteLink(invite.inviteUrl)" />
-              <UButton icon="i-lucide-x" color="error" variant="soft" size="sm"
-                :loading="revokingInviteId === invite.id" @click="revokeInvite(invite.id)" />
+              <UButton
+                icon="i-lucide-copy"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                @click="copyInviteLink(invite.inviteUrl)"
+              />
+              <UButton
+                icon="i-lucide-x"
+                color="error"
+                variant="soft"
+                size="sm"
+                :loading="revokingInviteId === invite.id"
+                @click="revokeInvite(invite.id)"
+              />
             </div>
           </div>
         </div>
@@ -1535,10 +1666,17 @@ const emptyStateDescription = computed(() => {
         </template>
 
         <div class="divide-y divide-default rounded-lg border border-default">
-          <div v-for="member in libraryMembers" :key="member.id"
-            class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3">
+          <div
+            v-for="member in libraryMembers"
+            :key="member.id"
+            class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
+          >
             <div class="flex items-center gap-3 flex-1 min-w-0">
-              <UAvatar :src="member.user.avatarUrl ?? undefined" :alt="member.user.displayName" size="sm" />
+              <UAvatar
+                :src="member.user.avatarUrl ?? undefined"
+                :alt="member.user.displayName"
+                size="sm"
+              />
               <div class="min-w-0">
                 <p class="text-sm font-medium truncate">{{ member.user.displayName }}</p>
                 <p class="text-xs text-muted truncate">{{ member.user.email }}</p>
@@ -1546,13 +1684,29 @@ const emptyStateDescription = computed(() => {
             </div>
 
             <div class="flex items-center gap-2">
-              <UBadge v-if="member.role === 'owner'" color="primary" variant="subtle" label="owner" />
+              <UBadge
+                v-if="member.role === 'owner'"
+                color="primary"
+                variant="subtle"
+                label="owner"
+              />
               <template v-else>
-                <USelectMenu v-model="memberRoleDrafts[member.userId]" :items="inviteRoleOptions" value-key="value"
-                  class="w-28" :loading="updatingMemberUserId === member.userId"
-                  @update:model-value="updateMemberRole(member)" />
-                <UButton icon="i-lucide-user-minus" color="error" variant="soft" size="sm"
-                  :loading="removingMemberUserId === member.userId" @click="removeMember(member)" />
+                <USelectMenu
+                  v-model="memberRoleDrafts[member.userId]"
+                  :items="inviteRoleOptions"
+                  value-key="value"
+                  class="w-28"
+                  :loading="updatingMemberUserId === member.userId"
+                  @update:model-value="updateMemberRole(member)"
+                />
+                <UButton
+                  icon="i-lucide-user-minus"
+                  color="error"
+                  variant="soft"
+                  size="sm"
+                  :loading="removingMemberUserId === member.userId"
+                  @click="removeMember(member)"
+                />
               </template>
             </div>
           </div>
@@ -1567,19 +1721,36 @@ const emptyStateDescription = computed(() => {
           </div>
         </template>
 
-        <div v-if="emailInvites.length" class="divide-y divide-default rounded-lg border border-default">
-          <div v-for="invite in emailInvites" :key="invite.id"
-            class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3">
+        <div
+          v-if="emailInvites.length"
+          class="divide-y divide-default rounded-lg border border-default"
+        >
+          <div
+            v-for="invite in emailInvites"
+            :key="invite.id"
+            class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
+          >
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium truncate">{{ invite.invitedEmail }}</p>
               <p class="text-xs text-muted truncate">{{ invite.inviteUrl }}</p>
             </div>
             <div class="flex items-center gap-2">
               <UBadge color="neutral" variant="outline" :label="invite.role" />
-              <UButton icon="i-lucide-copy" color="neutral" variant="outline" size="sm"
-                @click="copyInviteLink(invite.inviteUrl)" />
-              <UButton icon="i-lucide-x" color="error" variant="soft" size="sm"
-                :loading="revokingInviteId === invite.id" @click="revokeInvite(invite.id)" />
+              <UButton
+                icon="i-lucide-copy"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                @click="copyInviteLink(invite.inviteUrl)"
+              />
+              <UButton
+                icon="i-lucide-x"
+                color="error"
+                variant="soft"
+                size="sm"
+                :loading="revokingInviteId === invite.id"
+                @click="revokeInvite(invite.id)"
+              />
             </div>
           </div>
         </div>
@@ -1610,44 +1781,77 @@ const emptyStateDescription = computed(() => {
         <tbody class="select-none">
           <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
             <UContextMenu :items="getContextMenuItems(entry)">
-              <tr class="border-b border-default last:border-b-0 cursor-pointer transition-colors"
+              <tr
+                class="border-b border-default last:border-b-0 cursor-pointer transition-colors"
                 :class="isEntrySelected(entry) ? 'bg-primary/10' : 'hover:bg-elevated/50'"
-                @click="handleRowClick(entry, $event)" @dblclick="openEntry(entry)">
+                @click="handleRowClick(entry, $event)"
+                @dblclick="openEntry(entry)"
+              >
                 <td class="px-3 py-2">
                   <div class="flex items-center justify-center">
-                    <UIcon :name="entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(entry.mimeType)
-                      " class="size-5 text-muted" :class="showTrashed && entry.kind === 'file' ? 'opacity-50' : ''" />
+                    <UIcon
+                      :name="
+                        entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(entry.mimeType)
+                      "
+                      class="size-5 text-muted"
+                      :class="showTrashed && entry.kind === 'file' ? 'opacity-50' : ''"
+                    />
                   </div>
                 </td>
                 <td class="px-3 py-2">
-                  <UInput v-if="isRenaming(entry)" v-model="renameValue" :data-rename-input-entry-id="entry.id"
-                    size="sm" autofocus @blur="saveEntryRename(entry)" @keydown.enter="saveEntryRename(entry)"
-                    @keydown.escape="renamingEntry = null" @click.stop />
+                  <UInput
+                    v-if="isRenaming(entry)"
+                    v-model="renameValue"
+                    :data-rename-input-entry-id="entry.id"
+                    size="sm"
+                    autofocus
+                    @blur="saveEntryRename(entry)"
+                    @keydown.enter="saveEntryRename(entry)"
+                    @keydown.escape="renamingEntry = null"
+                    @click.stop
+                  />
                   <div v-else class="flex items-center gap-1">
-                    <button v-if="entry.kind === 'folder'" type="button"
-                      class="text-sm text-left hover:text-primary transition-colors" @click.stop="openFolder(entry.id)">
+                    <button
+                      v-if="entry.kind === 'folder'"
+                      type="button"
+                      class="text-sm text-left hover:text-primary transition-colors"
+                      @click.stop="openFolder(entry.id)"
+                    >
                       {{
                         showTrashed
                           ? `${entry.name} (${entry.trashFileCount ?? 0} files)`
                           : entry.name
                       }}
                     </button>
-                    <button v-else type="button" class="text-sm text-left hover:text-primary transition-colors"
+                    <button
+                      v-else
+                      type="button"
+                      class="text-sm text-left hover:text-primary transition-colors"
                       :class="showTrashed ? 'opacity-60' : ''"
-                      @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)">
+                      @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
+                    >
                       {{ entry.name }}
                     </button>
                   </div>
                 </td>
                 <td class="px-3 py-2">
                   <div class="flex flex-wrap items-center gap-1.5">
-                    <span v-for="tag in entry.tags" :key="tag.id" class="size-2.5 rounded-full border border-default/50"
-                      :title="tag.name" :style="{ backgroundColor: tag.color }" />
+                    <span
+                      v-for="tag in entry.tags"
+                      :key="tag.id"
+                      class="size-2.5 rounded-full border border-default/50"
+                      :title="tag.name"
+                      :style="{ backgroundColor: tag.color }"
+                    />
                   </div>
                 </td>
                 <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
                   <div v-if="entry.kind === 'file' && entry.owner" class="flex items-center gap-2">
-                    <UAvatar :src="entry.owner.avatarUrl ?? undefined" :alt="entry.owner.displayName" size="xs" />
+                    <UAvatar
+                      :src="entry.owner.avatarUrl ?? undefined"
+                      :alt="entry.owner.displayName"
+                      size="xs"
+                    />
                     <span class="truncate">{{ entry.owner.displayName }}</span>
                   </div>
                   <span v-else>-</span>
@@ -1668,15 +1872,27 @@ const emptyStateDescription = computed(() => {
           <tr v-if="!entries.length && !filesPending">
             <td colspan="6">
               <div class="flex flex-col items-center justify-center py-16 px-4">
-                <div class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4">
-                  <UIcon :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
-                    class="size-8 text-(--ui-text-muted)" />
+                <div
+                  class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
+                >
+                  <UIcon
+                    :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
+                    class="size-8 text-(--ui-text-muted)"
+                  />
                 </div>
                 <p class="text-lg font-medium text-foreground mb-1">{{ emptyStateTitle }}</p>
                 <p class="text-sm text-muted mb-4">{{ emptyStateDescription }}</p>
-                <div v-if="canManageLibrary && !showTrashed && !showTags" class="flex items-center gap-2">
-                  <UButton icon="i-lucide-folder-plus" label="Create folder" color="neutral" variant="outline"
-                    @click="createFolderOpen = true" />
+                <div
+                  v-if="canManageLibrary && !showTrashed && !showTags"
+                  class="flex items-center gap-2"
+                >
+                  <UButton
+                    icon="i-lucide-folder-plus"
+                    label="Create folder"
+                    color="neutral"
+                    variant="outline"
+                    @click="createFolderOpen = true"
+                  />
                   <UButton icon="i-lucide-upload" label="Upload files" @click="uploadOpen = true" />
                 </div>
               </div>
@@ -1690,26 +1906,51 @@ const emptyStateDescription = computed(() => {
       </div>
     </div>
 
-    <UploadModal v-model:open="uploadOpen" :library-id="libraryId" :library-name="library?.name ?? 'Library'"
-      :parent-folder-id="showTrashed || showTags || showUsers ? null : currentFolderId" />
+    <UploadModal
+      v-model:open="uploadOpen"
+      :library-id="libraryId"
+      :library-name="library?.name ?? 'Library'"
+      :parent-folder-id="showTrashed || showTags || showUsers ? null : currentFolderId"
+    />
 
-    <FilePreview v-if="previewFile" v-model:open="previewOpen" :file="previewFile" :library-id="libraryId"
-      :files="files" @navigate="previewFile = $event" />
+    <FilePreview
+      v-if="previewFile"
+      v-model:open="previewOpen"
+      :file="previewFile"
+      :library-id="libraryId"
+      :files="files"
+      @navigate="previewFile = $event"
+    />
 
     <UModal v-model:open="createFolderOpen" title="Create Folder">
       <template #body>
         <div class="flex flex-col gap-4">
           <UFormField label="Folder name">
-            <UInput v-model="createFolderName" autofocus placeholder="New folder" class="w-full"
-              @keydown.enter="createFolder" />
+            <UInput
+              v-model="createFolderName"
+              autofocus
+              placeholder="New folder"
+              class="w-full"
+              @keydown.enter="createFolder"
+            />
           </UFormField>
         </div>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton label="Cancel" color="neutral" variant="outline" @click="createFolderOpen = false" />
-          <UButton label="Create" icon="i-lucide-folder-plus" :loading="creatingFolder"
-            :disabled="!createFolderName.trim()" @click="createFolder" />
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="outline"
+            @click="createFolderOpen = false"
+          />
+          <UButton
+            label="Create"
+            icon="i-lucide-folder-plus"
+            :loading="creatingFolder"
+            :disabled="!createFolderName.trim()"
+            @click="createFolder"
+          />
         </div>
       </template>
     </UModal>
@@ -1723,16 +1964,31 @@ const emptyStateDescription = computed(() => {
             to a new location.
           </p>
           <UFormField label="Destination">
-            <USelectMenu v-model="moveDestinationValue" :items="moveDestinationOptions" value-key="value" class="w-full"
-              :loading="moveLoading" />
+            <USelectMenu
+              v-model="moveDestinationValue"
+              :items="moveDestinationOptions"
+              value-key="value"
+              class="w-full"
+              :loading="moveLoading"
+            />
           </UFormField>
         </div>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton label="Cancel" color="neutral" variant="outline" @click="moveFolderOpen = false" />
-          <UButton label="Move" icon="i-lucide-folder-input" :loading="moveFolderSaving" :disabled="moveLoading"
-            @click="moveFolder" />
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="outline"
+            @click="moveFolderOpen = false"
+          />
+          <UButton
+            label="Move"
+            icon="i-lucide-folder-input"
+            :loading="moveFolderSaving"
+            :disabled="moveLoading"
+            @click="moveFolder"
+          />
         </div>
       </template>
     </UModal>
@@ -1742,7 +1998,8 @@ const emptyStateDescription = computed(() => {
         <div class="flex flex-col gap-4">
           <p class="text-sm text-muted">
             This will permanently delete the library
-            <strong>{{ library?.name }}</strong>. This action cannot be undone.
+            <strong>{{ library?.name }}</strong
+            >. This action cannot be undone.
           </p>
           <UFormField label="Type 'delete' to confirm">
             <UInput v-model="deleteLibraryConfirmation" placeholder="delete" class="w-full" />
@@ -1751,9 +2008,19 @@ const emptyStateDescription = computed(() => {
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton label="Cancel" color="neutral" variant="outline" @click="deleteLibraryOpen = false" />
-          <UButton label="Delete Library" color="error" icon="i-lucide-trash-2"
-            :disabled="deleteLibraryConfirmation !== 'delete'" @click="deleteLibrary" />
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="outline"
+            @click="deleteLibraryOpen = false"
+          />
+          <UButton
+            label="Delete Library"
+            color="error"
+            icon="i-lucide-trash-2"
+            :disabled="deleteLibraryConfirmation !== 'delete'"
+            @click="deleteLibrary"
+          />
         </div>
       </template>
     </UModal>
@@ -1773,9 +2040,19 @@ const emptyStateDescription = computed(() => {
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton label="Cancel" color="neutral" variant="outline" @click="purgeModalOpen = false" />
-          <UButton label="Delete Permanently" color="error" icon="i-lucide-trash-2"
-            :disabled="purgeConfirmation !== 'delete'" @click="handlePermanentDelete" />
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="outline"
+            @click="purgeModalOpen = false"
+          />
+          <UButton
+            label="Delete Permanently"
+            color="error"
+            icon="i-lucide-trash-2"
+            :disabled="purgeConfirmation !== 'delete'"
+            @click="handlePermanentDelete"
+          />
         </div>
       </template>
     </UModal>
