@@ -4,6 +4,7 @@ import {
   text,
   boolean,
   bigint,
+  integer,
   timestamp,
   uniqueIndex,
   index,
@@ -79,6 +80,7 @@ export const files = pgTable(
     name: text("name").notNull(),
     mimeType: text("mime_type").notNull().default("application/octet-stream"),
     size: bigint("size", { mode: "number" }).notNull().default(0),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     originalCreatedAt: timestamp("original_created_at", { withTimezone: true }),
     trashedAt: timestamp("trashed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -94,6 +96,7 @@ export const files = pgTable(
       table.trashedAt,
       table.name,
     ),
+    index("files_owner_id_idx").on(table.ownerId),
   ],
 );
 
@@ -168,6 +171,42 @@ export const libraryMembers = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [uniqueIndex("library_members_library_user_idx").on(table.libraryId, table.userId)],
+);
+
+export const libraryInvites = pgTable(
+  "library_invites",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    libraryId: uuid("library_id")
+      .notNull()
+      .references(() => libraries.id, { onDelete: "cascade" }),
+    invitedByUserId: uuid("invited_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    invitedEmail: text("invited_email"),
+    role: text("role", { enum: ["admin", "viewer"] })
+      .notNull()
+      .default("viewer"),
+    token: text("token").notNull().unique(),
+    useCount: integer("use_count").notNull().default(0),
+    acceptedByUserId: uuid("accepted_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("library_invites_token_idx").on(table.token),
+    index("library_invites_library_idx").on(table.libraryId),
+    index("library_invites_email_idx").on(table.invitedEmail),
+    index("library_invites_inviter_idx").on(table.invitedByUserId),
+  ],
 );
 
 export const accounts = pgTable(

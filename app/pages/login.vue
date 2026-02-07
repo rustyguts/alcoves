@@ -11,6 +11,19 @@ const route = useRoute();
 const config = useRuntimeConfig();
 const error = ref("");
 const googleAuthEnabled = config.public.googleAuthEnabled;
+const redirectPath = computed(() => {
+  const raw = route.query.redirect;
+  if (typeof raw !== "string" || !raw.startsWith("/")) return "/";
+  return raw;
+});
+const registerLink = computed(() =>
+  redirectPath.value === "/"
+    ? "/register"
+    : {
+        path: "/register",
+        query: { redirect: redirectPath.value },
+      },
+);
 
 if (route.query.error === "google") {
   error.value = "Google sign-in failed. Please try again.";
@@ -44,7 +57,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
   error.value = "";
   try {
     await login(payload.data.email, payload.data.password);
-    await navigateTo("/");
+    await navigateTo(redirectPath.value);
   } catch (err: unknown) {
     const msg = (err as { data?: { message?: string } })?.data?.message;
     error.value = msg || "Invalid email or password";
@@ -98,7 +111,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
               </template>
               <div class="text-center text-sm">
                 Don't have an account?
-                <ULink to="/register" class="text-primary font-medium">Sign up</ULink>.
+                <ULink :to="registerLink" class="text-primary font-medium">Sign up</ULink>.
               </div>
             </div>
           </template>

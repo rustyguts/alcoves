@@ -11,8 +11,16 @@ export interface Library {
   name: string;
   isDefault: boolean;
   ownerId: string;
+  currentUserRole?: "owner" | "admin" | "viewer";
+  canManageUsers?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LibraryUserSummary {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
 }
 
 export interface LibraryFile {
@@ -27,6 +35,7 @@ export interface LibraryFile {
   trashedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  owner: LibraryUserSummary | null;
   tags: LibraryTag[];
 }
 
@@ -65,6 +74,51 @@ export interface LibraryMember {
   role: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LibraryMemberWithUser {
+  id: string;
+  userId: string;
+  role: "owner" | "admin" | "viewer";
+  isOwner: boolean;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    avatarUrl: string | null;
+  };
+}
+
+export interface LibraryPendingInvite {
+  id: string;
+  invitedEmail: string | null;
+  role: "admin" | "viewer";
+  useCount: number;
+  createdAt: string;
+  inviteUrl: string;
+  invitedBy: LibraryUserSummary;
+}
+
+export interface LibraryUsersResponse {
+  libraryId: string;
+  canManageUsers: boolean;
+  members: LibraryMemberWithUser[];
+  pendingInvites: LibraryPendingInvite[];
+}
+
+export interface InviteLookupResponse {
+  id: string;
+  role: "admin" | "viewer";
+  status: "pending" | "accepted" | "expired" | "revoked" | "already_member" | "not_allowed";
+  canAccept: boolean;
+  createdAt: string;
+  invitedEmail: string | null;
+  invitedBy: LibraryUserSummary;
+  library: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface LibraryTag {

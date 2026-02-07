@@ -34,7 +34,7 @@ export function useAuth() {
     }
   }
 
-  async function updateProfile(updates: { displayName?: string; avatarUrl?: string }) {
+  async function updateProfile(updates: { displayName?: string }) {
     const data = await $fetch<AuthUser>("/api/auth/me", {
       method: "PATCH",
       body: updates,
@@ -43,5 +43,17 @@ export function useAuth() {
     return data;
   }
 
-  return { user, loggedIn, login, register, logout, updateProfile };
+  async function uploadAvatar(file: File) {
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    const data = await $fetch<AuthUser>("/api/auth/me/avatar", {
+      method: "POST",
+      body: formData,
+    });
+    await fetchSession();
+    return data;
+  }
+
+  return { user, loggedIn, login, register, logout, updateProfile, uploadAvatar };
 }

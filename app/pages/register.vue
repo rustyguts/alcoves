@@ -7,9 +7,23 @@ definePageMeta({
 });
 
 const { register } = useAuth();
+const route = useRoute();
 const config = useRuntimeConfig();
 const error = ref("");
 const googleAuthEnabled = config.public.googleAuthEnabled;
+const redirectPath = computed(() => {
+  const raw = route.query.redirect;
+  if (typeof raw !== "string" || !raw.startsWith("/")) return "/";
+  return raw;
+});
+const loginLink = computed(() =>
+  redirectPath.value === "/"
+    ? "/login"
+    : {
+        path: "/login",
+        query: { redirect: redirectPath.value },
+      },
+);
 
 const fields: AuthFormField[] = [
   {
@@ -60,7 +74,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
   error.value = "";
   try {
     await register(payload.data.name, payload.data.email, payload.data.password);
-    await navigateTo("/");
+    await navigateTo(redirectPath.value);
   } catch (err: unknown) {
     const msg = (err as { data?: { message?: string } })?.data?.message;
     error.value = msg || "Registration failed";
@@ -114,7 +128,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
               </template>
               <div class="text-center text-sm">
                 Already have an account?
-                <ULink to="/login" class="text-primary font-medium">Sign in</ULink>.
+                <ULink :to="loginLink" class="text-primary font-medium">Sign in</ULink>.
               </div>
             </div>
           </template>

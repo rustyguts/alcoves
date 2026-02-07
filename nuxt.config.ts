@@ -28,6 +28,9 @@ export default defineNuxtConfig({
     databaseUrl:
       process.env.ALCOVES_DATABASE_URL || "postgres://postgres:postgres@localhost:5432/alcoves",
     storagePath: resolve(process.env.ALCOVES_STORAGE_PATH || "./data", "files"),
+    avatarStoragePath:
+      process.env.ALCOVES_AVATAR_STORAGE_PATH ||
+      resolve(process.env.ALCOVES_STORAGE_PATH || "./data", "avatars"),
     public: {
       googleAuthEnabled: !!process.env.NUXT_OAUTH_GOOGLE_CLIENT_ID,
     },

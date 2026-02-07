@@ -11,7 +11,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!loggedIn.value) {
-    return navigateTo("/login");
+    return navigateTo({
+      path: "/login",
+      query: { redirect: to.fullPath },
+    });
   }
 
   if (ownerRoutes.includes(to.path) && user.value?.role !== "owner") {

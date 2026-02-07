@@ -16,6 +16,7 @@ interface ListingRow {
   id: string;
   libraryId: string;
   parentFolderId: string | null;
+  ownerId: string | null;
   name: string;
   kind: "folder" | "file";
   kindRank: number;
@@ -219,6 +220,7 @@ export default defineEventHandler(async (event): Promise<PaginatedFiles> => {
         id: schema.folders.id,
         libraryId: schema.folders.libraryId,
         parentFolderId: schema.folders.parentFolderId,
+        ownerId: sql<string | null>`NULL`,
         name: schema.folders.name,
         kind: sql<"folder">`'folder'`,
         kindRank: sql<number>`0`,
@@ -240,6 +242,7 @@ export default defineEventHandler(async (event): Promise<PaginatedFiles> => {
         id: schema.files.id,
         libraryId: schema.files.libraryId,
         parentFolderId: schema.files.parentFolderId,
+        ownerId: schema.files.ownerId,
         name: schema.files.name,
         kind: sql<"file">`'file'`,
         kindRank: sql<number>`1`,
@@ -271,6 +274,9 @@ export default defineEventHandler(async (event): Promise<PaginatedFiles> => {
 
   const fileIds = entries.filter((entry) => entry.kind === "file").map((entry) => entry.id);
   const folderIds = entries.filter((entry) => entry.kind === "folder").map((entry) => entry.id);
+  const ownerIds = Array.from(
+    new Set(entries.filter((entry) => entry.kind === "file").map((entry) => entry.ownerId)),
+  ).filter((ownerId): ownerId is string => Boolean(ownerId));
   const tagRows = fileIds.length
     ? await db
         .select({
@@ -301,6 +307,16 @@ export default defineEventHandler(async (event): Promise<PaginatedFiles> => {
         .innerJoin(schema.tags, eq(schema.tags.id, schema.folderTags.tagId))
         .where(inArray(schema.folderTags.folderId, folderIds))
     : [];
+  const ownerRows = ownerIds.length
+    ? await db
+        .select({
+          id: schema.users.id,
+          displayName: schema.users.displayName,
+          avatarUrl: schema.users.avatarUrl,
+        })
+        .from(schema.users)
+        .where(inArray(schema.users.id, ownerIds))
+    : [];
 
   const tagsByFileId = new Map<string, LibraryTag[]>();
   for (const tagRow of tagRows) {
@@ -329,6 +345,17 @@ export default defineEventHandler(async (event): Promise<PaginatedFiles> => {
     });
     tagsByFolderId.set(tagRow.folderId, list);
   }
+
+  const ownersById = new Map(
+    ownerRows.map((owner) => [
+      owner.id,
+      {
+        id: owner.id,
+        displayName: owner.displayName,
+        avatarUrl: owner.avatarUrl,
+      },
+    ]),
+  );
 
   const trashedFolderFileCounts = showTrashed
     ? await getTrashedFolderFileCounts(libraryId, folderIds)
@@ -375,6 +402,7 @@ export default defineEventHandler(async (event): Promise<PaginatedFiles> => {
         trashedAt: entry.trashedAt ? entry.trashedAt.toISOString() : null,
         createdAt: entry.createdAt.toISOString(),
         updatedAt: entry.updatedAt.toISOString(),
+        owner: entry.ownerId ? (ownersById.get(entry.ownerId) ?? null) : null,
         tags: (tagsByFileId.get(entry.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
       };
     }),

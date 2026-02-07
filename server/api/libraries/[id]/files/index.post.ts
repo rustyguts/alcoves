@@ -6,6 +6,7 @@ import { assertFolderInLibrary, normalizeFolderId } from "~~/server/utils/folder
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id")!;
+  const userId = event.context.userId as string;
 
   const [library] = await db
     .select({ id: schema.libraries.id })
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
       .values({
         id: upload.fileId,
         libraryId: id,
+        ownerId: userId,
         parentFolderId,
         name: upload.name.trim(),
         mimeType: upload.mimeType,

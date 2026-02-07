@@ -17,16 +17,19 @@ export default defineEventHandler(async (event) => {
     .where(
       or(
         eq(schema.libraries.ownerId, userId),
-        exists(
-          db
-            .select()
-            .from(schema.libraryMembers)
-            .where(
-              and(
-                eq(schema.libraryMembers.libraryId, schema.libraries.id),
-                eq(schema.libraryMembers.userId, userId),
+        and(
+          eq(schema.libraries.isDefault, false),
+          exists(
+            db
+              .select()
+              .from(schema.libraryMembers)
+              .where(
+                and(
+                  eq(schema.libraryMembers.libraryId, schema.libraries.id),
+                  eq(schema.libraryMembers.userId, userId),
+                ),
               ),
-            ),
+          ),
         ),
       ),
     )

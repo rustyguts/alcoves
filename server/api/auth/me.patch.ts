@@ -4,14 +4,11 @@ import { db, schema } from "~~/server/database";
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event);
   const session = await getUserSession(event);
-  const body = await readBody<{ displayName?: string; avatarUrl?: string }>(event);
+  const body = await readBody<{ displayName?: string }>(event);
 
   const updates: Record<string, string> = {};
   if (body?.displayName?.trim()) {
     updates.displayName = body.displayName.trim();
-  }
-  if (body?.avatarUrl !== undefined) {
-    updates.avatarUrl = body.avatarUrl;
   }
 
   if (Object.keys(updates).length === 0) {

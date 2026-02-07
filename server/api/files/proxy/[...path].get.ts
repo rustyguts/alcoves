@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createReadStream, existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
@@ -14,6 +14,7 @@ const querySchema = z.object({
   width: z.coerce.number().int().min(1).max(MAX_DIMENSION).optional(),
   height: z.coerce.number().int().min(1).max(MAX_DIMENSION).optional(),
   quality: z.coerce.number().int().min(1).max(100).default(80),
+  v: z.string().optional(),
 });
 
 type ProxyOptions = z.infer<typeof querySchema>;
@@ -30,23 +31,100 @@ function getCacheDir(): string {
   return join(config.storagePath, ".cache");
 }
 
-function getCacheKey(libraryId: string, fileId: string, options: ProxyOptions): string {
+function getCacheKey(sourceKey: string, options: ProxyOptions): string {
   const params: [string, string][] = [
     ["f", options.format],
     ["q", String(options.quality)],
   ];
   if (options.width) params.push(["w", String(options.width)]);
   if (options.height) params.push(["h", String(options.height)]);
+  if (options.v) params.push(["v", options.v]);
 
   // Sort for consistent cache keys regardless of query param order
   params.sort(([a], [b]) => a.localeCompare(b));
   const paramString = new URLSearchParams(params).toString();
 
-  return `${libraryId}/${fileId}/${paramString}.${options.format}`;
+  return `${sourceKey}/${paramString}.${options.format}`;
 }
 
 function getCachePath(cacheKey: string): string {
   return join(getCacheDir(), cacheKey);
+}
+
+type FileSource = {
+  kind: "file";
+  libraryId: string;
+  fileId: string;
+  sourceKey: string;
+  sourcePath: string;
+};
+
+type AvatarSource = {
+  kind: "avatar";
+  userId: string;
+  sourceKey: string;
+  sourcePath: string;
+};
+
+type MediaSource = FileSource | AvatarSource;
+
+async function resolveMediaSource(pathParam: string): Promise<MediaSource> {
+  const parts = pathParam.split("/").filter(Boolean);
+
+  if (parts[0] === "avatar" && parts.length === 2) {
+    const userId = parts[1];
+    if (!userId) {
+      throw createError({ statusCode: 400, statusMessage: "Invalid avatar path format" });
+    }
+
+    return {
+      kind: "avatar",
+      userId,
+      sourceKey: `avatar/${userId}`,
+      sourcePath: getAvatarBlobPath(userId),
+    };
+  }
+
+  if (parts[0] === "file" && parts.length === 3) {
+    const libraryId = parts[1];
+    const fileId = parts[2];
+
+    if (!libraryId || !fileId) {
+      throw createError({ statusCode: 400, statusMessage: "Invalid file path format" });
+    }
+
+    return {
+      kind: "file",
+      libraryId,
+      fileId,
+      sourceKey: `file/${libraryId}/${fileId}`,
+      sourcePath: "",
+    };
+  }
+
+  // Backward compatibility for existing URLs: /api/files/proxy/{libraryId}/{fileId}
+  if (parts.length === 2) {
+    const libraryId = parts[0];
+    const fileId = parts[1];
+
+    if (!libraryId || !fileId) {
+      throw createError({ statusCode: 400, statusMessage: "Invalid file path format" });
+    }
+
+    return {
+      kind: "file",
+      libraryId,
+      fileId,
+      sourceKey: `file/${libraryId}/${fileId}`,
+      sourcePath: "",
+    };
+  }
+
+  throw createError({
+    statusCode: 400,
+    statusMessage:
+      "Invalid path. Use /api/files/proxy/file/{libraryId}/{fileId} or /api/files/proxy/avatar/{userId}",
+  });
 }
 
 export default defineEventHandler(async (event) => {
@@ -57,18 +135,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Path required" });
   }
 
-  const parts = pathParam.split("/");
-  if (parts.length < 2) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Invalid path. Expected: /api/files/proxy/{libraryId}/{fileId}",
-    });
-  }
-
-  const [libraryId, fileId] = parts;
-  if (!libraryId || !fileId) {
-    throw createError({ statusCode: 400, statusMessage: "Invalid path format" });
-  }
+  const mediaSource = await resolveMediaSource(pathParam);
 
   // Validate query params with zod
   const query = getQuery(event);
@@ -81,19 +148,36 @@ export default defineEventHandler(async (event) => {
   }
   const options = parsed.data;
 
-  // Look up the file record and ensure it's an image
-  const [file] = await db.select().from(schema.files).where(eq(schema.files.id, fileId)).limit(1);
+  if (mediaSource.kind === "file") {
+    // Look up the file record and ensure it's an image.
+    const [file] = await db
+      .select({
+        id: schema.files.id,
+        libraryId: schema.files.libraryId,
+        mimeType: schema.files.mimeType,
+      })
+      .from(schema.files)
+      .where(
+        and(
+          eq(schema.files.id, mediaSource.fileId),
+          eq(schema.files.libraryId, mediaSource.libraryId),
+        ),
+      )
+      .limit(1);
 
-  if (!file) {
-    throw createError({ statusCode: 404, statusMessage: "File not found" });
-  }
+    if (!file) {
+      throw createError({ statusCode: 404, statusMessage: "File not found" });
+    }
 
-  if (!file.mimeType.startsWith("image/")) {
-    throw createError({ statusCode: 400, statusMessage: "File is not an image" });
+    if (!file.mimeType.startsWith("image/")) {
+      throw createError({ statusCode: 400, statusMessage: "File is not an image" });
+    }
+
+    mediaSource.sourcePath = getFileBlobPath(file.libraryId, file.id);
   }
 
   // Serve from cache if it already exists
-  const cacheKey = getCacheKey(libraryId, fileId, options);
+  const cacheKey = getCacheKey(mediaSource.sourceKey, options);
   const cachePath = getCachePath(cacheKey);
 
   if (existsSync(cachePath)) {
@@ -105,13 +189,12 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify the source blob exists on disk
-  const sourcePath = getFileBlobPath(file.libraryId, file.id);
-  if (!existsSync(sourcePath)) {
-    throw createError({ statusCode: 404, statusMessage: "File content not found on disk" });
+  if (!existsSync(mediaSource.sourcePath)) {
+    throw createError({ statusCode: 404, statusMessage: "Media content not found on disk" });
   }
 
   // Build the sharp pipeline — always auto-rotate from EXIF
-  let pipeline = sharp(sourcePath).rotate();
+  let pipeline = sharp(mediaSource.sourcePath).rotate();
 
   if (options.width || options.height) {
     pipeline = pipeline.resize(options.width, options.height, {

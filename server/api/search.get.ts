@@ -97,16 +97,19 @@ export default defineEventHandler(async (event): Promise<GlobalSearchResponse> =
     .where(
       or(
         eq(schema.libraries.ownerId, userId),
-        exists(
-          db
-            .select({ id: schema.libraryMembers.id })
-            .from(schema.libraryMembers)
-            .where(
-              and(
-                eq(schema.libraryMembers.libraryId, schema.libraries.id),
-                eq(schema.libraryMembers.userId, userId),
+        and(
+          eq(schema.libraries.isDefault, false),
+          exists(
+            db
+              .select({ id: schema.libraryMembers.id })
+              .from(schema.libraryMembers)
+              .where(
+                and(
+                  eq(schema.libraryMembers.libraryId, schema.libraries.id),
+                  eq(schema.libraryMembers.userId, userId),
+                ),
               ),
-            ),
+          ),
         ),
       ),
     );
