@@ -150,8 +150,8 @@ export function useUploadQueue() {
 
   const activeUploads = computed(() => queue.value.filter((f) => f.status !== "done"));
   const hasActiveUploads = computed(() => activeUploads.value.length > 0);
-  const hasInFlightUploads = computed(
-    () => queue.value.some((f) => f.status === "pending" || f.status === "uploading"),
+  const hasInFlightUploads = computed(() =>
+    queue.value.some((f) => f.status === "pending" || f.status === "uploading"),
   );
   const currentUpload = computed(() => queue.value.find((f) => f.status === "uploading"));
 
