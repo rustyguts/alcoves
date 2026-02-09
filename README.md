@@ -123,14 +123,14 @@ docker compose -f docker-compose.prod.yml up -d
 
 Alcoves is configured via environment variables:
 
-| Variable                 | Description                                | Default                                               |
-| ------------------------ | ------------------------------------------ | ----------------------------------------------------- |
-| `ALCOVES_DATABASE_URL`   | PostgreSQL connection string               | `postgres://postgres:postgres@localhost:5432/alcoves` |
-| `ALCOVES_SESSION_SECRET` | Encryption key for sessions (min 32 chars) | Dev default (insecure)                                |
-| `ALCOVES_STORAGE_DRIVER` | Storage backend driver (`local` or `s3`)   | `local`                                               |
-| `ALCOVES_STORAGE_PATH`   | Directory for uploaded file storage        | `./data`                                              |
-| `ALCOVES_AVATAR_STORAGE_PATH` | Optional avatar storage override      | `{ALCOVES_STORAGE_PATH}/avatars`                      |
-| `ALCOVES_CACHE_STORAGE_PATH` | Optional proxy cache storage override   | `{ALCOVES_STORAGE_PATH}/.cache`                       |
+| Variable                      | Description                                | Default                                               |
+| ----------------------------- | ------------------------------------------ | ----------------------------------------------------- |
+| `ALCOVES_DATABASE_URL`        | PostgreSQL connection string               | `postgres://postgres:postgres@localhost:5432/alcoves` |
+| `ALCOVES_SESSION_SECRET`      | Encryption key for sessions (min 32 chars) | Dev default (insecure)                                |
+| `ALCOVES_STORAGE_DRIVER`      | Storage backend driver (`local` or `s3`)   | `local`                                               |
+| `ALCOVES_STORAGE_PATH`        | Directory for uploaded file storage        | `./data`                                              |
+| `ALCOVES_AVATAR_STORAGE_PATH` | Optional avatar storage override           | `{ALCOVES_STORAGE_PATH}/avatars`                      |
+| `ALCOVES_CACHE_STORAGE_PATH`  | Optional proxy cache storage override      | `{ALCOVES_STORAGE_PATH}/.cache`                       |
 
 > **Important:** Always set `ALCOVES_SESSION_SECRET` to a unique, random value in production.
 >
@@ -141,17 +141,17 @@ Alcoves is configured via environment variables:
 - Local storage (default): set `ALCOVES_STORAGE_DRIVER=local` and optionally tune local paths.
 - S3 storage: set `ALCOVES_STORAGE_DRIVER=s3` and provide S3 settings below.
 
-| S3 Variable | Description | Default |
-| ----------- | ----------- | ------- |
-| `ALCOVES_S3_BUCKET` | S3 bucket for files/avatars/cache objects | none (required for `s3`) |
-| `ALCOVES_S3_REGION` | AWS region (or S3-compatible region) | none (required for `s3`) |
-| `ALCOVES_S3_ENDPOINT` | Optional custom endpoint for S3-compatible providers | empty |
-| `ALCOVES_S3_ACCESS_KEY_ID` | Optional static access key ID (otherwise use runtime IAM/role credentials) | empty |
-| `ALCOVES_S3_SECRET_ACCESS_KEY` | Optional static secret access key | empty |
-| `ALCOVES_S3_FORCE_PATH_STYLE` | Use path-style URLs for compatibility (e.g. MinIO) | `false` |
-| `ALCOVES_S3_FILES_PREFIX` | Object prefix for uploaded files | `files` |
-| `ALCOVES_S3_AVATARS_PREFIX` | Object prefix for avatars | `avatars` |
-| `ALCOVES_S3_CACHE_PREFIX` | Object prefix for transformed media cache | `cache` |
+| S3 Variable                    | Description                                                                | Default                  |
+| ------------------------------ | -------------------------------------------------------------------------- | ------------------------ |
+| `ALCOVES_S3_BUCKET`            | S3 bucket for files/avatars/cache objects                                  | none (required for `s3`) |
+| `ALCOVES_S3_REGION`            | AWS region (or S3-compatible region)                                       | none (required for `s3`) |
+| `ALCOVES_S3_ENDPOINT`          | Optional custom endpoint for S3-compatible providers                       | empty                    |
+| `ALCOVES_S3_ACCESS_KEY_ID`     | Optional static access key ID (otherwise use runtime IAM/role credentials) | empty                    |
+| `ALCOVES_S3_SECRET_ACCESS_KEY` | Optional static secret access key                                          | empty                    |
+| `ALCOVES_S3_FORCE_PATH_STYLE`  | Use path-style URLs for compatibility (e.g. MinIO)                         | `false`                  |
+| `ALCOVES_S3_FILES_PREFIX`      | Object prefix for uploaded files                                           | `files`                  |
+| `ALCOVES_S3_AVATARS_PREFIX`    | Object prefix for avatars                                                  | `avatars`                |
+| `ALCOVES_S3_CACHE_PREFIX`      | Object prefix for transformed media cache                                  | `cache`                  |
 
 ## Development
 

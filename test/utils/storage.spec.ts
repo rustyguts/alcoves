@@ -148,30 +148,32 @@ describe("storage service", () => {
       },
     };
 
-    s3SendMock.mockImplementation(async (command: { constructor: { name: string }; input: any }) => {
-      switch (command.constructor.name) {
-        case "PutObjectCommand": {
-          const body = command.input?.Body;
-          if (body && typeof body?.on === "function") {
-            await streamToBuffer(body as Readable);
+    s3SendMock.mockImplementation(
+      async (command: { constructor: { name: string }; input: any }) => {
+        switch (command.constructor.name) {
+          case "PutObjectCommand": {
+            const body = command.input?.Body;
+            if (body && typeof body?.on === "function") {
+              await streamToBuffer(body as Readable);
+            }
+            return {};
           }
-          return {};
+          case "HeadObjectCommand":
+            return { ContentLength: 5 };
+          case "GetObjectCommand":
+            return { Body: new Uint8Array(Buffer.from("hello")) };
+          case "ListObjectsV2Command":
+            return {
+              Contents: [{ Key: "f/lib-1/file-1/blob" }, { Key: "f/lib-1/file-1/metadata.json" }],
+              IsTruncated: false,
+            };
+          case "DeleteObjectsCommand":
+            return {};
+          default:
+            return {};
         }
-        case "HeadObjectCommand":
-          return { ContentLength: 5 };
-        case "GetObjectCommand":
-          return { Body: new Uint8Array(Buffer.from("hello")) };
-        case "ListObjectsV2Command":
-          return {
-            Contents: [{ Key: "f/lib-1/file-1/blob" }, { Key: "f/lib-1/file-1/metadata.json" }],
-            IsTruncated: false,
-          };
-        case "DeleteObjectsCommand":
-          return {};
-        default:
-          return {};
-      }
-    });
+      },
+    );
 
     const storage = createStorageService(runtimeConfig);
     await storage.ensureReady();

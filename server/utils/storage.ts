@@ -40,11 +40,7 @@ interface StorageDriver {
   ensureReady(): Promise<void>;
   putBuffer(scope: StorageScope, key: string, data: Buffer): Promise<void>;
   putStream(scope: StorageScope, key: string, stream: Readable): Promise<number>;
-  openReadStream(
-    scope: StorageScope,
-    key: string,
-    range?: StorageByteRange,
-  ): Promise<Readable>;
+  openReadStream(scope: StorageScope, key: string, range?: StorageByteRange): Promise<Readable>;
   readBuffer(scope: StorageScope, key: string): Promise<Buffer>;
   exists(scope: StorageScope, key: string): Promise<boolean>;
   stat(scope: StorageScope, key: string): Promise<StorageStat>;
