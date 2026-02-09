@@ -19,8 +19,9 @@ function sanitizeAsciiFilename(value: string): string {
 }
 
 function encodeRFC5987(value: string): string {
-  return encodeURIComponent(value).replace(/['()*]/g, (char) =>
-    `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  return encodeURIComponent(value).replace(
+    /['()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
   );
 }
 
