@@ -1451,9 +1451,10 @@ const emptyStateDescription = computed(() => {
       </div>
       <div class="flex items-center gap-2">
         <div v-if="!showTags && !showUsers" class="flex items-center">
-          <UButtonGroup size="sm">
+          <div class="inline-flex items-center">
             <UButton
               icon="i-lucide-list"
+              size="sm"
               :variant="entryViewMode === 'file' ? 'soft' : 'ghost'"
               :color="entryViewMode === 'file' ? 'primary' : 'neutral'"
               title="File view"
@@ -1461,12 +1462,13 @@ const emptyStateDescription = computed(() => {
             />
             <UButton
               icon="i-lucide-layout-grid"
+              size="sm"
               :variant="entryViewMode === 'card' ? 'soft' : 'ghost'"
               :color="entryViewMode === 'card' ? 'primary' : 'neutral'"
               title="Card view"
               @click="entryViewMode = 'card'"
             />
-          </UButtonGroup>
+          </div>
         </div>
         <UButton
           label="Trash"

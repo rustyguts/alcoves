@@ -1,59 +1,193 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Readable } from "node:stream";
 import { createStorageService } from "~~/server/utils/storage";
 
-const { s3SendMock, s3ClientCtorMock } = vi.hoisted(() => ({
-  s3SendMock: vi.fn(),
+const {
+  s3ClientCtorMock,
+  s3WriteMock,
+  s3ExistsMock,
+  s3SizeMock,
+  s3ListMock,
+  s3DeleteMock,
+  s3UnlinkMock,
+  s3FileBytesMock,
+  s3FileStreamMock,
+  s3CallLog,
+  s3Store,
+} = vi.hoisted(() => ({
   s3ClientCtorMock: vi.fn(),
+  s3WriteMock: vi.fn(),
+  s3ExistsMock: vi.fn(),
+  s3SizeMock: vi.fn(),
+  s3ListMock: vi.fn(),
+  s3DeleteMock: vi.fn(),
+  s3UnlinkMock: vi.fn(),
+  s3FileBytesMock: vi.fn(),
+  s3FileStreamMock: vi.fn(),
+  s3CallLog: [] as Array<{ method: string; payload: Record<string, unknown> }>,
+  s3Store: new Map<string, Buffer>(),
 }));
 
-vi.mock("@aws-sdk/client-s3", () => {
-  class S3Client {
-    send = s3SendMock;
+function resetS3Store(): void {
+  s3Store.clear();
+  s3CallLog.splice(0, s3CallLog.length);
+}
 
+function addS3Call(method: string, payload: Record<string, unknown> = {}): void {
+  s3CallLog.push({ method, payload });
+}
+
+async function toBuffer(data: unknown): Promise<Buffer> {
+  if (Buffer.isBuffer(data)) return data;
+  if (data instanceof Uint8Array) return Buffer.from(data);
+  if (typeof Blob !== "undefined" && data instanceof Blob) {
+    return Buffer.from(await data.arrayBuffer());
+  }
+  if (typeof data === "string") return Buffer.from(data);
+  if (data && typeof (data as ReadableStream).getReader === "function") {
+    return await streamToBuffer(data as ReadableStream<Uint8Array>);
+  }
+  throw new TypeError("Unsupported body for S3 write");
+}
+
+function streamFromBuffer(buffer: Buffer): ReadableStream {
+  return new Response(buffer).body as ReadableStream;
+}
+
+function createUploadStream(text: string): ReadableStream<Uint8Array> {
+  const bytes = new TextEncoder().encode(text);
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+}
+
+function installMockBunS3Client(): void {
+  const existingBun = (globalThis as any).Bun ?? {};
+
+  const file = (path: string) => ({
+    stream: () => streamFromBuffer(readFileSync(path)),
+    slice: (start: number, end?: number) => ({
+      stream: () => streamFromBuffer(readFileSync(path).subarray(start, end)),
+    }),
+    writer: () => {
+      const chunks: Buffer[] = [];
+      return {
+        async write(chunk: Uint8Array | Buffer) {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        },
+        async end() {
+          await writeFile(path, Buffer.concat(chunks));
+        },
+      };
+    },
+    exists: async () => existsSync(path),
+    get size() {
+      return existsSync(path) ? statSync(path).size : 0;
+    },
+  });
+
+  class MockS3Client {
     constructor(config: unknown) {
       s3ClientCtorMock(config);
     }
+
+    async write(key: string, body: unknown): Promise<void> {
+      addS3Call("write", { key });
+      if (s3WriteMock.getMockImplementation()) {
+        return await s3WriteMock(key, body);
+      }
+      s3Store.set(key, await toBuffer(body));
+    }
+
+    async exists(key: string): Promise<boolean> {
+      addS3Call("exists", { key });
+      if (s3ExistsMock.getMockImplementation()) {
+        return await s3ExistsMock(key);
+      }
+      return s3Store.has(key);
+    }
+
+    async size(key: string): Promise<number> {
+      addS3Call("size", { key });
+      if (s3SizeMock.getMockImplementation()) {
+        return await s3SizeMock(key);
+      }
+      return s3Store.get(key)?.byteLength ?? 0;
+    }
+
+    async list(options: { prefix?: string }): Promise<Array<{ key: string }>> {
+      addS3Call("list", { ...options });
+      if (s3ListMock.getMockImplementation()) {
+        return await s3ListMock(options);
+      }
+      const prefix = options.prefix || "";
+      return [...s3Store.keys()]
+        .filter((key) => key.startsWith(prefix))
+        .map((key) => ({ key }));
+    }
+
+    async delete(key: string): Promise<void> {
+      addS3Call("delete", { key });
+      if (s3DeleteMock.getMockImplementation()) {
+        return await s3DeleteMock(key);
+      }
+      s3Store.delete(key);
+    }
+
+    async unlink(key: string): Promise<void> {
+      addS3Call("unlink", { key });
+      if (s3UnlinkMock.getMockImplementation()) {
+        return await s3UnlinkMock(key);
+      }
+      s3Store.delete(key);
+    }
+
+    file(key: string): {
+      bytes: () => Promise<Uint8Array>;
+      stream: () => ReadableStream;
+      slice: (start: number, end?: number) => { stream: () => ReadableStream };
+    } {
+      return {
+        bytes: async () => {
+          addS3Call("file.bytes", { key });
+          if (s3FileBytesMock.getMockImplementation()) {
+            return await s3FileBytesMock(key);
+          }
+          return new Uint8Array(s3Store.get(key) ?? Buffer.alloc(0));
+        },
+        stream: () => {
+          addS3Call("file.stream", { key });
+          if (s3FileStreamMock.getMockImplementation()) {
+            return s3FileStreamMock(key);
+          }
+          return streamFromBuffer(s3Store.get(key) ?? Buffer.alloc(0));
+        },
+        slice: (start: number, end?: number) => ({
+          stream: () => {
+            addS3Call("file.slice.stream", { key, start, end });
+            const source = s3Store.get(key) ?? Buffer.alloc(0);
+            return streamFromBuffer(source.subarray(start, end));
+          },
+        }),
+      };
+    }
   }
 
-  class PutObjectCommand {
-    constructor(public readonly input: unknown) {}
-  }
+  vi.stubGlobal("Bun", {
+    ...existingBun,
+    file,
+    S3Client: MockS3Client,
+  });
+}
 
-  class GetObjectCommand {
-    constructor(public readonly input: unknown) {}
-  }
-
-  class HeadObjectCommand {
-    constructor(public readonly input: unknown) {}
-  }
-
-  class ListObjectsV2Command {
-    constructor(public readonly input: unknown) {}
-  }
-
-  class DeleteObjectsCommand {
-    constructor(public readonly input: unknown) {}
-  }
-
-  return {
-    S3Client,
-    PutObjectCommand,
-    GetObjectCommand,
-    HeadObjectCommand,
-    ListObjectsV2Command,
-    DeleteObjectsCommand,
-  };
-});
-
-async function streamToBuffer(stream: Readable): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
+async function streamToBuffer(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
+  const arrayBuffer = await new Response(stream).arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 function mockCreateError() {
@@ -70,8 +204,17 @@ function mockCreateError() {
 
 describe("storage service", () => {
   beforeEach(() => {
-    s3SendMock.mockReset();
     s3ClientCtorMock.mockReset();
+    s3WriteMock.mockReset();
+    s3ExistsMock.mockReset();
+    s3SizeMock.mockReset();
+    s3ListMock.mockReset();
+    s3DeleteMock.mockReset();
+    s3UnlinkMock.mockReset();
+    s3FileBytesMock.mockReset();
+    s3FileStreamMock.mockReset();
+    resetS3Store();
+    installMockBunS3Client();
     mockCreateError();
   });
 
@@ -127,7 +270,7 @@ describe("storage service", () => {
     }
   });
 
-  it("uses s3 backend commands for file operations", async () => {
+  it("uses bun s3 backend for file operations", async () => {
     const runtimeConfig = {
       storageDriver: "s3",
       storagePath: "/unused/local/files",
@@ -148,87 +291,54 @@ describe("storage service", () => {
       },
     };
 
-    s3SendMock.mockImplementation(
-      async (command: { constructor: { name: string }; input: any }) => {
-        switch (command.constructor.name) {
-          case "PutObjectCommand": {
-            const body = command.input?.Body;
-            if (body && typeof body?.on === "function") {
-              await streamToBuffer(body as Readable);
-            }
-            return {};
-          }
-          case "HeadObjectCommand":
-            return { ContentLength: 5 };
-          case "GetObjectCommand":
-            return { Body: new Uint8Array(Buffer.from("hello")) };
-          case "ListObjectsV2Command":
-            return {
-              Contents: [{ Key: "f/lib-1/file-1/blob" }, { Key: "f/lib-1/file-1/metadata.json" }],
-              IsTruncated: false,
-            };
-          case "DeleteObjectsCommand":
-            return {};
-          default:
-            return {};
-        }
-      },
-    );
-
     const storage = createStorageService(runtimeConfig);
     await storage.ensureReady();
 
     await storage.storeFile("lib-1", "file-1", Buffer.from("value"));
-    const streamedSize = await storage.storeFileStream("lib-1", "file-2", Readable.from("stream"));
+    const streamedSize = await storage.storeFileStream("lib-1", "file-2", createUploadStream("stream"));
     expect(streamedSize).toBe(6);
 
     expect(await storage.fileExists("lib-1", "file-1")).toBe(true);
     expect((await storage.fileStat("lib-1", "file-1")).size).toBe(5);
-    expect((await storage.readFileBuffer("lib-1", "file-1")).toString("utf8")).toBe("hello");
+    expect((await storage.readFileBuffer("lib-1", "file-1")).toString("utf8")).toBe("value");
+
+    const sliceStream = await storage.openFileReadStream("lib-1", "file-1", { start: 1, end: 3 });
+    expect((await streamToBuffer(sliceStream)).toString("utf8")).toBe("alu");
 
     await storage.deleteFile("lib-1", "file-1");
 
-    const commandCalls = s3SendMock.mock.calls.map(([command]) => ({
-      name: command.constructor.name,
-      input: command.input as Record<string, unknown>,
-    }));
-
     expect(s3ClientCtorMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        bucket: "alcoves-test-bucket",
         region: "us-east-1",
         endpoint: "http://localhost:9000",
-        forcePathStyle: true,
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+        virtualHostedStyle: false,
       }),
     );
-    expect(commandCalls).toContainEqual(
+
+    expect(s3CallLog).toContainEqual(
       expect.objectContaining({
-        name: "PutObjectCommand",
-        input: expect.objectContaining({
-          Bucket: "alcoves-test-bucket",
-          Key: "f/lib-1/file-1/blob",
-        }),
+        method: "write",
+        payload: expect.objectContaining({ key: "f/lib-1/file-1/blob" }),
       }),
     );
-    expect(commandCalls).toContainEqual(
+    expect(s3CallLog).toContainEqual(
       expect.objectContaining({
-        name: "ListObjectsV2Command",
-        input: expect.objectContaining({
-          Bucket: "alcoves-test-bucket",
-          Prefix: "f/lib-1/file-1/",
-        }),
+        method: "list",
+        payload: expect.objectContaining({ prefix: "f/lib-1/file-1/" }),
       }),
     );
-    expect(commandCalls).toContainEqual(
+    expect(s3CallLog).toContainEqual(
       expect.objectContaining({
-        name: "DeleteObjectsCommand",
-        input: expect.objectContaining({
-          Bucket: "alcoves-test-bucket",
-        }),
+        method: "delete",
+        payload: expect.objectContaining({ key: "f/lib-1/file-1/blob" }),
       }),
     );
   });
 
-  it("returns false from exists when s3 head responds with not found", async () => {
+  it("returns false from exists when s3 responds with not found", async () => {
     const runtimeConfig = {
       storageDriver: "s3",
       storagePath: "/unused/local/files",
@@ -245,13 +355,10 @@ describe("storage service", () => {
       },
     };
 
-    s3SendMock.mockImplementation(async (command: { constructor: { name: string } }) => {
-      if (command.constructor.name === "HeadObjectCommand") {
-        const error = new Error("not found") as Error & { name: string };
-        error.name = "NotFound";
-        throw error;
-      }
-      return {};
+    s3ExistsMock.mockImplementation(async () => {
+      const error = new Error("missing") as Error & { name: string };
+      error.name = "NotFound";
+      throw error;
     });
 
     const storage = createStorageService(runtimeConfig);

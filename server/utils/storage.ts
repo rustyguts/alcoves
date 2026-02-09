@@ -1,9 +1,6 @@
 import { constants } from "node:fs";
-import { createReadStream, createWriteStream } from "node:fs";
 import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { PassThrough, Readable, Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
 
 export type StorageScope = "files" | "avatars" | "cache";
 
@@ -39,8 +36,12 @@ type StorageStat = {
 interface StorageDriver {
   ensureReady(): Promise<void>;
   putBuffer(scope: StorageScope, key: string, data: Buffer): Promise<void>;
-  putStream(scope: StorageScope, key: string, stream: Readable): Promise<number>;
-  openReadStream(scope: StorageScope, key: string, range?: StorageByteRange): Promise<Readable>;
+  putStream(scope: StorageScope, key: string, stream: ReadableStream<Uint8Array>): Promise<number>;
+  openReadStream(
+    scope: StorageScope,
+    key: string,
+    range?: StorageByteRange,
+  ): Promise<ReadableStream<Uint8Array>>;
   readBuffer(scope: StorageScope, key: string): Promise<Buffer>;
   exists(scope: StorageScope, key: string): Promise<boolean>;
   stat(scope: StorageScope, key: string): Promise<StorageStat>;
@@ -62,19 +63,32 @@ class LocalStorageDriver implements StorageDriver {
     await writeFile(filePath, data);
   }
 
-  async putStream(scope: StorageScope, key: string, stream: Readable): Promise<number> {
+  async putStream(
+    scope: StorageScope,
+    key: string,
+    stream: ReadableStream<Uint8Array>,
+  ): Promise<number> {
     const filePath = this.resolvePath(scope, key);
     await mkdir(dirname(filePath), { recursive: true });
+    const writer = Bun.file(filePath).writer();
 
     let size = 0;
-    const counter = new Transform({
-      transform(chunk, _encoding, callback) {
-        size += chunk.length;
-        callback(null, chunk);
-      },
-    });
+    const reader = stream.getReader();
 
-    await pipeline(stream, counter, createWriteStream(filePath));
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        size += value.byteLength;
+        await writer.write(value);
+      }
+      await writer.end();
+    } catch (error) {
+      await writer.end();
+      throw error;
+    }
+
     return size;
   }
 
@@ -82,14 +96,13 @@ class LocalStorageDriver implements StorageDriver {
     scope: StorageScope,
     key: string,
     range?: StorageByteRange,
-  ): Promise<Readable> {
+  ): Promise<ReadableStream<Uint8Array>> {
     const filePath = this.resolvePath(scope, key);
-    if (!range) return createReadStream(filePath);
+    if (!range) return Bun.file(filePath).stream();
 
-    return createReadStream(
-      filePath,
-      range.end !== undefined ? { start: range.start, end: range.end } : { start: range.start },
-    );
+    return Bun.file(filePath)
+      .slice(range.start, range.end !== undefined ? range.end + 1 : undefined)
+      .stream();
   }
 
   async readBuffer(scope: StorageScope, key: string): Promise<Buffer> {
@@ -130,49 +143,36 @@ type S3StorageConfig = {
 };
 
 class S3StorageDriver implements StorageDriver {
-  private sdk: any | null = null;
   private client: any | null = null;
-  private clientPromise: Promise<any> | null = null;
 
   constructor(private readonly config: S3StorageConfig) {}
 
   async ensureReady(): Promise<void> {
     this.validateConfig();
-    await this.getClient();
+    this.getClient();
   }
 
   async putBuffer(scope: StorageScope, key: string, data: Buffer): Promise<void> {
-    const { client, sdk } = await this.getClientWithSdk();
-    await client.send(
-      new sdk.PutObjectCommand({
-        Bucket: this.config.bucket,
-        Key: this.getObjectKey(scope, key),
-        Body: data,
-      }),
-    );
+    const client = this.getClient();
+    await client.write(this.getObjectKey(scope, key), data);
   }
 
-  async putStream(scope: StorageScope, key: string, stream: Readable): Promise<number> {
-    const { client, sdk } = await this.getClientWithSdk();
-    const passThrough = new PassThrough();
-
+  async putStream(
+    scope: StorageScope,
+    key: string,
+    stream: ReadableStream<Uint8Array>,
+  ): Promise<number> {
+    const client = this.getClient();
+    const [uploadStream, counterStream] = stream.tee();
+    const uploadPromise = client.write(this.getObjectKey(scope, key), uploadStream);
     let size = 0;
-    const counter = new Transform({
-      transform(chunk, _encoding, callback) {
-        size += chunk.length;
-        callback(null, chunk);
-      },
-    });
-
-    const uploadPromise = client.send(
-      new sdk.PutObjectCommand({
-        Bucket: this.config.bucket,
-        Key: this.getObjectKey(scope, key),
-        Body: passThrough,
-      }),
-    );
-
-    await pipeline(stream, counter, passThrough);
+    const reader = counterStream.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      size += value.byteLength;
+    }
     await uploadPromise;
     return size;
   }
@@ -181,55 +181,37 @@ class S3StorageDriver implements StorageDriver {
     scope: StorageScope,
     key: string,
     range?: StorageByteRange,
-  ): Promise<Readable> {
-    const { client, sdk } = await this.getClientWithSdk();
-    const rangeHeader = range ? `bytes=${range.start}-${range.end ?? ""}` : undefined;
-    const response = await client.send(
-      new sdk.GetObjectCommand({
-        Bucket: this.config.bucket,
-        Key: this.getObjectKey(scope, key),
-        ...(rangeHeader ? { Range: rangeHeader } : {}),
-      }),
-    );
+  ): Promise<ReadableStream<Uint8Array>> {
+    const client = this.getClient();
+    const file = client.file(this.getObjectKey(scope, key));
 
-    if (!response.Body) {
-      throw createError({ statusCode: 404, statusMessage: "Storage object body missing" });
-    }
+    const target =
+      range && range.end !== undefined
+        ? file.slice(range.start, range.end + 1)
+        : range
+          ? file.slice(range.start)
+          : file;
 
-    return await this.toNodeReadable(response.Body);
+    return target.stream();
   }
 
   async readBuffer(scope: StorageScope, key: string): Promise<Buffer> {
-    const { client, sdk } = await this.getClientWithSdk();
-    const response = await client.send(
-      new sdk.GetObjectCommand({
-        Bucket: this.config.bucket,
-        Key: this.getObjectKey(scope, key),
-      }),
-    );
-
-    if (!response.Body) {
-      throw createError({ statusCode: 404, statusMessage: "Storage object body missing" });
-    }
-
-    return await this.readBodyToBuffer(response.Body);
+    const client = this.getClient();
+    const bytes = await client.file(this.getObjectKey(scope, key)).bytes();
+    return Buffer.from(bytes);
   }
 
   async exists(scope: StorageScope, key: string): Promise<boolean> {
-    const { client, sdk } = await this.getClientWithSdk();
+    const client = this.getClient();
     try {
-      await client.send(
-        new sdk.HeadObjectCommand({
-          Bucket: this.config.bucket,
-          Key: this.getObjectKey(scope, key),
-        }),
-      );
-      return true;
+      return await client.exists(this.getObjectKey(scope, key));
     } catch (error: any) {
       if (
         error?.$metadata?.httpStatusCode === 404 ||
+        error?.statusCode === 404 ||
         error?.name === "NotFound" ||
-        error?.name === "NoSuchKey"
+        error?.name === "NoSuchKey" ||
+        error?.code === "NoSuchKey"
       ) {
         return false;
       }
@@ -238,49 +220,40 @@ class S3StorageDriver implements StorageDriver {
   }
 
   async stat(scope: StorageScope, key: string): Promise<StorageStat> {
-    const { client, sdk } = await this.getClientWithSdk();
-    const head = await client.send(
-      new sdk.HeadObjectCommand({
-        Bucket: this.config.bucket,
-        Key: this.getObjectKey(scope, key),
-      }),
-    );
-    return { size: head.ContentLength ?? 0 };
+    const client = this.getClient();
+    const size = await client.size(this.getObjectKey(scope, key));
+    return { size: Number(size) || 0 };
   }
 
   async deletePrefix(scope: StorageScope, keyPrefix: string): Promise<void> {
-    const { client, sdk } = await this.getClientWithSdk();
+    const client = this.getClient();
     const prefix = this.getPrefix(scope, keyPrefix);
 
-    let continuationToken: string | undefined;
-    do {
-      const list = await client.send(
-        new sdk.ListObjectsV2Command({
-          Bucket: this.config.bucket,
-          Prefix: prefix,
-          ContinuationToken: continuationToken,
-        }),
-      );
+    const listed = await client.list({ prefix });
+    const objectKeys = this.extractObjectKeys(listed);
+    if (objectKeys.length === 0) return;
 
-      const objects =
-        list.Contents?.map((entry: { Key?: string }) => entry.Key).filter(
-          (item: string | undefined): item is string => Boolean(item),
-        ) ?? [];
-
-      if (objects.length > 0) {
-        await client.send(
-          new sdk.DeleteObjectsCommand({
-            Bucket: this.config.bucket,
-            Delete: {
-              Objects: objects.map((objectKey: string) => ({ Key: objectKey })),
-              Quiet: true,
-            },
-          }),
-        );
+    for (const objectKey of objectKeys) {
+      try {
+        await client.delete(objectKey);
+      } catch (error: any) {
+        // Bun also exposes unlink with equivalent behavior.
+        if (typeof client.unlink === "function") {
+          await client.unlink(objectKey);
+          continue;
+        }
+        if (
+          error?.$metadata?.httpStatusCode === 404 ||
+          error?.statusCode === 404 ||
+          error?.name === "NotFound" ||
+          error?.name === "NoSuchKey" ||
+          error?.code === "NoSuchKey"
+        ) {
+          continue;
+        }
+        throw error;
       }
-
-      continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
-    } while (continuationToken);
+    }
   }
 
   private validateConfig(): void {
@@ -298,51 +271,38 @@ class S3StorageDriver implements StorageDriver {
     }
   }
 
-  private async getClientWithSdk(): Promise<{ client: any; sdk: any }> {
-    const client = await this.getClient();
-    if (!this.sdk) {
-      throw createError({ statusCode: 500, statusMessage: "S3 SDK did not initialize" });
-    }
-    return { client, sdk: this.sdk };
-  }
-
-  private async getClient(): Promise<any> {
+  private getClient(): any {
     if (this.client) return this.client;
-    if (!this.clientPromise) {
-      this.clientPromise = (async () => {
-        this.validateConfig();
-        const moduleName = "@aws-sdk/client-s3";
-        let sdk: any;
 
-        try {
-          sdk = await import(moduleName);
-        } catch {
-          throw createError({
-            statusCode: 500,
-            statusMessage:
-              "S3 storage selected but @aws-sdk/client-s3 is not installed. Add it to dependencies.",
-          });
-        }
-
-        const credentials =
-          this.config.accessKeyId && this.config.secretAccessKey
-            ? {
-                accessKeyId: this.config.accessKeyId,
-                secretAccessKey: this.config.secretAccessKey,
-              }
-            : undefined;
-
-        this.sdk = sdk;
-        this.client = new sdk.S3Client({
-          region: this.config.region,
-          endpoint: this.config.endpoint || undefined,
-          credentials,
-          forcePathStyle: this.config.forcePathStyle ?? false,
-        });
-        return this.client;
-      })();
+    this.validateConfig();
+    const BunRuntime = (globalThis as any).Bun;
+    if (!BunRuntime?.S3Client) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: "S3 storage driver requires Bun runtime with Bun.S3Client support",
+      });
     }
-    return await this.clientPromise;
+
+    const clientOptions: Record<string, unknown> = {
+      bucket: this.config.bucket,
+      region: this.config.region,
+    };
+
+    if (this.config.endpoint) {
+      clientOptions.endpoint = this.config.endpoint;
+    }
+    if (this.config.accessKeyId) {
+      clientOptions.accessKeyId = this.config.accessKeyId;
+    }
+    if (this.config.secretAccessKey) {
+      clientOptions.secretAccessKey = this.config.secretAccessKey;
+    }
+    if (this.config.forcePathStyle) {
+      clientOptions.virtualHostedStyle = false;
+    }
+
+    this.client = new BunRuntime.S3Client(clientOptions);
+    return this.client;
   }
 
   private getObjectKey(scope: StorageScope, key: string): string {
@@ -360,46 +320,25 @@ class S3StorageDriver implements StorageDriver {
     return segment.replace(/^\/+|\/+$/g, "");
   }
 
-  private async toNodeReadable(body: any): Promise<Readable> {
-    if (body instanceof Readable) return body;
-    if (typeof body?.pipe === "function") return body as Readable;
-    const buffer = await this.readBodyToBuffer(body);
-    return Readable.from(buffer);
+  private extractObjectKeys(listResponse: any): string[] {
+    if (!listResponse) return [];
+
+    const entries = Array.isArray(listResponse)
+      ? listResponse
+      : Array.isArray(listResponse.contents)
+        ? listResponse.contents
+        : Array.isArray(listResponse.objects)
+          ? listResponse.objects
+          : [];
+
+    return entries
+      .map((entry: any) => {
+        if (typeof entry === "string") return entry;
+        return entry?.key || entry?.Key || null;
+      })
+      .filter((item: string | null): item is string => Boolean(item));
   }
 
-  private async readBodyToBuffer(body: any): Promise<Buffer> {
-    if (Buffer.isBuffer(body)) return body;
-
-    if (body instanceof Uint8Array) {
-      return Buffer.from(body);
-    }
-
-    if (typeof body?.transformToByteArray === "function") {
-      const bytes = await body.transformToByteArray();
-      return Buffer.from(bytes);
-    }
-
-    if (typeof body?.arrayBuffer === "function") {
-      const arrayBuffer = await body.arrayBuffer();
-      return Buffer.from(arrayBuffer);
-    }
-
-    if (typeof body?.pipe === "function") {
-      return await new Promise<Buffer>((resolveBuffer, rejectBuffer) => {
-        const chunks: Buffer[] = [];
-        (body as Readable)
-          .on("data", (chunk) => {
-            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-          })
-          .on("end", () => {
-            resolveBuffer(Buffer.concat(chunks));
-          })
-          .on("error", rejectBuffer);
-      });
-    }
-
-    throw createError({ statusCode: 500, statusMessage: "Unsupported S3 response body type" });
-  }
 }
 
 export class StorageService {
@@ -417,7 +356,11 @@ export class StorageService {
     await this.driver.putBuffer("avatars", this.avatarBlobKey(userId), data);
   }
 
-  async storeFileStream(libraryId: string, fileId: string, stream: Readable): Promise<number> {
+  async storeFileStream(
+    libraryId: string,
+    fileId: string,
+    stream: ReadableStream<Uint8Array>,
+  ): Promise<number> {
     return await this.driver.putStream("files", this.fileBlobKey(libraryId, fileId), stream);
   }
 
@@ -449,7 +392,7 @@ export class StorageService {
     libraryId: string,
     fileId: string,
     range?: StorageByteRange,
-  ): Promise<Readable> {
+  ): Promise<ReadableStream<Uint8Array>> {
     return await this.driver.openReadStream("files", this.fileBlobKey(libraryId, fileId), range);
   }
 
@@ -457,7 +400,7 @@ export class StorageService {
     return await this.driver.exists("cache", cacheKey);
   }
 
-  async openCacheReadStream(cacheKey: string): Promise<Readable> {
+  async openCacheReadStream(cacheKey: string): Promise<ReadableStream<Uint8Array>> {
     return await this.driver.openReadStream("cache", cacheKey);
   }
 
@@ -525,7 +468,7 @@ export async function storeAvatar(userId: string, data: Buffer): Promise<void> {
 export async function storeFileStream(
   libraryId: string,
   fileId: string,
-  stream: Readable,
+  stream: ReadableStream<Uint8Array>,
 ): Promise<number> {
   return await useStorageService().storeFileStream(libraryId, fileId, stream);
 }
