@@ -7,7 +7,11 @@ import type {
 type LibraryUsersRef = Ref<LibraryUsersResponse | null | undefined>;
 type RefreshUsersFn = () => Promise<void>;
 
-export function useLibraryMembers(libraryId: Ref<string>, libraryUsers: LibraryUsersRef, refreshLibraryUsers: RefreshUsersFn) {
+export function useLibraryMembers(
+  libraryId: Ref<string>,
+  libraryUsers: LibraryUsersRef,
+  refreshLibraryUsers: RefreshUsersFn,
+) {
   const toast = useToast();
 
   const memberRoleDrafts = reactive<Record<string, "admin" | "viewer">>({});

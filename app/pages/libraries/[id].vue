@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import type { ContextMenuItem, DropdownMenuItem, BreadcrumbItem } from "@nuxt/ui";
-import type {
-  LibraryEntry,
-  LibraryFile,
-  LibraryFolder,
-} from "~~/shared/types/api";
+import type { LibraryEntry, LibraryFile, LibraryFolder } from "~~/shared/types/api";
 import { getMimeIcon, formatFileSize, formatDate } from "~/utils/mime-icons";
 
 definePageMeta({

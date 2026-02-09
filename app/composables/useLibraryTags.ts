@@ -4,7 +4,11 @@ import { isTagColorInPalette, TAG_COLOR_PALETTE } from "~~/shared/tag-colors";
 type LibraryTagsRef = Ref<LibraryTag[]>;
 type FilesRef = Ref<LibraryFile[]>;
 
-export function useLibraryTags(libraryId: Ref<string>, libraryTags: LibraryTagsRef, files: FilesRef) {
+export function useLibraryTags(
+  libraryId: Ref<string>,
+  libraryTags: LibraryTagsRef,
+  files: FilesRef,
+) {
   const toast = useToast();
 
   const createTagName = ref("");
