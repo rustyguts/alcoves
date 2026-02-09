@@ -1,101 +1,92 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working in this repository.
 
-## Project Overview
+## Project Summary
 
-Alcoves is a collaborative file library management application built with Nuxt 4, Vue 3, and Nuxt UI v4. The backend uses Nitro (Nuxt's server engine) with Drizzle ORM and PostgreSQL for persistent data storage. Authentication is session-based using H3 encrypted cookies.
+Alcoves is a self-hosted collaborative file library built with Nuxt 4 + Vue 3.
+It has:
+- Nuxt UI v4 frontend (`app/`)
+- Nitro/H3 API backend (`server/api/`)
+- Drizzle ORM with PostgreSQL (`server/database/`)
+- Session auth with optional Google OAuth (`nuxt-auth-utils`)
+- Local or S3-backed file/avatar/cache storage
 
-## Commands
+## Core Commands
 
-Package manager is **Bun**.
+Use Bun for all tasks:
 
-- `bun install` - install dependencies
-- `bun run dev` - start dev server (localhost:3000)
-- `bun run build` - production build
-- `bun run lint` / `bun run lint:fix` - lint with OXlint
-- `bun run fmt` / `bun run fmt:check` - format with OXfmt
-- `bun run db:push` - push schema to database (development)
-- `bun run db:generate` - generate SQL migrations
-- `bun run db:migrate` - apply migrations
-- `bun run db:studio` - open Drizzle Studio GUI
+- `bun install`
+- `bun run dev`
+- `bun run build`
+- `bun run preview`
+- `bun run typecheck`
+- `bun run lint`
+- `bun run lint:fix`
+- `bun run fmt`
+- `bun run fmt:check`
+- `bun run test`
+- `bun run test:unit`
+- `bun run test:unit:coverage`
+- `bun run test:e2e`
+- `bun run coverage:summary`
+- `bun run db:generate`
+- `bun run db:migrate`
+- `bun run db:push`
+- `bun run db:studio`
 
-Pre-commit hook (Husky) runs `bun fmt && bun lint`.
+## Architecture Notes
 
-No test framework is configured yet.
+### Frontend
 
-## Architecture
+- `app/pages/` defines routes.
+- `app/layouts/dashboard.vue` is the primary authenticated shell.
+- `app/middleware/auth.global.ts` enforces auth redirects.
+- Shared UI behavior lives in `app/composables/`.
+- Shared types/constants also exist in `shared/`.
 
-### Frontend (`app/`)
+### Backend
 
-- **Framework:** Nuxt 4 with Vue 3 and Nuxt UI v4 component library
-- **Routing:** File-based via `app/pages/` (Nuxt auto-routing)
-- **Layout:** Single `dashboard` layout with collapsible sidebar, library navigation, and user menu
-- **Validation:** Zod schemas for form validation (login, register)
-- **Styling:** Tailwind CSS v4 with Nuxt UI defaults; icons use `i-lucide-*` classes
-- **State:** Vue 3 reactivity (`ref`/`reactive`), `useFetch` for API calls
-- **Auth:** `useAuth()` composable provides user state, login, register, logout, and profile update
-- **Middleware:** Global `auth.global.ts` redirects unauthenticated users to `/login`
+- API routes are in `server/api/**` using Nitro file routing.
+- Domain logic is split into `server/domain/` and `server/services/`.
+- Authentication and request checks are in `server/middleware/` and `server/utils/auth.ts`.
+- Storage behavior is configured in `server/utils/storage.ts` and initialized in `server/plugins/storage.ts`.
 
-### Backend (`server/`)
+### Data Layer
 
-- **API:** REST endpoints via Nitro file-based routing in `server/api/`
-- **HTTP method convention:** Filename suffix determines method (e.g., `index.get.ts`, `index.post.ts`)
-- **Database:** Drizzle ORM with PostgreSQL (postgres.js driver)
-  - Schema: `server/database/schema.ts`
-  - Connection: `server/database/index.ts`
-  - Config: `drizzle.config.ts`
-  - Migrations: `server/database/migrations/`
-- **Auth:** Session-based via H3 `useSession` with bcryptjs password hashing
-  - Helpers: `server/utils/auth.ts`
-  - Middleware: `server/middleware/auth.ts` (protects `/api/*` routes, skips `/api/auth/*`)
-- **Types:** Shared interfaces in `server/utils/types.ts`
+- Drizzle schema: `server/database/schema.ts`
+- DB entrypoint: `server/database/index.ts`
+- Migrations: `server/database/migrations/`
+- Drizzle config: `drizzle.config.ts`
 
-### Data Model
+## Environment
 
-- **Users:** email/password auth, displayName, avatarUrl, role (owner/member). First registered user is owner.
-- **Libraries:** owned by a user. Each user gets a default "My Library" on registration.
-- **Files:** belong to a library. Store name, mimeType, size, originalCreatedAt. File content storage is mocked.
-- **LibraryMembers:** grants users access to libraries with admin/viewer roles.
+Primary env vars:
 
-### API Endpoints
+- `ALCOVES_DATABASE_URL`
+- `ALCOVES_SESSION_SECRET`
+- `ALCOVES_STORAGE_DRIVER` (`local` or `s3`)
+- `ALCOVES_STORAGE_PATH`
+- `ALCOVES_AVATAR_STORAGE_PATH`
+- `ALCOVES_CACHE_STORAGE_PATH`
+- `ALCOVES_S3_BUCKET`
+- `ALCOVES_S3_REGION`
+- `ALCOVES_S3_ENDPOINT`
+- `ALCOVES_S3_ACCESS_KEY_ID`
+- `ALCOVES_S3_SECRET_ACCESS_KEY`
+- `ALCOVES_S3_FORCE_PATH_STYLE`
+- `ALCOVES_S3_FILES_PREFIX`
+- `ALCOVES_S3_AVATARS_PREFIX`
+- `ALCOVES_S3_CACHE_PREFIX`
+- `NUXT_OAUTH_GOOGLE_CLIENT_ID`
+- `NUXT_OAUTH_GOOGLE_CLIENT_SECRET`
 
-| Method | Path                               | Description           |
-| ------ | ---------------------------------- | --------------------- |
-| POST   | `/api/auth/register`               | Register new user     |
-| POST   | `/api/auth/login`                  | Login                 |
-| POST   | `/api/auth/logout`                 | Logout                |
-| GET    | `/api/auth/me`                     | Get current user      |
-| PATCH  | `/api/auth/me`                     | Update profile        |
-| GET    | `/api/libraries`                   | List user's libraries |
-| POST   | `/api/libraries`                   | Create library        |
-| GET    | `/api/libraries/:id`               | Get library           |
-| PATCH  | `/api/libraries/:id`               | Rename library        |
-| GET    | `/api/libraries/:id/files`         | List files in library |
-| POST   | `/api/libraries/:id/files`         | Add file to library   |
-| PATCH  | `/api/libraries/:id/files/:fileId` | Rename file           |
-| DELETE | `/api/libraries/:id/files/:fileId` | Delete file(s)        |
+See `.env.example` for full details and defaults.
 
-### Docker
+## Engineering Guardrails
 
-- Multi-stage Dockerfile: development (hot reload), build, and production stages
-- `docker-compose.yml` runs the app with PostgreSQL 18
-- Database URL: `ALCOVES_DATABASE_URL` env var (postgres credentials in compose)
-
-## Environment Variables
-
-- `ALCOVES_DATABASE_URL` - PostgreSQL connection string (default: `postgres://postgres:postgres@localhost:5455/alcoves`)
-- `ALCOVES_SESSION_SECRET` - Session encryption key, min 32 chars (has dev default)
-
-## Code Quality
-
-- **Linter:** OXlint (Rust-based, configured in `.oxlintrc.json`)
-- **Formatter:** OXfmt (100 char print width, configured in `.oxfmtrc.json`)
-- No Prettier or ESLint - uses OXC toolchain exclusively
-
-## Current State
-
-- Auth is fully wired: register, login, logout, profile update
-- Data is persistent in PostgreSQL via Drizzle ORM
-- File upload creates real DB records but file content storage is mocked (metadata only)
-- Library sharing via `libraryMembers` table exists in schema but sharing UI is not yet built
+- Keep changes scoped and consistent with existing Nuxt/Nitro patterns.
+- Do not switch package manager or lint/format stack.
+- Prefer adding/adjusting tests when behavior changes.
+- Run targeted tests first, then broader suites when needed.
+- Avoid destructive git commands and do not revert unrelated local changes.
