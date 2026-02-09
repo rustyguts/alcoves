@@ -16,7 +16,7 @@ services:
   #     postgres:
   #       condition: service_healthy
   postgres:
-    image: postgres:18
+    image: pgvector/pgvector:pg18
     environment:
       - POSTGRES_DB=alcoves
       - POSTGRES_USER=postgres
