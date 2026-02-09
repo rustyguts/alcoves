@@ -8,9 +8,18 @@ const mocks = vi.hoisted(() => ({
     query: {} as Record<string, string>,
     path: "/libraries/lib-1",
   },
-  user: { id: "user-1", email: "u@example.com", displayName: "User", avatarUrl: null, role: "owner" },
+  user: {
+    id: "user-1",
+    email: "u@example.com",
+    displayName: "User",
+    avatarUrl: null,
+    role: "owner",
+  },
   libraryData: null as { id: string; name: string; ownerId: string; isDefault: boolean } | null,
-  libraryUsersData: null as { canManageUsers: boolean; members: Array<{ userId: string; role: string }> } | null,
+  libraryUsersData: null as {
+    canManageUsers: boolean;
+    members: Array<{ userId: string; role: string }>;
+  } | null,
   fetch: vi.fn(),
   navigateTo: vi.fn(),
   initResult: null as {
@@ -34,19 +43,37 @@ mockNuxtImport("useFetch", () => (urlFn: (() => string) | string) => {
   const url = typeof urlFn === "function" ? urlFn() : urlFn;
   if (url.includes("/users")) {
     return {
-      data: { get value() { return mocks.libraryUsersData; }, set value(_v: unknown) {} },
+      data: {
+        get value() {
+          return mocks.libraryUsersData;
+        },
+        set value(_v: unknown) {},
+      },
       refresh: vi.fn(),
     };
   }
   return {
-    data: { get value() { return mocks.libraryData; }, set value(_v: unknown) {} },
+    data: {
+      get value() {
+        return mocks.libraryData;
+      },
+      set value(_v: unknown) {},
+    },
     refresh: vi.fn(),
   };
 });
 
-mockNuxtImport("useAsyncData", () => (_key: string, _fn: () => Promise<unknown>, _opts?: unknown) => ({
-  data: { get value() { return mocks.initResult; }, set value(_v: unknown) {} },
-}));
+mockNuxtImport(
+  "useAsyncData",
+  () => (_key: string, _fn: () => Promise<unknown>, _opts?: unknown) => ({
+    data: {
+      get value() {
+        return mocks.initResult;
+      },
+      set value(_v: unknown) {},
+    },
+  }),
+);
 
 mockNuxtImport("navigateTo", () => mocks.navigateTo);
 
@@ -59,7 +86,13 @@ describe("useLibraryExplorer", () => {
     mocks.route.params = { id: "lib-1" };
     mocks.route.query = {};
     mocks.route.path = "/libraries/lib-1";
-    mocks.user = { id: "user-1", email: "u@example.com", displayName: "User", avatarUrl: null, role: "owner" };
+    mocks.user = {
+      id: "user-1",
+      email: "u@example.com",
+      displayName: "User",
+      avatarUrl: null,
+      role: "owner",
+    };
     mocks.libraryData = null;
     mocks.libraryUsersData = null;
     mocks.initResult = null;
@@ -185,16 +218,30 @@ describe("useLibraryExplorer", () => {
 
   it("files computed filters entries by kind=file", () => {
     const file: LibraryFile = {
-      id: "f1", libraryId: "lib-1", parentFolderId: null, name: "test.txt",
-      mimeType: "text/plain", size: 100, kind: "file",
-      originalCreatedAt: null, trashedAt: null,
-      createdAt: "2025-01-01", updatedAt: "2025-01-01",
-      owner: null, tags: [],
+      id: "f1",
+      libraryId: "lib-1",
+      parentFolderId: null,
+      name: "test.txt",
+      mimeType: "text/plain",
+      size: 100,
+      kind: "file",
+      originalCreatedAt: null,
+      trashedAt: null,
+      createdAt: "2025-01-01",
+      updatedAt: "2025-01-01",
+      owner: null,
+      tags: [],
     };
     const folder: LibraryFolder = {
-      id: "fo1", libraryId: "lib-1", parentFolderId: null, name: "docs",
-      kind: "folder", trashedAt: null,
-      createdAt: "2025-01-01", updatedAt: "2025-01-01", tags: [],
+      id: "fo1",
+      libraryId: "lib-1",
+      parentFolderId: null,
+      name: "docs",
+      kind: "folder",
+      trashedAt: null,
+      createdAt: "2025-01-01",
+      updatedAt: "2025-01-01",
+      tags: [],
     };
 
     const { entries, files, folders } = useLibraryExplorer();
@@ -207,8 +254,13 @@ describe("useLibraryExplorer", () => {
   });
 
   it("clearSelection clears all selections", () => {
-    const { selectedFiles, selectedFolders, lastClickedFileIndex, lastClickedFolderIndex, clearSelection } =
-      useLibraryExplorer();
+    const {
+      selectedFiles,
+      selectedFolders,
+      lastClickedFileIndex,
+      lastClickedFolderIndex,
+      clearSelection,
+    } = useLibraryExplorer();
 
     selectedFiles.add("f1");
     selectedFolders.add("fo1");
@@ -239,7 +291,12 @@ describe("useLibraryExplorer", () => {
   });
 
   it("fetchPage includes trashed param when in trash view", async () => {
-    mocks.fetch.mockResolvedValueOnce({ entries: [], nextCursor: null, totalCount: 0, breadcrumbs: [] });
+    mocks.fetch.mockResolvedValueOnce({
+      entries: [],
+      nextCursor: null,
+      totalCount: 0,
+      breadcrumbs: [],
+    });
 
     const { viewMode, fetchPage } = useLibraryExplorer();
     viewMode.value = "trash";
@@ -253,7 +310,12 @@ describe("useLibraryExplorer", () => {
 
   it("fetchPage includes folder param when in folder", async () => {
     mocks.route.query = { folder: "f1" };
-    mocks.fetch.mockResolvedValueOnce({ entries: [], nextCursor: null, totalCount: 0, breadcrumbs: [] });
+    mocks.fetch.mockResolvedValueOnce({
+      entries: [],
+      nextCursor: null,
+      totalCount: 0,
+      breadcrumbs: [],
+    });
 
     const { fetchPage } = useLibraryExplorer();
     await fetchPage();
@@ -264,7 +326,12 @@ describe("useLibraryExplorer", () => {
   });
 
   it("fetchPage includes cursor param", async () => {
-    mocks.fetch.mockResolvedValueOnce({ entries: [], nextCursor: null, totalCount: 0, breadcrumbs: [] });
+    mocks.fetch.mockResolvedValueOnce({
+      entries: [],
+      nextCursor: null,
+      totalCount: 0,
+      breadcrumbs: [],
+    });
 
     const { fetchPage } = useLibraryExplorer();
     await fetchPage("cursor-abc");
@@ -276,11 +343,19 @@ describe("useLibraryExplorer", () => {
 
   it("loadMore appends entries and updates cursor", async () => {
     const newEntry: LibraryFile = {
-      id: "f2", libraryId: "lib-1", parentFolderId: null, name: "new.txt",
-      mimeType: "text/plain", size: 50, kind: "file",
-      originalCreatedAt: null, trashedAt: null,
-      createdAt: "2025-01-01", updatedAt: "2025-01-01",
-      owner: null, tags: [],
+      id: "f2",
+      libraryId: "lib-1",
+      parentFolderId: null,
+      name: "new.txt",
+      mimeType: "text/plain",
+      size: 50,
+      kind: "file",
+      originalCreatedAt: null,
+      trashedAt: null,
+      createdAt: "2025-01-01",
+      updatedAt: "2025-01-01",
+      owner: null,
+      tags: [],
     };
 
     mocks.fetch.mockResolvedValueOnce({
@@ -354,7 +429,9 @@ describe("useLibraryExplorer", () => {
   });
 
   it("refreshTags fetches tags", async () => {
-    const tags = [{ id: "t1", name: "Tag", libraryId: "lib-1", color: "#E11D48", createdAt: "", updatedAt: "" }];
+    const tags = [
+      { id: "t1", name: "Tag", libraryId: "lib-1", color: "#E11D48", createdAt: "", updatedAt: "" },
+    ];
     mocks.fetch.mockResolvedValueOnce(tags);
 
     const { refreshTags, libraryTags } = useLibraryExplorer();

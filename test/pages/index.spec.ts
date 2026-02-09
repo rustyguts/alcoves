@@ -7,7 +7,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 mockNuxtImport("useFetch", () => () => ({
-  data: { get value() { return mocks.libraries; } },
+  data: {
+    get value() {
+      return mocks.libraries;
+    },
+  },
 }));
 
 mockNuxtImport("navigateTo", () => mocks.navigateTo);

@@ -9,7 +9,9 @@ const mocks = vi.hoisted(() => ({
 
 mockNuxtImport("useToast", () => () => mocks.toast);
 
-function makeFolder(overrides: Partial<LibraryFolder> & { id: string; name: string }): LibraryFolder {
+function makeFolder(
+  overrides: Partial<LibraryFolder> & { id: string; name: string },
+): LibraryFolder {
   return {
     libraryId: "lib-1",
     parentFolderId: null,
@@ -93,7 +95,10 @@ describe("useLibraryFolderActions", () => {
 
     await actions.createFolder();
 
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Failed to create folder", color: "error" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({
+      title: "Failed to create folder",
+      color: "error",
+    });
     expect(actions.creatingFolder.value).toBe(false);
   });
 
@@ -154,7 +159,10 @@ describe("useLibraryFolderActions", () => {
     const actions = createActions();
     await actions.openMoveFolderModal(makeFolder({ id: "f1", name: "Test" }));
 
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Failed to load folders", color: "error" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({
+      title: "Failed to load folders",
+      color: "error",
+    });
   });
 
   it("moveFolder calls $fetch with null parent for root", async () => {
@@ -203,7 +211,10 @@ describe("useLibraryFolderActions", () => {
 
     await actions.moveFolder();
 
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Failed to move folder", color: "error" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({
+      title: "Failed to move folder",
+      color: "error",
+    });
     expect(actions.moveFolderSaving.value).toBe(false);
   });
 
@@ -213,8 +224,12 @@ describe("useLibraryFolderActions", () => {
     const actions = createActions();
     await actions.deleteFolders(["f1", "f2"]);
 
-    expect(mocks.fetch).toHaveBeenCalledWith("/api/libraries/lib-1/folders/f1", { method: "DELETE" });
-    expect(mocks.fetch).toHaveBeenCalledWith("/api/libraries/lib-1/folders/f2", { method: "DELETE" });
+    expect(mocks.fetch).toHaveBeenCalledWith("/api/libraries/lib-1/folders/f1", {
+      method: "DELETE",
+    });
+    expect(mocks.fetch).toHaveBeenCalledWith("/api/libraries/lib-1/folders/f2", {
+      method: "DELETE",
+    });
     expect(resetAndFetch).toHaveBeenCalledTimes(1);
     expect(refreshTrashedCount).toHaveBeenCalledTimes(1);
   });
@@ -225,7 +240,9 @@ describe("useLibraryFolderActions", () => {
     const actions = createActions();
     await actions.deleteFolder(makeFolder({ id: "f-del", name: "Delete Me" }));
 
-    expect(mocks.fetch).toHaveBeenCalledWith("/api/libraries/lib-1/folders/f-del", { method: "DELETE" });
+    expect(mocks.fetch).toHaveBeenCalledWith("/api/libraries/lib-1/folders/f-del", {
+      method: "DELETE",
+    });
   });
 
   it("deleteFolders shows toast on error", async () => {
@@ -234,6 +251,9 @@ describe("useLibraryFolderActions", () => {
     const actions = createActions();
     await actions.deleteFolders(["f1"]);
 
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Failed to delete folder", color: "error" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({
+      title: "Failed to delete folder",
+      color: "error",
+    });
   });
 });

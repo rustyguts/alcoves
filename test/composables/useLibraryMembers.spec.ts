@@ -13,7 +13,9 @@ const mocks = vi.hoisted(() => ({
 
 mockNuxtImport("useToast", () => () => mocks.toast);
 
-function makeMember(overrides: Partial<LibraryMemberWithUser> & { userId: string }): LibraryMemberWithUser {
+function makeMember(
+  overrides: Partial<LibraryMemberWithUser> & { userId: string },
+): LibraryMemberWithUser {
   return {
     id: `m-${overrides.userId}`,
     role: "viewer",
@@ -29,7 +31,9 @@ function makeMember(overrides: Partial<LibraryMemberWithUser> & { userId: string
   };
 }
 
-function makeInvite(overrides: Partial<LibraryPendingInvite> & { id: string }): LibraryPendingInvite {
+function makeInvite(
+  overrides: Partial<LibraryPendingInvite> & { id: string },
+): LibraryPendingInvite {
   return {
     invitedEmail: null,
     role: "viewer",
@@ -95,7 +99,12 @@ describe("useLibraryMembers", () => {
   it("computes memberAvatars", () => {
     const member = makeMember({
       userId: "u1",
-      user: { id: "u1", email: "u1@example.com", displayName: "User One", avatarUrl: "https://example.com/avatar.png" },
+      user: {
+        id: "u1",
+        email: "u1@example.com",
+        displayName: "User One",
+        avatarUrl: "https://example.com/avatar.png",
+      },
     });
     const { memberAvatars } = create(makeUsersResponse([member]));
 
@@ -135,7 +144,10 @@ describe("useLibraryMembers", () => {
     const { copyInviteLink } = create();
     await copyInviteLink("https://example.com/invite");
 
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Unable to copy invite link", color: "error" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({
+      title: "Unable to copy invite link",
+      color: "error",
+    });
   });
 
   it("inviteUserByEmail posts and refreshes on success", async () => {
@@ -221,7 +233,10 @@ describe("useLibraryMembers", () => {
     const { createInviteLink } = create();
     await createInviteLink();
 
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Failed to create invite link", color: "error" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({
+      title: "Failed to create invite link",
+      color: "error",
+    });
   });
 
   it("updateMemberRole patches role and refreshes", async () => {
@@ -274,7 +289,10 @@ describe("useLibraryMembers", () => {
     await updateMemberRole(member);
 
     expect(memberRoleDrafts["u1"]).toBe("viewer");
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Failed to update access", color: "error" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({
+      title: "Failed to update access",
+      color: "error",
+    });
   });
 
   it("removeMember calls DELETE and refreshes", async () => {
@@ -304,7 +322,10 @@ describe("useLibraryMembers", () => {
     const { removeMember } = create(makeUsersResponse([member]));
 
     await removeMember(member);
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Failed to remove member", color: "error" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({
+      title: "Failed to remove member",
+      color: "error",
+    });
   });
 
   it("revokeInvite calls DELETE and refreshes", async () => {
@@ -313,7 +334,9 @@ describe("useLibraryMembers", () => {
     const { revokeInvite } = create();
     await revokeInvite("inv-1");
 
-    expect(mocks.fetch).toHaveBeenCalledWith("/api/libraries/lib-1/users/invites/inv-1", { method: "DELETE" });
+    expect(mocks.fetch).toHaveBeenCalledWith("/api/libraries/lib-1/users/invites/inv-1", {
+      method: "DELETE",
+    });
     expect(refreshLibraryUsers).toHaveBeenCalled();
   });
 
@@ -323,6 +346,9 @@ describe("useLibraryMembers", () => {
     const { revokeInvite } = create();
     await revokeInvite("inv-1");
 
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Failed to revoke invite", color: "error" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({
+      title: "Failed to revoke invite",
+      color: "error",
+    });
   });
 });

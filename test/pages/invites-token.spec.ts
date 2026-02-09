@@ -22,7 +22,13 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn().mockResolvedValue({}),
   navigateTo: vi.fn(),
   refreshLibraries: vi.fn(),
-  user: { id: "user-1", email: "u@example.com", displayName: "User", avatarUrl: null, role: "owner" },
+  user: {
+    id: "user-1",
+    email: "u@example.com",
+    displayName: "User",
+    avatarUrl: null,
+    role: "owner",
+  },
 }));
 
 mockNuxtImport("useToast", () => () => mocks.toast);

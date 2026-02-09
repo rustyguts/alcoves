@@ -56,8 +56,12 @@ mockNuxtImport("useAuth", () => () => ({
 mockNuxtImport("useToast", () => () => mocks.toast);
 
 mockNuxtImport("useColorMode", () => () => ({
-  get preference() { return mocks.colorPreference; },
-  set preference(v: string) { mocks.colorPreference = v; },
+  get preference() {
+    return mocks.colorPreference;
+  },
+  set preference(v: string) {
+    mocks.colorPreference = v;
+  },
 }));
 
 mockNuxtImport("useFetch", () => () => ({
@@ -74,10 +78,16 @@ mockNuxtImport("useUserSession", () => () => ({
 
 const stubs = {
   UFormField: { template: "<div><slot /></div>", props: ["label", "description"] },
-  UInput: { template: "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />", props: ["modelValue", "placeholder", "class"], emits: ["update:modelValue"] },
+  UInput: {
+    template:
+      "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />",
+    props: ["modelValue", "placeholder", "class"],
+    emits: ["update:modelValue"],
+  },
   USelectMenu: { template: "<select />", props: ["modelValue", "items", "valueKey", "class"] },
   UButton: {
-    template: "<button :disabled='disabled' :data-loading='loading' @click='$emit(\"click\")'>{{ label }}</button>",
+    template:
+      "<button :disabled='disabled' :data-loading='loading' @click='$emit(\"click\")'>{{ label }}</button>",
     props: ["label", "loading", "icon", "color", "variant", "size", "disabled", "square"],
     emits: ["click"],
   },
@@ -179,7 +189,10 @@ describe("profile.vue", () => {
     await revokeButton?.trigger("click");
 
     await vi.waitFor(() => {
-      expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Failed to revoke session", color: "error" });
+      expect(mocks.toast.add).toHaveBeenCalledWith({
+        title: "Failed to revoke session",
+        color: "error",
+      });
     });
   });
 

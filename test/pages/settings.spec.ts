@@ -33,7 +33,13 @@ const mocks = vi.hoisted(() => ({
     },
   ],
   status: "success" as string,
-  user: { id: "user-1", email: "u@example.com", displayName: "User", avatarUrl: null, role: "owner" },
+  user: {
+    id: "user-1",
+    email: "u@example.com",
+    displayName: "User",
+    avatarUrl: null,
+    role: "owner",
+  },
 }));
 
 mockNuxtImport("useFetch", () => () => ({
@@ -50,10 +56,14 @@ mockNuxtImport("useUserSession", () => () => ({
 
 const stubs = {
   UTable: {
-    template: "<table><tr v-for='row in data' :key='row.id'><td>{{ row.displayName }}</td><td>{{ row.email }}</td></tr></table>",
+    template:
+      "<table><tr v-for='row in data' :key='row.id'><td>{{ row.displayName }}</td><td>{{ row.email }}</td></tr></table>",
     props: ["data", "columns"],
   },
-  UBadge: { template: "<span><slot>{{ label }}</slot></span>", props: ["label", "color", "variant", "size"] },
+  UBadge: {
+    template: "<span><slot>{{ label }}</slot></span>",
+    props: ["label", "color", "variant", "size"],
+  },
   UIcon: { template: "<i />", props: ["name", "class"] },
   UAvatar: { template: "<div />", props: ["src", "alt", "size"] },
 };

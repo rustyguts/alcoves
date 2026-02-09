@@ -4,7 +4,8 @@ import type { LibraryFile } from "~~/shared/types/api";
 
 const stubs = {
   UModal: {
-    template: "<div data-testid='modal' :data-open='String(open)'><slot name='header' /><slot name='body' /></div>",
+    template:
+      "<div data-testid='modal' :data-open='String(open)'><slot name='header' /><slot name='body' /></div>",
     props: ["open", "fullscreen", "close", "ui"],
     emits: ["update:open"],
   },
@@ -14,8 +15,14 @@ const stubs = {
     emits: ["click"],
   },
   UIcon: { template: "<i :data-name='name' />", props: ["name", "class"] },
-  AlcovesImage: { template: "<img :alt='alt' />", props: ["libraryId", "fileId", "alt", "width", "class"] },
-  "media-player": { template: "<div class='media-player'><slot /></div>", props: ["src", "title", "crossorigin", "playsinline", "autoplay"] },
+  AlcovesImage: {
+    template: "<img :alt='alt' />",
+    props: ["libraryId", "fileId", "alt", "width", "class"],
+  },
+  "media-player": {
+    template: "<div class='media-player'><slot /></div>",
+    props: ["src", "title", "crossorigin", "playsinline", "autoplay"],
+  },
   "media-provider": { template: "<div />" },
   "media-video-layout": { template: "<div />" },
   "media-audio-layout": { template: "<div />" },
@@ -146,9 +153,9 @@ describe("FilePreview", () => {
       global: { stubs },
     });
 
-    const nextButton = wrapper.findAll("button").find(
-      (b) => b.attributes("data-icon") === "i-lucide-chevron-right",
-    );
+    const nextButton = wrapper
+      .findAll("button")
+      .find((b) => b.attributes("data-icon") === "i-lucide-chevron-right");
     await nextButton?.trigger("click");
 
     expect(wrapper.emitted("navigate")?.[0]).toEqual([files[1]]);

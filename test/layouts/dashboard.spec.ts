@@ -23,9 +23,30 @@ const mocks = vi.hoisted(() => ({
   },
   logout: vi.fn(),
   libraries: [
-    { id: "lib-default", name: "My Files", isDefault: true, ownerId: "user-1", createdAt: "", updatedAt: "" },
-    { id: "lib-2", name: "Projects", isDefault: false, ownerId: "user-1", createdAt: "", updatedAt: "" },
-    { id: "lib-3", name: "Archives", isDefault: false, ownerId: "user-1", createdAt: "", updatedAt: "" },
+    {
+      id: "lib-default",
+      name: "My Files",
+      isDefault: true,
+      ownerId: "user-1",
+      createdAt: "",
+      updatedAt: "",
+    },
+    {
+      id: "lib-2",
+      name: "Projects",
+      isDefault: false,
+      ownerId: "user-1",
+      createdAt: "",
+      updatedAt: "",
+    },
+    {
+      id: "lib-3",
+      name: "Archives",
+      isDefault: false,
+      ownerId: "user-1",
+      createdAt: "",
+      updatedAt: "",
+    },
   ],
   refreshLibraries: vi.fn(),
   navigateTo: vi.fn(),
@@ -54,7 +75,8 @@ mockNuxtImport("useUserSession", () => () => ({
 const stubs = {
   UDashboardGroup: { template: "<div><slot /></div>" },
   UDashboardSidebar: {
-    template: "<div><slot name='header' :collapsed='false' /><slot :collapsed='false' /><slot name='footer' /></div>",
+    template:
+      "<div><slot name='header' :collapsed='false' /><slot :collapsed='false' /><slot name='footer' /></div>",
     props: ["collapsible", "resizable", "ui"],
   },
   UDashboardSidebarCollapse: { template: "<div />" },
@@ -71,8 +93,19 @@ const stubs = {
     emits: ["click"],
   },
   UInput: {
-    template: "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />",
-    props: ["modelValue", "type", "autocomplete", "enterkeyhint", "leadingIcon", "placeholder", "variant", "size", "class"],
+    template:
+      "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />",
+    props: [
+      "modelValue",
+      "type",
+      "autocomplete",
+      "enterkeyhint",
+      "leadingIcon",
+      "placeholder",
+      "variant",
+      "size",
+      "class",
+    ],
     emits: ["update:modelValue"],
   },
   UDropdownMenu: { template: "<div><slot /></div>", props: ["items"] },

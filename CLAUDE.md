@@ -6,6 +6,7 @@ This file provides guidance to Claude Code when working in this repository.
 
 Alcoves is a self-hosted collaborative file library built with Nuxt 4 + Vue 3.
 It has:
+
 - Nuxt UI v4 frontend (`app/`)
 - Nitro/H3 API backend (`server/api/`)
 - Drizzle ORM with PostgreSQL (`server/database/`)

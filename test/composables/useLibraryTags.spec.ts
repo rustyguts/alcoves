@@ -20,9 +20,7 @@ function makeTag(overrides: Partial<LibraryTag> & { id: string; name: string }):
   };
 }
 
-function makeFile(
-  overrides: Partial<LibraryFile> & { id: string; name: string },
-): LibraryFile {
+function makeFile(overrides: Partial<LibraryFile> & { id: string; name: string }): LibraryFile {
   return {
     libraryId: "lib-1",
     parentFolderId: null,

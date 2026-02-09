@@ -28,7 +28,10 @@ const stubs = {
     emits: ["submit"],
   },
   USeparator: { template: "<hr />" },
-  UButton: { template: "<button><slot /></button>", props: ["color", "variant", "block", "to", "external"] },
+  UButton: {
+    template: "<button><slot /></button>",
+    props: ["color", "variant", "block", "to", "external"],
+  },
   ULink: { template: "<a><slot /></a>", props: ["to"] },
 };
 

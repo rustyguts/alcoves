@@ -20,7 +20,13 @@ const mocks = vi.hoisted(() => ({
   error: null as Error | null,
   execute: vi.fn(),
   navigateTo: vi.fn(),
-  user: { id: "user-1", email: "u@example.com", displayName: "User", avatarUrl: null, role: "owner" },
+  user: {
+    id: "user-1",
+    email: "u@example.com",
+    displayName: "User",
+    avatarUrl: null,
+    role: "owner",
+  },
 }));
 
 mockNuxtImport("navigateTo", () => mocks.navigateTo);
@@ -45,15 +51,31 @@ mockNuxtImport("useFetch", () => (_url: string, _opts?: unknown) => ({
 }));
 
 const stubs = {
-  UCard: { template: "<div><slot name='header' /><slot /><slot name='body' /></div>", props: ["variant", "ui"] },
-  UBadge: { template: "<span><slot>{{ label }}</slot></span>", props: ["label", "color", "variant", "size"] },
+  UCard: {
+    template: "<div><slot name='header' /><slot /><slot name='body' /></div>",
+    props: ["variant", "ui"],
+  },
+  UBadge: {
+    template: "<span><slot>{{ label }}</slot></span>",
+    props: ["label", "color", "variant", "size"],
+  },
   UIcon: { template: "<i :data-name='name' />", props: ["name", "class"] },
-  UInput: { template: "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />", props: ["modelValue"], emits: ["update:modelValue"] },
-  UButton: { template: "<button type='submit'>{{ label }}</button>", props: ["label", "type", "icon"] },
+  UInput: {
+    template:
+      "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />",
+    props: ["modelValue"],
+    emits: ["update:modelValue"],
+  },
+  UButton: {
+    template: "<button type='submit'>{{ label }}</button>",
+    props: ["label", "type", "icon"],
+  },
   NuxtLink: { template: "<a><slot /></a>", props: ["to"] },
 };
 
-function makeResult(overrides: Partial<GlobalSearchResult> & { id: string; name: string }): GlobalSearchResult {
+function makeResult(
+  overrides: Partial<GlobalSearchResult> & { id: string; name: string },
+): GlobalSearchResult {
   return {
     libraryId: "lib-1",
     libraryName: "My Library",
