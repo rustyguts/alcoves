@@ -19,7 +19,7 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: "NUXT_TEST_NO_SSR=true bun run dev --port 4173 --host 127.0.0.1",
+    command: "NUXT_TEST_NO_SSR=true bun --bun run dev --port 4173 --host 127.0.0.1",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !isCI,
     timeout: 240_000,
