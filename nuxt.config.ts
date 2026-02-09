@@ -40,10 +40,27 @@ export default defineNuxtConfig({
     },
     databaseUrl:
       process.env.ALCOVES_DATABASE_URL || "postgres://postgres:postgres@localhost:5432/alcoves",
+    storageDriver: process.env.ALCOVES_STORAGE_DRIVER || "local",
     storagePath: resolve(process.env.ALCOVES_STORAGE_PATH || "./data", "files"),
     avatarStoragePath:
       process.env.ALCOVES_AVATAR_STORAGE_PATH ||
       resolve(process.env.ALCOVES_STORAGE_PATH || "./data", "avatars"),
+    storageCachePath:
+      process.env.ALCOVES_CACHE_STORAGE_PATH ||
+      resolve(process.env.ALCOVES_STORAGE_PATH || "./data", ".cache"),
+    s3Storage: {
+      bucket: process.env.ALCOVES_S3_BUCKET || "",
+      region: process.env.ALCOVES_S3_REGION || "",
+      endpoint: process.env.ALCOVES_S3_ENDPOINT || "",
+      accessKeyId: process.env.ALCOVES_S3_ACCESS_KEY_ID || "",
+      secretAccessKey: process.env.ALCOVES_S3_SECRET_ACCESS_KEY || "",
+      forcePathStyle: process.env.ALCOVES_S3_FORCE_PATH_STYLE === "true",
+      prefixes: {
+        files: process.env.ALCOVES_S3_FILES_PREFIX || "files",
+        avatars: process.env.ALCOVES_S3_AVATARS_PREFIX || "avatars",
+        cache: process.env.ALCOVES_S3_CACHE_PREFIX || "cache",
+      },
+    },
     public: {
       googleAuthEnabled: !!process.env.NUXT_OAUTH_GOOGLE_CLIENT_ID,
     },

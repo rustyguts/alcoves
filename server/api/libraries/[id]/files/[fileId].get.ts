@@ -1,6 +1,5 @@
 import { and, eq } from "drizzle-orm";
 import mime from "mime/lite";
-import { createReadStream, existsSync, statSync } from "node:fs";
 import { db, schema } from "~~/server/database";
 
 function getDownloadName(name: string, mimeType: string) {
@@ -15,6 +14,7 @@ function getDownloadName(name: string, mimeType: string) {
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;
   const fileId = getRouterParam(event, "fileId")!;
+  const storage = useStorageService();
 
   const [file] = await db
     .select()
@@ -26,16 +26,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "File not found" });
   }
 
-  const blobPath = getFileBlobPath(file.libraryId, file.id);
-  if (!existsSync(blobPath)) {
+  const fileExists = await storage.fileExists(file.libraryId, file.id);
+  if (!fileExists) {
     throw createError({ statusCode: 404, statusMessage: "File content not found" });
   }
 
   const query = getQuery(event);
   const disposition = query.inline === "true" ? "inline" : "attachment";
   const downloadName = getDownloadName(file.name, file.mimeType);
-  const stat = statSync(blobPath);
-  const totalSize = stat.size;
+  const { size: totalSize } = await storage.fileStat(file.libraryId, file.id);
 
   setHeaders(event, {
     "Content-Type": file.mimeType,
@@ -56,16 +55,26 @@ export default defineEventHandler(async (event) => {
         return "";
       }
 
+      const boundedEnd = Math.min(end, totalSize - 1);
+      if (start > boundedEnd) {
+        setResponseStatus(event, 416);
+        setHeader(event, "Content-Range", `bytes */${totalSize}`);
+        return "";
+      }
+
       setResponseStatus(event, 206);
       setHeaders(event, {
-        "Content-Range": `bytes ${start}-${end}/${totalSize}`,
-        "Content-Length": String(end - start + 1),
+        "Content-Range": `bytes ${start}-${boundedEnd}/${totalSize}`,
+        "Content-Length": String(boundedEnd - start + 1),
       });
 
-      return sendStream(event, createReadStream(blobPath, { start, end }));
+      return sendStream(
+        event,
+        await storage.openFileReadStream(file.libraryId, file.id, { start, end: boundedEnd }),
+      );
     }
   }
 
   setHeader(event, "Content-Length", totalSize);
-  return sendStream(event, createReadStream(blobPath));
+  return sendStream(event, await storage.openFileReadStream(file.libraryId, file.id));
 });

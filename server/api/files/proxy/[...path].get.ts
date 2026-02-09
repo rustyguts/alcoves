@@ -1,7 +1,4 @@
 import { and, eq } from "drizzle-orm";
-import { createReadStream, existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
 import { db, schema } from "~~/server/database";
 import sharp from "sharp";
 import * as z from "zod";
@@ -26,11 +23,6 @@ const MIME_TYPES: Record<ProxyOptions["format"], string> = {
   png: "image/png",
 };
 
-function getCacheDir(): string {
-  const config = useRuntimeConfig();
-  return join(config.storagePath, ".cache");
-}
-
 function getCacheKey(sourceKey: string, options: ProxyOptions): string {
   const params: [string, string][] = [
     ["f", options.format],
@@ -40,15 +32,11 @@ function getCacheKey(sourceKey: string, options: ProxyOptions): string {
   if (options.height) params.push(["h", String(options.height)]);
   if (options.v) params.push(["v", options.v]);
 
-  // Sort for consistent cache keys regardless of query param order
+  // Sort for consistent cache keys regardless of query param order.
   params.sort(([a], [b]) => a.localeCompare(b));
   const paramString = new URLSearchParams(params).toString();
 
   return `${sourceKey}/${paramString}.${options.format}`;
-}
-
-function getCachePath(cacheKey: string): string {
-  return join(getCacheDir(), cacheKey);
 }
 
 type FileSource = {
@@ -56,14 +44,12 @@ type FileSource = {
   libraryId: string;
   fileId: string;
   sourceKey: string;
-  sourcePath: string;
 };
 
 type AvatarSource = {
   kind: "avatar";
   userId: string;
   sourceKey: string;
-  sourcePath: string;
 };
 
 type MediaSource = FileSource | AvatarSource;
@@ -81,7 +67,6 @@ async function resolveMediaSource(pathParam: string): Promise<MediaSource> {
       kind: "avatar",
       userId,
       sourceKey: `avatar/${userId}`,
-      sourcePath: getAvatarBlobPath(userId),
     };
   }
 
@@ -98,7 +83,6 @@ async function resolveMediaSource(pathParam: string): Promise<MediaSource> {
       libraryId,
       fileId,
       sourceKey: `file/${libraryId}/${fileId}`,
-      sourcePath: "",
     };
   }
 
@@ -116,7 +100,6 @@ async function resolveMediaSource(pathParam: string): Promise<MediaSource> {
       libraryId,
       fileId,
       sourceKey: `file/${libraryId}/${fileId}`,
-      sourcePath: "",
     };
   }
 
@@ -128,7 +111,8 @@ async function resolveMediaSource(pathParam: string): Promise<MediaSource> {
 }
 
 export default defineEventHandler(async (event) => {
-  // TODO: Add authentication check — currently skipped in server/middleware/auth.ts
+  // TODO: Add authentication check - currently skipped in server/middleware/auth.ts
+  const storage = useStorageService();
 
   const pathParam = getRouterParam(event, "path");
   if (!pathParam) {
@@ -137,7 +121,7 @@ export default defineEventHandler(async (event) => {
 
   const mediaSource = await resolveMediaSource(pathParam);
 
-  // Validate query params with zod
+  // Validate query params with zod.
   const query = getQuery(event);
   const parsed = querySchema.safeParse(query);
   if (!parsed.success) {
@@ -172,32 +156,37 @@ export default defineEventHandler(async (event) => {
     if (!file.mimeType.startsWith("image/")) {
       throw createError({ statusCode: 400, statusMessage: "File is not an image" });
     }
-
-    mediaSource.sourcePath = getFileBlobPath(file.libraryId, file.id);
   }
 
-  // Serve from cache if it already exists
   const cacheKey = getCacheKey(mediaSource.sourceKey, options);
-  const cachePath = getCachePath(cacheKey);
-
-  if (existsSync(cachePath)) {
+  if (await storage.cacheExists(cacheKey)) {
     setHeaders(event, {
       "Content-Type": MIME_TYPES[options.format],
       "Cache-Control": "public, max-age=31536000, immutable",
     });
-    return sendStream(event, createReadStream(cachePath));
+    return sendStream(event, await storage.openCacheReadStream(cacheKey));
   }
 
-  // Verify the source blob exists on disk
-  if (!existsSync(mediaSource.sourcePath)) {
-    throw createError({ statusCode: 404, statusMessage: "Media content not found on disk" });
+  let sourceBuffer: Buffer;
+  if (mediaSource.kind === "file") {
+    const sourceExists = await storage.fileExists(mediaSource.libraryId, mediaSource.fileId);
+    if (!sourceExists) {
+      throw createError({ statusCode: 404, statusMessage: "Media content not found" });
+    }
+    sourceBuffer = await storage.readFileBuffer(mediaSource.libraryId, mediaSource.fileId);
+  } else {
+    const sourceExists = await storage.avatarExists(mediaSource.userId);
+    if (!sourceExists) {
+      throw createError({ statusCode: 404, statusMessage: "Media content not found" });
+    }
+    sourceBuffer = await storage.readAvatarBuffer(mediaSource.userId);
   }
 
-  // Build the sharp pipeline — always auto-rotate from EXIF
-  let pipeline = sharp(mediaSource.sourcePath).rotate();
+  // Build the sharp pipeline - always auto-rotate from EXIF.
+  let imagePipeline = sharp(sourceBuffer).rotate();
 
   if (options.width || options.height) {
-    pipeline = pipeline.resize(options.width, options.height, {
+    imagePipeline = imagePipeline.resize(options.width, options.height, {
       fit: "inside",
       withoutEnlargement: true,
     });
@@ -205,24 +194,21 @@ export default defineEventHandler(async (event) => {
 
   switch (options.format) {
     case "webp":
-      pipeline = pipeline.webp({ quality: options.quality });
+      imagePipeline = imagePipeline.webp({ quality: options.quality });
       break;
     case "avif":
-      pipeline = pipeline.avif({ quality: options.quality });
+      imagePipeline = imagePipeline.avif({ quality: options.quality });
       break;
     case "jpeg":
-      pipeline = pipeline.jpeg({ quality: options.quality, progressive: true });
+      imagePipeline = imagePipeline.jpeg({ quality: options.quality, progressive: true });
       break;
     case "png":
-      pipeline = pipeline.png({ compressionLevel: 6 });
+      imagePipeline = imagePipeline.png({ compressionLevel: 6 });
       break;
   }
 
-  const processedBuffer = await pipeline.toBuffer();
-
-  // Write to cache for subsequent requests
-  await mkdir(dirname(cachePath), { recursive: true });
-  await writeFile(cachePath, processedBuffer);
+  const processedBuffer = await imagePipeline.toBuffer();
+  await storage.storeCacheBuffer(cacheKey, processedBuffer);
 
   setHeaders(event, {
     "Content-Type": MIME_TYPES[options.format],

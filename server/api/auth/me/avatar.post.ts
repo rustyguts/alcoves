@@ -6,6 +6,7 @@ const MAX_AVATAR_UPLOAD_BYTES = 25 * 1024 * 1024;
 const AVATAR_SIZE = 128;
 
 export default defineEventHandler(async (event) => {
+  const storage = useStorageService();
   const userId = await requireUserId(event);
   const session = await getUserSession(event);
   const parts = await readMultipartFormData(event);
@@ -52,7 +53,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Invalid image file" });
   }
 
-  await storeAvatar(userId, optimizedAvatar);
+  await storage.storeAvatar(userId, optimizedAvatar);
 
   const avatarUrl = `/api/files/proxy/avatar/${userId}?v=${Date.now()}`;
 

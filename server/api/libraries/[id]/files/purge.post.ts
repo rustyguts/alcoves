@@ -4,6 +4,7 @@ import { assertFolderInLibrary, getDescendantFolderIds } from "~~/server/utils/f
 
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;
+  const storage = useStorageService();
   const body = await readBody<{ fileIds?: string[]; folderIds?: string[]; all?: boolean }>(event);
 
   let filesToDelete: { id: string; libraryId: string }[] = [];
@@ -57,7 +58,7 @@ export default defineEventHandler(async (event) => {
   }
 
   for (const file of filesToDelete) {
-    await deleteFileFromDisk(file.libraryId, file.id);
+    await storage.deleteFile(file.libraryId, file.id);
   }
 
   if (folderIdsToDelete.length > 0 && body?.all) {

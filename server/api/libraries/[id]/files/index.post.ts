@@ -7,6 +7,7 @@ import { assertFolderInLibrary, normalizeFolderId } from "~~/server/utils/folder
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id")!;
   const userId = event.context.userId as string;
+  const storage = useStorageService();
 
   const [library] = await db
     .select({ id: schema.libraries.id })
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Library not found" });
   }
 
-  const upload = await parseUpload(event, id);
+  const upload = await parseUpload(event, id, storage);
   const parentFolderId = normalizeFolderId(upload.parentFolderId);
 
   if (parentFolderId) {
@@ -44,7 +45,7 @@ export default defineEventHandler(async (event) => {
 
     return file;
   } catch {
-    await deleteFileFromDisk(id, upload.fileId);
+    await storage.deleteFile(id, upload.fileId);
     throw createError({ statusCode: 500, statusMessage: "Failed to save file record" });
   }
 });
@@ -52,6 +53,7 @@ export default defineEventHandler(async (event) => {
 function parseUpload(
   event: Parameters<Parameters<typeof defineEventHandler>[0]>[0],
   libraryId: string,
+  storage: ReturnType<typeof useStorageService>,
 ) {
   return new Promise<{
     fileId: string;
@@ -84,7 +86,11 @@ function parseUpload(
       fileId = randomUUID();
       filename = info.filename;
       busboyMimeType = info.mimeType;
-      storePromise = storeFileStream(libraryId, fileId, stream as import("node:stream").Readable);
+      storePromise = storage.storeFileStream(
+        libraryId,
+        fileId,
+        stream as import("node:stream").Readable,
+      );
     });
 
     busboy.on("finish", async () => {
@@ -103,14 +109,14 @@ function parseUpload(
           parentFolderId: fields.parentFolderId || null,
         });
       } catch (err) {
-        await deleteFileFromDisk(libraryId, fileId).catch(() => {});
+        await storage.deleteFile(libraryId, fileId).catch(() => {});
         reject(err);
       }
     });
 
     busboy.on("error", (err: Error) => {
       if (fileId) {
-        deleteFileFromDisk(libraryId, fileId).catch(() => {});
+        storage.deleteFile(libraryId, fileId).catch(() => {});
       }
       reject(err);
     });
