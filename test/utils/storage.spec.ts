@@ -126,9 +126,7 @@ function installMockBunS3Client(): void {
         return await s3ListMock(options);
       }
       const prefix = options.prefix || "";
-      return [...s3Store.keys()]
-        .filter((key) => key.startsWith(prefix))
-        .map((key) => ({ key }));
+      return [...s3Store.keys()].filter((key) => key.startsWith(prefix)).map((key) => ({ key }));
     }
 
     async delete(key: string): Promise<void> {
@@ -295,7 +293,11 @@ describe("storage service", () => {
     await storage.ensureReady();
 
     await storage.storeFile("lib-1", "file-1", Buffer.from("value"));
-    const streamedSize = await storage.storeFileStream("lib-1", "file-2", createUploadStream("stream"));
+    const streamedSize = await storage.storeFileStream(
+      "lib-1",
+      "file-2",
+      createUploadStream("stream"),
+    );
     expect(streamedSize).toBe(6);
 
     expect(await storage.fileExists("lib-1", "file-1")).toBe(true);

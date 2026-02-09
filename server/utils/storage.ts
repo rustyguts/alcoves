@@ -338,7 +338,6 @@ class S3StorageDriver implements StorageDriver {
       })
       .filter((item: string | null): item is string => Boolean(item));
   }
-
 }
 
 export class StorageService {
