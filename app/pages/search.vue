@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GlobalSearchResponse, GlobalSearchResult } from "~~/server/utils/types";
+import type { GlobalSearchResponse, GlobalSearchResult } from "~~/shared/types/api";
 import { formatDate, formatFileSize, getMimeIcon } from "~/utils/mime-icons";
 
 definePageMeta({

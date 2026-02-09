@@ -1,17 +1,17 @@
 import { eq, count } from "drizzle-orm";
+import { z } from "zod";
 import { db, schema } from "~~/server/database";
 import { hashUserPassword } from "~~/server/utils/auth";
+import { parseBodyWithSchema } from "~~/server/utils/validation";
+
+const registerSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  email: z.email("Email is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ name: string; email: string; password: string }>(event);
-
-  if (!body?.name?.trim() || !body?.email?.trim() || !body?.password) {
-    throw createError({ statusCode: 400, statusMessage: "Name, email, and password are required" });
-  }
-
-  if (body.password.length < 8) {
-    throw createError({ statusCode: 400, statusMessage: "Password must be at least 8 characters" });
-  }
+  const body = await parseBodyWithSchema(event, registerSchema);
 
   const email = body.email.trim().toLowerCase();
 
@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
     .values({
       email,
       passwordHash,
-      displayName: body.name.trim(),
+      displayName: body.name,
       role,
     })
     .returning({

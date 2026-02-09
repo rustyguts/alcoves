@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
-import { assertMoveParentValid, normalizeFolderId } from "~~/server/utils/folders";
+import { assertMoveParentValid, normalizeFolderId } from "~~/server/domain/library/folders";
 import type { LibraryFolder } from "~~/server/utils/types";
 
 export default defineEventHandler(async (event): Promise<LibraryFolder> => {

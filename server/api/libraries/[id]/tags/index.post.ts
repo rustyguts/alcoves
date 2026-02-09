@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
-import { getNextUniqueTagColor, isUniqueViolation, normalizeTagName } from "~~/server/utils/tags";
+import { getNextUniqueTagColor, isUniqueViolation, normalizeTagName } from "~~/server/domain/library/tags";
 import type { LibraryTag } from "~~/server/utils/types";
 
 export default defineEventHandler(async (event): Promise<LibraryTag> => {

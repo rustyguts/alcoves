@@ -67,7 +67,7 @@ If you already have a PostgreSQL instance, you can run the Alcoves container dir
 docker run -d \
   --name alcoves \
   -p 3000:3000 \
-  -e ALCOVES_DATABASE_URL="postgres://user:password@your-db-host:5432/alcoves" \
+  -e ALCOVES_DATABASE_URL="postgres://user:password@your-db-host:5455/alcoves" \
   -e ALCOVES_SESSION_SECRET="your-secret-key-at-least-32-characters-long" \
   -v alcoves_data:/app/data \
   ghcr.io/rustyguts/alcoves:latest
@@ -84,7 +84,7 @@ services:
   app:
     image: ghcr.io/rustyguts/alcoves:latest
     environment:
-      - ALCOVES_DATABASE_URL=postgres://postgres:change-me@postgres:5432/alcoves?sslmode=disable
+      - ALCOVES_DATABASE_URL=postgres://postgres:change-me@postgres:5455/alcoves?sslmode=disable
       - ALCOVES_SESSION_SECRET=change-me-to-a-random-string-at-least-32-chars
     volumes:
       - alcoves_data:/app/data
@@ -125,7 +125,7 @@ Alcoves is configured via environment variables:
 
 | Variable                      | Description                                | Default                                               |
 | ----------------------------- | ------------------------------------------ | ----------------------------------------------------- |
-| `ALCOVES_DATABASE_URL`        | PostgreSQL connection string               | `postgres://postgres:postgres@localhost:5432/alcoves` |
+| `ALCOVES_DATABASE_URL`        | PostgreSQL connection string               | `postgres://postgres:postgres@localhost:5455/alcoves` |
 | `ALCOVES_SESSION_SECRET`      | Encryption key for sessions (min 32 chars) | Dev default (insecure)                                |
 | `ALCOVES_STORAGE_DRIVER`      | Storage backend driver (`local` or `s3`)   | `local`                                               |
 | `ALCOVES_STORAGE_PATH`        | Directory for uploaded file storage        | `./data`                                              |

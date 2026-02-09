@@ -3,7 +3,7 @@ import "vidstack/player/styles/default/theme.css";
 import "vidstack/player/styles/default/layouts/audio.css";
 import "vidstack/player/styles/default/layouts/video.css";
 
-import type { LibraryFile } from "~~/server/utils/types";
+import type { LibraryFile } from "~~/shared/types/api";
 import { getMimeIcon } from "~/utils/mime-icons";
 
 const props = defineProps<{

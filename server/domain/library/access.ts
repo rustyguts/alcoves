@@ -74,6 +74,11 @@ export async function requireLibraryAccess(
   event: H3Event,
   libraryId: string,
 ): Promise<LibraryAccess> {
+  const cachedAccess = (event.context as { libraryAccess?: LibraryAccess }).libraryAccess;
+  if (cachedAccess?.libraryId === libraryId) {
+    return cachedAccess;
+  }
+
   const userId = event.context.userId as string | undefined;
   if (!userId) {
     throw createError({ statusCode: 401, statusMessage: "Unauthorized" });
@@ -84,6 +89,7 @@ export async function requireLibraryAccess(
     throw createError({ statusCode: 404, statusMessage: "Library not found" });
   }
 
+  (event.context as { libraryAccess?: LibraryAccess }).libraryAccess = access;
   return access;
 }
 

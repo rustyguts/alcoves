@@ -1,13 +1,16 @@
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { db, schema } from "~~/server/database";
 import { verifyUserPassword } from "~~/server/utils/auth";
+import { parseBodyWithSchema } from "~~/server/utils/validation";
+
+const loginSchema = z.object({
+  email: z.email("Email is required"),
+  password: z.string().min(1, "Password is required"),
+});
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ email: string; password: string }>(event);
-
-  if (!body?.email?.trim() || !body?.password) {
-    throw createError({ statusCode: 400, statusMessage: "Email and password are required" });
-  }
+  const body = await parseBodyWithSchema(event, loginSchema);
 
   const [user] = await db
     .select()

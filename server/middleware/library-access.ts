@@ -1,4 +1,4 @@
-import { requireLibraryAccess, requireLibraryAdmin } from "~~/server/utils/libraries";
+import { requireLibraryAccess, requireLibraryAdmin } from "~~/server/domain/library/access";
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -11,9 +11,11 @@ export default defineEventHandler(async (event) => {
 
   const libraryId = parts[2];
   if (READ_METHODS.has(event.method)) {
-    await requireLibraryAccess(event, libraryId);
+    const access = await requireLibraryAccess(event, libraryId);
+    event.context.libraryAccess = access;
     return;
   }
 
-  await requireLibraryAdmin(event, libraryId);
+  const access = await requireLibraryAdmin(event, libraryId);
+  event.context.libraryAccess = access;
 });

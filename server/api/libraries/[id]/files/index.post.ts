@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getRequestWebStream } from "h3";
 import { db, schema } from "~~/server/database";
-import { assertFolderInLibrary, normalizeFolderId } from "~~/server/utils/folders";
+import { assertFolderInLibrary, normalizeFolderId } from "~~/server/domain/library/folders";
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id")!;

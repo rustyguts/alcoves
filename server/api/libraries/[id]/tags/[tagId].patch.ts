@@ -5,7 +5,7 @@ import {
   isUniqueViolation,
   normalizeHexColor,
   normalizeTagName,
-} from "~~/server/utils/tags";
+} from "~~/server/domain/library/tags";
 import type { LibraryTag } from "~~/server/utils/types";
 
 export default defineEventHandler(async (event): Promise<LibraryTag> => {

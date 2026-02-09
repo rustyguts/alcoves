@@ -19,9 +19,9 @@ export default defineNuxtConfig({
       process.exit(0);
     },
   },
-  nitro: {
-    preset: "bun",
-  },
+  // nitro: {
+  //   preset: "bun",
+  // },
   vue: {
     compilerOptions: {
       isCustomElement: (tag: string) => tag.startsWith("media-"),
@@ -39,7 +39,7 @@ export default defineNuxtConfig({
       },
     },
     databaseUrl:
-      process.env.ALCOVES_DATABASE_URL || "postgres://postgres:postgres@localhost:5432/alcoves",
+      process.env.ALCOVES_DATABASE_URL || "postgres://postgres:postgres@localhost:5455/alcoves",
     storageDriver: process.env.ALCOVES_STORAGE_DRIVER || "local",
     storagePath: resolve(process.env.ALCOVES_STORAGE_PATH || "./data", "files"),
     avatarStoragePath:

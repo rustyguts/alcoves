@@ -1,13 +1,19 @@
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { db, schema } from "~~/server/database";
 import { parseInviteRole } from "~~/server/utils/invites";
-import { requireCollaborativeLibraryAdmin } from "~~/server/utils/libraries";
+import { requireCollaborativeLibraryAdmin } from "~~/server/domain/library/access";
+import { parseBodyWithSchema } from "~~/server/utils/validation";
+
+const updateMemberRoleSchema = z.object({
+  role: z.enum(["admin", "viewer"]),
+});
 
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;
   const memberUserId = getRouterParam(event, "memberUserId")!;
   const access = await requireCollaborativeLibraryAdmin(event, libraryId);
-  const body = await readBody<{ role?: "admin" | "viewer" }>(event);
+  const body = await parseBodyWithSchema(event, updateMemberRoleSchema);
   const role = parseInviteRole(body?.role);
 
   if (memberUserId === access.ownerId) {

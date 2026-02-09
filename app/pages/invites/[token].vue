@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { InviteLookupResponse } from "~~/server/utils/types";
+import type { InviteLookupResponse } from "~~/shared/types/api";
 
 definePageMeta({
   layout: "dashboard",

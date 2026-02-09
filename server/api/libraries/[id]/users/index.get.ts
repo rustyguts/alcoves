@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, isNull, or } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
-import { requireLibraryAccess } from "~~/server/utils/libraries";
+import { requireLibraryAccess } from "~~/server/domain/library/access";
 
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;

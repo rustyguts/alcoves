@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
-import { assertFolderInLibrary, getDescendantFolderIds } from "~~/server/utils/folders";
+import { assertFolderInLibrary, getDescendantFolderIds } from "~~/server/domain/library/folders";
 
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;

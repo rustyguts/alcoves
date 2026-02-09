@@ -1,11 +1,22 @@
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { db, schema } from "~~/server/database";
-import { assertFolderInLibrary, normalizeFolderId } from "~~/server/utils/folders";
+import { assertFolderInLibrary, normalizeFolderId } from "~~/server/domain/library/folders";
+import { parseBodyWithSchema } from "~~/server/utils/validation";
+
+const updateFileSchema = z
+  .object({
+    name: z.string().optional(),
+    parentFolderId: z.string().nullable().optional(),
+  })
+  .refine((data) => "name" in data || "parentFolderId" in data, {
+    message: "No updates requested",
+  });
 
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;
   const fileId = getRouterParam(event, "fileId")!;
-  const body = await readBody<{ name?: string; parentFolderId?: string | null }>(event);
+  const body = await parseBodyWithSchema(event, updateFileSchema);
   const nextName = typeof body?.name === "string" ? body.name.trim() : null;
   const parentFolderId =
     body && "parentFolderId" in body ? normalizeFolderId(body.parentFolderId) : undefined;

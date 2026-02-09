@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
-import { requireCollaborativeLibraryAdmin } from "~~/server/utils/libraries";
+import { requireCollaborativeLibraryAdmin } from "~~/server/domain/library/access";
 
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;

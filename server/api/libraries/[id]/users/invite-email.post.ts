@@ -1,12 +1,19 @@
 import { and, eq, gt, isNull, or } from "drizzle-orm";
+import { z } from "zod";
 import { db, schema } from "~~/server/database";
 import { generateInviteToken, normalizeEmail, parseInviteRole } from "~~/server/utils/invites";
-import { requireCollaborativeLibraryAdmin } from "~~/server/utils/libraries";
+import { requireCollaborativeLibraryAdmin } from "~~/server/domain/library/access";
+import { parseBodyWithSchema } from "~~/server/utils/validation";
+
+const inviteEmailSchema = z.object({
+  email: z.email("Valid email is required"),
+  role: z.enum(["admin", "viewer"]).optional(),
+});
 
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;
   const access = await requireCollaborativeLibraryAdmin(event, libraryId);
-  const body = await readBody<{ email?: string; role?: "admin" | "viewer" }>(event);
+  const body = await parseBodyWithSchema(event, inviteEmailSchema);
 
   const email = normalizeEmail(body?.email);
   const role = parseInviteRole(body?.role);

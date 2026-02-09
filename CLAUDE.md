@@ -84,7 +84,7 @@ No test framework is configured yet.
 
 ## Environment Variables
 
-- `ALCOVES_DATABASE_URL` - PostgreSQL connection string (default: `postgres://postgres:postgres@localhost:5432/alcoves`)
+- `ALCOVES_DATABASE_URL` - PostgreSQL connection string (default: `postgres://postgres:postgres@localhost:5455/alcoves`)
 - `ALCOVES_SESSION_SECRET` - Session encryption key, min 32 chars (has dev default)
 
 ## Code Quality
