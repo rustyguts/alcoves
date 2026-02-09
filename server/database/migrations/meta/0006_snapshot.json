@@ -658,21 +658,6 @@
         }
       },
       "indexes": {
-        "library_invites_token_idx": {
-          "name": "library_invites_token_idx",
-          "columns": [
-            {
-              "expression": "token",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "library_invites_library_idx": {
           "name": "library_invites_library_idx",
           "columns": [

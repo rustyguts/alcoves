@@ -39,6 +39,7 @@ export default defineEventHandler(async (event) => {
         and(
           eq(schema.files.libraryId, libraryId),
           inArray(schema.files.parentFolderId, folderIdsToDelete),
+          isNotNull(schema.files.trashedAt),
         ),
       );
   } else if (body?.fileIds?.length) {

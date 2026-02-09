@@ -11,6 +11,19 @@ function getDownloadName(name: string, mimeType: string) {
   return extension ? `${trimmed}.${extension}` : trimmed;
 }
 
+function sanitizeAsciiFilename(value: string): string {
+  const withoutControls = value.replace(/[\r\n]/g, "");
+  const ascii = withoutControls.replace(/[^\x20-\x7E]/g, "_");
+  const safe = ascii.replace(/["\\;]/g, "_").trim();
+  return safe || "download";
+}
+
+function encodeRFC5987(value: string): string {
+  return encodeURIComponent(value).replace(/['()*]/g, (char) =>
+    `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;
   const fileId = getRouterParam(event, "fileId")!;
@@ -34,11 +47,13 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const disposition = query.inline === "true" ? "inline" : "attachment";
   const downloadName = getDownloadName(file.name, file.mimeType);
+  const asciiName = sanitizeAsciiFilename(downloadName);
+  const utf8Name = encodeRFC5987(downloadName);
   const { size: totalSize } = await storage.fileStat(file.libraryId, file.id);
 
   setHeaders(event, {
     "Content-Type": file.mimeType,
-    "Content-Disposition": `${disposition}; filename="${encodeURIComponent(downloadName)}"`,
+    "Content-Disposition": `${disposition}; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`,
     "Accept-Ranges": "bytes",
   });
 

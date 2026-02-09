@@ -202,7 +202,6 @@ export const libraryInvites = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    uniqueIndex("library_invites_token_idx").on(table.token),
     index("library_invites_library_idx").on(table.libraryId),
     index("library_invites_email_idx").on(table.invitedEmail),
     index("library_invites_inviter_idx").on(table.invitedByUserId),
