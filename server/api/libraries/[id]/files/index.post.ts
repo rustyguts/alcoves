@@ -70,7 +70,7 @@ async function parseUpload(
     headers: event.headers,
     body: requestStream,
     duplex: "half",
-  });
+  } as RequestInit);
 
   const formData = await request.formData();
   const filePart = formData.get("file");
