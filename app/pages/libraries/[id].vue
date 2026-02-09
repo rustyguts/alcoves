@@ -1519,17 +1519,15 @@ const emptyStateDescription = computed(() => {
           <UContextMenu :items="getContextMenuItems(entry)">
             <div
               class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
-              :class="
-                [
-                  isEntrySelected(entry)
-                    ? 'ring-2 ring-primary/50 bg-primary/5'
-                    : 'hover:bg-elevated/70',
-                  dropTargetFolderId === entry.id && entry.kind === 'folder'
-                    ? 'ring-2 ring-primary/60 bg-primary/10'
-                    : '',
-                  draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
-                ]
-              "
+              :class="[
+                isEntrySelected(entry)
+                  ? 'ring-2 ring-primary/50 bg-primary/5'
+                  : 'hover:bg-elevated/70',
+                dropTargetFolderId === entry.id && entry.kind === 'folder'
+                  ? 'ring-2 ring-primary/60 bg-primary/10'
+                  : '',
+                draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
+              ]"
               :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
               @click="handleRowClick(entry, $event)"
               @dblclick="openEntry(entry)"

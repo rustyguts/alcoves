@@ -29,12 +29,16 @@ interface AdminUser {
 const toast = useToast();
 const { user: currentUser } = useAuth();
 
-const { data: stats, status: statsStatus, refresh: refreshStats } = await useFetch<AdminStats>(
-  "/api/admin/stats",
-);
-const { data: users, status: usersStatus, refresh: refreshUsers } = await useFetch<AdminUser[]>(
-  "/api/admin/users",
-);
+const {
+  data: stats,
+  status: statsStatus,
+  refresh: refreshStats,
+} = await useFetch<AdminStats>("/api/admin/stats");
+const {
+  data: users,
+  status: usersStatus,
+  refresh: refreshUsers,
+} = await useFetch<AdminUser[]>("/api/admin/users");
 
 const roleDrafts = reactive<Record<string, AdminUser["role"]>>({});
 const updatingRoleUserId = ref<string | null>(null);
@@ -167,7 +171,9 @@ async function refreshAdminData() {
             <p class="text-xs font-medium text-muted uppercase tracking-wide">{{ card.title }}</p>
             <p class="text-2xl font-semibold mt-1">{{ card.value }}</p>
           </div>
-          <div class="size-9 rounded-md bg-primary/10 text-primary flex items-center justify-center">
+          <div
+            class="size-9 rounded-md bg-primary/10 text-primary flex items-center justify-center"
+          >
             <UIcon :name="card.icon" class="size-5" />
           </div>
         </div>
@@ -238,7 +244,9 @@ async function refreshAdminData() {
                 </div>
               </td>
               <td class="px-4 py-3 text-sm">{{ formatFileSize(user.uploadedSizeBytes) }}</td>
-              <td class="px-4 py-3 text-sm">{{ user.uploadedFileCount.toLocaleString("en-US") }}</td>
+              <td class="px-4 py-3 text-sm">
+                {{ user.uploadedFileCount.toLocaleString("en-US") }}
+              </td>
               <td class="px-4 py-3 text-sm">{{ formatDateTime(user.lastLoggedInAt) }}</td>
               <td class="px-4 py-3 text-sm text-muted">{{ formatDateTime(user.createdAt) }}</td>
             </tr>
