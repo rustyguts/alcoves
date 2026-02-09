@@ -67,12 +67,23 @@ async function parseUpload(
 
   const request = new Request("http://localhost/upload", {
     method: event.method,
-    headers: event.headers,
+    headers: {
+      "content-type": contentType,
+    },
     body: requestStream,
     duplex: "half",
   } as RequestInit);
 
-  const formData = await request.formData();
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid multipart upload data",
+    });
+  }
+
   const filePart = formData.get("file");
   if (!(filePart instanceof File)) {
     throw createError({ statusCode: 400, statusMessage: "No file uploaded" });

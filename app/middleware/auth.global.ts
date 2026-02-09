@@ -1,4 +1,4 @@
-const ownerRoutes = ["/settings"];
+const ownerRoutes = ["/admin", "/settings"];
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const publicRoutes = ["/login", "/register"];

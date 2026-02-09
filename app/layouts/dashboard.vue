@@ -70,9 +70,9 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
   if (user.value?.role !== "owner") return [];
   return [
     {
-      label: "Settings",
-      icon: "i-lucide-settings",
-      to: "/settings",
+      label: "Admin",
+      icon: "i-lucide-shield-check",
+      to: "/admin",
     },
   ];
 });

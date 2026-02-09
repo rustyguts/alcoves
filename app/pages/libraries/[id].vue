@@ -8,6 +8,7 @@ definePageMeta({
 });
 
 const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
+const ROOT_MOVE_VALUE = "__root__";
 
 const toast = useToast();
 
@@ -122,6 +123,17 @@ const {
 // File preview state
 const previewFile = ref<LibraryFile | null>(null);
 const previewOpen = ref(false);
+const draggedFileIds = ref<string[]>([]);
+const dropTargetFolderId = ref<string | null>(null);
+const moveFilesOpen = ref(false);
+const moveFilesLoading = ref(false);
+const moveFilesSaving = ref(false);
+const moveFileIds = ref<string[]>([]);
+const moveFilesDestinationValue = ref<string>(ROOT_MOVE_VALUE);
+const moveFileFolders = ref<LibraryFolder[]>([]);
+const dragEnabled = computed(
+  () => canManageLibrary.value && !showTrashed.value && !showTags.value && !showUsers.value,
+);
 
 const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
   if (showTrashed.value || showTags.value) return [];
@@ -259,6 +271,183 @@ function openEntry(entry: LibraryEntry) {
 
 function isImageFile(file: LibraryFile): boolean {
   return file.mimeType.startsWith("image/");
+}
+
+function buildFolderLabel(folder: LibraryFolder, folderMap: Map<string, LibraryFolder>) {
+  const parts: string[] = [folder.name];
+  let current = folder.parentFolderId;
+  let guard = 0;
+
+  while (current && guard < 100) {
+    const parent = folderMap.get(current);
+    if (!parent) break;
+    parts.unshift(parent.name);
+    current = parent.parentFolderId;
+    guard++;
+  }
+
+  return parts.join(" / ");
+}
+
+const moveFileDestinationOptions = computed(() => {
+  const base = [{ label: "Root", value: ROOT_MOVE_VALUE }];
+  const folderMap = new Map(moveFileFolders.value.map((folder) => [folder.id, folder]));
+  const options = moveFileFolders.value
+    .map((folder) => ({
+      label: buildFolderLabel(folder, folderMap),
+      value: folder.id,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  return [...base, ...options];
+});
+
+const moveFileCount = computed(() => moveFileIds.value.length);
+
+async function moveFilesToFolder(fileIds: string[], targetFolderId: string | null) {
+  await Promise.all(
+    fileIds.map((fileId) =>
+      $fetch(`/api/libraries/${libraryId.value}/files/${fileId}`, {
+        method: "PATCH",
+        body: { parentFolderId: targetFolderId },
+      }),
+    ),
+  );
+}
+
+async function openMoveFilesModal(fileIds: string[]) {
+  if (!dragEnabled.value) return;
+
+  const ids = Array.from(new Set(fileIds));
+  if (!ids.length) return;
+
+  moveFileIds.value = ids;
+  const targetFiles = files.value.filter((file) => ids.includes(file.id));
+  if (!targetFiles.length) return;
+
+  const parentSet = new Set(targetFiles.map((file) => file.parentFolderId));
+  const firstParentId = targetFiles[0]?.parentFolderId ?? null;
+  moveFilesDestinationValue.value =
+    parentSet.size === 1 && firstParentId ? firstParentId : ROOT_MOVE_VALUE;
+  moveFilesOpen.value = true;
+
+  moveFilesLoading.value = true;
+  try {
+    moveFileFolders.value = await refreshFolders();
+  } catch {
+    toast.add({ title: "Failed to load folders", color: "error" });
+  } finally {
+    moveFilesLoading.value = false;
+  }
+}
+
+async function moveFiles() {
+  if (!moveFileIds.value.length) return;
+
+  moveFilesSaving.value = true;
+  try {
+    const parentFolderId =
+      moveFilesDestinationValue.value === ROOT_MOVE_VALUE ? null : moveFilesDestinationValue.value;
+    const fileIds = moveFileIds.value.filter((fileId) => {
+      const file = files.value.find((current) => current.id === fileId);
+      if (!file) return false;
+      return file.parentFolderId !== parentFolderId;
+    });
+
+    if (fileIds.length) {
+      await moveFilesToFolder(fileIds, parentFolderId);
+      await resetAndFetch();
+      clearSelection();
+      toast.add({
+        title: fileIds.length === 1 ? "File moved" : `${fileIds.length} files moved`,
+        color: "success",
+      });
+    }
+
+    moveFilesOpen.value = false;
+    moveFileIds.value = [];
+    moveFilesDestinationValue.value = ROOT_MOVE_VALUE;
+  } catch {
+    toast.add({ title: "Failed to move file(s)", color: "error" });
+  } finally {
+    moveFilesSaving.value = false;
+  }
+}
+
+function closeMoveFilesModal() {
+  moveFilesOpen.value = false;
+  moveFileIds.value = [];
+  moveFilesDestinationValue.value = ROOT_MOVE_VALUE;
+}
+
+function handleFileDragStart(entry: LibraryEntry, event: DragEvent) {
+  if (!dragEnabled.value || entry.kind !== "file" || isRenaming(entry)) return;
+
+  const ids =
+    selectedFiles.has(entry.id) && selectedFiles.size > 0 ? [...selectedFiles] : [entry.id];
+  draggedFileIds.value = ids;
+  event.dataTransfer?.setData("text/plain", ids.join(","));
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+  }
+}
+
+function handleFileDragEnd() {
+  draggedFileIds.value = [];
+  dropTargetFolderId.value = null;
+}
+
+function handleFolderDragEnter(entry: LibraryEntry) {
+  if (!dragEnabled.value || entry.kind !== "folder" || draggedFileIds.value.length === 0) return;
+  dropTargetFolderId.value = entry.id;
+}
+
+function handleFolderDragOver(entry: LibraryEntry, event: DragEvent) {
+  if (!dragEnabled.value || entry.kind !== "folder" || draggedFileIds.value.length === 0) return;
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "move";
+  }
+  dropTargetFolderId.value = entry.id;
+}
+
+function handleFolderDragLeave(entry: LibraryEntry, event: DragEvent) {
+  if (entry.kind !== "folder" || dropTargetFolderId.value !== entry.id) return;
+  const currentTarget = event.currentTarget as Node | null;
+  const relatedTarget = event.relatedTarget as Node | null;
+  if (currentTarget && relatedTarget && currentTarget.contains(relatedTarget)) return;
+  dropTargetFolderId.value = null;
+}
+
+async function handleFolderDrop(entry: LibraryEntry, event: DragEvent) {
+  event.preventDefault();
+  if (!dragEnabled.value || entry.kind !== "folder") return;
+
+  const targetFolderId = entry.id;
+  const fileIds = Array.from(new Set(draggedFileIds.value)).filter((fileId) => {
+    const file = files.value.find((current) => current.id === fileId);
+    if (!file) return false;
+    return file.parentFolderId !== targetFolderId;
+  });
+
+  if (!fileIds.length) {
+    dropTargetFolderId.value = null;
+    return;
+  }
+
+  try {
+    await moveFilesToFolder(fileIds, targetFolderId);
+    clearSelection();
+    await resetAndFetch();
+    toast.add({
+      title: fileIds.length === 1 ? "File moved" : `${fileIds.length} files moved`,
+      color: "success",
+    });
+  } catch {
+    toast.add({ title: "Failed to move file(s)", color: "error" });
+  } finally {
+    draggedFileIds.value = [];
+    dropTargetFolderId.value = null;
+  }
 }
 
 // Library delete state
@@ -683,6 +872,11 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
         label: "Download",
         icon: "i-lucide-download",
         onSelect: () => downloadFiles(targetIds),
+      },
+      {
+        label: count > 1 ? `Move ${count} files` : "Move",
+        icon: "i-lucide-folder-input",
+        onSelect: () => openMoveFilesModal(targetIds),
       },
       ...(count === 1
         ? [
@@ -1215,9 +1409,22 @@ const emptyStateDescription = computed(() => {
             <UContextMenu :items="getContextMenuItems(entry)">
               <tr
                 class="cursor-pointer transition-colors"
-                :class="isEntrySelected(entry) ? 'bg-primary/10' : 'hover:bg-elevated/50'"
+                :class="[
+                  isEntrySelected(entry) ? 'bg-primary/10' : 'hover:bg-elevated/50',
+                  dropTargetFolderId === entry.id && entry.kind === 'folder'
+                    ? 'ring-2 ring-primary/60 ring-inset bg-primary/5'
+                    : '',
+                  draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
+                ]"
+                :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
                 @click="handleRowClick(entry, $event)"
                 @dblclick="openEntry(entry)"
+                @dragstart="handleFileDragStart(entry, $event)"
+                @dragend="handleFileDragEnd"
+                @dragenter="handleFolderDragEnter(entry)"
+                @dragover="handleFolderDragOver(entry, $event)"
+                @dragleave="handleFolderDragLeave(entry, $event)"
+                @drop="handleFolderDrop(entry, $event)"
               >
                 <td class="px-3 py-2">
                   <div class="flex items-center justify-center">
@@ -1313,12 +1520,25 @@ const emptyStateDescription = computed(() => {
             <div
               class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
               :class="
-                isEntrySelected(entry)
-                  ? 'ring-2 ring-primary/50 bg-primary/5'
-                  : 'hover:bg-elevated/70'
+                [
+                  isEntrySelected(entry)
+                    ? 'ring-2 ring-primary/50 bg-primary/5'
+                    : 'hover:bg-elevated/70',
+                  dropTargetFolderId === entry.id && entry.kind === 'folder'
+                    ? 'ring-2 ring-primary/60 bg-primary/10'
+                    : '',
+                  draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
+                ]
               "
+              :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
               @click="handleRowClick(entry, $event)"
               @dblclick="openEntry(entry)"
+              @dragstart="handleFileDragStart(entry, $event)"
+              @dragend="handleFileDragEnd"
+              @dragenter="handleFolderDragEnter(entry)"
+              @dragover="handleFolderDragOver(entry, $event)"
+              @dragleave="handleFolderDragLeave(entry, $event)"
+              @drop="handleFolderDrop(entry, $event)"
             >
               <div
                 class="h-28 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden"
@@ -1516,6 +1736,39 @@ const emptyStateDescription = computed(() => {
             :loading="moveFolderSaving"
             :disabled="moveLoading"
             @click="moveFolder"
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="moveFilesOpen" title="Move Files">
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <p class="text-sm text-muted">
+            Move
+            <strong>{{ moveFileCount }}</strong>
+            {{ moveFileCount === 1 ? "file" : "files" }} to a new location.
+          </p>
+          <UFormField label="Destination">
+            <USelectMenu
+              v-model="moveFilesDestinationValue"
+              :items="moveFileDestinationOptions"
+              value-key="value"
+              class="w-full"
+              :loading="moveFilesLoading"
+            />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton label="Cancel" color="neutral" variant="outline" @click="closeMoveFilesModal" />
+          <UButton
+            label="Move"
+            icon="i-lucide-folder-input"
+            :loading="moveFilesSaving"
+            :disabled="moveFilesLoading"
+            @click="moveFiles"
           />
         </div>
       </template>
