@@ -50,9 +50,10 @@ export function useUploadQueue() {
     isProcessing.value = true;
 
     while (true) {
-      const next = queue.value.find(
-        (f) => f.status === "pending" || (f.status === "error" && f.retries < MAX_RETRIES),
-      );
+      // Prioritize pending files so a single error doesn't block the queue
+      const next =
+        queue.value.find((f) => f.status === "pending") ||
+        queue.value.find((f) => f.status === "error" && f.retries < MAX_RETRIES);
       if (!next) break;
       await uploadFile(next);
     }
@@ -142,12 +143,27 @@ export function useUploadQueue() {
     const item = queue.value.find((f) => f.id === itemId);
     if (item && item.status === "error") {
       item.status = "pending";
+      item.retries = 0;
       processQueue();
     }
   }
 
+  function retryAll() {
+    for (const item of queue.value) {
+      if (item.status === "error") {
+        item.status = "pending";
+        item.retries = 0;
+      }
+    }
+    processQueue();
+  }
+
   function removeFile(itemId: string) {
     queue.value = queue.value.filter((f) => f.id !== itemId);
+  }
+
+  function clearErrors() {
+    queue.value = queue.value.filter((f) => f.status !== "error");
   }
 
   function onLibraryUploadComplete(libraryId: string, callback: () => void) {
@@ -163,6 +179,7 @@ export function useUploadQueue() {
   const hasInFlightUploads = computed(() =>
     queue.value.some((f) => f.status === "pending" || f.status === "uploading"),
   );
+  const erroredUploads = computed(() => queue.value.filter((f) => f.status === "error"));
   const currentUpload = computed(() => queue.value.find((f) => f.status === "uploading"));
 
   return {
@@ -172,10 +189,13 @@ export function useUploadQueue() {
     activeUploads,
     hasActiveUploads,
     hasInFlightUploads,
+    erroredUploads,
     currentUpload,
     addFiles,
     retryFile,
+    retryAll,
     removeFile,
+    clearErrors,
     onLibraryUploadComplete,
     removeOnComplete,
   };

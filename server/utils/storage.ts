@@ -407,6 +407,10 @@ export class StorageService {
     await this.driver.putBuffer("cache", cacheKey, buffer);
   }
 
+  async deleteCachePrefix(prefix: string): Promise<void> {
+    await this.driver.deletePrefix("cache", prefix);
+  }
+
   private filePrefix(libraryId: string, fileId: string): string {
     return `${libraryId}/${fileId}`;
   }

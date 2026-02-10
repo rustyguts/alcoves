@@ -173,7 +173,6 @@ onUnmounted(() => {
           @click="goToNext"
         />
 
-        <!-- Video -->
         <div v-if="previewType === 'video'" class="w-full max-w-5xl px-16">
           <media-player
             v-if="playerReady"
@@ -192,7 +191,6 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Audio -->
         <div v-else-if="previewType === 'audio'" class="w-full max-w-2xl px-16">
           <media-player
             v-if="playerReady"
@@ -210,7 +208,6 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Image -->
         <div
           v-else-if="previewType === 'image'"
           class="flex items-center justify-center w-full h-full px-16"
@@ -224,12 +221,10 @@ onUnmounted(() => {
           />
         </div>
 
-        <!-- PDF -->
         <div v-else-if="previewType === 'pdf'" class="w-full h-full max-w-5xl px-16">
           <iframe :src="fileUrl" class="w-full h-full rounded border-0" />
         </div>
 
-        <!-- Text -->
         <div
           v-else-if="previewType === 'text'"
           class="w-full max-w-4xl max-h-full overflow-auto px-16"
@@ -244,7 +239,6 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Unsupported -->
         <div v-else class="flex flex-col items-center gap-4 py-8">
           <UIcon :name="getMimeIcon(file.mimeType)" class="size-24 text-white/40" />
           <p class="text-sm text-white/60">

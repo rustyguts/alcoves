@@ -10,6 +10,7 @@ export interface Library {
   id: string;
   name: string;
   isDefault: boolean;
+  faceRecognitionEnabled: boolean;
   ownerId: string;
   currentUserRole?: "owner" | "admin" | "viewer";
   canManageUsers?: boolean;
@@ -128,6 +129,30 @@ export interface LibraryTag {
   color: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LibraryPerson {
+  id: string;
+  libraryId: string;
+  name: string | null;
+  faceCount: number;
+  coverFaceDetectionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PersonFace {
+  id: string;
+  fileId: string;
+  fileName: string;
+  boxX: number;
+  boxY: number;
+  boxWidth: number;
+  boxHeight: number;
+  imageWidth: number;
+  imageHeight: number;
+  confidence: number;
+  createdAt: string;
 }
 
 export interface GlobalSearchResult {

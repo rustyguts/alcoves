@@ -61,6 +61,11 @@ export default defineNuxtConfig({
         cache: process.env.ALCOVES_S3_CACHE_PREFIX || "cache",
       },
     },
+    queue: {
+      redisHost: process.env.ALCOVES_QUEUE_HOST || "localhost",
+      redisPort: Number(process.env.ALCOVES_QUEUE_PORT) || 6389,
+      redisPassword: process.env.ALCOVES_QUEUE_PASSWORD || "",
+    },
     public: {
       googleAuthEnabled: !!process.env.NUXT_OAUTH_GOOGLE_CLIENT_ID,
     },

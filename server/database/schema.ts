@@ -8,6 +8,7 @@ import {
   timestamp,
   uniqueIndex,
   index,
+  vector,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
@@ -31,6 +32,7 @@ export const libraries = pgTable("libraries", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   isDefault: boolean("is_default").notNull().default(false),
+  faceRecognitionEnabled: boolean("face_recognition_enabled").notNull().default(false),
   ownerId: uuid("owner_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -235,3 +237,53 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
+
+export const people = pgTable(
+  "people",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    libraryId: uuid("library_id")
+      .notNull()
+      .references(() => libraries.id, { onDelete: "cascade" }),
+    name: text("name"),
+    coverFaceDetectionId: uuid("cover_face_detection_id"),
+    faceCount: integer("face_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("people_library_id_idx").on(table.libraryId),
+    index("people_library_name_idx").on(table.libraryId, table.name),
+  ],
+);
+
+export const faceDetections = pgTable(
+  "face_detections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fileId: uuid("file_id")
+      .notNull()
+      .references(() => files.id, { onDelete: "cascade" }),
+    libraryId: uuid("library_id")
+      .notNull()
+      .references(() => libraries.id, { onDelete: "cascade" }),
+    personId: uuid("person_id").references(() => people.id, { onDelete: "set null" }),
+    boxX: integer("box_x").notNull(),
+    boxY: integer("box_y").notNull(),
+    boxWidth: integer("box_width").notNull(),
+    boxHeight: integer("box_height").notNull(),
+    imageWidth: integer("image_width").notNull(),
+    imageHeight: integer("image_height").notNull(),
+    confidence: integer("confidence").notNull(),
+    embedding: vector("embedding", { dimensions: 512 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("face_detections_file_id_idx").on(table.fileId),
+    index("face_detections_library_id_idx").on(table.libraryId),
+    index("face_detections_person_id_idx").on(table.personId),
+  ],
+);

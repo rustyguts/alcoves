@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { formatFileSize } from "~/utils/mime-icons";
 
-const { activeUploads, hasActiveUploads, uploadSpeed, retryFile, removeFile } = useUploadQueue();
+const { activeUploads, hasActiveUploads, erroredUploads, uploadSpeed, retryFile, retryAll, removeFile, clearErrors } =
+  useUploadQueue();
 const expanded = ref(true);
 </script>
 
@@ -38,6 +39,23 @@ const expanded = ref(true);
           </div>
         </div>
 
+        <div
+          v-if="expanded && erroredUploads.length > 0"
+          class="flex items-center justify-between px-4 py-1.5 border-t border-default/50"
+        >
+          <span class="text-xs text-error">{{ erroredUploads.length }} failed</span>
+          <div class="flex gap-1">
+            <UButton label="Retry All" size="xs" variant="ghost" @click="retryAll" />
+            <UButton
+              label="Clear"
+              size="xs"
+              variant="ghost"
+              color="error"
+              @click="clearErrors"
+            />
+          </div>
+        </div>
+
         <div v-if="expanded" class="max-h-64 overflow-y-auto px-2 py-2 space-y-1">
           <div
             v-for="item in activeUploads"
@@ -58,7 +76,6 @@ const expanded = ref(true);
               <span class="text-xs text-error">{{ item.error }}</span>
               <div class="flex gap-1">
                 <UButton
-                  v-if="item.retries < 3"
                   label="Retry"
                   size="xs"
                   variant="ghost"

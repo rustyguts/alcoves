@@ -31,7 +31,16 @@ services:
       timeout: 5s
       retries: 30
 
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    command: dragonfly --default_lua_flags=allow-undeclared-keys
+    ports:
+      - "6389:6379"
+    volumes:
+      - dragonfly_data:/var/lib/dragonfly
+
 volumes:
   postgres_data:
+  dragonfly_data:
   node_modules:
   nuxt_cache:

@@ -57,6 +57,13 @@
       "when": 1770475813698,
       "tag": "0007_harsh_jubilee",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1770699309095,
+      "tag": "0008_silly_black_knight",
+      "breakpoints": true
     }
   ]
 }

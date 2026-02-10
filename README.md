@@ -194,6 +194,7 @@ The app will be available at [http://localhost:3000](http://localhost:3000).
 | `bun run db:generate` | Generate SQL migration files             |
 | `bun run db:migrate`  | Apply pending migrations                 |
 | `bun run db:studio`   | Open Drizzle Studio database GUI         |
+| `bun run test:face-ml`| Run local face recognition accuracy eval |
 
 ## Project Structure
 

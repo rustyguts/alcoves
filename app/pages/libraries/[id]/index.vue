@@ -18,14 +18,9 @@ const {
   user,
   library,
   refreshLibrary,
-  libraryUsers,
-  refreshLibraryUsers,
   viewMode,
   entryViewMode,
   showTrashed,
-  showTags,
-  showUsers,
-  canManageUsers,
   canManageLibrary,
   currentFolderId,
   buildFolderQuery,
@@ -54,48 +49,20 @@ const {
   refreshFolders,
 } = useLibraryExplorer();
 
+const {
+  isFolderTagAssigned,
+  areAllFilesTagged,
+  toggleTagForFolder,
+  toggleTagForFiles,
+} = useLibraryTags(libraryId, libraryTags, files);
+
 const editingName = ref(false);
 const editName = ref("");
 const renamingEntry = ref<LibraryEntry | null>(null);
 const renameValue = ref("");
 const uploadOpen = ref(false);
-const {
-  createTagName,
-  creatingTag,
-  tagDraftNames,
-  isTagAssigned,
-  isFolderTagAssigned,
-  areAllFilesTagged,
-  toggleTagForFolder,
-  toggleTagForFiles,
-  createTag,
-  getTagColorChoices,
-  isTagColorUsedByAnotherTag,
-  selectTagColor,
-  saveDraftTagName,
-  deleteTag,
-} = useLibraryTags(libraryId, libraryTags, files);
-const {
-  memberRoleDrafts,
-  inviteEmail,
-  inviteEmailRole,
-  inviteByEmailLoading,
-  createInviteLinkLoading,
-  updatingMemberUserId,
-  removingMemberUserId,
-  revokingInviteId,
-  inviteRoleOptions,
-  libraryMembers,
-  emailInvites,
-  inviteLinks,
-  memberAvatars,
-  copyInviteLink,
-  inviteUserByEmail,
-  createInviteLink,
-  updateMemberRole,
-  removeMember,
-  revokeInvite,
-} = useLibraryMembers(libraryId, libraryUsers, refreshLibraryUsers);
+
+
 const {
   createFolderOpen,
   createFolderName,
@@ -120,6 +87,8 @@ const {
   refreshTrashedCount,
 );
 
+
+
 // File preview state
 const previewFile = ref<LibraryFile | null>(null);
 const previewOpen = ref(false);
@@ -132,15 +101,17 @@ const moveFileIds = ref<string[]>([]);
 const moveFilesDestinationValue = ref<string>(ROOT_MOVE_VALUE);
 const moveFileFolders = ref<LibraryFolder[]>([]);
 const dragEnabled = computed(
-  () => canManageLibrary.value && !showTrashed.value && !showTags.value && !showUsers.value,
+  () =>
+    canManageLibrary.value &&
+    !showTrashed.value,
 );
 
 const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
-  if (showTrashed.value || showTags.value) return [];
+  if (showTrashed.value) return [];
 
   return [
     {
-      label: "Root",
+      label: library.value?.name ?? "Library",
       icon: "i-lucide-house",
       to: {
         path: route.path,
@@ -178,7 +149,7 @@ function isRenaming(entry: LibraryEntry): boolean {
 
 async function startEntryRename(entry: LibraryEntry) {
   if (!canManageLibrary.value) return;
-  if (showTrashed.value || showTags.value) return;
+  if (showTrashed.value) return;
   renamingEntry.value = entry;
   renameValue.value = entry.name;
   await nextTick();
@@ -451,8 +422,6 @@ async function handleFolderDrop(entry: LibraryEntry, event: DragEvent) {
 }
 
 // Library delete state
-const deleteLibraryOpen = ref(false);
-const deleteLibraryConfirmation = ref("");
 
 // Trash permanent delete state
 const purgeModalOpen = ref(false);
@@ -481,37 +450,19 @@ watch(currentFolderId, () => {
   }
 });
 
-watch(viewMode, () => {
-  if (showTags.value) {
-    refreshTags().catch(() => {
-      toast.add({ title: "Failed to load tags", color: "error" });
-    });
-  }
-  if (showUsers.value) {
-    refreshLibraryUsers().catch(() => {
-      toast.add({ title: "Failed to load library users", color: "error" });
-    });
-  }
-  if (userToggledView.value && !showTags.value && !showUsers.value) {
-    userToggledView.value = false;
-    resetAndFetch();
-  }
-});
+  watch(viewMode, () => {
+    if (userToggledView.value) {
+      userToggledView.value = false;
+      resetAndFetch();
+    }
+  });
 
 watch(entryViewMode, (next) => {
   if (!import.meta.client) return;
   localStorage.setItem(ENTRY_VIEW_STORAGE_KEY, next);
 });
 
-watch(
-  canManageUsers,
-  (allowed) => {
-    if (!allowed && showUsers.value) {
-      viewMode.value = "files";
-    }
-  },
-  { immediate: true },
-);
+
 
 // Infinite scroll observer
 const sentinel = ref<HTMLElement | null>(null);
@@ -720,7 +671,6 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     const targetFolderIds = selectedFolders.has(entry.id) ? [...selectedFolders] : [entry.id];
     const folderCount = targetFolderIds.length;
 
-    if (showTags.value) return [];
     if (!canManageLibrary.value) {
       if (showTrashed.value) return [];
       return [
@@ -912,23 +862,6 @@ watch(library, () => {
   refreshLibraries?.();
 });
 
-const canDeleteLibrary = computed(() => {
-  if (!library.value || !user.value) return false;
-  if (library.value.isDefault) return false;
-  if (library.value.ownerId !== user.value.id) return false;
-  if (showTrashed.value || showTags.value || showUsers.value) return false;
-  if (currentFolderId.value) return false;
-  if (totalCount.value > 0 || trashedCount.value > 0) return false;
-  return true;
-});
-
-async function deleteLibrary() {
-  await $fetch(`/api/libraries/${libraryId.value}`, { method: "DELETE" });
-  deleteLibraryOpen.value = false;
-  await refreshLibraries?.();
-  await navigateTo("/");
-}
-
 const purgeFileCount = computed(() =>
   purgeAll.value ? totalCount.value : filesToPurge.value.length + foldersToPurge.value.length,
 );
@@ -969,27 +902,28 @@ const emptyStateDescription = computed(() => {
         />
       </div>
       <div class="flex items-center gap-3">
-        <LibraryMemberAvatars
-          v-if="!library?.isDefault && (memberAvatars?.length ?? 0) > 0"
-          :members="memberAvatars ?? []"
-        />
+
+
         <UButton
           v-if="showTrashed && !filesPending && totalCount > 0"
-          label="Permanently Delete All"
           icon="i-lucide-trash-2"
           color="error"
           variant="soft"
+          class="hidden sm:flex"
+          @click="openPurgeAllModal()"
+        >
+          <span class="hidden sm:inline">Permanently Delete All</span>
+        </UButton>
+        <UButton
+          v-if="showTrashed && !filesPending && totalCount > 0"
+          icon="i-lucide-trash-2"
+          color="error"
+          variant="soft"
+          class="sm:hidden"
+          title="Delete All"
           @click="openPurgeAllModal()"
         />
-        <UButton
-          v-if="canDeleteLibrary"
-          label="Delete Library"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          @click="deleteLibraryOpen = true"
-        />
-        <template v-if="canManageLibrary && !showTrashed && !showTags && !showUsers">
+        <template v-if="canManageLibrary && !showTrashed">
           <UDropdownMenu :items="newMenuItems">
             <UButton icon="i-lucide-plus" label="New" color="neutral" variant="outline" />
           </UDropdownMenu>
@@ -998,66 +932,40 @@ const emptyStateDescription = computed(() => {
       </div>
     </div>
 
-    <UBreadcrumb v-if="!showTrashed && !showTags && !showUsers" :items="breadcrumbItems" />
+    <UBreadcrumb
+      v-if="!showTrashed"
+      :items="breadcrumbItems"
+    />
 
-    <div class="flex justify-between gap-1 w-full">
-      <div class="flex">
+    <div class="flex flex-wrap items-center justify-between gap-2 w-full">
+      <div class="flex items-center gap-1 overflow-x-auto scrollbar-hide">
         <UButton
           label="Files"
           icon="i-lucide-folder"
-          :variant="!showTrashed && !showTags && !showUsers ? 'soft' : 'ghost'"
-          :color="!showTrashed && !showTags && !showUsers ? 'primary' : 'neutral'"
+          :variant="!showTrashed ? 'soft' : 'ghost'"
+          :color="!showTrashed ? 'primary' : 'neutral'"
           size="sm"
-          @click="
-            userToggledView = true;
-            viewMode = 'files';
-          "
-        />
-        <UButton
-          v-if="canManageUsers"
-          label="Users"
-          icon="i-lucide-users"
-          :variant="showUsers ? 'soft' : 'ghost'"
-          :color="showUsers ? 'primary' : 'neutral'"
-          size="sm"
-          @click="
-            userToggledView = true;
-            viewMode = 'users';
-          "
+          :to="`/libraries/${libraryId}`"
         />
         <UButton
           label="Tags"
           icon="i-lucide-tags"
-          :variant="showTags ? 'soft' : 'ghost'"
-          :color="showTags ? 'primary' : 'neutral'"
+          variant="ghost"
+          color="neutral"
           size="sm"
-          @click="
-            userToggledView = true;
-            viewMode = 'tags';
-          "
+          :to="`/libraries/${libraryId}/tags`"
+        />
+        <UButton
+          v-if="library?.faceRecognitionEnabled"
+          label="People"
+          icon="i-lucide-scan-face"
+          variant="ghost"
+          color="neutral"
+          size="sm"
+          :to="`/libraries/${libraryId}/people`"
         />
       </div>
-      <div class="flex items-center gap-2">
-        <div v-if="!showTags && !showUsers" class="flex items-center">
-          <div class="inline-flex items-center">
-            <UButton
-              icon="i-lucide-list"
-              size="sm"
-              :variant="entryViewMode === 'file' ? 'soft' : 'ghost'"
-              :color="entryViewMode === 'file' ? 'primary' : 'neutral'"
-              title="File view"
-              @click="entryViewMode = 'file'"
-            />
-            <UButton
-              icon="i-lucide-layout-grid"
-              size="sm"
-              :variant="entryViewMode === 'card' ? 'soft' : 'ghost'"
-              :color="entryViewMode === 'card' ? 'primary' : 'neutral'"
-              title="Card view"
-              @click="entryViewMode = 'card'"
-            />
-          </div>
-        </div>
+      <div class="flex items-center gap-1">
         <UButton
           label="Trash"
           icon="i-lucide-trash-2"
@@ -1069,324 +977,25 @@ const emptyStateDescription = computed(() => {
             viewMode = 'trash';
           "
         />
+        <UButton
+          v-if="canManageLibrary"
+          icon="i-lucide-settings"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          :to="`/libraries/${libraryId}/settings`"
+          title="Settings"
+        />
       </div>
     </div>
 
-    <div v-if="showTags" class="grid gap-4">
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <p class="text-sm font-semibold">Create Tag</p>
-              <p class="text-xs text-muted">Add labels to organize files and folders.</p>
-            </div>
-            <UBadge
-              color="neutral"
-              variant="soft"
-              :label="`${libraryTags.length} ${libraryTags.length === 1 ? 'tag' : 'tags'}`"
-            />
-          </div>
-        </template>
 
-        <div class="flex flex-col sm:flex-row sm:items-end gap-2">
-          <UFormField label="Tag name" class="flex-1">
-            <UInput
-              v-model="createTagName"
-              placeholder="Design docs"
-              icon="i-lucide-tag"
-              class="w-full"
-              @keydown.enter="createTag"
-            />
-          </UFormField>
-          <UButton
-            label="Create Tag"
-            icon="i-lucide-plus"
-            :loading="creatingTag"
-            :disabled="!createTagName.trim()"
-            @click="createTag"
-          />
-        </div>
-      </UCard>
 
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <p class="text-sm font-semibold">Manage Tags</p>
-            <p class="text-xs text-muted">Click a color dot to open the palette.</p>
-          </div>
-        </template>
 
-        <div
-          v-if="libraryTags.length"
-          class="divide-y divide-default rounded-lg border border-default"
-        >
-          <div
-            v-for="tag in libraryTags"
-            :key="tag.id"
-            class="flex flex-col sm:flex-row sm:items-center gap-3 px-3 py-3 bg-(--ui-bg)/40"
-          >
-            <UPopover>
-              <button
-                type="button"
-                class="size-8 rounded-full border-2 border-default cursor-pointer shadow-sm"
-                :style="{ backgroundColor: tag.color }"
-                :title="`Tag color: ${tag.color}`"
-              />
-              <template #content>
-                <div class="p-2">
-                  <div class="flex w-44 flex-wrap gap-2">
-                    <button
-                      v-for="color in getTagColorChoices(tag)"
-                      :key="`${tag.id}-${color}`"
-                      type="button"
-                      class="aspect-square shrink-0 basis-[calc((100%-1.5rem)/4)] rounded-full border transition-transform disabled:cursor-not-allowed disabled:opacity-35"
-                      :class="
-                        color === tag.color.toUpperCase()
-                          ? 'border-primary ring-2 ring-primary/30 scale-110'
-                          : 'border-default hover:scale-105'
-                      "
-                      :style="{ backgroundColor: color }"
-                      :title="isTagColorUsedByAnotherTag(tag.id, color) ? `${color} (used)` : color"
-                      :disabled="isTagColorUsedByAnotherTag(tag.id, color)"
-                      @click="selectTagColor(tag, color)"
-                    />
-                  </div>
-                </div>
-              </template>
-            </UPopover>
 
-            <div class="min-w-0 flex-1 flex items-center gap-2">
-              <UInput
-                v-model="tagDraftNames[tag.id]"
-                class="flex-1"
-                @blur="saveDraftTagName(tag)"
-                @keydown.enter="saveDraftTagName(tag)"
-              />
-              <UBadge color="neutral" variant="outline" :label="tag.color" class="shrink-0" />
-            </div>
 
-            <UButton
-              icon="i-lucide-trash-2"
-              color="error"
-              variant="soft"
-              size="sm"
-              class="self-start sm:self-auto sm:ml-auto"
-              @click="deleteTag(tag.id)"
-            />
-          </div>
-        </div>
 
-        <div v-else class="rounded-lg border border-dashed border-default p-8 text-center">
-          <UIcon name="i-lucide-tags" class="size-8 text-muted mx-auto mb-2" />
-          <p class="text-sm font-medium">No tags yet</p>
-          <p class="text-xs text-muted mt-1">Create your first tag to start organizing content.</p>
-        </div>
-      </UCard>
-    </div>
-
-    <div v-else-if="showUsers" class="grid gap-4">
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-semibold">Invite by Email</p>
-              <p class="text-xs text-muted">
-                Add a specific user directly or send a targeted invite.
-              </p>
-            </div>
-            <UBadge
-              color="neutral"
-              variant="soft"
-              :label="`${libraryMembers.length} ${libraryMembers.length === 1 ? 'member' : 'members'}`"
-            />
-          </div>
-        </template>
-
-        <div class="flex flex-col sm:flex-row gap-2">
-          <UInput
-            v-model="inviteEmail"
-            type="email"
-            placeholder="user@example.com"
-            icon="i-lucide-mail"
-            class="flex-1"
-            @keydown.enter="inviteUserByEmail"
-          />
-          <USelectMenu
-            v-model="inviteEmailRole"
-            :items="inviteRoleOptions"
-            value-key="value"
-            class="w-full sm:w-32"
-          />
-          <UButton
-            label="Invite"
-            icon="i-lucide-user-plus"
-            :loading="inviteByEmailLoading"
-            :disabled="!inviteEmail.trim()"
-            @click="inviteUserByEmail"
-          />
-        </div>
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-semibold">Invite Links</p>
-              <p class="text-xs text-muted">Reusable links for authenticated users.</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <UBadge color="neutral" variant="soft" :label="`${inviteLinks.length} active`" />
-              <UButton
-                label="Create Link"
-                icon="i-lucide-link"
-                size="sm"
-                :loading="createInviteLinkLoading"
-                @click="createInviteLink"
-              />
-            </div>
-          </div>
-        </template>
-
-        <div
-          v-if="inviteLinks.length"
-          class="divide-y divide-default rounded-lg border border-default"
-        >
-          <div
-            v-for="invite in inviteLinks"
-            :key="invite.id"
-            class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-          >
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">{{ invite.inviteUrl }}</p>
-              <p class="text-xs text-muted">
-                Used {{ invite.useCount }} {{ invite.useCount === 1 ? "time" : "times" }}
-              </p>
-            </div>
-            <div class="flex items-center gap-2">
-              <UButton
-                icon="i-lucide-copy"
-                color="neutral"
-                variant="outline"
-                size="sm"
-                @click="copyInviteLink(invite.inviteUrl)"
-              />
-              <UButton
-                icon="i-lucide-x"
-                color="error"
-                variant="soft"
-                size="sm"
-                :loading="revokingInviteId === invite.id"
-                @click="revokeInvite(invite.id)"
-              />
-            </div>
-          </div>
-        </div>
-        <div v-else class="rounded-lg border border-dashed border-default p-6 text-center">
-          <p class="text-sm text-muted">No active invite links</p>
-        </div>
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <p class="text-sm font-semibold">Members</p>
-        </template>
-
-        <div class="divide-y divide-default rounded-lg border border-default">
-          <div
-            v-for="member in libraryMembers"
-            :key="member.id"
-            class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-          >
-            <div class="flex items-center gap-3 flex-1 min-w-0">
-              <UAvatar
-                :src="member.user.avatarUrl ?? undefined"
-                :alt="member.user.displayName"
-                size="sm"
-              />
-              <div class="min-w-0">
-                <p class="text-sm font-medium truncate">{{ member.user.displayName }}</p>
-                <p class="text-xs text-muted truncate">{{ member.user.email }}</p>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <UBadge
-                v-if="member.role === 'owner'"
-                color="primary"
-                variant="subtle"
-                label="owner"
-              />
-              <template v-else>
-                <USelectMenu
-                  v-model="memberRoleDrafts[member.userId]"
-                  :items="inviteRoleOptions"
-                  value-key="value"
-                  class="w-28"
-                  :loading="updatingMemberUserId === member.userId"
-                  @update:model-value="updateMemberRole(member)"
-                />
-                <UButton
-                  icon="i-lucide-user-minus"
-                  color="error"
-                  variant="soft"
-                  size="sm"
-                  :loading="removingMemberUserId === member.userId"
-                  @click="removeMember(member)"
-                />
-              </template>
-            </div>
-          </div>
-        </div>
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between gap-2">
-            <p class="text-sm font-semibold">Pending Email Invites</p>
-            <UBadge color="neutral" variant="soft" :label="`${emailInvites.length} pending`" />
-          </div>
-        </template>
-
-        <div
-          v-if="emailInvites.length"
-          class="divide-y divide-default rounded-lg border border-default"
-        >
-          <div
-            v-for="invite in emailInvites"
-            :key="invite.id"
-            class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-          >
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">{{ invite.invitedEmail }}</p>
-              <p class="text-xs text-muted truncate">{{ invite.inviteUrl }}</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <UBadge color="neutral" variant="outline" :label="invite.role" />
-              <UButton
-                icon="i-lucide-copy"
-                color="neutral"
-                variant="outline"
-                size="sm"
-                @click="copyInviteLink(invite.inviteUrl)"
-              />
-              <UButton
-                icon="i-lucide-x"
-                color="error"
-                variant="soft"
-                size="sm"
-                :loading="revokingInviteId === invite.id"
-                @click="revokeInvite(invite.id)"
-              />
-            </div>
-          </div>
-        </div>
-        <div v-else class="rounded-lg border border-dashed border-default p-6 text-center">
-          <p class="text-sm text-muted">No pending invites</p>
-        </div>
-      </UCard>
-    </div>
-
-    <div v-else class="rounded-lg overflow-hidden bg-default/20">
+     <div v-if="!showTrashed" class="rounded-lg overflow-hidden bg-default/20">
       <table v-if="entryViewMode === 'file'" class="w-full">
         <thead>
           <tr class="bg-elevated/50">
@@ -1634,7 +1243,10 @@ const emptyStateDescription = computed(() => {
         </div>
         <p class="text-lg font-medium text-foreground mb-1">{{ emptyStateTitle }}</p>
         <p class="text-sm text-muted mb-4">{{ emptyStateDescription }}</p>
-        <div v-if="canManageLibrary && !showTrashed && !showTags" class="flex items-center gap-2">
+        <div
+          v-if="canManageLibrary && !showTrashed"
+          class="flex items-center gap-2"
+        >
           <UButton
             icon="i-lucide-folder-plus"
             label="Create folder"
@@ -1656,7 +1268,7 @@ const emptyStateDescription = computed(() => {
       v-model:open="uploadOpen"
       :library-id="libraryId || ''"
       :library-name="library?.name ?? 'Library'"
-      :parent-folder-id="showTrashed || showTags || showUsers ? null : currentFolderId"
+      :parent-folder-id="showTrashed ? null : currentFolderId"
     />
 
     <FilePreview
@@ -1767,38 +1379,6 @@ const emptyStateDescription = computed(() => {
             :loading="moveFilesSaving"
             :disabled="moveFilesLoading"
             @click="moveFiles"
-          />
-        </div>
-      </template>
-    </UModal>
-
-    <UModal v-model:open="deleteLibraryOpen" title="Delete Library">
-      <template #body>
-        <div class="flex flex-col gap-4">
-          <p class="text-sm text-muted">
-            This will permanently delete the library
-            <strong>{{ library?.name }}</strong
-            >. This action cannot be undone.
-          </p>
-          <UFormField label="Type 'delete' to confirm">
-            <UInput v-model="deleteLibraryConfirmation" placeholder="delete" class="w-full" />
-          </UFormField>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
-            @click="deleteLibraryOpen = false"
-          />
-          <UButton
-            label="Delete Library"
-            color="error"
-            icon="i-lucide-trash-2"
-            :disabled="deleteLibraryConfirmation !== 'delete'"
-            @click="deleteLibrary"
           />
         </div>
       </template>

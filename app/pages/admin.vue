@@ -26,6 +26,31 @@ interface AdminUser {
   uploadedSizeBytes: number;
 }
 
+interface QueueStat {
+  name: string;
+  waiting: number;
+  active: number;
+  completed: number;
+  failed: number;
+  delayed: number;
+}
+
+interface JobStats {
+  queues: QueueStat[];
+  configured: boolean;
+}
+
+interface FailedJob {
+  id: string;
+  name: string;
+  data: Record<string, unknown>;
+  attemptsMade: number;
+  failedReason: string | null;
+  timestamp: number;
+  processedOn: number | null;
+  finishedOn: number | null;
+}
+
 const toast = useToast();
 const { user: currentUser } = useAuth();
 
@@ -39,6 +64,81 @@ const {
   status: usersStatus,
   refresh: refreshUsers,
 } = await useFetch<AdminUser[]>("/api/admin/users");
+
+const jobStats = ref<JobStats | null>(null);
+const failedJobs = ref<FailedJob[]>([]);
+const failedJobsQueue = ref<string | null>(null);
+const jobsLoading = ref(false);
+const actionJobId = ref<string | null>(null);
+
+async function fetchJobStats() {
+  try {
+    jobStats.value = await $fetch<JobStats>("/api/admin/jobs/stats");
+  } catch {
+    // Queue not configured, ignore
+  }
+}
+
+async function fetchFailedJobs(queueName: string) {
+  failedJobsQueue.value = queueName;
+  jobsLoading.value = true;
+  try {
+    const result = await $fetch<{ jobs: FailedJob[] }>(
+      `/api/admin/jobs/${encodeURIComponent(queueName)}`,
+      { query: { status: "failed" } },
+    );
+    failedJobs.value = result.jobs;
+  } catch {
+    toast.add({ title: "Failed to load jobs", color: "error" });
+  } finally {
+    jobsLoading.value = false;
+  }
+}
+
+async function retryJob(queueName: string, jobId: string) {
+  actionJobId.value = jobId;
+  try {
+    await $fetch(`/api/admin/jobs/${encodeURIComponent(queueName)}/${jobId}`, {
+      method: "POST",
+      body: { action: "retry" },
+    });
+    toast.add({ title: "Job retried" });
+    await fetchFailedJobs(queueName);
+    await fetchJobStats();
+  } catch {
+    toast.add({ title: "Failed to retry job", color: "error" });
+  } finally {
+    actionJobId.value = null;
+  }
+}
+
+async function removeJob(queueName: string, jobId: string) {
+  actionJobId.value = jobId;
+  try {
+    await $fetch(`/api/admin/jobs/${encodeURIComponent(queueName)}/${jobId}`, {
+      method: "POST",
+      body: { action: "remove" },
+    });
+    toast.add({ title: "Job removed" });
+    await fetchFailedJobs(queueName);
+    await fetchJobStats();
+  } catch {
+    toast.add({ title: "Failed to remove job", color: "error" });
+  } finally {
+    actionJobId.value = null;
+  }
+}
+
+function formatQueueName(name: string): string {
+  return name.replace(/^\{|\}$/g, "").replace(/-/g, " ");
+}
+
+function queueIcon(name: string): string {
+  if (name.includes("face")) return "i-lucide-scan-face";
+  if (name.includes("video")) return "i-lucide-video";
+  if (name.includes("thumbnail")) return "i-lucide-image";
+  return "i-lucide-layers";
+}
 
 const roleDrafts = reactive<Record<string, AdminUser["role"]>>({});
 const updatingRoleUserId = ref<string | null>(null);
@@ -102,6 +202,16 @@ function formatDateTime(dateString: string | null): string {
   });
 }
 
+function formatTimestamp(ts: number | null): string {
+  if (!ts) return "-";
+  return new Date(ts).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function roleBadgeColor(role: AdminUser["role"]) {
   return role === "owner" ? "primary" : "neutral";
 }
@@ -136,8 +246,20 @@ async function updateUserRole(user: AdminUser) {
 }
 
 async function refreshAdminData() {
-  await Promise.all([refreshStats(), refreshUsers()]);
+  await Promise.all([refreshStats(), refreshUsers(), fetchJobStats()]);
 }
+
+// Fetch job stats on mount and auto-refresh
+let jobRefreshInterval: ReturnType<typeof setInterval> | undefined;
+
+onMounted(() => {
+  fetchJobStats();
+  jobRefreshInterval = setInterval(fetchJobStats, 10_000);
+});
+
+onUnmounted(() => {
+  if (jobRefreshInterval) clearInterval(jobRefreshInterval);
+});
 </script>
 
 <template>
@@ -256,5 +378,117 @@ async function refreshAdminData() {
 
       <div v-else class="p-6 text-sm text-muted">No users found.</div>
     </UCard>
+
+    <section v-if="jobStats?.configured" class="flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Job Queues</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <UCard
+          v-for="queue in jobStats.queues"
+          :key="queue.name"
+          :ui="{ body: 'p-4' }"
+          class="border border-default bg-elevated/40 cursor-pointer hover:bg-elevated/60 transition-colors"
+          @click="queue.failed > 0 ? fetchFailedJobs(queue.name) : undefined"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-medium capitalize">{{ formatQueueName(queue.name) }}</p>
+              <div class="flex items-center gap-3 mt-2 text-xs text-muted">
+                <span>Waiting: {{ queue.waiting }}</span>
+                <span>Active: {{ queue.active }}</span>
+                <span :class="queue.failed > 0 ? 'text-error font-medium' : ''">
+                  Failed: {{ queue.failed }}
+                </span>
+              </div>
+            </div>
+            <div
+              class="size-9 rounded-md bg-primary/10 text-primary flex items-center justify-center"
+            >
+              <UIcon :name="queueIcon(queue.name)" class="size-5" />
+            </div>
+          </div>
+        </UCard>
+      </div>
+
+      <UCard v-if="failedJobsQueue" :ui="{ body: 'p-0' }">
+        <template #header>
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-base font-semibold capitalize">
+                {{ formatQueueName(failedJobsQueue) }} - Failed Jobs
+              </h3>
+            </div>
+            <UButton
+              icon="i-lucide-x"
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              @click="
+                failedJobsQueue = null;
+                failedJobs = [];
+              "
+            />
+          </div>
+        </template>
+
+        <div v-if="jobsLoading" class="flex items-center justify-center py-8">
+          <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        </div>
+
+        <div v-else-if="failedJobs.length" class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead>
+              <tr class="border-b border-default bg-elevated/40">
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Job</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Error</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Attempts</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Time</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-muted">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="job in failedJobs"
+                :key="job.id"
+                class="border-b border-default/70 last:border-b-0"
+              >
+                <td class="px-4 py-3 text-sm">{{ job.name }}</td>
+                <td class="px-4 py-3 text-sm text-error max-w-xs truncate">
+                  {{ job.failedReason ?? "-" }}
+                </td>
+                <td class="px-4 py-3 text-sm">{{ job.attemptsMade }}</td>
+                <td class="px-4 py-3 text-sm text-muted">
+                  {{ formatTimestamp(job.timestamp) }}
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex items-center justify-end gap-1">
+                    <UButton
+                      icon="i-lucide-rotate-cw"
+                      color="primary"
+                      variant="soft"
+                      size="xs"
+                      title="Retry"
+                      :loading="actionJobId === job.id"
+                      @click="retryJob(failedJobsQueue!, job.id)"
+                    />
+                    <UButton
+                      icon="i-lucide-trash-2"
+                      color="error"
+                      variant="soft"
+                      size="xs"
+                      title="Remove"
+                      :loading="actionJobId === job.id"
+                      @click="removeJob(failedJobsQueue!, job.id)"
+                    />
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="p-6 text-sm text-muted text-center">No failed jobs.</div>
+      </UCard>
+    </section>
   </div>
 </template>
