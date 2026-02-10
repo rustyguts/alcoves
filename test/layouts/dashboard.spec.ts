@@ -150,10 +150,10 @@ describe("dashboard.vue", () => {
     expect(wrapper.text()).toContain("Libraries");
   });
 
-  it("shows Settings link for owners", async () => {
+  it("shows Admin link for owners", async () => {
     mocks.user.role = "owner";
     const wrapper = await mountLayout();
-    expect(wrapper.text()).toContain("Settings");
+    expect(wrapper.text()).toContain("Admin");
   });
 
   it("hides Settings link for non-owners", async () => {
