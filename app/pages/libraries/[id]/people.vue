@@ -7,8 +7,6 @@ definePageMeta({
 
 const route = useRoute();
 const libraryId = computed(() => route.params.id as string);
-const toast = useToast();
-
 const { data: library } = await useFetch(() => `/api/libraries/${libraryId.value}`);
 
 const files = ref<LibraryFile[]>([]);
@@ -21,11 +19,13 @@ const {
   activePersonFaces,
   loadingFaces,
   updatingCoverFaceId,
+  splittingFaceId,
   fetchPeople,
   renamePerson,
   mergePeople,
   loadPersonFaces,
   setPersonCover,
+  splitFaceAsNewPerson,
   togglePersonSelection,
   getPersonThumbnailUrl,
   closePersonDetail,
@@ -33,8 +33,12 @@ const {
 
 const renamingPersonId = ref<string | null>(null);
 const renamePersonValue = ref("");
+const renamingPersonSavingId = ref<string | null>(null);
 const previewFile = ref<LibraryFile | null>(null);
 const previewOpen = ref(false);
+const splitFaceOpen = ref(false);
+const splitFaceName = ref("");
+const splitFaceTarget = ref<{ faceId: string; fileName: string } | null>(null);
 
 function startPersonRename(person: { id: string; name: string | null }) {
   renamingPersonId.value = person.id;
@@ -42,8 +46,35 @@ function startPersonRename(person: { id: string; name: string | null }) {
 }
 
 async function savePersonRename(personId: string) {
+  if (renamingPersonId.value !== personId || renamingPersonSavingId.value === personId) return;
+  renamingPersonSavingId.value = personId;
   renamingPersonId.value = null;
   await renamePerson(personId, renamePersonValue.value);
+  renamingPersonSavingId.value = null;
+}
+
+function getPersonLabel(person: { name: string | null }): string {
+  return person.name?.trim() || "Name this person";
+}
+
+function getPersonAlt(person: { name: string | null }): string {
+  return person.name?.trim() || "Unnamed person";
+}
+
+function openSplitFaceModal(faceId: string, fileName: string) {
+  splitFaceTarget.value = { faceId, fileName };
+  splitFaceName.value = "";
+  splitFaceOpen.value = true;
+}
+
+async function confirmSplitFace() {
+  const active = activePerson.value;
+  const target = splitFaceTarget.value;
+  if (!active || !target) return;
+
+  await splitFaceAsNewPerson(active.id, target.faceId, splitFaceName.value);
+  splitFaceOpen.value = false;
+  splitFaceTarget.value = null;
 }
 
 onMounted(() => {
@@ -105,7 +136,7 @@ onMounted(() => {
         >
           <img
             :src="getPersonThumbnailUrl(person)"
-            :alt="person.name ?? 'Unknown'"
+            :alt="getPersonAlt(person)"
             class="size-20 rounded-full object-cover border-2 border-default"
             loading="lazy"
             @error="($event.target as HTMLImageElement).style.display = 'none'"
@@ -116,9 +147,10 @@ onMounted(() => {
                 v-model="renamePersonValue"
                 size="sm"
                 autofocus
+                placeholder="Enter a name"
                 class="w-full"
                 @blur="savePersonRename(person.id)"
-                @keydown.enter="savePersonRename(person.id)"
+                @keydown.enter.prevent="savePersonRename(person.id)"
                 @keydown.escape="renamingPersonId = null"
                 @click.stop
               />
@@ -129,9 +161,10 @@ onMounted(() => {
                 class="text-sm font-medium truncate w-full hover:text-primary transition-colors"
                 @click.stop="startPersonRename(person)"
               >
-                {{ person.name ?? "Unknown" }}
+                {{ getPersonLabel(person) }}
               </button>
             </template>
+            <p v-if="!person.name" class="text-[11px] text-muted">Tap to add a name</p>
             <p class="text-xs text-muted">
               {{ person.faceCount }} {{ person.faceCount === 1 ? "photo" : "photos" }}
             </p>
@@ -170,11 +203,7 @@ onMounted(() => {
             <div
               v-for="face in activePersonFaces"
               :key="face.id"
-              class="relative rounded-lg overflow-hidden bg-elevated/50 cursor-pointer"
-              @click="
-                previewFile = files.find((f) => f.id === face.fileId) ?? null;
-                if (previewFile) previewOpen = true;
-              "
+              class="relative rounded-lg overflow-hidden bg-elevated/50"
             >
               <button
                 type="button"
@@ -213,12 +242,22 @@ onMounted(() => {
               />
               <div class="p-2">
                 <p class="text-xs truncate">{{ face.fileName }}</p>
-                <p
-                  v-if="activePerson.coverFaceDetectionId === face.id"
-                  class="text-[11px] text-primary"
-                >
-                  Cover photo
-                </p>
+                <div class="mt-1 flex items-center justify-between gap-2">
+                  <p
+                    v-if="activePerson.coverFaceDetectionId === face.id"
+                    class="text-[11px] text-primary"
+                  >
+                    Cover photo
+                  </p>
+                  <UButton
+                    label="Wrong match"
+                    size="xs"
+                    color="neutral"
+                    variant="outline"
+                    :loading="splittingFaceId === face.id"
+                    @click.stop="openSplitFaceModal(face.id, face.fileName)"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -234,5 +273,43 @@ onMounted(() => {
       :files="files"
       @navigate="previewFile = $event"
     />
+
+    <UModal v-model:open="splitFaceOpen" title="Create New Person">
+      <template #body>
+        <div class="space-y-3">
+          <p class="text-sm text-muted">
+            This face will be removed from the current person and placed into a new one.
+          </p>
+          <p class="text-xs text-muted truncate">
+            Selected photo: {{ splitFaceTarget?.fileName ?? "Unknown file" }}
+          </p>
+          <UFormField label="Name (optional)">
+            <UInput
+              v-model="splitFaceName"
+              placeholder="e.g. Alex"
+              class="w-full"
+              @keydown.enter.prevent="confirmSplitFace"
+            />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="outline"
+            :disabled="!!splittingFaceId"
+            @click="splitFaceOpen = false"
+          />
+          <UButton
+            label="Create New Person"
+            icon="i-lucide-user-round-plus"
+            :loading="!!splittingFaceId"
+            @click="confirmSplitFace"
+          />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

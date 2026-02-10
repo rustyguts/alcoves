@@ -25,9 +25,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Some people not found in this library" });
   }
 
-  // Target is the first person in the list (or highest face count)
-  const targetId = personIds[0]!;
-  const sourceIds = personIds.slice(1);
+  const sortedByFaceCount = [...people].sort((a, b) => b.faceCount - a.faceCount);
+  const primaryPerson = sortedByFaceCount[0]!;
+  const targetId = primaryPerson.id;
+  const sourceIds = people.filter((person) => person.id !== targetId).map((person) => person.id);
+  const mergedName = targetName !== undefined ? targetName : (primaryPerson.name ?? null);
 
   await db.transaction(async (tx) => {
     // Move all face detections from sources to target
@@ -80,8 +82,8 @@ export default defineEventHandler(async (event) => {
       faceCount: count?.total ?? 0,
       coverFaceDetectionId,
     };
-    if (targetName !== undefined) {
-      updates.name = targetName?.trim() || null;
+    if (mergedName !== undefined) {
+      updates.name = mergedName?.trim() || null;
     }
 
     await tx.update(schema.people).set(updates).where(eq(schema.people.id, targetId));

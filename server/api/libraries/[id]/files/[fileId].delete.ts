@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
+import { deleteFaceDataForFiles } from "~~/server/services/face-detection/cleanup";
 
 export default defineEventHandler(async (event) => {
   const libraryId = getRouterParam(event, "id")!;
@@ -10,6 +11,8 @@ export default defineEventHandler(async (event) => {
   if (!ids.length) {
     return { trashed: 0 };
   }
+
+  await deleteFaceDataForFiles(libraryId, ids);
 
   const trashed = await db
     .update(schema.files)

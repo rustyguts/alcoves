@@ -48,3 +48,8 @@ export async function deleteLibraryFaceData(libraryId: string): Promise<void> {
     }
   }
 }
+
+export async function reprocessLibraryFaceData(libraryId: string): Promise<number> {
+  await deleteLibraryFaceData(libraryId);
+  return enqueueExistingLibraryImages(libraryId);
+}

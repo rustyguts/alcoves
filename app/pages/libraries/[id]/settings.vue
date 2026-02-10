@@ -75,6 +75,8 @@ watchEffect(async () => {
 
 const faceRecToggling = ref(false);
 const faceRecDisableOpen = ref(false);
+const faceRecReprocessOpen = ref(false);
+const faceRecReprocessing = ref(false);
 const deleteLibraryOpen = ref(false);
 const deleteLibraryConfirmation = ref("");
 
@@ -113,6 +115,25 @@ async function confirmDisableFaceRecognition() {
     toast.add({ title: "Failed to disable face recognition", color: "error" });
   } finally {
     faceRecToggling.value = false;
+  }
+}
+
+async function reprocessFaceRecognition() {
+  faceRecReprocessing.value = true;
+  faceRecReprocessOpen.value = false;
+  try {
+    const result = await $fetch<{ queuedCount: number }>(
+      `/api/libraries/${libraryId.value}/face-recognition/reprocess`,
+      { method: "POST" },
+    );
+    toast.add({
+      title: "Reprocessing queued",
+      description: `${result.queuedCount} image${result.queuedCount === 1 ? "" : "s"} queued for fresh facial recognition.`,
+    });
+  } catch {
+    toast.add({ title: "Failed to queue facial recognition reprocessing", color: "error" });
+  } finally {
+    faceRecReprocessing.value = false;
   }
 }
 
@@ -362,18 +383,38 @@ async function deleteLibrary() {
         </div>
       </template>
 
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <p class="text-sm font-medium">Enable facial recognition</p>
-          <p class="text-xs text-muted">
-            Turning this off removes all detected face and people data for this library.
-          </p>
+      <div class="space-y-4">
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <p class="text-sm font-medium">Enable facial recognition</p>
+            <p class="text-xs text-muted">
+              Turning this off removes all detected face and people data for this library.
+            </p>
+          </div>
+          <USwitch
+            :model-value="library?.faceRecognitionEnabled ?? false"
+            :loading="faceRecToggling"
+            @update:model-value="toggleFaceRecognition"
+          />
         </div>
-        <USwitch
-          :model-value="library?.faceRecognitionEnabled ?? false"
-          :loading="faceRecToggling"
-          @update:model-value="toggleFaceRecognition"
-        />
+
+        <div class="flex items-center justify-between gap-4 rounded-lg border border-default p-3">
+          <div class="min-w-0">
+            <p class="text-sm font-medium">Queue full reprocessing</p>
+            <p class="text-xs text-muted">
+              Deletes current face inference data, then re-runs detection on all images.
+            </p>
+          </div>
+          <UButton
+            label="Reprocess Faces"
+            icon="i-lucide-refresh-cw"
+            color="neutral"
+            variant="outline"
+            :disabled="!library?.faceRecognitionEnabled || faceRecToggling"
+            :loading="faceRecReprocessing"
+            @click="faceRecReprocessOpen = true"
+          />
+        </div>
       </div>
     </UCard>
 
@@ -421,6 +462,33 @@ async function deleteLibrary() {
             icon="i-lucide-trash-2"
             :loading="faceRecToggling"
             @click="confirmDisableFaceRecognition"
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="faceRecReprocessOpen" title="Reprocess Facial Recognition">
+      <template #body>
+        <p class="text-sm text-muted">
+          This deletes all existing face inference data and queues a full rebuild. Results may
+          change, including how photos are grouped into people.
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="outline"
+            :disabled="faceRecReprocessing"
+            @click="faceRecReprocessOpen = false"
+          />
+          <UButton
+            label="Delete Data & Requeue"
+            icon="i-lucide-refresh-cw"
+            color="warning"
+            :loading="faceRecReprocessing"
+            @click="reprocessFaceRecognition"
           />
         </div>
       </template>

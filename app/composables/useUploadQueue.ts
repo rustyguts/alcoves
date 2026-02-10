@@ -15,7 +15,6 @@ export interface QueuedFile {
 }
 
 const MAX_RETRIES = 3;
-
 const onCompleteCallbacks = new Map<string, () => void>();
 
 export function useUploadQueue() {
@@ -79,19 +78,19 @@ export function useUploadQueue() {
       item.progress = 0;
       item.loaded = 0;
 
-      const formData = new FormData();
-      formData.append("file", item.file);
-      formData.append("name", item.file.name);
-      formData.append("mimeType", getMimeTypeFromFilename(item.file.name));
-      formData.append("originalCreatedAt", String(item.file.lastModified));
-      if (item.parentFolderId) {
-        formData.append("parentFolderId", item.parentFolderId);
-      }
-
       const xhr = new XMLHttpRequest();
+      let settled = false;
+      const mimeType = getMimeTypeFromFilename(item.file.name);
 
       let lastLoaded = 0;
       let lastTime = Date.now();
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        notifyLibraryIfIdle(item.libraryId);
+        resolve();
+      };
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -122,20 +121,39 @@ export function useUploadQueue() {
           item.error = `Upload failed (${xhr.status})`;
           item.retries++;
         }
-        notifyLibraryIfIdle(item.libraryId);
-        resolve();
+        finish();
       };
 
       xhr.onerror = () => {
         item.status = "error";
         item.error = "Network error";
         item.retries++;
-        notifyLibraryIfIdle(item.libraryId);
-        resolve();
+        finish();
+      };
+
+      xhr.onabort = () => {
+        item.status = "error";
+        item.error = "Upload aborted";
+        item.retries++;
+        finish();
+      };
+
+      xhr.ontimeout = () => {
+        item.status = "error";
+        item.error = "Upload timed out";
+        item.retries++;
+        finish();
       };
 
       xhr.open("POST", `/api/libraries/${item.libraryId}/files`);
-      xhr.send(formData);
+      xhr.setRequestHeader("Content-Type", mimeType);
+      xhr.setRequestHeader("X-File-Name", encodeURIComponent(item.file.name));
+      xhr.setRequestHeader("X-File-Mime-Type", mimeType);
+      xhr.setRequestHeader("X-File-Original-Created-At", String(item.file.lastModified));
+      if (item.parentFolderId) {
+        xhr.setRequestHeader("X-File-Parent-Folder-Id", encodeURIComponent(item.parentFolderId));
+      }
+      xhr.send(item.file);
     });
   }
 

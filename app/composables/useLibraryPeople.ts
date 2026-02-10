@@ -10,6 +10,7 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
   const activePersonFaces = ref<PersonFace[]>([]);
   const loadingFaces = ref(false);
   const updatingCoverFaceId = ref<string | null>(null);
+  const splittingFaceId = ref<string | null>(null);
 
   async function fetchPeople() {
     loading.value = true;
@@ -107,6 +108,34 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
     }
   }
 
+  async function splitFaceAsNewPerson(personId: string, faceDetectionId: string, name?: string) {
+    splittingFaceId.value = faceDetectionId;
+    try {
+      await $fetch(
+        `/api/libraries/${libraryId.value}/people/${personId}/faces/${faceDetectionId}/split`,
+        {
+          method: "POST",
+          body: { name },
+        },
+      );
+      await fetchPeople();
+      if (activePerson.value?.id === personId) {
+        const refreshed = people.value.find((person) => person.id === personId) ?? null;
+        if (refreshed) {
+          activePerson.value = refreshed;
+          await loadPersonFaces(refreshed);
+        } else {
+          closePersonDetail();
+        }
+      }
+      toast.add({ title: "Face moved to a new person" });
+    } catch {
+      toast.add({ title: "Failed to create a new person from this face", color: "error" });
+    } finally {
+      splittingFaceId.value = null;
+    }
+  }
+
   function closePersonDetail() {
     activePerson.value = null;
     activePersonFaces.value = [];
@@ -120,11 +149,13 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
     activePersonFaces,
     loadingFaces,
     updatingCoverFaceId,
+    splittingFaceId,
     fetchPeople,
     renamePerson,
     mergePeople,
     loadPersonFaces,
     setPersonCover,
+    splitFaceAsNewPerson,
     togglePersonSelection,
     getPersonThumbnailUrl,
     closePersonDetail,

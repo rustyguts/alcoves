@@ -89,4 +89,37 @@ describe("useLibraryPeople", () => {
     expect(peopleState.activePerson.value?.name).toBe("Alice");
     expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Person renamed" });
   });
+
+  it("splitFaceAsNewPerson refreshes people and active person faces", async () => {
+    const person = makePerson({ id: "person-1", name: "Taylor", faceCount: 2 });
+    const refreshedPerson = makePerson({ id: "person-1", name: "Taylor", faceCount: 1 });
+
+    mocks.fetch
+      .mockResolvedValueOnce({}) // split POST
+      .mockResolvedValueOnce([refreshedPerson]) // fetchPeople
+      .mockResolvedValueOnce([]); // loadPersonFaces
+
+    const peopleState = useLibraryPeople(ref("lib-1"));
+    peopleState.people.value = [person];
+    peopleState.activePerson.value = person;
+
+    await peopleState.splitFaceAsNewPerson("person-1", "face-2", "Jordan");
+
+    expect(mocks.fetch).toHaveBeenNthCalledWith(
+      1,
+      "/api/libraries/lib-1/people/person-1/faces/face-2/split",
+      {
+        method: "POST",
+        body: { name: "Jordan" },
+      },
+    );
+    expect(mocks.fetch).toHaveBeenNthCalledWith(2, "/api/libraries/lib-1/people");
+    expect(mocks.fetch).toHaveBeenNthCalledWith(
+      3,
+      "/api/libraries/lib-1/people/person-1/faces",
+    );
+    expect(peopleState.people.value[0]?.faceCount).toBe(1);
+    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Face moved to a new person" });
+    expect(peopleState.splittingFaceId.value).toBeNull();
+  });
 });
