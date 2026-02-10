@@ -213,7 +213,10 @@ onMounted(() => {
               />
               <div class="p-2">
                 <p class="text-xs truncate">{{ face.fileName }}</p>
-                <p v-if="activePerson.coverFaceDetectionId === face.id" class="text-[11px] text-primary">
+                <p
+                  v-if="activePerson.coverFaceDetectionId === face.id"
+                  class="text-[11px] text-primary"
+                >
                   Cover photo
                 </p>
               </div>

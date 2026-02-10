@@ -184,17 +184,17 @@ The app will be available at [http://localhost:3000](http://localhost:3000).
 
 ### Available Scripts
 
-| Command               | Description                              |
-| --------------------- | ---------------------------------------- |
-| `bun run dev`         | Start development server with hot reload |
-| `bun run build`       | Create production build                  |
-| `bun run lint`        | Run linter (OXlint)                      |
-| `bun run fmt`         | Format code (OXfmt)                      |
-| `bun run db:push`     | Push schema changes to database          |
-| `bun run db:generate` | Generate SQL migration files             |
-| `bun run db:migrate`  | Apply pending migrations                 |
-| `bun run db:studio`   | Open Drizzle Studio database GUI         |
-| `bun run test:face-ml`| Run local face recognition accuracy eval |
+| Command                | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `bun run dev`          | Start development server with hot reload |
+| `bun run build`        | Create production build                  |
+| `bun run lint`         | Run linter (OXlint)                      |
+| `bun run fmt`          | Format code (OXfmt)                      |
+| `bun run db:push`      | Push schema changes to database          |
+| `bun run db:generate`  | Generate SQL migration files             |
+| `bun run db:migrate`   | Apply pending migrations                 |
+| `bun run db:studio`    | Open Drizzle Studio database GUI         |
+| `bun run test:face-ml` | Run local face recognition accuracy eval |
 
 ## Project Structure
 

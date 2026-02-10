@@ -4,10 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
 import { detectFaces } from "./detect";
 import { computeEmbedding } from "./recognize";
-import {
-  assignFaceUsingCorePoint,
-  reconcileNewPerson,
-} from "./clustering";
+import { assignFaceUsingCorePoint, reconcileNewPerson } from "./clustering";
 
 export async function processFaceDetectionJob(job: Job): Promise<void> {
   const { fileId, libraryId } = job.data as { fileId: string; libraryId: string };

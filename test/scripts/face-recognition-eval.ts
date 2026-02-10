@@ -41,7 +41,9 @@ function parseCli(): CliOptions {
   };
 
   const datasetDir = resolve(
-    getArg("--dataset") ?? process.env.ALCOVES_FACE_EVAL_DATASET ?? "test/fixtures/face-recognition",
+    getArg("--dataset") ??
+      process.env.ALCOVES_FACE_EVAL_DATASET ??
+      "test/fixtures/face-recognition",
   );
 
   return {
@@ -50,7 +52,10 @@ function parseCli(): CliOptions {
       getArg("--min-detection-rate") ?? process.env.ALCOVES_FACE_EVAL_MIN_DETECTION_RATE,
       0.9,
     ),
-    minPairF1: parseNumber(getArg("--min-pair-f1") ?? process.env.ALCOVES_FACE_EVAL_MIN_PAIR_F1, 0.9),
+    minPairF1: parseNumber(
+      getArg("--min-pair-f1") ?? process.env.ALCOVES_FACE_EVAL_MIN_PAIR_F1,
+      0.9,
+    ),
     maxClustersPerIdentity: Math.max(
       1,
       Math.floor(
@@ -124,9 +129,14 @@ class UnionFind {
   }
 }
 
-async function listDatasetSamples(datasetDir: string): Promise<Array<{ label: string; filePath: string }>> {
+async function listDatasetSamples(
+  datasetDir: string,
+): Promise<Array<{ label: string; filePath: string }>> {
   const entries = await readdir(datasetDir, { withFileTypes: true });
-  const labels = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+  const labels = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
   const samples: Array<{ label: string; filePath: string }> = [];
 
   for (const label of labels) {
@@ -211,10 +221,14 @@ function evaluatePairwise(
     }
   }
 
-  const pairPrecision = truePositive + falsePositive > 0 ? truePositive / (truePositive + falsePositive) : 1;
-  const pairRecall = truePositive + falseNegative > 0 ? truePositive / (truePositive + falseNegative) : 1;
+  const pairPrecision =
+    truePositive + falsePositive > 0 ? truePositive / (truePositive + falsePositive) : 1;
+  const pairRecall =
+    truePositive + falseNegative > 0 ? truePositive / (truePositive + falseNegative) : 1;
   const pairF1 =
-    pairPrecision + pairRecall > 0 ? (2 * pairPrecision * pairRecall) / (pairPrecision + pairRecall) : 0;
+    pairPrecision + pairRecall > 0
+      ? (2 * pairPrecision * pairRecall) / (pairPrecision + pairRecall)
+      : 0;
 
   const clustersPerIdentity = new Map<string, Set<number>>();
   for (let i = 0; i < samples.length; i++) {
@@ -260,7 +274,9 @@ async function main(): Promise<void> {
   console.log("Face Recognition Evaluation");
   console.log(`Dataset: ${options.datasetDir}`);
   console.log(`Images total: ${extraction.imagesTotal}`);
-  console.log(`Images with detected faces: ${extraction.facesDetected} (${formatPct(detectionRate)})`);
+  console.log(
+    `Images with detected faces: ${extraction.facesDetected} (${formatPct(detectionRate)})`,
+  );
   console.log(`Images with multiple faces: ${extraction.multiFaceImages}`);
   console.log(`Embeddings generated: ${extraction.samples.length}`);
   console.log(`Distance threshold: ${options.distanceThreshold}`);
@@ -280,7 +296,9 @@ async function main(): Promise<void> {
     );
   }
   if (evaluation.pairF1 < options.minPairF1) {
-    failures.push(`Pair F1 ${formatPct(evaluation.pairF1)} is below minimum ${formatPct(options.minPairF1)}`);
+    failures.push(
+      `Pair F1 ${formatPct(evaluation.pairF1)} is below minimum ${formatPct(options.minPairF1)}`,
+    );
   }
   if (worstFragmentation > options.maxClustersPerIdentity) {
     failures.push(

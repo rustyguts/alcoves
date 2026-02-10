@@ -75,7 +75,17 @@ async function alignFace(imageBuffer: Buffer, landmarks: number[][]): Promise<Bu
     const metadata = await sharp(imageBuffer).metadata();
     const cx = landmarks.reduce((s, l) => s + l[0]!, 0) / landmarks.length;
     const cy = landmarks.reduce((s, l) => s + l[1]!, 0) / landmarks.length;
-    const size = Math.max(ALIGNED_SIZE, Math.round(Math.max(...landmarks.map((l) => Math.abs(l[0]! - cx), ...landmarks.map((l) => Math.abs(l[1]! - cy)))) * 3));
+    const size = Math.max(
+      ALIGNED_SIZE,
+      Math.round(
+        Math.max(
+          ...landmarks.map(
+            (l) => Math.abs(l[0]! - cx),
+            ...landmarks.map((l) => Math.abs(l[1]! - cy)),
+          ),
+        ) * 3,
+      ),
+    );
     const left = Math.max(0, Math.round(cx - size / 2));
     const top = Math.max(0, Math.round(cy - size / 2));
     const w = Math.min(size, (metadata.width ?? size) - left);
@@ -144,12 +154,25 @@ async function alignFace(imageBuffer: Buffer, landmarks: number[][]): Promise<Bu
 
       const outIdx = (oy * ALIGNED_SIZE + ox) * 3;
       for (let c = 0; c < 3; c++) {
-        const p00 = x0 >= 0 && x0 < cropW && y0 >= 0 && y0 < cropH ? (pixels[(y0 * cropW + x0) * 3 + c] ?? 0) : 0;
-        const p10 = x1 >= 0 && x1 < cropW && y0 >= 0 && y0 < cropH ? (pixels[(y0 * cropW + x1) * 3 + c] ?? 0) : 0;
-        const p01 = x0 >= 0 && x0 < cropW && y1 >= 0 && y1 < cropH ? (pixels[(y1 * cropW + x0) * 3 + c] ?? 0) : 0;
-        const p11 = x1 >= 0 && x1 < cropW && y1 >= 0 && y1 < cropH ? (pixels[(y1 * cropW + x1) * 3 + c] ?? 0) : 0;
+        const p00 =
+          x0 >= 0 && x0 < cropW && y0 >= 0 && y0 < cropH
+            ? (pixels[(y0 * cropW + x0) * 3 + c] ?? 0)
+            : 0;
+        const p10 =
+          x1 >= 0 && x1 < cropW && y0 >= 0 && y0 < cropH
+            ? (pixels[(y0 * cropW + x1) * 3 + c] ?? 0)
+            : 0;
+        const p01 =
+          x0 >= 0 && x0 < cropW && y1 >= 0 && y1 < cropH
+            ? (pixels[(y1 * cropW + x0) * 3 + c] ?? 0)
+            : 0;
+        const p11 =
+          x1 >= 0 && x1 < cropW && y1 >= 0 && y1 < cropH
+            ? (pixels[(y1 * cropW + x1) * 3 + c] ?? 0)
+            : 0;
 
-        const value = p00 * (1 - fx) * (1 - fy) + p10 * fx * (1 - fy) + p01 * (1 - fx) * fy + p11 * fx * fy;
+        const value =
+          p00 * (1 - fx) * (1 - fy) + p10 * fx * (1 - fy) + p01 * (1 - fx) * fy + p11 * fx * fy;
         output[outIdx + c] = Math.round(Math.max(0, Math.min(255, value)));
       }
     }

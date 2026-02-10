@@ -59,7 +59,9 @@ async function downloadModel(filename: string): Promise<string> {
       }
 
       await writeFile(filepath, buffer);
-      console.log(`[models] Downloaded ${filename} (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
+      console.log(
+        `[models] Downloaded ${filename} (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`,
+      );
       return filepath;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

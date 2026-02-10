@@ -49,19 +49,14 @@ const {
   refreshFolders,
 } = useLibraryExplorer();
 
-const {
-  isFolderTagAssigned,
-  areAllFilesTagged,
-  toggleTagForFolder,
-  toggleTagForFiles,
-} = useLibraryTags(libraryId, libraryTags, files);
+const { isFolderTagAssigned, areAllFilesTagged, toggleTagForFolder, toggleTagForFiles } =
+  useLibraryTags(libraryId, libraryTags, files);
 
 const editingName = ref(false);
 const editName = ref("");
 const renamingEntry = ref<LibraryEntry | null>(null);
 const renameValue = ref("");
 const uploadOpen = ref(false);
-
 
 const {
   createFolderOpen,
@@ -87,8 +82,6 @@ const {
   refreshTrashedCount,
 );
 
-
-
 // File preview state
 const previewFile = ref<LibraryFile | null>(null);
 const previewOpen = ref(false);
@@ -100,11 +93,7 @@ const moveFilesSaving = ref(false);
 const moveFileIds = ref<string[]>([]);
 const moveFilesDestinationValue = ref<string>(ROOT_MOVE_VALUE);
 const moveFileFolders = ref<LibraryFolder[]>([]);
-const dragEnabled = computed(
-  () =>
-    canManageLibrary.value &&
-    !showTrashed.value,
-);
+const dragEnabled = computed(() => canManageLibrary.value && !showTrashed.value);
 
 const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
   if (showTrashed.value) return [];
@@ -450,19 +439,17 @@ watch(currentFolderId, () => {
   }
 });
 
-  watch(viewMode, () => {
-    if (userToggledView.value) {
-      userToggledView.value = false;
-      resetAndFetch();
-    }
-  });
+watch(viewMode, () => {
+  if (userToggledView.value) {
+    userToggledView.value = false;
+    resetAndFetch();
+  }
+});
 
 watch(entryViewMode, (next) => {
   if (!import.meta.client) return;
   localStorage.setItem(ENTRY_VIEW_STORAGE_KEY, next);
 });
-
-
 
 // Infinite scroll observer
 const sentinel = ref<HTMLElement | null>(null);
@@ -902,8 +889,6 @@ const emptyStateDescription = computed(() => {
         />
       </div>
       <div class="flex items-center gap-3">
-
-
         <UButton
           v-if="showTrashed && !filesPending && totalCount > 0"
           icon="i-lucide-trash-2"
@@ -932,10 +917,7 @@ const emptyStateDescription = computed(() => {
       </div>
     </div>
 
-    <UBreadcrumb
-      v-if="!showTrashed"
-      :items="breadcrumbItems"
-    />
+    <UBreadcrumb v-if="!showTrashed" :items="breadcrumbItems" />
 
     <div class="flex flex-wrap items-center justify-between gap-2 w-full">
       <div class="flex items-center gap-1 overflow-x-auto scrollbar-hide">
@@ -989,13 +971,7 @@ const emptyStateDescription = computed(() => {
       </div>
     </div>
 
-
-
-
-
-
-
-     <div v-if="!showTrashed" class="rounded-lg overflow-hidden bg-default/20">
+    <div v-if="!showTrashed" class="rounded-lg overflow-hidden bg-default/20">
       <table v-if="entryViewMode === 'file'" class="w-full">
         <thead>
           <tr class="bg-elevated/50">
@@ -1243,10 +1219,7 @@ const emptyStateDescription = computed(() => {
         </div>
         <p class="text-lg font-medium text-foreground mb-1">{{ emptyStateTitle }}</p>
         <p class="text-sm text-muted mb-4">{{ emptyStateDescription }}</p>
-        <div
-          v-if="canManageLibrary && !showTrashed"
-          class="flex items-center gap-2"
-        >
+        <div v-if="canManageLibrary && !showTrashed" class="flex items-center gap-2">
           <UButton
             icon="i-lucide-folder-plus"
             label="Create folder"

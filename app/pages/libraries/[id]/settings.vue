@@ -381,9 +381,7 @@ async function deleteLibrary() {
       <template #header>
         <div class="min-w-0">
           <p class="text-sm font-semibold text-error">Danger Zone</p>
-          <p class="text-xs text-muted">
-            Deleting a library is permanent and cannot be undone.
-          </p>
+          <p class="text-xs text-muted">Deleting a library is permanent and cannot be undone.</p>
         </div>
       </template>
 

@@ -82,7 +82,10 @@ async function findSimilarFaces(
         isNotNull(schema.faceDetections.embedding),
         isNotNull(schema.faceDetections.personId),
       )
-    : and(eq(schema.faceDetections.libraryId, libraryId), isNotNull(schema.faceDetections.embedding));
+    : and(
+        eq(schema.faceDetections.libraryId, libraryId),
+        isNotNull(schema.faceDetections.embedding),
+      );
 
   const nearest = await db
     .select({
@@ -116,7 +119,9 @@ async function assignUnassignedMatches(personId: string, faceIds: string[]): Pro
     await tx
       .update(schema.faceDetections)
       .set({ personId })
-      .where(and(inArray(schema.faceDetections.id, faceIds), isNull(schema.faceDetections.personId)));
+      .where(
+        and(inArray(schema.faceDetections.id, faceIds), isNull(schema.faceDetections.personId)),
+      );
     await recalculatePersonStats(tx, personId);
   });
 }
@@ -158,7 +163,9 @@ export async function assignFaceUsingCorePoint(
   }
 
   const newPersonId = await createPerson(libraryId, faceDetectionId);
-  const unassignedNearbyIds = nearby.filter((match) => match.personId === null).map((match) => match.id);
+  const unassignedNearbyIds = nearby
+    .filter((match) => match.personId === null)
+    .map((match) => match.id);
   await assignUnassignedMatches(newPersonId, unassignedNearbyIds);
   return { personId: newPersonId, created: true };
 }
@@ -311,24 +318,28 @@ export async function reconcileNewPerson(
     return sourcePersonId;
   }
 
-  const candidates: CandidateEvidence[] = Array.from(grouped.entries()).map(([personId, distances]) => {
-    const sorted = [...distances].sort((a, b) => a - b);
-    const bestDistance = sorted[0]!;
-    const supportCount = sorted.length;
-    const strongCount = sorted.filter((distance) => distance <= AUTO_MERGE_STRONG_DISTANCE).length;
-    const top = sorted.slice(0, Math.min(4, sorted.length));
-    const avgDistance = top.reduce((sum, value) => sum + value, 0) / top.length;
-    const score = bestDistance * 0.7 + avgDistance * 0.3;
+  const candidates: CandidateEvidence[] = Array.from(grouped.entries()).map(
+    ([personId, distances]) => {
+      const sorted = [...distances].sort((a, b) => a - b);
+      const bestDistance = sorted[0]!;
+      const supportCount = sorted.length;
+      const strongCount = sorted.filter(
+        (distance) => distance <= AUTO_MERGE_STRONG_DISTANCE,
+      ).length;
+      const top = sorted.slice(0, Math.min(4, sorted.length));
+      const avgDistance = top.reduce((sum, value) => sum + value, 0) / top.length;
+      const score = bestDistance * 0.7 + avgDistance * 0.3;
 
-    return {
-      personId,
-      supportCount,
-      strongCount,
-      bestDistance,
-      avgDistance,
-      score,
-    };
-  });
+      return {
+        personId,
+        supportCount,
+        strongCount,
+        bestDistance,
+        avgDistance,
+        score,
+      };
+    },
+  );
 
   const targetPersonId = pickAutoMergeTarget(candidates);
   if (!targetPersonId) {
