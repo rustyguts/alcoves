@@ -114,10 +114,7 @@ describe("useLibraryPeople", () => {
       },
     );
     expect(mocks.fetch).toHaveBeenNthCalledWith(2, "/api/libraries/lib-1/people");
-    expect(mocks.fetch).toHaveBeenNthCalledWith(
-      3,
-      "/api/libraries/lib-1/people/person-1/faces",
-    );
+    expect(mocks.fetch).toHaveBeenNthCalledWith(3, "/api/libraries/lib-1/people/person-1/faces");
     expect(peopleState.people.value[0]?.faceCount).toBe(1);
     expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Face moved to a new person" });
     expect(peopleState.splittingFaceId.value).toBeNull();

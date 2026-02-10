@@ -41,7 +41,10 @@ export async function deleteFaceDataForFiles(libraryId: string, fileIds: string[
         .select({ total: sql<number>`count(*)::int` })
         .from(schema.faceDetections)
         .where(
-          and(eq(schema.faceDetections.libraryId, libraryId), eq(schema.faceDetections.personId, personId)),
+          and(
+            eq(schema.faceDetections.libraryId, libraryId),
+            eq(schema.faceDetections.personId, personId),
+          ),
         );
 
       const nextCount = count?.total ?? 0;
@@ -82,7 +85,10 @@ export async function deleteFaceDataForFiles(libraryId: string, fileIds: string[
           .select({ id: schema.faceDetections.id })
           .from(schema.faceDetections)
           .where(
-            and(eq(schema.faceDetections.libraryId, libraryId), eq(schema.faceDetections.personId, personId)),
+            and(
+              eq(schema.faceDetections.libraryId, libraryId),
+              eq(schema.faceDetections.personId, personId),
+            ),
           )
           .orderBy(desc(schema.faceDetections.createdAt))
           .limit(1);

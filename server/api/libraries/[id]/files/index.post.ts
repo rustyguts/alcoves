@@ -104,8 +104,7 @@ async function parseRawUpload(
     return {
       fileId,
       name: decodeHeaderValue(getHeader(event, "x-file-name")) || "unnamed",
-      mimeType:
-        getHeader(event, "x-file-mime-type") || contentType || "application/octet-stream",
+      mimeType: getHeader(event, "x-file-mime-type") || contentType || "application/octet-stream",
       size,
       originalCreatedAt: getHeader(event, "x-file-original-created-at") || null,
       parentFolderId: decodeHeaderValue(getHeader(event, "x-file-parent-folder-id")),
