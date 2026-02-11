@@ -76,9 +76,7 @@ class LocalStorageDriver implements StorageDriver {
     const file = Bun.file(this.resolvePath(scope, key));
     if (!range) return file.stream();
 
-    return file
-      .slice(range.start, range.end !== undefined ? range.end + 1 : undefined)
-      .stream();
+    return file.slice(range.start, range.end !== undefined ? range.end + 1 : undefined).stream();
   }
 
   async readBuffer(scope: StorageScope, key: string): Promise<Buffer> {
