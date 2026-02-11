@@ -19,9 +19,9 @@ export default defineNuxtConfig({
       process.exit(0);
     },
   },
-  // nitro: {
-  //   preset: "bun",
-  // },
+  nitro: {
+    preset: "bun",
+  },
   vue: {
     compilerOptions: {
       isCustomElement: (tag: string) => tag.startsWith("media-"),

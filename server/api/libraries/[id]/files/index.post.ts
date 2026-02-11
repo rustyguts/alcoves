@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { getRequestWebStream } from "h3";
 import { db, schema } from "~~/server/database";
 import { assertFolderInLibrary, normalizeFolderId } from "~~/server/domain/library/folders";
 import { isLibraryFaceRecognitionEnabled } from "~~/server/domain/library/faces";
@@ -21,8 +20,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const fileId = randomUUID();
-  const requestStream = getRequestWebStream(event);
-  if (!requestStream) {
+  const rawBody = await readRawBody(event, false);
+  if (!rawBody) {
     throw createError({ statusCode: 400, statusMessage: "No upload data provided" });
   }
 
@@ -36,9 +35,9 @@ export default defineEventHandler(async (event) => {
     }
   };
 
-  let size: number;
+  const size = rawBody.length;
   try {
-    size = await storage.storeFileStream(id, fileId, requestStream);
+    await storage.storeFile(id, fileId, rawBody);
   } catch (error: unknown) {
     await storage.deleteFile(id, fileId).catch(() => {});
     if (isAbortError(error)) {
