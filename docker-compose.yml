@@ -3,7 +3,11 @@ services:
   #   build:
   #     context: .
   #     target: development
+  #   env_file:
+  #     - .env
   #   environment:
+  #     - ALCOVES_QUEUE_HOST=dragonfly
+  #     - ALCOVES_QUEUE_PORT=6379
   #     - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
   #   volumes:
   #     - .:/app
