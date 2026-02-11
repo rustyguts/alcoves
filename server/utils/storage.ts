@@ -1,6 +1,5 @@
-import { constants } from "node:fs";
-import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { mkdir, rm } from "node:fs/promises";
+import { join, resolve } from "node:path";
 
 export type StorageScope = "files" | "avatars" | "cache";
 
@@ -58,9 +57,7 @@ class LocalStorageDriver implements StorageDriver {
   }
 
   async putBuffer(scope: StorageScope, key: string, data: Buffer): Promise<void> {
-    const filePath = this.resolvePath(scope, key);
-    await mkdir(dirname(filePath), { recursive: true });
-    await writeFile(filePath, data);
+    await Bun.write(this.resolvePath(scope, key), data);
   }
 
   async putStream(
@@ -68,28 +65,7 @@ class LocalStorageDriver implements StorageDriver {
     key: string,
     stream: ReadableStream<Uint8Array>,
   ): Promise<number> {
-    const filePath = this.resolvePath(scope, key);
-    await mkdir(dirname(filePath), { recursive: true });
-    const writer = Bun.file(filePath).writer();
-
-    let size = 0;
-    const reader = stream.getReader();
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (!value) continue;
-        size += value.byteLength;
-        await writer.write(value);
-      }
-      await writer.end();
-    } catch (error) {
-      await writer.end();
-      throw error;
-    }
-
-    return size;
+    return Bun.write(this.resolvePath(scope, key), new Response(stream));
   }
 
   async openReadStream(
@@ -97,30 +73,24 @@ class LocalStorageDriver implements StorageDriver {
     key: string,
     range?: StorageByteRange,
   ): Promise<ReadableStream<Uint8Array>> {
-    const filePath = this.resolvePath(scope, key);
-    if (!range) return Bun.file(filePath).stream();
+    const file = Bun.file(this.resolvePath(scope, key));
+    if (!range) return file.stream();
 
-    return Bun.file(filePath)
+    return file
       .slice(range.start, range.end !== undefined ? range.end + 1 : undefined)
       .stream();
   }
 
   async readBuffer(scope: StorageScope, key: string): Promise<Buffer> {
-    return await readFile(this.resolvePath(scope, key));
+    return Buffer.from(await Bun.file(this.resolvePath(scope, key)).bytes());
   }
 
   async exists(scope: StorageScope, key: string): Promise<boolean> {
-    try {
-      await access(this.resolvePath(scope, key), constants.F_OK);
-      return true;
-    } catch {
-      return false;
-    }
+    return Bun.file(this.resolvePath(scope, key)).exists();
   }
 
   async stat(scope: StorageScope, key: string): Promise<StorageStat> {
-    const metadata = await stat(this.resolvePath(scope, key));
-    return { size: metadata.size };
+    return { size: Bun.file(this.resolvePath(scope, key)).size };
   }
 
   async deletePrefix(scope: StorageScope, keyPrefix: string): Promise<void> {
@@ -143,7 +113,7 @@ type S3StorageConfig = {
 };
 
 class S3StorageDriver implements StorageDriver {
-  private client: any | null = null;
+  private client: Bun.S3Client | null = null;
 
   constructor(private readonly config: S3StorageConfig) {}
 
@@ -153,8 +123,7 @@ class S3StorageDriver implements StorageDriver {
   }
 
   async putBuffer(scope: StorageScope, key: string, data: Buffer): Promise<void> {
-    const client = this.getClient();
-    await client.write(this.getObjectKey(scope, key), data);
+    await this.getClient().write(this.getObjectKey(scope, key), data);
   }
 
   async putStream(
@@ -162,19 +131,7 @@ class S3StorageDriver implements StorageDriver {
     key: string,
     stream: ReadableStream<Uint8Array>,
   ): Promise<number> {
-    const client = this.getClient();
-    const [uploadStream, counterStream] = stream.tee();
-    const uploadPromise = client.write(this.getObjectKey(scope, key), uploadStream);
-    let size = 0;
-    const reader = counterStream.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      size += value.byteLength;
-    }
-    await uploadPromise;
-    return size;
+    return this.getClient().write(this.getObjectKey(scope, key), new Response(stream));
   }
 
   async openReadStream(
@@ -182,8 +139,7 @@ class S3StorageDriver implements StorageDriver {
     key: string,
     range?: StorageByteRange,
   ): Promise<ReadableStream<Uint8Array>> {
-    const client = this.getClient();
-    const file = client.file(this.getObjectKey(scope, key));
+    const file = this.getClient().file(this.getObjectKey(scope, key));
 
     const target =
       range && range.end !== undefined
@@ -196,15 +152,13 @@ class S3StorageDriver implements StorageDriver {
   }
 
   async readBuffer(scope: StorageScope, key: string): Promise<Buffer> {
-    const client = this.getClient();
-    const bytes = await client.file(this.getObjectKey(scope, key)).bytes();
+    const bytes = await this.getClient().file(this.getObjectKey(scope, key)).bytes();
     return Buffer.from(bytes);
   }
 
   async exists(scope: StorageScope, key: string): Promise<boolean> {
-    const client = this.getClient();
     try {
-      return await client.exists(this.getObjectKey(scope, key));
+      return await this.getClient().exists(this.getObjectKey(scope, key));
     } catch (error: any) {
       if (
         error?.$metadata?.httpStatusCode === 404 ||
@@ -220,8 +174,7 @@ class S3StorageDriver implements StorageDriver {
   }
 
   async stat(scope: StorageScope, key: string): Promise<StorageStat> {
-    const client = this.getClient();
-    const size = await client.size(this.getObjectKey(scope, key));
+    const size = await this.getClient().size(this.getObjectKey(scope, key));
     return { size: Number(size) || 0 };
   }
 
@@ -233,27 +186,22 @@ class S3StorageDriver implements StorageDriver {
     const objectKeys = this.extractObjectKeys(listed);
     if (objectKeys.length === 0) return;
 
-    for (const objectKey of objectKeys) {
-      try {
-        await client.delete(objectKey);
-      } catch (error: any) {
-        // Bun also exposes unlink with equivalent behavior.
-        if (typeof client.unlink === "function") {
-          await client.unlink(objectKey);
-          continue;
-        }
-        if (
-          error?.$metadata?.httpStatusCode === 404 ||
-          error?.statusCode === 404 ||
-          error?.name === "NotFound" ||
-          error?.name === "NoSuchKey" ||
-          error?.code === "NoSuchKey"
-        ) {
-          continue;
-        }
-        throw error;
-      }
-    }
+    await Promise.all(
+      objectKeys.map((objectKey) =>
+        client.delete(objectKey).catch((error: any) => {
+          if (
+            error?.$metadata?.httpStatusCode === 404 ||
+            error?.statusCode === 404 ||
+            error?.name === "NotFound" ||
+            error?.name === "NoSuchKey" ||
+            error?.code === "NoSuchKey"
+          ) {
+            return;
+          }
+          throw error;
+        }),
+      ),
+    );
   }
 
   private validateConfig(): void {
@@ -271,37 +219,20 @@ class S3StorageDriver implements StorageDriver {
     }
   }
 
-  private getClient(): any {
+  private getClient(): Bun.S3Client {
     if (this.client) return this.client;
 
     this.validateConfig();
-    const BunRuntime = (globalThis as any).Bun;
-    if (!BunRuntime?.S3Client) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: "S3 storage driver requires Bun runtime with Bun.S3Client support",
-      });
-    }
 
-    const clientOptions: Record<string, unknown> = {
+    this.client = new Bun.S3Client({
       bucket: this.config.bucket,
       region: this.config.region,
-    };
+      ...(this.config.endpoint && { endpoint: this.config.endpoint }),
+      ...(this.config.accessKeyId && { accessKeyId: this.config.accessKeyId }),
+      ...(this.config.secretAccessKey && { secretAccessKey: this.config.secretAccessKey }),
+      ...(this.config.forcePathStyle && { virtualHostedStyle: false }),
+    });
 
-    if (this.config.endpoint) {
-      clientOptions.endpoint = this.config.endpoint;
-    }
-    if (this.config.accessKeyId) {
-      clientOptions.accessKeyId = this.config.accessKeyId;
-    }
-    if (this.config.secretAccessKey) {
-      clientOptions.secretAccessKey = this.config.secretAccessKey;
-    }
-    if (this.config.forcePathStyle) {
-      clientOptions.virtualHostedStyle = false;
-    }
-
-    this.client = new BunRuntime.S3Client(clientOptions);
     return this.client;
   }
 

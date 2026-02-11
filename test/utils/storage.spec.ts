@@ -1,7 +1,7 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createStorageService } from "~~/server/utils/storage";
 
 const {
@@ -42,6 +42,7 @@ function addS3Call(method: string, payload: Record<string, unknown> = {}): void 
 async function toBuffer(data: unknown): Promise<Buffer> {
   if (Buffer.isBuffer(data)) return data;
   if (data instanceof Uint8Array) return Buffer.from(data);
+  if (data instanceof Response) return Buffer.from(await data.arrayBuffer());
   if (typeof Blob !== "undefined" && data instanceof Blob) {
     return Buffer.from(await data.arrayBuffer());
   }
@@ -74,34 +75,33 @@ function installMockBunS3Client(): void {
     slice: (start: number, end?: number) => ({
       stream: () => streamFromBuffer(readFileSync(path).subarray(start, end)),
     }),
-    writer: () => {
-      const chunks: Buffer[] = [];
-      return {
-        async write(chunk: Uint8Array | Buffer) {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        },
-        async end() {
-          await writeFile(path, Buffer.concat(chunks));
-        },
-      };
-    },
+    bytes: async () => new Uint8Array(readFileSync(path)),
     exists: async () => existsSync(path),
     get size() {
       return existsSync(path) ? statSync(path).size : 0;
     },
   });
 
+  const write = async (path: string, data: unknown): Promise<number> => {
+    await mkdir(dirname(path), { recursive: true });
+    const buffer = await toBuffer(data);
+    await writeFile(path, buffer);
+    return buffer.byteLength;
+  };
+
   class MockS3Client {
     constructor(config: unknown) {
       s3ClientCtorMock(config);
     }
 
-    async write(key: string, body: unknown): Promise<void> {
+    async write(key: string, body: unknown): Promise<number> {
       addS3Call("write", { key });
       if (s3WriteMock.getMockImplementation()) {
         return await s3WriteMock(key, body);
       }
-      s3Store.set(key, await toBuffer(body));
+      const buffer = await toBuffer(body);
+      s3Store.set(key, buffer);
+      return buffer.byteLength;
     }
 
     async exists(key: string): Promise<boolean> {
@@ -179,6 +179,7 @@ function installMockBunS3Client(): void {
   vi.stubGlobal("Bun", {
     ...existingBun,
     file,
+    write,
     S3Client: MockS3Client,
   });
 }
