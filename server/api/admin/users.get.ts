@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
     ? await db
         .select({
           userId: schema.sessions.userId,
-          lastLoggedInAt: sql<Date | null>`max(${schema.sessions.createdAt})`,
+          lastLoggedInAt: sql<string | null>`max(${schema.sessions.createdAt})`,
         })
         .from(schema.sessions)
         .where(inArray(schema.sessions.userId, userIds))
@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
   const lastLoginByUserId = new Map(
     lastLoginRows.map((row) => [
       row.userId,
-      row.lastLoggedInAt ? row.lastLoggedInAt.toISOString() : null,
+      row.lastLoggedInAt ?? null,
     ]),
   );
 

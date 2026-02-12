@@ -15,7 +15,7 @@ class MockXMLHttpRequest {
   method = "";
   url = "";
   headers: Record<string, string> = {};
-  body: FormData | null = null;
+  body: File | null = null;
 
   constructor() {
     MockXMLHttpRequest.instances.push(this);
@@ -35,7 +35,7 @@ class MockXMLHttpRequest {
   }
 
   send(body: Document | XMLHttpRequestBodyInit | null) {
-    this.body = body as FormData;
+    this.body = body as File;
   }
 
   triggerProgress(loaded: number, total: number) {
@@ -89,7 +89,7 @@ describe("useUploadQueue", () => {
     vi.useRealTimers();
   });
 
-  it("uploads a file successfully with FormData, reports progress, invokes completion callback, and cleans up", async () => {
+  it("uploads a file successfully with headers, reports progress, invokes completion callback, and cleans up", async () => {
     const queue = useUploadQueue();
     const onComplete = vi.fn();
     queue.onLibraryUploadComplete("lib-1", onComplete);
@@ -108,13 +108,15 @@ describe("useUploadQueue", () => {
     expect(xhr.method).toBe("POST");
     expect(xhr.url).toBe("/api/libraries/lib-1/files");
 
-    // Verify FormData contents
-    expect(xhr.body).toBeInstanceOf(FormData);
-    expect(xhr.body?.get("name")).toBe("hello.txt");
-    expect(xhr.body?.get("mimeType")).toBe("text/plain");
-    expect(xhr.body?.get("parentFolderId")).toBe("folder-1");
-    expect(xhr.body?.get("lastModified")).toBe("100");
-    expect(xhr.body?.get("file")).toBeInstanceOf(File);
+    // Verify headers carry the metadata
+    expect(xhr.headers["Content-Type"]).toBe("application/octet-stream");
+    expect(decodeURIComponent(xhr.headers["X-Upload-Name"]!)).toBe("hello.txt");
+    expect(xhr.headers["X-Upload-Mime-Type"]).toBe("text/plain");
+    expect(xhr.headers["X-Upload-Folder-Id"]).toBe("folder-1");
+    expect(xhr.headers["X-Upload-Last-Modified"]).toBe("100");
+
+    // Body is the raw File, not FormData
+    expect(xhr.body).toBeInstanceOf(File);
 
     xhr.triggerProgress(700, 1000);
     expect(queue.currentUpload.value?.progress).toBe(70);
@@ -222,7 +224,7 @@ describe("useUploadQueue", () => {
     expect(queue.hasActiveUploads.value).toBe(false);
   });
 
-  it("does not include parentFolderId in FormData when null", async () => {
+  it("does not include X-Upload-Folder-Id header when parentFolderId is null", async () => {
     const queue = useUploadQueue();
     const file = new File(["x"], "test.txt");
 
@@ -230,9 +232,9 @@ describe("useUploadQueue", () => {
     await flushPromises();
 
     const xhr = MockXMLHttpRequest.instances[0]!;
-    expect(xhr.body?.get("parentFolderId")).toBeNull();
-    expect(xhr.body?.get("name")).toBe("test.txt");
-    expect(xhr.body?.get("file")).toBeInstanceOf(File);
+    expect(xhr.headers["X-Upload-Folder-Id"]).toBeUndefined();
+    expect(decodeURIComponent(xhr.headers["X-Upload-Name"]!)).toBe("test.txt");
+    expect(xhr.body).toBeInstanceOf(File);
   });
 
   it("stall detection aborts uploads with no progress", async () => {

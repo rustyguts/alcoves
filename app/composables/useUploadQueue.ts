@@ -213,17 +213,15 @@ export function useUploadQueue() {
 
     const mimeType = getMimeTypeFromFilename(item.file.name);
 
-    const formData = new FormData();
-    formData.append("file", item.file);
-    formData.append("name", item.file.name);
-    formData.append("mimeType", mimeType);
-    formData.append("lastModified", String(item.file.lastModified));
-    if (item.parentFolderId) {
-      formData.append("parentFolderId", item.parentFolderId);
-    }
-
     xhr.open("POST", `/api/libraries/${item.libraryId}/files`);
-    xhr.send(formData);
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.setRequestHeader("X-Upload-Name", encodeURIComponent(item.file.name));
+    xhr.setRequestHeader("X-Upload-Mime-Type", mimeType);
+    xhr.setRequestHeader("X-Upload-Last-Modified", String(item.file.lastModified));
+    if (item.parentFolderId) {
+      xhr.setRequestHeader("X-Upload-Folder-Id", item.parentFolderId);
+    }
+    xhr.send(item.file);
   }
 
   function retryFile(itemId: string) {
