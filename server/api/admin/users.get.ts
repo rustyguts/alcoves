@@ -55,10 +55,7 @@ export default defineEventHandler(async (event) => {
   );
 
   const lastLoginByUserId = new Map(
-    lastLoginRows.map((row) => [
-      row.userId,
-      row.lastLoggedInAt ?? null,
-    ]),
+    lastLoginRows.map((row) => [row.userId, row.lastLoggedInAt ?? null]),
   );
 
   return users.map((user) => {
