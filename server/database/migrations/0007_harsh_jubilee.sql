@@ -1,0 +1,1 @@
+ALTER TABLE "library_invites" ADD COLUMN "use_count" integer DEFAULT 0 NOT NULL;

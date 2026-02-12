@@ -1,104 +1,50 @@
 services:
-  app:
-    build:
-      context: app
-      dockerfile: Dockerfile.dev
-    command: bash -c "bun db:migrate && bun dev"
-    container_name: app
-    network_mode: host
-    env_file:
-      - .env
-    volumes:
-      - ./app:/opt/alcoves
-      - app_node_modules:/opt/alcoves/node_modules
-    depends_on:
-      minio:
-        condition: service_started
-      task_db:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-  task_db:
-    image: eqalpha/keydb:latest
-    restart: always
-    attach: false
-    ulimits:
-      memlock: -1
-    ports:
-      - 6100:6379
-    volumes:
-      - task_db:/eqalpha/keydb
-  postgres:
-    image: postgres:17
-    restart: always
-    attach: false
-    ports:
-      - 6200:5432
-    volumes:
-      - postgres:/var/lib/postgresql/data/
-    healthcheck:
-      test: [ 'CMD-SHELL', 'pg_isready', '-U', 'postgres', '-d', 'alcoves' ]
-      retries: 30
-      timeout: 5s
-      interval: 1s
-    user: postgres
-    environment:
-      POSTGRES_DB: alcoves
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-  minio:
-    image: minio/minio:latest
-    attach: false
-    volumes:
-      - minio:/data
-    environment:
-      MINIO_ROOT_USER: ${ALCOVES_OBJECT_STORE_ACCESS_KEY_ID}
-      MINIO_ROOT_PASSWORD: ${ALCOVES_OBJECT_STORE_SECRET_ACCESS_KEY}
-    ports:
-      - '9000:9000'
-      - '9001:9001'
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://minio:9000/minio/health/live" ]
-      interval: 1s
-      timeout: 30s
-      retries: 10
-      start_period: 0s
-    command: server /data --console-address ":9001"
-
-  # Not working with current version of bun
-  # drizzle-studio:
+  # app:
   #   build:
-  #     context: app
-  #     dockerfile: Dockerfile.dev
-  #   command: bun run drizzle-kit studio --host=0.0.0.0
+  #     context: .
+  #     target: development
   #   env_file:
   #     - .env
+  #   environment:
+  #     - ALCOVES_QUEUE_HOST=dragonfly
+  #     - ALCOVES_QUEUE_PORT=6379
+  #     - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
   #   volumes:
-  #     - ./app:/opt/alcoves
-  #     - app_node_modules:/opt/alcoves/node_modules
-  #   restart: always
+  #     - .:/app
+  #     - node_modules:/app/node_modules
+  #     - nuxt_cache:/app/.nuxt
+  #     - ./data:/app/data
+  #   ports:
+  #     - 3000:3000
   #   depends_on:
-  #     minio:
-  #       condition: service_started
-  #     task_db:
-  #       condition: service_started
   #     postgres:
   #       condition: service_healthy
-  #   ports:
-  #     - 4983:4983
+  postgres:
+    image: pgvector/pgvector:pg18
+    environment:
+      - POSTGRES_DB=alcoves
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5455:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
 
-  minio_mb:
-    image: minio/mc:latest
-    attach: false
-    depends_on:
-      minio:
-        condition: service_healthy
-    env_file:
-      - .env
-    entrypoint: sh -c "mc config host add minio http://minio:9000 ${ALCOVES_OBJECT_STORE_ACCESS_KEY_ID} ${ALCOVES_OBJECT_STORE_SECRET_ACCESS_KEY} && mc mb minio/${ALCOVES_OBJECT_STORE_DEFAULT_BUCKET}"
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    command: dragonfly --default_lua_flags=allow-undeclared-keys
+    ports:
+      - "6389:6379"
+    volumes:
+      - dragonfly_data:/var/lib/dragonfly
 
 volumes:
-  minio:
-  task_db:
-  postgres:
-  app_node_modules:
+  postgres_data:
+  dragonfly_data:
+  node_modules:
+  nuxt_cache:

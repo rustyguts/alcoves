@@ -1,1 +1,0 @@
-ALTER TABLE "assets" ADD COLUMN "storage_prefix" text NOT NULL;
