@@ -21,9 +21,11 @@ export function useLibraryExplorer() {
     () => `/api/libraries/${libraryId.value}/users`,
   );
 
-  const viewMode = ref<"files" | "trash">("files");
+  const viewMode = ref<"files" | "trash" | "tags" | "users">("files");
   const entryViewMode = ref<"file" | "card">("file");
   const showTrashed = computed(() => viewMode.value === "trash");
+  const showTags = computed(() => viewMode.value === "tags");
+  const showUsers = computed(() => viewMode.value === "users");
   const canManageUsers = computed(
     () => Boolean(libraryUsers.value?.canManageUsers) && !library.value?.isDefault,
   );
@@ -201,6 +203,8 @@ export function useLibraryExplorer() {
     viewMode,
     entryViewMode,
     showTrashed,
+    showTags,
+    showUsers,
     canManageUsers,
     canManageLibrary,
     currentFolderId,

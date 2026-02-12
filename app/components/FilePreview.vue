@@ -22,9 +22,16 @@ const fileUrl = computed(
   () => `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`,
 );
 
+const videoSrc = computed(() => {
+  if (props.file.mimeType.startsWith("video/") && props.file.proxyStatus === "ready") {
+    return `/api/libraries/${props.libraryId}/files/${props.file.id}/proxy`;
+  }
+  return fileUrl.value;
+});
+
 const mediaSrc = computed(() => ({
-  src: fileUrl.value,
-  type: props.file.mimeType,
+  src: videoSrc.value,
+  type: props.file.proxyStatus === "ready" ? "video/mp4" : props.file.mimeType,
 }));
 
 const previewType = computed(() => {

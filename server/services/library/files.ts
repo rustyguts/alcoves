@@ -23,6 +23,11 @@ interface ListingRow {
   sortName: string;
   mimeType: string | null;
   size: number | null;
+  duration: number | null;
+  width: number | null;
+  height: number | null;
+  proxyStatus: string | null;
+  sourceFileId: string | null;
   originalCreatedAt: Date | null;
   trashedAt: Date | null;
   trashFileCount: number | null;
@@ -228,6 +233,11 @@ export async function listLibraryFiles(
         sortName: sql<string>`lower(${schema.folders.name})`,
         mimeType: sql<string | null>`NULL`,
         size: sql<number | null>`NULL`,
+        duration: sql<number | null>`NULL`,
+        width: sql<number | null>`NULL`,
+        height: sql<number | null>`NULL`,
+        proxyStatus: sql<string | null>`NULL`,
+        sourceFileId: sql<string | null>`NULL`,
         originalCreatedAt: sql<Date | null>`NULL`,
         trashedAt: schema.folders.trashedAt,
         trashFileCount: sql<number | null>`NULL`,
@@ -250,6 +260,11 @@ export async function listLibraryFiles(
         sortName: sql<string>`lower(${schema.files.name})`,
         mimeType: schema.files.mimeType,
         size: schema.files.size,
+        duration: schema.files.duration,
+        width: schema.files.width,
+        height: schema.files.height,
+        proxyStatus: schema.files.proxyStatus,
+        sourceFileId: schema.files.sourceFileId,
         originalCreatedAt: schema.files.originalCreatedAt,
         trashedAt: schema.files.trashedAt,
         trashFileCount: sql<number | null>`NULL`,
@@ -402,6 +417,11 @@ export async function listLibraryFiles(
         kind: "file",
         mimeType: entry.mimeType ?? "application/octet-stream",
         size: entry.size ?? 0,
+        duration: entry.duration ?? null,
+        width: entry.width ?? null,
+        height: entry.height ?? null,
+        proxyStatus: entry.proxyStatus ?? null,
+        sourceFileId: entry.sourceFileId ?? null,
         originalCreatedAt: entry.originalCreatedAt ? entry.originalCreatedAt.toISOString() : null,
         trashedAt: entry.trashedAt ? entry.trashedAt.toISOString() : null,
         createdAt: entry.createdAt.toISOString(),

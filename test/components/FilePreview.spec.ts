@@ -20,7 +20,7 @@ const stubs = {
     props: ["libraryId", "fileId", "alt", "width", "class"],
   },
   "media-player": {
-    template: "<div class='media-player'><slot /></div>",
+    template: "<div class='media-player' :data-src='JSON.stringify(src)'><slot /></div>",
     props: ["src", "title", "crossorigin", "playsinline", "autoplay"],
   },
   "media-provider": { template: "<div />" },
@@ -199,5 +199,87 @@ describe("FilePreview", () => {
       global: { stubs },
     });
     expect(wrapper.find("i").exists()).toBe(true);
+  });
+
+  it("uses proxy URL for video with proxyStatus=ready", async () => {
+    const file = makeFile({
+      id: "vid-1",
+      name: "movie.mkv",
+      mimeType: "video/x-matroska",
+      proxyStatus: "ready",
+    });
+    const wrapper = await mountSuspended(FilePreview, {
+      props: { file, libraryId: "lib-1", files: [file], open: true },
+      global: { stubs },
+    });
+
+    // playerReady won't be true yet (async import), but we can check the computed source
+    const vm = wrapper.vm as unknown as {
+      videoSrc: string;
+      mediaSrc: { src: string; type: string };
+    };
+    expect(vm.videoSrc).toBe("/api/libraries/lib-1/files/vid-1/proxy");
+    expect(vm.mediaSrc.type).toBe("video/mp4");
+  });
+
+  it("uses direct file URL for video with proxyStatus=not_needed", async () => {
+    const file = makeFile({
+      id: "vid-2",
+      name: "clip.mp4",
+      mimeType: "video/mp4",
+      proxyStatus: "not_needed",
+    });
+    const wrapper = await mountSuspended(FilePreview, {
+      props: { file, libraryId: "lib-1", files: [file], open: true },
+      global: { stubs },
+    });
+
+    const vm = wrapper.vm as unknown as {
+      videoSrc: string;
+      mediaSrc: { src: string; type: string };
+    };
+    expect(vm.videoSrc).toBe("/api/libraries/lib-1/files/vid-2?inline=true");
+    expect(vm.mediaSrc.type).toBe("video/mp4");
+  });
+
+  it("uses direct file URL for video with null proxyStatus (not yet processed)", async () => {
+    const file = makeFile({
+      id: "vid-3",
+      name: "raw.avi",
+      mimeType: "video/x-msvideo",
+      proxyStatus: null,
+    });
+    const wrapper = await mountSuspended(FilePreview, {
+      props: { file, libraryId: "lib-1", files: [file], open: true },
+      global: { stubs },
+    });
+
+    const vm = wrapper.vm as unknown as {
+      videoSrc: string;
+      mediaSrc: { src: string; type: string };
+    };
+    // Falls back to direct URL when proxy not ready
+    expect(vm.videoSrc).toBe("/api/libraries/lib-1/files/vid-3?inline=true");
+    expect(vm.mediaSrc.type).toBe("video/x-msvideo");
+  });
+
+  it("uses direct file URL for video still processing", async () => {
+    const file = makeFile({
+      id: "vid-4",
+      name: "large.mov",
+      mimeType: "video/quicktime",
+      proxyStatus: "processing",
+    });
+    const wrapper = await mountSuspended(FilePreview, {
+      props: { file, libraryId: "lib-1", files: [file], open: true },
+      global: { stubs },
+    });
+
+    const vm = wrapper.vm as unknown as {
+      videoSrc: string;
+      mediaSrc: { src: string; type: string };
+    };
+    expect(vm.videoSrc).toBe("/api/libraries/lib-1/files/vid-4?inline=true");
+    expect(vm.mediaSrc.type).toBe("video/quicktime");
   });
 });

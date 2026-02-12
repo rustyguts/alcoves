@@ -57,6 +57,8 @@ const editName = ref("");
 const renamingEntry = ref<LibraryEntry | null>(null);
 const renameValue = ref("");
 const uploadOpen = ref(false);
+const clipModalOpen = ref(false);
+const clipSourceFile = ref<LibraryFile | null>(null);
 
 const {
   createFolderOpen,
@@ -826,6 +828,18 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
             },
           ]
         : []),
+      ...(count === 1 && entry.kind === "file" && entry.mimeType.startsWith("video/")
+        ? [
+            {
+              label: "Clip",
+              icon: "i-lucide-scissors",
+              onSelect() {
+                clipSourceFile.value = entry as LibraryFile;
+                clipModalOpen.value = true;
+              },
+            },
+          ]
+        : []),
       {
         label: count > 1 ? `Tags (${count} files)` : "Tags",
         icon: "i-lucide-tags",
@@ -971,7 +985,7 @@ const emptyStateDescription = computed(() => {
       </div>
     </div>
 
-    <div v-if="!showTrashed" class="rounded-lg overflow-hidden bg-default/20">
+    <div class="rounded-lg overflow-hidden bg-default/20">
       <table v-if="entryViewMode === 'file'" class="w-full">
         <thead>
           <tr class="bg-elevated/50">
@@ -1129,6 +1143,16 @@ const emptyStateDescription = computed(() => {
                 <template v-if="entry.kind === 'folder'">
                   <UIcon name="i-lucide-folder" class="size-10 text-muted" />
                 </template>
+                <template v-else-if="entry.kind === 'file' && entry.mimeType.startsWith('video/')">
+                  <img
+                    :src="`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`"
+                    :alt="entry.name"
+                    class="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    @error="($event.target as HTMLImageElement).style.display = 'none'"
+                  />
+                </template>
                 <template v-else-if="isImageFile(entry)">
                   <AlcovesImage
                     :library-id="libraryId || ''"
@@ -1251,6 +1275,14 @@ const emptyStateDescription = computed(() => {
       :library-id="libraryId || ''"
       :files="files"
       @navigate="previewFile = $event"
+    />
+
+    <ClipModal
+      v-if="clipSourceFile"
+      v-model:open="clipModalOpen"
+      :file="clipSourceFile"
+      :library-id="libraryId || ''"
+      @created="resetAndFetch()"
     />
 
     <UModal v-model:open="createFolderOpen" title="Create Folder">

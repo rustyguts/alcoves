@@ -36,6 +36,29 @@ export default defineNitroPlugin(async (nitro) => {
   workers.push(faceDetectionWorker);
   console.log("[queue] Face detection worker started");
 
+  const videoProcessingWorker = new Worker(
+    "{video-processing}",
+    async (job: Job) => {
+      const { processVideoJob } = await import("~~/server/services/video/worker");
+      await processVideoJob(job);
+    },
+    {
+      connection,
+      concurrency: 1,
+    },
+  );
+
+  videoProcessingWorker.on("completed", (job) => {
+    console.log(`[queue] Video job ${job.id} (${job.name}) completed`);
+  });
+
+  videoProcessingWorker.on("failed", (job, err) => {
+    console.error(`[queue] Video job ${job?.id} (${job?.name}) failed:`, err.message);
+  });
+
+  workers.push(videoProcessingWorker);
+  console.log("[queue] Video processing worker started");
+
   nitro.hooks.hook("close", async () => {
     for (const worker of workers) {
       await worker.close();

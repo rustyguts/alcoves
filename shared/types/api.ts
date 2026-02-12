@@ -32,6 +32,11 @@ export interface LibraryFile {
   mimeType: string;
   size: number;
   kind: "file";
+  duration: number | null;
+  width: number | null;
+  height: number | null;
+  proxyStatus: string | null;
+  sourceFileId: string | null;
   originalCreatedAt: string | null;
   trashedAt: string | null;
   createdAt: string;

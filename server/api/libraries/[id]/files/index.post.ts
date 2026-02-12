@@ -74,6 +74,21 @@ export default defineEventHandler(async (event) => {
         .catch(() => {});
     }
 
+    // Enqueue video processing (thumbnail + proxy) for videos
+    if (file && file.mimeType.startsWith("video/")) {
+      db.update(schema.files)
+        .set({ proxyStatus: "pending" })
+        .where(eq(schema.files.id, file.id))
+        .catch(() => {});
+
+      if (isQueueConfigured()) {
+        enqueueJob("{video-processing}", "process-video", {
+          fileId: file.id,
+          libraryId: id,
+        }).catch(() => {});
+      }
+    }
+
     return file;
   } catch {
     await storage.deleteFile(id, fields._fileId);

@@ -332,6 +332,10 @@ export class StorageService {
     return await this.driver.openReadStream("cache", cacheKey);
   }
 
+  async readCacheBuffer(cacheKey: string): Promise<Buffer> {
+    return await this.driver.readBuffer("cache", cacheKey);
+  }
+
   async storeCacheBuffer(cacheKey: string, buffer: Buffer): Promise<void> {
     await this.driver.putBuffer("cache", cacheKey, buffer);
   }

@@ -83,6 +83,16 @@ export const files = pgTable(
     mimeType: text("mime_type").notNull().default("application/octet-stream"),
     size: bigint("size", { mode: "number" }).notNull().default(0),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    // Video metadata (populated by the video-processing worker)
+    duration: integer("duration"), // seconds
+    width: integer("width"),
+    height: integer("height"),
+    proxyStatus: text("proxy_status", {
+      enum: ["pending", "processing", "ready", "not_needed", "failed"],
+    }),
+    sourceFileId: uuid("source_file_id").references((): AnyPgColumn => files.id, {
+      onDelete: "set null",
+    }),
     originalCreatedAt: timestamp("original_created_at", { withTimezone: true }),
     trashedAt: timestamp("trashed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
