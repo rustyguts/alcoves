@@ -1,8 +1,11 @@
 import type { Job } from "bullmq";
 import { eq } from "drizzle-orm";
+import { createReadStream, createWriteStream } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readFile, unlink, writeFile } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
 import { db, schema } from "~~/server/database";
 import { probeVideo, isBrowserPlayable, generateThumbnail, transcodeToProxy } from "./ffmpeg";
@@ -53,9 +56,10 @@ export async function processVideoJob(job: Job): Promise<void> {
 
     await job.updateProgress(5);
 
-    // Read the source file from storage to a temp file
-    const sourceBuffer = await storage.readFileBuffer(libraryId, fileId);
-    await writeFile(tmpInput, sourceBuffer);
+    // Stream the source file from storage to a temp file (avoids 2 GiB Buffer limit)
+    const readStream = await storage.openFileReadStream(libraryId, fileId);
+    const nodeReadable = Readable.fromWeb(readStream as import("stream/web").ReadableStream);
+    await pipeline(nodeReadable, createWriteStream(tmpInput));
 
     await job.updateProgress(10);
 
@@ -113,9 +117,11 @@ export async function processVideoJob(job: Job): Promise<void> {
       },
     });
 
-    // Store the proxy in cache scope
-    const proxyBuffer = await readFile(tmpProxy);
-    await storage.storeCacheBuffer(videoProxyKey(libraryId, fileId), proxyBuffer);
+    // Stream the proxy file into cache storage (avoids 2 GiB Buffer limit)
+    const proxyReadStream = Readable.toWeb(
+      createReadStream(tmpProxy),
+    ) as ReadableStream<Uint8Array>;
+    await storage.storeCacheStream(videoProxyKey(libraryId, fileId), proxyReadStream);
 
     await db.update(schema.files).set({ proxyStatus: "ready" }).where(eq(schema.files.id, fileId));
 
