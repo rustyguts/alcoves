@@ -4,13 +4,13 @@ import type { LibraryFile } from "~~/shared/types/api";
 
 const stubs = {
   UModal: {
-    template:
-      "<div data-testid='modal'><slot name='body' /></div>",
+    template: "<div data-testid='modal'><slot name='body' /></div>",
     props: ["open", "title"],
     emits: ["update:open"],
   },
   UButton: {
-    template: "<button :data-label='label' :disabled='disabled || loading' @click='$emit(\"click\")'><slot />{{ label }}</button>",
+    template:
+      "<button :data-label='label' :disabled='disabled || loading' @click='$emit(\"click\")'><slot />{{ label }}</button>",
     props: ["label", "color", "variant", "loading", "disabled", "icon"],
     emits: ["click"],
   },
@@ -19,7 +19,8 @@ const stubs = {
     props: ["label"],
   },
   UInput: {
-    template: "<input :value='modelValue' @input='$emit(\"update:modelValue\", Number($event.target.value) || $event.target.value)' />",
+    template:
+      "<input :value='modelValue' @input='$emit(\"update:modelValue\", Number($event.target.value) || $event.target.value)' />",
     props: ["modelValue", "type", "min", "max", "step", "placeholder"],
     emits: ["update:modelValue"],
   },

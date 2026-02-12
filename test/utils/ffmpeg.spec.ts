@@ -18,11 +18,7 @@ vi.mock(import("node:child_process"), async (importOriginal) => {
 /**
  * Tiny EventEmitter-like helper for simulating ChildProcess.
  */
-function makeFakeProcess(
-  stdoutData?: string | Buffer,
-  stderrData?: string | Buffer,
-  exitCode = 0,
-) {
+function makeFakeProcess(stdoutData?: string | Buffer, stderrData?: string | Buffer, exitCode = 0) {
   const stdoutListeners: Record<string, Function[]> = {};
   const stderrListeners: Record<string, Function[]> = {};
   const procListeners: Record<string, Function[]> = {};
@@ -113,8 +109,10 @@ describe("ffmpeg utilities", () => {
 
       // Verify ffprobe was called with correct args
       expect(spawnMock).toHaveBeenCalledWith("ffprobe", [
-        "-v", "quiet",
-        "-print_format", "json",
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
         "-show_format",
         "-show_streams",
         "/tmp/test.mp4",
@@ -325,7 +323,7 @@ describe("ffmpeg utilities", () => {
   // -----------------------------------------------------------------------
   describe("generateThumbnail", () => {
     it("calls ffmpeg with correct args and returns JPEG buffer", async () => {
-      const jpegData = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]); // JPEG magic bytes
+      const jpegData = Buffer.from([0xff, 0xd8, 0xff, 0xe0]); // JPEG magic bytes
       const proc = makeFakeProcess(jpegData);
       spawnMock.mockReturnValueOnce(proc);
 
@@ -334,18 +332,27 @@ describe("ffmpeg utilities", () => {
 
       const result = await generateThumbnail("/tmp/video.mp4", { timestamp: 5, width: 320 });
       expect(Buffer.isBuffer(result)).toBe(true);
-      expect(result[0]).toBe(0xFF); // JPEG magic
+      expect(result[0]).toBe(0xff); // JPEG magic
 
       // Verify ffmpeg args
-      expect(spawnMock).toHaveBeenCalledWith("ffmpeg", expect.arrayContaining([
-        "-ss", "5",
-        "-i", "/tmp/video.mp4",
-        "-frames:v", "1",
-        "-vf", "scale=320:-2",
-        "-f", "image2",
-        "-c:v", "mjpeg",
-        "pipe:1",
-      ]));
+      expect(spawnMock).toHaveBeenCalledWith(
+        "ffmpeg",
+        expect.arrayContaining([
+          "-ss",
+          "5",
+          "-i",
+          "/tmp/video.mp4",
+          "-frames:v",
+          "1",
+          "-vf",
+          "scale=320:-2",
+          "-f",
+          "image2",
+          "-c:v",
+          "mjpeg",
+          "pipe:1",
+        ]),
+      );
     });
 
     it("uses default options (timestamp=1, width=640)", async () => {
@@ -357,10 +364,10 @@ describe("ffmpeg utilities", () => {
 
       await generateThumbnail("/tmp/video.mp4");
 
-      expect(spawnMock).toHaveBeenCalledWith("ffmpeg", expect.arrayContaining([
-        "-ss", "1",
-        "-vf", "scale=640:-2",
-      ]));
+      expect(spawnMock).toHaveBeenCalledWith(
+        "ffmpeg",
+        expect.arrayContaining(["-ss", "1", "-vf", "scale=640:-2"]),
+      );
     });
   });
 
@@ -380,17 +387,29 @@ describe("ffmpeg utilities", () => {
         outputPath: "/tmp/output.mp4",
       });
 
-      expect(spawnMock).toHaveBeenCalledWith("ffmpeg", expect.arrayContaining([
-        "-i", "/tmp/input.mkv",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-profile:v", "high",
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac",
-        "-movflags", "+faststart",
-        "-y", "/tmp/output.mp4",
-      ]));
+      expect(spawnMock).toHaveBeenCalledWith(
+        "ffmpeg",
+        expect.arrayContaining([
+          "-i",
+          "/tmp/input.mkv",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "fast",
+          "-crf",
+          "23",
+          "-profile:v",
+          "high",
+          "-pix_fmt",
+          "yuv420p",
+          "-c:a",
+          "aac",
+          "-movflags",
+          "+faststart",
+          "-y",
+          "/tmp/output.mp4",
+        ]),
+      );
     });
 
     it("respects custom maxHeight and preset options", async () => {
@@ -443,14 +462,23 @@ describe("ffmpeg utilities", () => {
         endTime: 30,
       });
 
-      expect(spawnMock).toHaveBeenCalledWith("ffmpeg", expect.arrayContaining([
-        "-ss", "10",
-        "-i", "/tmp/source.mp4",
-        "-t", "20",
-        "-c", "copy",
-        "-movflags", "+faststart",
-        "-y", "/tmp/clip.mp4",
-      ]));
+      expect(spawnMock).toHaveBeenCalledWith(
+        "ffmpeg",
+        expect.arrayContaining([
+          "-ss",
+          "10",
+          "-i",
+          "/tmp/source.mp4",
+          "-t",
+          "20",
+          "-c",
+          "copy",
+          "-movflags",
+          "+faststart",
+          "-y",
+          "/tmp/clip.mp4",
+        ]),
+      );
     });
 
     it("falls back to re-encode when stream copy fails", async () => {

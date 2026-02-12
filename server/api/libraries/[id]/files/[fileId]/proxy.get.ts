@@ -29,7 +29,8 @@ export default defineEventHandler(async (event) => {
   if (file.proxyStatus !== "ready") {
     throw createError({
       statusCode: 404,
-      statusMessage: file.proxyStatus === "processing" ? "Proxy is still processing" : "No proxy available",
+      statusMessage:
+        file.proxyStatus === "processing" ? "Proxy is still processing" : "No proxy available",
     });
   }
 

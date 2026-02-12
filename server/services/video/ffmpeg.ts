@@ -23,15 +23,7 @@ export interface VideoProbe {
  * Run ffprobe on a file path and extract video stream metadata.
  */
 export async function probeVideo(filePath: string): Promise<VideoProbe> {
-  const args = [
-    "-v",
-    "quiet",
-    "-print_format",
-    "json",
-    "-show_format",
-    "-show_streams",
-    filePath,
-  ];
+  const args = ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", filePath];
 
   const raw = await run("ffprobe", args);
   const data = JSON.parse(raw);
@@ -45,10 +37,8 @@ export async function probeVideo(filePath: string): Promise<VideoProbe> {
 
   const width = Number(videoStream.width) || 0;
   const height = Number(videoStream.height) || 0;
-  const duration =
-    Number(videoStream.duration) || Number(data.format?.duration) || 0;
-  const bitrate =
-    Number(videoStream.bit_rate) || Number(data.format?.bit_rate) || 0;
+  const duration = Number(videoStream.duration) || Number(data.format?.duration) || 0;
+  const bitrate = Number(videoStream.bit_rate) || Number(data.format?.bit_rate) || 0;
 
   // HDR detection: check for bt2020 color space or high bit depth
   const colorSpace = String(videoStream.color_space || "");
@@ -276,7 +266,11 @@ function run(cmd: string, args: string[]): Promise<string> {
       if (code === 0) {
         resolve(Buffer.concat(stdout).toString("utf-8"));
       } else {
-        reject(new Error(`${cmd} exited with code ${code}: ${Buffer.concat(stderr).toString("utf-8").slice(0, 500)}`));
+        reject(
+          new Error(
+            `${cmd} exited with code ${code}: ${Buffer.concat(stderr).toString("utf-8").slice(0, 500)}`,
+          ),
+        );
       }
     });
 
@@ -297,7 +291,11 @@ function runBuffer(cmd: string, args: string[]): Promise<Buffer> {
       if (code === 0) {
         resolve(Buffer.concat(stdout));
       } else {
-        reject(new Error(`${cmd} exited with code ${code}: ${Buffer.concat(stderr).toString("utf-8").slice(0, 500)}`));
+        reject(
+          new Error(
+            `${cmd} exited with code ${code}: ${Buffer.concat(stderr).toString("utf-8").slice(0, 500)}`,
+          ),
+        );
       }
     });
 
@@ -323,7 +321,8 @@ function runWithProgress(
       const durMatch = text.match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/);
       if (durMatch) {
         durationMs =
-          (Number(durMatch[1]) * 3600 + Number(durMatch[2]) * 60 + Number(durMatch[3])) * 1_000_000 +
+          (Number(durMatch[1]) * 3600 + Number(durMatch[2]) * 60 + Number(durMatch[3])) *
+            1_000_000 +
           Number(durMatch[4]) * 10_000;
       }
 

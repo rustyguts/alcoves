@@ -22,7 +22,10 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event);
   const parsed = clipSchema.safeParse(body);
   if (!parsed.success) {
-    throw createError({ statusCode: 400, statusMessage: parsed.error.issues.map((i) => i.message).join("; ") });
+    throw createError({
+      statusCode: 400,
+      statusMessage: parsed.error.issues.map((i) => i.message).join("; "),
+    });
   }
   const { startTime, endTime, name: clipName } = parsed.data;
 

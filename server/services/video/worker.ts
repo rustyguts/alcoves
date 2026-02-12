@@ -115,23 +115,14 @@ export async function processVideoJob(job: Job): Promise<void> {
 
     // Store the proxy in cache scope
     const proxyBuffer = await Bun.file(tmpProxy).bytes();
-    await storage.storeCacheBuffer(
-      videoProxyKey(libraryId, fileId),
-      Buffer.from(proxyBuffer),
-    );
+    await storage.storeCacheBuffer(videoProxyKey(libraryId, fileId), Buffer.from(proxyBuffer));
 
-    await db
-      .update(schema.files)
-      .set({ proxyStatus: "ready" })
-      .where(eq(schema.files.id, fileId));
+    await db.update(schema.files).set({ proxyStatus: "ready" }).where(eq(schema.files.id, fileId));
 
     await job.updateProgress(100);
   } catch (error: unknown) {
     console.error(`[video] Processing failed for ${fileId}:`, error);
-    await db
-      .update(schema.files)
-      .set({ proxyStatus: "failed" })
-      .where(eq(schema.files.id, fileId));
+    await db.update(schema.files).set({ proxyStatus: "failed" }).where(eq(schema.files.id, fileId));
     throw error;
   } finally {
     // Clean up temp files
