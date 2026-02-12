@@ -15,5 +15,25 @@
   "tailwindCSS.experimental.classRegex": [["ui:\\s*{([^)]*)\\s*}", "(?:'|\"|`)([^']*)(?:'|\"|`)"]],
   "[vue]": {
     "editor.defaultFormatter": "Vue.volar"
-  }
+  },
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#5193e5",
+    "activityBar.background": "#5193e5",
+    "activityBar.foreground": "#15202b",
+    "activityBar.inactiveForeground": "#15202b99",
+    "activityBarBadge.background": "#f7c8dd",
+    "activityBarBadge.foreground": "#15202b",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#5193e5",
+    "statusBar.background": "#2578de",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#5193e5",
+    "statusBarItem.remoteBackground": "#2578de",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#2578de",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#2578de99",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "#2578de"
 }

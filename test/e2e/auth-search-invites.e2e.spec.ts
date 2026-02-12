@@ -263,7 +263,7 @@ test.describe("Auth and core app flows", () => {
     const state: MockState = { loggedIn: false, role: "owner" };
     await mockApi(page, state);
 
-    await page.goto("/search?q=plan");
+    await page.goto("/search?q=plan", { waitUntil: "networkidle" });
 
     await expect(page).toHaveURL(/\/login\?redirect=\/search\?q=plan/);
   });
