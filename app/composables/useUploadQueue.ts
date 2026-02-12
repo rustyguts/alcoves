@@ -15,12 +15,42 @@ export interface QueuedFile {
 }
 
 const MAX_RETRIES = 3;
+const CONCURRENCY = 3;
+const STALL_TIMEOUT_MS = 30_000;
+const DONE_CLEANUP_MS = 2_000;
+
 const onCompleteCallbacks = new Map<string, () => void>();
 
 export function useUploadQueue() {
   const queue = useState<QueuedFile[]>("upload-queue", () => []);
   const isProcessing = useState<boolean>("upload-processing", () => false);
   const uploadSpeed = useState<number>("upload-speed", () => 0);
+
+  // Track active upload count and per-file abort controllers
+  const activeCount = useState<number>("upload-active-count", () => 0);
+  const abortControllers = new Map<string, AbortController>();
+
+  // Speed tracking across all concurrent uploads
+  let speedBytes = 0;
+  let speedTimer: ReturnType<typeof setInterval> | null = null;
+
+  function startSpeedTracker() {
+    if (speedTimer) return;
+    speedBytes = 0;
+    speedTimer = setInterval(() => {
+      uploadSpeed.value = speedBytes * 2; // interval is 500ms, so *2 for per-second rate
+      speedBytes = 0;
+    }, 500);
+  }
+
+  function stopSpeedTracker() {
+    if (speedTimer) {
+      clearInterval(speedTimer);
+      speedTimer = null;
+    }
+    uploadSpeed.value = 0;
+    speedBytes = 0;
+  }
 
   function addFiles(
     files: File[],
@@ -41,24 +71,34 @@ export function useUploadQueue() {
       retries: 0,
     }));
     queue.value = [...queue.value, ...newItems];
-    processQueue();
+    drainQueue();
   }
 
-  async function processQueue() {
-    if (isProcessing.value) return;
-    isProcessing.value = true;
+  function drainQueue() {
+    if (!isProcessing.value) {
+      isProcessing.value = true;
+      startSpeedTracker();
+    }
 
-    while (true) {
-      // Prioritize pending files so a single error doesn't block the queue
+    while (activeCount.value < CONCURRENCY) {
       const next =
         queue.value.find((f) => f.status === "pending") ||
         queue.value.find((f) => f.status === "error" && f.retries < MAX_RETRIES);
       if (!next) break;
-      await uploadFile(next);
+
+      // Mark uploading before starting the async work to prevent re-picking
+      next.status = "uploading";
+      next.progress = 0;
+      next.loaded = 0;
+      activeCount.value++;
+      uploadFile(next);
     }
 
-    uploadSpeed.value = 0;
-    isProcessing.value = false;
+    // Check if everything is done
+    if (activeCount.value === 0) {
+      isProcessing.value = false;
+      stopSpeedTracker();
+    }
   }
 
   function notifyLibraryIfIdle(libraryId: string) {
@@ -72,89 +112,118 @@ export function useUploadQueue() {
     if (cb) cb();
   }
 
-  function uploadFile(item: QueuedFile): Promise<void> {
-    return new Promise((resolve) => {
-      item.status = "uploading";
-      item.progress = 0;
-      item.loaded = 0;
+  function uploadFile(item: QueuedFile): void {
+    const xhr = new XMLHttpRequest();
+    const abortController = new AbortController();
+    abortControllers.set(item.id, abortController);
 
-      const xhr = new XMLHttpRequest();
-      let settled = false;
-      const mimeType = getMimeTypeFromFilename(item.file.name);
+    let settled = false;
+    let lastProgressTime = Date.now();
+    let stallCheck: ReturnType<typeof setInterval> | null = null;
 
-      let lastLoaded = 0;
-      let lastTime = Date.now();
+    const finish = (cleanup = true) => {
+      if (settled) return;
+      settled = true;
 
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        notifyLibraryIfIdle(item.libraryId);
-        resolve();
-      };
-
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          item.loaded = e.loaded;
-          item.total = e.total;
-          item.progress = Math.round((e.loaded / e.total) * 100);
-
-          const now = Date.now();
-          const elapsed = (now - lastTime) / 1000;
-          if (elapsed > 0.5) {
-            uploadSpeed.value = Math.round((e.loaded - lastLoaded) / elapsed);
-            lastLoaded = e.loaded;
-            lastTime = now;
-          }
-        }
-      };
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          item.status = "done";
-          item.progress = 100;
-
-          setTimeout(() => {
-            queue.value = queue.value.filter((f) => f.id !== item.id);
-          }, 2000);
-        } else {
-          item.status = "error";
-          item.error = `Upload failed (${xhr.status})`;
-          item.retries++;
-        }
-        finish();
-      };
-
-      xhr.onerror = () => {
-        item.status = "error";
-        item.error = "Network error";
-        item.retries++;
-        finish();
-      };
-
-      xhr.onabort = () => {
-        item.status = "error";
-        item.error = "Upload aborted";
-        item.retries++;
-        finish();
-      };
-
-      xhr.ontimeout = () => {
-        item.status = "error";
-        item.error = "Upload timed out";
-        item.retries++;
-        finish();
-      };
-
-      xhr.open("POST", `/api/libraries/${item.libraryId}/files`);
-      xhr.setRequestHeader("Content-Type", mimeType);
-      xhr.setRequestHeader("X-File-Name", encodeURIComponent(item.file.name));
-      xhr.setRequestHeader("X-File-Mime-Type", mimeType);
-      xhr.setRequestHeader("X-File-Original-Created-At", String(item.file.lastModified));
-      if (item.parentFolderId) {
-        xhr.setRequestHeader("X-File-Parent-Folder-Id", encodeURIComponent(item.parentFolderId));
+      if (stallCheck) {
+        clearInterval(stallCheck);
+        stallCheck = null;
       }
-      xhr.send(item.file);
+      abortControllers.delete(item.id);
+
+      if (cleanup) {
+        activeCount.value--;
+      }
+
+      notifyLibraryIfIdle(item.libraryId);
+
+      // Continue draining the queue for the next file
+      drainQueue();
+    };
+
+    // Stall detection: if no progress event fires for STALL_TIMEOUT_MS, abort
+    stallCheck = setInterval(() => {
+      if (item.status !== "uploading") {
+        if (stallCheck) clearInterval(stallCheck);
+        return;
+      }
+      if (Date.now() - lastProgressTime > STALL_TIMEOUT_MS) {
+        xhr.abort();
+        // onabort handler will fire and handle cleanup
+      }
+    }, 5_000);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const prevLoaded = item.loaded;
+        item.loaded = e.loaded;
+        item.total = e.total;
+        item.progress = Math.round((e.loaded / e.total) * 100);
+        lastProgressTime = Date.now();
+
+        // Accumulate bytes for speed calculation
+        const delta = e.loaded - prevLoaded;
+        if (delta > 0) {
+          speedBytes += delta;
+        }
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        item.status = "done";
+        item.progress = 100;
+
+        setTimeout(() => {
+          queue.value = queue.value.filter((f) => f.id !== item.id);
+        }, DONE_CLEANUP_MS);
+      } else {
+        item.status = "error";
+        item.error = `Upload failed (${xhr.status})`;
+        item.retries++;
+      }
+      finish();
+    };
+
+    xhr.onerror = () => {
+      item.status = "error";
+      item.error = "Network error";
+      item.retries++;
+      finish();
+    };
+
+    xhr.onabort = () => {
+      item.status = "error";
+      item.error = "Upload stalled";
+      item.retries++;
+      finish();
+    };
+
+    xhr.ontimeout = () => {
+      item.status = "error";
+      item.error = "Upload timed out";
+      item.retries++;
+      finish();
+    };
+
+    // Listen for external abort (from removeFile or page unload)
+    abortController.signal.addEventListener("abort", () => {
+      xhr.abort();
     });
+
+    const mimeType = getMimeTypeFromFilename(item.file.name);
+
+    const formData = new FormData();
+    formData.append("file", item.file);
+    formData.append("name", item.file.name);
+    formData.append("mimeType", mimeType);
+    formData.append("lastModified", String(item.file.lastModified));
+    if (item.parentFolderId) {
+      formData.append("parentFolderId", item.parentFolderId);
+    }
+
+    xhr.open("POST", `/api/libraries/${item.libraryId}/files`);
+    xhr.send(formData);
   }
 
   function retryFile(itemId: string) {
@@ -162,7 +231,7 @@ export function useUploadQueue() {
     if (item && item.status === "error") {
       item.status = "pending";
       item.retries = 0;
-      processQueue();
+      drainQueue();
     }
   }
 
@@ -173,10 +242,16 @@ export function useUploadQueue() {
         item.retries = 0;
       }
     }
-    processQueue();
+    drainQueue();
   }
 
   function removeFile(itemId: string) {
+    // Abort in-flight upload if active
+    const controller = abortControllers.get(itemId);
+    if (controller) {
+      controller.abort();
+      abortControllers.delete(itemId);
+    }
     queue.value = queue.value.filter((f) => f.id !== itemId);
   }
 
@@ -204,6 +279,7 @@ export function useUploadQueue() {
     queue,
     isProcessing,
     uploadSpeed,
+    activeCount,
     activeUploads,
     hasActiveUploads,
     hasInFlightUploads,

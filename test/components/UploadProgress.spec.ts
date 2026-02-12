@@ -17,15 +17,20 @@ const mocks = vi.hoisted(() => ({
   uploadSpeed: 0,
   retryFile: vi.fn(),
   removeFile: vi.fn(),
+  retryAll: vi.fn(),
+  clearErrors: vi.fn(),
 }));
 
 mockNuxtImport("useUploadQueue", () => {
   return () => ({
     activeUploads: mocks.activeUploads,
     hasActiveUploads: mocks.activeUploads.length > 0,
+    erroredUploads: mocks.activeUploads.filter((u) => u.status === "error"),
     uploadSpeed: mocks.uploadSpeed,
     retryFile: mocks.retryFile,
     removeFile: mocks.removeFile,
+    retryAll: mocks.retryAll,
+    clearErrors: mocks.clearErrors,
   });
 });
 
@@ -74,6 +79,8 @@ describe("UploadProgress", () => {
     mocks.uploadSpeed = 0;
     mocks.retryFile.mockReset();
     mocks.removeFile.mockReset();
+    mocks.retryAll.mockReset();
+    mocks.clearErrors.mockReset();
   });
 
   async function mountComponent() {
