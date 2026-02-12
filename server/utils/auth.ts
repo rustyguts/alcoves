@@ -1,16 +1,14 @@
 import type { H3Event } from "h3";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import { db, schema } from "~~/server/database";
 
 export function hashUserPassword(password: string): Promise<string> {
-  return Bun.password.hash(password, {
-    algorithm: "bcrypt",
-    cost: 10,
-  });
+  return bcrypt.hash(password, 10);
 }
 
 export function verifyUserPassword(password: string, hash: string): Promise<boolean> {
-  return Bun.password.verify(password, hash);
+  return bcrypt.compare(password, hash);
 }
 
 export async function requireUserId(event: H3Event): Promise<string> {

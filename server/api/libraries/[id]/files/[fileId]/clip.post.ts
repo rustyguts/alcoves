@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { unlink, writeFile } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "~~/server/database";
 import { extractClip, probeVideo } from "~~/server/services/video/ffmpeg";
@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
     });
 
     // Read clip and store
-    const clipBuffer = Buffer.from(await Bun.file(tmpOutput).bytes());
+    const clipBuffer = await readFile(tmpOutput);
     await storage.storeFile(libraryId, newFileId, clipBuffer);
 
     // Probe clip for metadata

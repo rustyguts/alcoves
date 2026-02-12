@@ -129,8 +129,7 @@ async function parseAndStoreUpload(
   const boundary = (boundaryMatch[1] || boundaryMatch[2])!;
 
   // Use H3's readMultipartFormData for the parsing — it handles the boundary
-  // protocol correctly. For most files this is fine since Bun's H3 adapter
-  // can handle large bodies. The file data is received as a Buffer from
+  // protocol correctly. The file data is received as a Buffer from
   // readMultipartFormData, but we immediately stream it to storage rather
   // than holding it for further processing.
   //
@@ -141,7 +140,7 @@ async function parseAndStoreUpload(
   const fields: Record<string, string> = {};
   let fileSize = 0;
 
-  // Try the streaming path first — available when running on Bun
+  // Try the streaming path first — available on Node.js 18+ and Bun
   const webRequest = toWebRequest(event);
   if (webRequest.body) {
     const result = await streamMultipartToStorage(

@@ -2,7 +2,7 @@ import type { Job } from "bullmq";
 import { eq } from "drizzle-orm";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { unlink, writeFile } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { db, schema } from "~~/server/database";
 import { probeVideo, isBrowserPlayable, generateThumbnail, transcodeToProxy } from "./ffmpeg";
@@ -114,8 +114,8 @@ export async function processVideoJob(job: Job): Promise<void> {
     });
 
     // Store the proxy in cache scope
-    const proxyBuffer = await Bun.file(tmpProxy).bytes();
-    await storage.storeCacheBuffer(videoProxyKey(libraryId, fileId), Buffer.from(proxyBuffer));
+    const proxyBuffer = await readFile(tmpProxy);
+    await storage.storeCacheBuffer(videoProxyKey(libraryId, fileId), proxyBuffer);
 
     await db.update(schema.files).set({ proxyStatus: "ready" }).where(eq(schema.files.id, fileId));
 
