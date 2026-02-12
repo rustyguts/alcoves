@@ -173,10 +173,7 @@ export class StorageService {
     await this.driver.putBuffer("cache", cacheKey, buffer);
   }
 
-  async storeCacheStream(
-    cacheKey: string,
-    stream: ReadableStream<Uint8Array>,
-  ): Promise<number> {
+  async storeCacheStream(cacheKey: string, stream: ReadableStream<Uint8Array>): Promise<number> {
     return await this.driver.putStream("cache", cacheKey, stream);
   }
 
