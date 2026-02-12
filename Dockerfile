@@ -12,11 +12,11 @@ COPY . .
 RUN bun install --frozen-lockfile --ignore-scripts
 RUN bun run build
 
-FROM oven/bun:latest AS dist
+FROM node:24 AS dist
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/.output /app
 COPY --from=build /app/server/database/migrations /app/server/database/migrations
 EXPOSE 3000/tcp
-ENTRYPOINT [ "bun", "run", "/app/server/index.mjs" ]
+ENTRYPOINT [ "node", "/app/server/index.mjs" ]

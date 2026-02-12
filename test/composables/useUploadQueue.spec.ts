@@ -7,57 +7,62 @@ import type { UploadOptions, PreviousUpload, OnSuccessPayload } from "tus-js-cli
  * Each constructed Upload is captured in `MockTusUpload.instances`.
  * Tests can simulate progress, success, and error by calling the
  * corresponding option callbacks stored on each instance.
+ *
+ * vi.hoisted() ensures the class is defined before the hoisted vi.mock() runs.
  */
-class MockTusUpload {
-  static instances: MockTusUpload[] = [];
+const MockTusUpload = vi.hoisted(() => {
+  class MockTusUpload {
+    static instances: MockTusUpload[] = [];
 
-  file: File;
-  options: UploadOptions;
-  url: string | null = null;
-  started = false;
-  aborted = false;
+    file: File;
+    options: UploadOptions;
+    url: string | null = null;
+    started = false;
+    aborted = false;
 
-  constructor(file: File, options: UploadOptions) {
-    this.file = file;
-    this.options = options;
-    MockTusUpload.instances.push(this);
+    constructor(file: File, options: UploadOptions) {
+      this.file = file;
+      this.options = options;
+      MockTusUpload.instances.push(this);
+    }
+
+    static reset() {
+      MockTusUpload.instances = [];
+    }
+
+    findPreviousUploads(): Promise<PreviousUpload[]> {
+      return Promise.resolve([]);
+    }
+
+    resumeFromPreviousUpload(_: PreviousUpload) {
+      // no-op
+    }
+
+    start() {
+      this.started = true;
+    }
+
+    abort() {
+      this.aborted = true;
+      return Promise.resolve();
+    }
+
+    triggerProgress(loaded: number, total: number) {
+      this.options.onProgress?.(loaded, total);
+    }
+
+    triggerSuccess() {
+      this.options.onSuccess?.({ lastResponse: null } as unknown as OnSuccessPayload);
+    }
+
+    triggerError(message = "Upload failed") {
+      const err = new Error(message);
+      err.name = "DetailedError";
+      this.options.onError?.(err);
+    }
   }
-
-  static reset() {
-    MockTusUpload.instances = [];
-  }
-
-  findPreviousUploads(): Promise<PreviousUpload[]> {
-    return Promise.resolve([]);
-  }
-
-  resumeFromPreviousUpload(_: PreviousUpload) {
-    // no-op
-  }
-
-  start() {
-    this.started = true;
-  }
-
-  abort() {
-    this.aborted = true;
-    return Promise.resolve();
-  }
-
-  triggerProgress(loaded: number, total: number) {
-    this.options.onProgress?.(loaded, total);
-  }
-
-  triggerSuccess() {
-    this.options.onSuccess?.({ lastResponse: null } as unknown as OnSuccessPayload);
-  }
-
-  triggerError(message = "Upload failed") {
-    const err = new Error(message);
-    err.name = "DetailedError";
-    this.options.onError?.(err);
-  }
-}
+  return MockTusUpload;
+});
 
 // Mock the entire tus-js-client module, replacing Upload with our mock class
 vi.mock("tus-js-client", () => ({
