@@ -941,7 +941,10 @@ const emptyStateDescription = computed(() => {
           :variant="!showTrashed ? 'soft' : 'ghost'"
           :color="!showTrashed ? 'primary' : 'neutral'"
           size="sm"
-          :to="`/libraries/${libraryId}`"
+          @click="
+            userToggledView = true;
+            viewMode = 'files';
+          "
         />
         <UButton
           label="Tags"

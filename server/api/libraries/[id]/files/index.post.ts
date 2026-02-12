@@ -285,14 +285,18 @@ async function streamMultipartToStorage(
             enqueueFileData(partData.slice(0, dataEnd));
           }
           endFilePart();
-        } else if (currentPartName && !currentPartIsFile && textChunks.length > 0) {
-          // End of a text field — also strip trailing \r\n
-          textChunks.push(partData);
-          let combined = concatAll(textChunks);
-          if (combined.length >= 2) {
-            combined = combined.slice(0, combined.length - 2);
+        } else if (currentPartName && !currentPartIsFile) {
+          // End of a text field — collect any remaining data and strip trailing \r\n
+          if (partData.length > 0) {
+            textChunks.push(partData);
           }
-          fields[currentPartName] = new TextDecoder().decode(combined);
+          if (textChunks.length > 0) {
+            let combined = concatAll(textChunks);
+            if (combined.length >= 2) {
+              combined = combined.slice(0, combined.length - 2);
+            }
+            fields[currentPartName] = new TextDecoder().decode(combined);
+          }
           textChunks = [];
         }
 
