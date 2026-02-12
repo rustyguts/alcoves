@@ -1,5 +1,8 @@
-import { mkdir, rm } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { createReadStream, createWriteStream, existsSync, statSync } from "node:fs";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 export type StorageScope = "files" | "avatars" | "cache";
 
@@ -8,24 +11,10 @@ export type StorageByteRange = {
   end?: number;
 };
 
-type StoragePrefixConfig = Partial<Record<StorageScope, string>>;
-
-type S3StorageRuntimeConfig = {
-  bucket?: string;
-  region?: string;
-  endpoint?: string;
-  accessKeyId?: string;
-  secretAccessKey?: string;
-  forcePathStyle?: boolean;
-  prefixes?: StoragePrefixConfig;
-};
-
 export type StorageRuntimeConfig = {
-  storageDriver?: string;
   storagePath: string;
   avatarStoragePath: string;
   storageCachePath: string;
-  s3Storage?: S3StorageRuntimeConfig;
 };
 
 type StorageStat = {
@@ -57,7 +46,9 @@ class LocalStorageDriver implements StorageDriver {
   }
 
   async putBuffer(scope: StorageScope, key: string, data: Buffer): Promise<void> {
-    await Bun.write(this.resolvePath(scope, key), data);
+    const filePath = this.resolvePath(scope, key);
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, data);
   }
 
   async putStream(
@@ -65,7 +56,14 @@ class LocalStorageDriver implements StorageDriver {
     key: string,
     stream: ReadableStream<Uint8Array>,
   ): Promise<number> {
-    return Bun.write(this.resolvePath(scope, key), new Response(stream));
+    const filePath = this.resolvePath(scope, key);
+    await mkdir(dirname(filePath), { recursive: true });
+
+    const nodeReadable = Readable.fromWeb(stream as import("stream/web").ReadableStream);
+    const writable = createWriteStream(filePath);
+    await pipeline(nodeReadable, writable);
+
+    return statSync(filePath).size;
   }
 
   async openReadStream(
@@ -73,22 +71,26 @@ class LocalStorageDriver implements StorageDriver {
     key: string,
     range?: StorageByteRange,
   ): Promise<ReadableStream<Uint8Array>> {
-    const file = Bun.file(this.resolvePath(scope, key));
-    if (!range) return file.stream();
-
-    return file.slice(range.start, range.end !== undefined ? range.end + 1 : undefined).stream();
+    const filePath = this.resolvePath(scope, key);
+    const opts: { start?: number; end?: number } = {};
+    if (range) {
+      opts.start = range.start;
+      if (range.end !== undefined) opts.end = range.end;
+    }
+    const nodeStream = createReadStream(filePath, opts);
+    return Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
   }
 
   async readBuffer(scope: StorageScope, key: string): Promise<Buffer> {
-    return Buffer.from(await Bun.file(this.resolvePath(scope, key)).bytes());
+    return readFile(this.resolvePath(scope, key));
   }
 
   async exists(scope: StorageScope, key: string): Promise<boolean> {
-    return Bun.file(this.resolvePath(scope, key)).exists();
+    return existsSync(this.resolvePath(scope, key));
   }
 
   async stat(scope: StorageScope, key: string): Promise<StorageStat> {
-    return { size: Bun.file(this.resolvePath(scope, key)).size };
+    return { size: statSync(this.resolvePath(scope, key)).size };
   }
 
   async deletePrefix(scope: StorageScope, keyPrefix: string): Promise<void> {
@@ -97,175 +99,6 @@ class LocalStorageDriver implements StorageDriver {
 
   private resolvePath(scope: StorageScope, key: string): string {
     return join(this.roots[scope], key);
-  }
-}
-
-type S3StorageConfig = {
-  bucket: string;
-  region: string;
-  endpoint?: string;
-  accessKeyId?: string;
-  secretAccessKey?: string;
-  forcePathStyle?: boolean;
-  prefixes: Record<StorageScope, string>;
-};
-
-class S3StorageDriver implements StorageDriver {
-  private client: Bun.S3Client | null = null;
-
-  constructor(private readonly config: S3StorageConfig) {}
-
-  async ensureReady(): Promise<void> {
-    this.validateConfig();
-    this.getClient();
-  }
-
-  async putBuffer(scope: StorageScope, key: string, data: Buffer): Promise<void> {
-    await this.getClient().write(this.getObjectKey(scope, key), data);
-  }
-
-  async putStream(
-    scope: StorageScope,
-    key: string,
-    stream: ReadableStream<Uint8Array>,
-  ): Promise<number> {
-    return this.getClient().write(this.getObjectKey(scope, key), new Response(stream));
-  }
-
-  async openReadStream(
-    scope: StorageScope,
-    key: string,
-    range?: StorageByteRange,
-  ): Promise<ReadableStream<Uint8Array>> {
-    const file = this.getClient().file(this.getObjectKey(scope, key));
-
-    const target =
-      range && range.end !== undefined
-        ? file.slice(range.start, range.end + 1)
-        : range
-          ? file.slice(range.start)
-          : file;
-
-    return target.stream();
-  }
-
-  async readBuffer(scope: StorageScope, key: string): Promise<Buffer> {
-    const bytes = await this.getClient().file(this.getObjectKey(scope, key)).bytes();
-    return Buffer.from(bytes);
-  }
-
-  async exists(scope: StorageScope, key: string): Promise<boolean> {
-    try {
-      return await this.getClient().exists(this.getObjectKey(scope, key));
-    } catch (error: any) {
-      if (
-        error?.$metadata?.httpStatusCode === 404 ||
-        error?.statusCode === 404 ||
-        error?.name === "NotFound" ||
-        error?.name === "NoSuchKey" ||
-        error?.code === "NoSuchKey"
-      ) {
-        return false;
-      }
-      throw error;
-    }
-  }
-
-  async stat(scope: StorageScope, key: string): Promise<StorageStat> {
-    const size = await this.getClient().size(this.getObjectKey(scope, key));
-    return { size: Number(size) || 0 };
-  }
-
-  async deletePrefix(scope: StorageScope, keyPrefix: string): Promise<void> {
-    const client = this.getClient();
-    const prefix = this.getPrefix(scope, keyPrefix);
-
-    const listed = await client.list({ prefix });
-    const objectKeys = this.extractObjectKeys(listed);
-    if (objectKeys.length === 0) return;
-
-    await Promise.all(
-      objectKeys.map((objectKey) =>
-        client.delete(objectKey).catch((error: any) => {
-          if (
-            error?.$metadata?.httpStatusCode === 404 ||
-            error?.statusCode === 404 ||
-            error?.name === "NotFound" ||
-            error?.name === "NoSuchKey" ||
-            error?.code === "NoSuchKey"
-          ) {
-            return;
-          }
-          throw error;
-        }),
-      ),
-    );
-  }
-
-  private validateConfig(): void {
-    if (!this.config.bucket) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: "ALCOVES_S3_BUCKET is required when ALCOVES_STORAGE_DRIVER=s3",
-      });
-    }
-    if (!this.config.region) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: "ALCOVES_S3_REGION is required when ALCOVES_STORAGE_DRIVER=s3",
-      });
-    }
-  }
-
-  private getClient(): Bun.S3Client {
-    if (this.client) return this.client;
-
-    this.validateConfig();
-
-    this.client = new Bun.S3Client({
-      bucket: this.config.bucket,
-      region: this.config.region,
-      ...(this.config.endpoint && { endpoint: this.config.endpoint }),
-      ...(this.config.accessKeyId && { accessKeyId: this.config.accessKeyId }),
-      ...(this.config.secretAccessKey && { secretAccessKey: this.config.secretAccessKey }),
-      ...(this.config.forcePathStyle && { virtualHostedStyle: false }),
-    });
-
-    return this.client;
-  }
-
-  private getObjectKey(scope: StorageScope, key: string): string {
-    const prefix = this.normalizePathSegment(this.config.prefixes[scope]);
-    const normalizedKey = key.replace(/^\/+/, "");
-    return [prefix, normalizedKey].filter(Boolean).join("/");
-  }
-
-  private getPrefix(scope: StorageScope, keyPrefix: string): string {
-    const objectKey = this.getObjectKey(scope, keyPrefix.replace(/\/+$/, ""));
-    return objectKey ? `${objectKey}/` : "";
-  }
-
-  private normalizePathSegment(segment: string): string {
-    return segment.replace(/^\/+|\/+$/g, "");
-  }
-
-  private extractObjectKeys(listResponse: any): string[] {
-    if (!listResponse) return [];
-
-    const entries = Array.isArray(listResponse)
-      ? listResponse
-      : Array.isArray(listResponse.contents)
-        ? listResponse.contents
-        : Array.isArray(listResponse.objects)
-          ? listResponse.objects
-          : [];
-
-    return entries
-      .map((entry: any) => {
-        if (typeof entry === "string") return entry;
-        return entry?.key || entry?.Key || null;
-      })
-      .filter((item: string | null): item is string => Boolean(item));
   }
 }
 
@@ -357,35 +190,14 @@ export class StorageService {
   }
 }
 
-function createStorageDriver(config: StorageRuntimeConfig): StorageDriver {
-  const driverName = String(config.storageDriver || "local").toLowerCase();
-
-  if (driverName === "s3") {
-    const s3Config = config.s3Storage;
-    return new S3StorageDriver({
-      bucket: s3Config?.bucket || "",
-      region: s3Config?.region || "",
-      endpoint: s3Config?.endpoint || "",
-      accessKeyId: s3Config?.accessKeyId || "",
-      secretAccessKey: s3Config?.secretAccessKey || "",
-      forcePathStyle: Boolean(s3Config?.forcePathStyle),
-      prefixes: {
-        files: s3Config?.prefixes?.files || "files",
-        avatars: s3Config?.prefixes?.avatars || "avatars",
-        cache: s3Config?.prefixes?.cache || "cache",
-      },
-    });
-  }
-
-  return new LocalStorageDriver({
-    files: resolve(config.storagePath),
-    avatars: resolve(config.avatarStoragePath),
-    cache: resolve(config.storageCachePath),
-  });
-}
-
 export function createStorageService(config: StorageRuntimeConfig): StorageService {
-  return new StorageService(createStorageDriver(config));
+  return new StorageService(
+    new LocalStorageDriver({
+      files: resolve(config.storagePath),
+      avatars: resolve(config.avatarStoragePath),
+      cache: resolve(config.storageCachePath),
+    }),
+  );
 }
 
 export function useStorageService(): StorageService {

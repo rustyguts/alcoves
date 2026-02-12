@@ -1,4 +1,4 @@
-import { migrate } from "drizzle-orm/bun-sql/migrator";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { db } from "../database";
