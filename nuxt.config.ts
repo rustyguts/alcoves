@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { vite as vidstack } from "vidstack/plugins";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -18,6 +19,9 @@ export default defineNuxtConfig({
       }
       process.exit(0);
     },
+  },
+  vite: {
+    plugins: [vidstack()],
   },
   nitro: {},
   vue: {

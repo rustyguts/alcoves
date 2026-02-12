@@ -1,4 +1,7 @@
 {
+  "compilerOptions": {
+    "types": ["vidstack/vue"]
+  },
   // https://nuxt.com/docs/guide/concepts/typescript
   "files": [],
   "references": [

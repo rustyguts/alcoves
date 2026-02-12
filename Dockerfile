@@ -4,13 +4,13 @@ COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["bun", "--bun", "dev", "--host"]
+CMD ["bun", "run", "dev", "--host"]
 
 FROM oven/bun:latest AS build
 WORKDIR /app
 COPY . .
 RUN bun install --frozen-lockfile --ignore-scripts
-RUN bun --bun run build
+RUN bun run build
 
 FROM oven/bun:latest AS dist
 WORKDIR /app
