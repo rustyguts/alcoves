@@ -13,6 +13,8 @@ RUN bun install --frozen-lockfile --ignore-scripts
 RUN bun run build
 
 FROM oven/bun:latest AS dist
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/.output /app
 COPY --from=build /app/server/database/migrations /app/server/database/migrations
