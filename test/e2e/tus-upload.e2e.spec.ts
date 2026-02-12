@@ -82,9 +82,7 @@ test.describe("tus upload", () => {
     expect(uploadUrl).toBeTruthy();
 
     // The location header may be absolute or relative
-    const fullUploadUrl = uploadUrl!.startsWith("http")
-      ? uploadUrl!
-      : `${BASE}${uploadUrl}`;
+    const fullUploadUrl = uploadUrl!.startsWith("http") ? uploadUrl! : `${BASE}${uploadUrl}`;
 
     // ---------------------------------------------------------------
     // Step 2: Upload the file data (PATCH {uploadUrl})
@@ -162,9 +160,7 @@ test.describe("tus upload", () => {
     });
     expect(createRes.status()).toBe(201);
     const uploadUrl = createRes.headers()["location"]!;
-    const fullUploadUrl = uploadUrl.startsWith("http")
-      ? uploadUrl
-      : `${BASE}${uploadUrl}`;
+    const fullUploadUrl = uploadUrl.startsWith("http") ? uploadUrl : `${BASE}${uploadUrl}`;
 
     // Upload first half
     const firstHalf = fileBytes.subarray(0, 1024);
