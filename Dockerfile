@@ -19,4 +19,4 @@ WORKDIR /app
 COPY --from=build /app/.output /app
 COPY --from=build /app/server/database/migrations /app/server/database/migrations
 EXPOSE 3000/tcp
-ENTRYPOINT [ "bun", "--bun", "run", "/app/server/index.mjs" ]
+ENTRYPOINT [ "bun", "run", "/app/server/index.mjs" ]

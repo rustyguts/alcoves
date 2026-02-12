@@ -1,64 +1,68 @@
 import { useUploadQueue } from "~/composables/useUploadQueue";
+import type { UploadOptions, PreviousUpload, OnSuccessPayload } from "tus-js-client";
 
-class MockXMLHttpRequest {
-  static instances: MockXMLHttpRequest[] = [];
+/**
+ * Mock tus.Upload so we never call real tus endpoints.
+ *
+ * Each constructed Upload is captured in `MockTusUpload.instances`.
+ * Tests can simulate progress, success, and error by calling the
+ * corresponding option callbacks stored on each instance.
+ */
+class MockTusUpload {
+  static instances: MockTusUpload[] = [];
 
-  upload: { onprogress: ((event: ProgressEvent) => void) | null } = {
-    onprogress: null,
-  };
-  onload: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-  onabort: (() => void) | null = null;
-  ontimeout: (() => void) | null = null;
+  file: File;
+  options: UploadOptions;
+  url: string | null = null;
+  started = false;
+  aborted = false;
 
-  status = 0;
-  method = "";
-  url = "";
-  headers: Record<string, string> = {};
-  body: File | null = null;
-
-  constructor() {
-    MockXMLHttpRequest.instances.push(this);
+  constructor(file: File, options: UploadOptions) {
+    this.file = file;
+    this.options = options;
+    MockTusUpload.instances.push(this);
   }
 
   static reset() {
-    MockXMLHttpRequest.instances = [];
+    MockTusUpload.instances = [];
   }
 
-  open(method: string, url: string) {
-    this.method = method;
-    this.url = url;
+  findPreviousUploads(): Promise<PreviousUpload[]> {
+    return Promise.resolve([]);
   }
 
-  setRequestHeader(key: string, value: string) {
-    this.headers[key] = value;
+  resumeFromPreviousUpload(_: PreviousUpload) {
+    // no-op
   }
 
-  send(body: Document | XMLHttpRequestBodyInit | null) {
-    this.body = body as File;
-  }
-
-  triggerProgress(loaded: number, total: number) {
-    this.upload.onprogress?.({
-      lengthComputable: true,
-      loaded,
-      total,
-    } as ProgressEvent);
-  }
-
-  respond(status = 200) {
-    this.status = status;
-    this.onload?.();
-  }
-
-  fail() {
-    this.onerror?.();
+  start() {
+    this.started = true;
   }
 
   abort() {
-    this.onabort?.();
+    this.aborted = true;
+    return Promise.resolve();
+  }
+
+  triggerProgress(loaded: number, total: number) {
+    this.options.onProgress?.(loaded, total);
+  }
+
+  triggerSuccess() {
+    this.options.onSuccess?.({ lastResponse: null } as unknown as OnSuccessPayload);
+  }
+
+  triggerError(message = "Upload failed") {
+    const err = new Error(message);
+    err.name = "DetailedError";
+    this.options.onError?.(err);
   }
 }
+
+// Mock the entire tus-js-client module, replacing Upload with our mock class
+vi.mock("tus-js-client", () => ({
+  Upload: MockTusUpload,
+}));
 
 async function flushPromises() {
   await Promise.resolve();
@@ -69,9 +73,8 @@ async function flushPromises() {
 describe("useUploadQueue", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    MockXMLHttpRequest.reset();
+    MockTusUpload.reset();
 
-    vi.stubGlobal("XMLHttpRequest", MockXMLHttpRequest);
     vi.stubGlobal("crypto", {
       randomUUID: vi.fn().mockImplementation(() => `id-${Math.random().toString(16).slice(2)}`),
     });
@@ -89,7 +92,7 @@ describe("useUploadQueue", () => {
     vi.useRealTimers();
   });
 
-  it("uploads a file successfully with headers, reports progress, invokes completion callback, and cleans up", async () => {
+  it("uploads a file successfully with tus metadata, reports progress, invokes completion callback, and cleans up", async () => {
     const queue = useUploadQueue();
     const onComplete = vi.fn();
     queue.onLibraryUploadComplete("lib-1", onComplete);
@@ -100,28 +103,26 @@ describe("useUploadQueue", () => {
     });
 
     queue.addFiles([file], "lib-1", "Library One", "folder-1");
+    await flushPromises();
 
     expect(queue.queue.value).toHaveLength(1);
     expect(queue.currentUpload.value?.status).toBe("uploading");
 
-    const xhr = MockXMLHttpRequest.instances[0]!;
-    expect(xhr.method).toBe("POST");
-    expect(xhr.url).toBe("/api/libraries/lib-1/files");
+    const tusUpload = MockTusUpload.instances[0]!;
+    expect(tusUpload.started).toBe(true);
 
-    // Verify headers carry the metadata
-    expect(xhr.headers["Content-Type"]).toBe("application/octet-stream");
-    expect(decodeURIComponent(xhr.headers["X-Upload-Name"]!)).toBe("hello.txt");
-    expect(xhr.headers["X-Upload-Mime-Type"]).toBe("text/plain");
-    expect(xhr.headers["X-Upload-Folder-Id"]).toBe("folder-1");
-    expect(xhr.headers["X-Upload-Last-Modified"]).toBe("100");
+    // Verify tus metadata
+    expect(tusUpload.options.metadata?.libraryId).toBe("lib-1");
+    expect(tusUpload.options.metadata?.filename).toBe("hello.txt");
+    expect(tusUpload.options.metadata?.mimeType).toBe("text/plain");
+    expect(tusUpload.options.metadata?.folderId).toBe("folder-1");
+    expect(tusUpload.options.metadata?.lastModified).toBe("100");
+    expect(tusUpload.options.endpoint).toBe("/api/tus");
 
-    // Body is the raw File, not FormData
-    expect(xhr.body).toBeInstanceOf(File);
-
-    xhr.triggerProgress(700, 1000);
+    tusUpload.triggerProgress(700, 1000);
     expect(queue.currentUpload.value?.progress).toBe(70);
 
-    xhr.respond(201);
+    tusUpload.triggerSuccess();
     await flushPromises();
 
     expect(queue.queue.value[0]?.status).toBe("done");
@@ -144,23 +145,23 @@ describe("useUploadQueue", () => {
     await flushPromises();
 
     // Should have started 3 concurrent uploads
-    expect(MockXMLHttpRequest.instances).toHaveLength(3);
+    expect(MockTusUpload.instances).toHaveLength(3);
     expect(queue.queue.value.filter((f) => f.status === "uploading")).toHaveLength(3);
     expect(queue.queue.value.filter((f) => f.status === "pending")).toHaveLength(2);
 
     // Complete the first upload — should start the 4th
-    MockXMLHttpRequest.instances[0]!.respond(201);
+    MockTusUpload.instances[0]!.triggerSuccess();
     await flushPromises();
 
-    expect(MockXMLHttpRequest.instances).toHaveLength(4);
+    expect(MockTusUpload.instances).toHaveLength(4);
     expect(queue.queue.value.filter((f) => f.status === "uploading")).toHaveLength(3);
     expect(queue.queue.value.filter((f) => f.status === "pending")).toHaveLength(1);
 
     // Complete the second — should start the 5th
-    MockXMLHttpRequest.instances[1]!.respond(201);
+    MockTusUpload.instances[1]!.triggerSuccess();
     await flushPromises();
 
-    expect(MockXMLHttpRequest.instances).toHaveLength(5);
+    expect(MockTusUpload.instances).toHaveLength(5);
     expect(queue.queue.value.filter((f) => f.status === "pending")).toHaveLength(0);
   });
 
@@ -169,40 +170,42 @@ describe("useUploadQueue", () => {
     const file = new File(["payload"], "fail.bin");
 
     queue.addFiles([file], "lib-1", "Library One");
+    await flushPromises();
 
     // First attempt fails
-    MockXMLHttpRequest.instances[0]!.respond(500);
+    MockTusUpload.instances[0]!.triggerError("Server error");
     await flushPromises();
 
     // Auto-retry picks it up (retries < MAX_RETRIES=3)
-    expect(MockXMLHttpRequest.instances).toHaveLength(2);
-    MockXMLHttpRequest.instances[1]!.respond(500);
+    expect(MockTusUpload.instances).toHaveLength(2);
+    MockTusUpload.instances[1]!.triggerError("Server error");
     await flushPromises();
 
-    expect(MockXMLHttpRequest.instances).toHaveLength(3);
-    MockXMLHttpRequest.instances[2]!.respond(500);
+    expect(MockTusUpload.instances).toHaveLength(3);
+    MockTusUpload.instances[2]!.triggerError("Server error");
     await flushPromises();
 
     // After 3 retries, stays in error state
-    expect(MockXMLHttpRequest.instances).toHaveLength(3);
+    expect(MockTusUpload.instances).toHaveLength(3);
     expect(queue.queue.value).toHaveLength(1);
     expect(queue.queue.value[0]?.status).toBe("error");
     expect(queue.queue.value[0]?.retries).toBe(3);
     expect(queue.isProcessing.value).toBe(false);
   });
 
-  it("handles network errors and supports manual retry and remove", async () => {
+  it("handles errors and supports manual retry and remove", async () => {
     const queue = useUploadQueue();
     const file = new File(["payload"], "network.txt");
 
     queue.addFiles([file], "lib-2", "Library Two");
+    await flushPromises();
 
-    // Fail 3 times via network error
-    MockXMLHttpRequest.instances[0]!.fail();
+    // Fail 3 times
+    MockTusUpload.instances[0]!.triggerError("Network error");
     await flushPromises();
-    MockXMLHttpRequest.instances[1]!.fail();
+    MockTusUpload.instances[1]!.triggerError("Network error");
     await flushPromises();
-    MockXMLHttpRequest.instances[2]!.fail();
+    MockTusUpload.instances[2]!.triggerError("Network error");
     await flushPromises();
 
     expect(queue.queue.value[0]?.status).toBe("error");
@@ -215,7 +218,7 @@ describe("useUploadQueue", () => {
     await flushPromises();
 
     expect(queue.queue.value[0]?.status).toBe("uploading");
-    expect(MockXMLHttpRequest.instances).toHaveLength(4);
+    expect(MockTusUpload.instances).toHaveLength(4);
 
     // Remove while uploading
     queue.removeFile(itemId);
@@ -224,41 +227,16 @@ describe("useUploadQueue", () => {
     expect(queue.hasActiveUploads.value).toBe(false);
   });
 
-  it("does not include X-Upload-Folder-Id header when parentFolderId is null", async () => {
+  it("does not include folderId in metadata when parentFolderId is null", async () => {
     const queue = useUploadQueue();
     const file = new File(["x"], "test.txt");
 
     queue.addFiles([file], "lib-1", "Library One", null);
     await flushPromises();
 
-    const xhr = MockXMLHttpRequest.instances[0]!;
-    expect(xhr.headers["X-Upload-Folder-Id"]).toBeUndefined();
-    expect(decodeURIComponent(xhr.headers["X-Upload-Name"]!)).toBe("test.txt");
-    expect(xhr.body).toBeInstanceOf(File);
-  });
-
-  it("stall detection aborts uploads with no progress", async () => {
-    const queue = useUploadQueue();
-    const file = new File(["stall"], "stall.txt");
-
-    queue.addFiles([file], "lib-1", "Library One");
-    await flushPromises();
-
-    expect(queue.queue.value[0]?.status).toBe("uploading");
-
-    // Advance past the stall timeout (30s) + check interval (5s)
-    vi.advanceTimersByTime(35_000);
-    await flushPromises();
-
-    // The stall check should have called xhr.abort(), triggering onabort
-    // which sets status to error
-    const xhr = MockXMLHttpRequest.instances[0]!;
-    // Simulate what the real browser does when abort() is called
-    xhr.onabort?.();
-    await flushPromises();
-
-    expect(queue.queue.value[0]?.status).toBe("error" as string);
-    expect(queue.queue.value[0]?.error).toBe("Upload stalled");
+    const tusUpload = MockTusUpload.instances[0]!;
+    expect(tusUpload.options.metadata?.folderId).toBeUndefined();
+    expect(tusUpload.options.metadata?.filename).toBe("test.txt");
   });
 
   it("completion callback fires only after all uploads for a library finish", async () => {
@@ -271,12 +249,12 @@ describe("useUploadQueue", () => {
     await flushPromises();
 
     // Complete first file — callback should NOT fire yet
-    MockXMLHttpRequest.instances[0]!.respond(201);
+    MockTusUpload.instances[0]!.triggerSuccess();
     await flushPromises();
     expect(onComplete).not.toHaveBeenCalled();
 
     // Complete second file — callback should fire
-    MockXMLHttpRequest.instances[1]!.respond(201);
+    MockTusUpload.instances[1]!.triggerSuccess();
     await flushPromises();
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
@@ -288,23 +266,16 @@ describe("useUploadQueue", () => {
     queue.addFiles(files, "lib-1", "Library One");
     await flushPromises();
 
-    // Fail both
-    MockXMLHttpRequest.instances[0]!.respond(500);
-    await flushPromises();
-    MockXMLHttpRequest.instances[1]!.respond(500);
-    await flushPromises();
-    // Auto retries will fire...
-    // Fail the retries too
-    for (let i = 2; i < MockXMLHttpRequest.instances.length; i++) {
-      MockXMLHttpRequest.instances[i]!.respond(500);
+    // Fail both — exhaust all retries
+    for (let i = 0; i < MockTusUpload.instances.length; i++) {
+      MockTusUpload.instances[i]!.triggerError("fail");
       await flushPromises();
     }
 
-    // Wait until all are exhausted
-    const stillRunning = () => MockXMLHttpRequest.instances.some((x) => x.status === 0);
-    while (stillRunning()) {
-      for (const xhr of MockXMLHttpRequest.instances) {
-        if (xhr.status === 0) xhr.respond(500);
+    // Keep failing retries until exhausted
+    while (queue.queue.value.some((f) => f.status === "uploading")) {
+      for (const inst of MockTusUpload.instances) {
+        if (inst.started && !inst.aborted) inst.triggerError("fail");
       }
       await flushPromises();
     }
@@ -312,12 +283,12 @@ describe("useUploadQueue", () => {
     const errorCount = queue.queue.value.filter((f) => f.status === "error").length;
     expect(errorCount).toBe(2);
 
-    const prevCount = MockXMLHttpRequest.instances.length;
+    const prevCount = MockTusUpload.instances.length;
     queue.retryAll();
     await flushPromises();
 
-    // Should have started new XHR instances
-    expect(MockXMLHttpRequest.instances.length).toBeGreaterThan(prevCount);
+    // Should have started new tus Upload instances
+    expect(MockTusUpload.instances.length).toBeGreaterThan(prevCount);
   });
 
   it("clearErrors removes only errored items", async () => {
@@ -327,19 +298,17 @@ describe("useUploadQueue", () => {
     queue.addFiles(files, "lib-1", "Library One");
     await flushPromises();
 
-    // Fail one, succeed the other
-    MockXMLHttpRequest.instances[0]!.respond(500);
+    // Fail one, exhaust retries
+    MockTusUpload.instances[0]!.triggerError("fail");
     await flushPromises();
 
-    // Exhaust retries on the first file
     while (queue.queue.value.some((f) => f.status === "uploading" || f.status === "pending")) {
-      for (const xhr of MockXMLHttpRequest.instances) {
-        if (xhr.status === 0) xhr.respond(500);
+      for (const inst of MockTusUpload.instances) {
+        if (inst.started && !inst.aborted) inst.triggerError("fail");
       }
       await flushPromises();
     }
 
-    // We should have at least one error
     expect(queue.erroredUploads.value.length).toBeGreaterThanOrEqual(1);
 
     const totalBefore = queue.queue.value.length;

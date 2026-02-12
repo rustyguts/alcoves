@@ -59,7 +59,7 @@ class LocalStorageDriver implements StorageDriver {
     const filePath = this.resolvePath(scope, key);
     await mkdir(dirname(filePath), { recursive: true });
 
-    const nodeReadable = Readable.fromWeb(stream as import("stream/web").ReadableStream);
+    const nodeReadable = Readable.fromWeb(stream as unknown as import("stream/web").ReadableStream);
     const writable = createWriteStream(filePath);
     await pipeline(nodeReadable, writable);
 
@@ -78,7 +78,7 @@ class LocalStorageDriver implements StorageDriver {
       if (range.end !== undefined) opts.end = range.end;
     }
     const nodeStream = createReadStream(filePath, opts);
-    return Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
+    return Readable.toWeb(nodeStream) as unknown as ReadableStream<Uint8Array>;
   }
 
   async readBuffer(scope: StorageScope, key: string): Promise<Buffer> {

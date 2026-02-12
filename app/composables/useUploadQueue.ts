@@ -1,3 +1,4 @@
+import * as tus from "tus-js-client";
 import { getMimeTypeFromFilename } from "~/utils/mime-icons";
 
 export interface QueuedFile {
@@ -16,8 +17,9 @@ export interface QueuedFile {
 
 const MAX_RETRIES = 3;
 const CONCURRENCY = 3;
-const STALL_TIMEOUT_MS = 30_000;
 const DONE_CLEANUP_MS = 2_000;
+
+const TUS_ENDPOINT = "/api/tus";
 
 const onCompleteCallbacks = new Map<string, () => void>();
 
@@ -26,9 +28,9 @@ export function useUploadQueue() {
   const isProcessing = useState<boolean>("upload-processing", () => false);
   const uploadSpeed = useState<number>("upload-speed", () => 0);
 
-  // Track active upload count and per-file abort controllers
+  // Track active upload count and per-file tus upload instances
   const activeCount = useState<number>("upload-active-count", () => 0);
-  const abortControllers = new Map<string, AbortController>();
+  const tusUploads = new Map<string, tus.Upload>();
 
   // Speed tracking across all concurrent uploads
   let speedBytes = 0;
@@ -113,115 +115,75 @@ export function useUploadQueue() {
   }
 
   function uploadFile(item: QueuedFile): void {
-    const xhr = new XMLHttpRequest();
-    const abortController = new AbortController();
-    abortControllers.set(item.id, abortController);
+    const mimeType = getMimeTypeFromFilename(item.file.name);
 
-    let settled = false;
-    let lastProgressTime = Date.now();
-    let stallCheck: ReturnType<typeof setInterval> | null = null;
-
-    const finish = (cleanup = true) => {
-      if (settled) return;
-      settled = true;
-
-      if (stallCheck) {
-        clearInterval(stallCheck);
-        stallCheck = null;
-      }
-      abortControllers.delete(item.id);
-
-      if (cleanup) {
-        activeCount.value--;
-      }
-
-      notifyLibraryIfIdle(item.libraryId);
-
-      // Continue draining the queue for the next file
-      drainQueue();
+    const metadata: Record<string, string> = {
+      libraryId: item.libraryId,
+      filename: item.file.name,
+      mimeType,
+      lastModified: String(item.file.lastModified),
     };
+    if (item.parentFolderId) {
+      metadata.folderId = item.parentFolderId;
+    }
 
-    // Stall detection: if no progress event fires for STALL_TIMEOUT_MS, abort
-    stallCheck = setInterval(() => {
-      if (item.status !== "uploading") {
-        if (stallCheck) clearInterval(stallCheck);
-        return;
-      }
-      if (Date.now() - lastProgressTime > STALL_TIMEOUT_MS) {
-        xhr.abort();
-        // onabort handler will fire and handle cleanup
-      }
-    }, 5_000);
+    const upload = new tus.Upload(item.file, {
+      endpoint: TUS_ENDPOINT,
+      retryDelays: null, // We manage retries ourselves via the queue
+      chunkSize: Infinity, // Send entire file in one PATCH (like the old XHR approach)
+      metadata,
+      // Upload the body with the creation POST when possible
+      uploadDataDuringCreation: true,
 
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
+      onProgress(bytesUploaded, bytesTotal) {
         const prevLoaded = item.loaded;
-        item.loaded = e.loaded;
-        item.total = e.total;
-        item.progress = Math.round((e.loaded / e.total) * 100);
-        lastProgressTime = Date.now();
+        item.loaded = bytesUploaded;
+        item.total = bytesTotal;
+        item.progress = Math.round((bytesUploaded / bytesTotal) * 100);
 
         // Accumulate bytes for speed calculation
-        const delta = e.loaded - prevLoaded;
+        const delta = bytesUploaded - prevLoaded;
         if (delta > 0) {
           speedBytes += delta;
         }
-      }
-    };
+      },
 
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
+      onSuccess() {
         item.status = "done";
         item.progress = 100;
+        tusUploads.delete(item.id);
 
         setTimeout(() => {
           queue.value = queue.value.filter((f) => f.id !== item.id);
         }, DONE_CLEANUP_MS);
-      } else {
+
+        finish(item);
+      },
+
+      onError(error) {
         item.status = "error";
-        item.error = `Upload failed (${xhr.status})`;
+        item.error = error.message || "Upload failed";
         item.retries++;
-      }
-      finish();
-    };
-
-    xhr.onerror = () => {
-      item.status = "error";
-      item.error = "Network error";
-      item.retries++;
-      finish();
-    };
-
-    xhr.onabort = () => {
-      item.status = "error";
-      item.error = "Upload stalled";
-      item.retries++;
-      finish();
-    };
-
-    xhr.ontimeout = () => {
-      item.status = "error";
-      item.error = "Upload timed out";
-      item.retries++;
-      finish();
-    };
-
-    // Listen for external abort (from removeFile or page unload)
-    abortController.signal.addEventListener("abort", () => {
-      xhr.abort();
+        tusUploads.delete(item.id);
+        finish(item);
+      },
     });
 
-    const mimeType = getMimeTypeFromFilename(item.file.name);
+    tusUploads.set(item.id, upload);
 
-    xhr.open("POST", `/api/libraries/${item.libraryId}/files`);
-    xhr.setRequestHeader("Content-Type", "application/octet-stream");
-    xhr.setRequestHeader("X-Upload-Name", encodeURIComponent(item.file.name));
-    xhr.setRequestHeader("X-Upload-Mime-Type", mimeType);
-    xhr.setRequestHeader("X-Upload-Last-Modified", String(item.file.lastModified));
-    if (item.parentFolderId) {
-      xhr.setRequestHeader("X-Upload-Folder-Id", item.parentFolderId);
-    }
-    xhr.send(item.file);
+    // Check for previous uploads to resume
+    upload.findPreviousUploads().then((previousUploads) => {
+      if (previousUploads.length > 0 && previousUploads[0]) {
+        upload.resumeFromPreviousUpload(previousUploads[0]);
+      }
+      upload.start();
+    });
+  }
+
+  function finish(item: QueuedFile) {
+    activeCount.value--;
+    notifyLibraryIfIdle(item.libraryId);
+    drainQueue();
   }
 
   function retryFile(itemId: string) {
@@ -244,11 +206,11 @@ export function useUploadQueue() {
   }
 
   function removeFile(itemId: string) {
-    // Abort in-flight upload if active
-    const controller = abortControllers.get(itemId);
-    if (controller) {
-      controller.abort();
-      abortControllers.delete(itemId);
+    // Abort in-flight tus upload if active
+    const upload = tusUploads.get(itemId);
+    if (upload) {
+      upload.abort(false);
+      tusUploads.delete(itemId);
     }
     queue.value = queue.value.filter((f) => f.id !== itemId);
   }

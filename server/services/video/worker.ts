@@ -58,7 +58,7 @@ export async function processVideoJob(job: Job): Promise<void> {
 
     // Stream the source file from storage to a temp file (avoids 2 GiB Buffer limit)
     const readStream = await storage.openFileReadStream(libraryId, fileId);
-    const nodeReadable = Readable.fromWeb(readStream as import("stream/web").ReadableStream);
+    const nodeReadable = Readable.fromWeb(readStream as unknown as import("stream/web").ReadableStream);
     await pipeline(nodeReadable, createWriteStream(tmpInput));
 
     await job.updateProgress(10);
@@ -120,7 +120,7 @@ export async function processVideoJob(job: Job): Promise<void> {
     // Stream the proxy file into cache storage (avoids 2 GiB Buffer limit)
     const proxyReadStream = Readable.toWeb(
       createReadStream(tmpProxy),
-    ) as ReadableStream<Uint8Array>;
+    ) as unknown as ReadableStream<Uint8Array>;
     await storage.storeCacheStream(videoProxyKey(libraryId, fileId), proxyReadStream);
 
     await db.update(schema.files).set({ proxyStatus: "ready" }).where(eq(schema.files.id, fileId));

@@ -27,6 +27,8 @@
   },
   "dependencies": {
     "@nuxt/ui": "^4.4.0",
+    "@tus/file-store": "^2.0.0",
+    "@tus/server": "^2.3.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.68.0",
     "drizzle-orm": "^0.45.1",
@@ -36,6 +38,7 @@
     "postgres": "^3.4.8",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
+    "tus-js-client": "^4.3.1",
     "vidstack": "^1.12.13",
     "vue": "^3.5.28",
     "vue-router": "^5.0.2",
