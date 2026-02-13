@@ -30,6 +30,8 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
+    // "all" (default) = API + workers, "api" = API only, "worker" = workers only
+    mode: (process.env.ALCOVES_MODE as "all" | "api" | "worker") || "all",
     session: {
       password:
         process.env.ALCOVES_SESSION_SECRET || "alcoves-dev-secret-key-change-in-production!!",

@@ -1,7 +1,34 @@
 import { Queue } from "bullmq";
 import type { ConnectionOptions, JobsOptions } from "bullmq";
 
+export type AlcovesMode = "all" | "api" | "worker";
 export type QueueName = "{face-detection}" | "{video-processing}" | "{thumbnails}";
+
+/**
+ * Returns the current server mode.
+ * - "all"    — API + workers (default, local dev)
+ * - "api"    — API only, no BullMQ workers
+ * - "worker" — Workers only (HTTP port stays open for health checks)
+ */
+export function getServerMode(): AlcovesMode {
+  const config = useRuntimeConfig();
+  const mode = (config.mode as AlcovesMode) || "all";
+  if (!["all", "api", "worker"].includes(mode)) {
+    console.warn(`[mode] Unknown ALCOVES_MODE "${mode}", falling back to "all"`);
+    return "all";
+  }
+  return mode;
+}
+
+export function isWorkerMode(): boolean {
+  const mode = getServerMode();
+  return mode === "worker" || mode === "all";
+}
+
+export function isApiMode(): boolean {
+  const mode = getServerMode();
+  return mode === "api" || mode === "all";
+}
 
 const queues = new Map<QueueName, Queue>();
 

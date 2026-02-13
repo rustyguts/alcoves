@@ -4,10 +4,17 @@ import type { Job } from "bullmq";
 const workers: Worker[] = [];
 
 export default defineNitroPlugin(async (nitro) => {
+  if (!isWorkerMode()) {
+    console.log(`[queue] Server mode is "${getServerMode()}", skipping worker startup`);
+    return;
+  }
+
   if (!isQueueConfigured()) {
     console.log("[queue] No queue host configured, skipping worker startup");
     return;
   }
+
+  console.log(`[queue] Starting workers (mode: ${getServerMode()})`);
 
   const connection = getQueueConnection();
 
