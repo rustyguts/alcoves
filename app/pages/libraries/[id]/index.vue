@@ -965,6 +965,24 @@ const emptyStateDescription = computed(() => {
         />
       </div>
       <div class="flex items-center gap-1">
+        <div v-if="!showTrashed" class="inline-flex items-center">
+          <UButton
+            icon="i-lucide-list"
+            size="sm"
+            :variant="entryViewMode === 'file' ? 'soft' : 'ghost'"
+            :color="entryViewMode === 'file' ? 'primary' : 'neutral'"
+            title="File view"
+            @click="entryViewMode = 'file'"
+          />
+          <UButton
+            icon="i-lucide-layout-grid"
+            size="sm"
+            :variant="entryViewMode === 'card' ? 'soft' : 'ghost'"
+            :color="entryViewMode === 'card' ? 'primary' : 'neutral'"
+            title="Card view"
+            @click="entryViewMode = 'card'"
+          />
+        </div>
         <UButton
           label="Trash"
           icon="i-lucide-trash-2"
