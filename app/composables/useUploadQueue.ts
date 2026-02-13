@@ -130,10 +130,8 @@ export function useUploadQueue() {
     const upload = new tus.Upload(item.file, {
       endpoint: TUS_ENDPOINT,
       retryDelays: null, // We manage retries ourselves via the queue
-      chunkSize: Infinity, // Send entire file in one PATCH (like the old XHR approach)
+      chunkSize: 50 * 1024 * 1024, // 50 MB chunks — keeps uploads resumable and avoids body-size limits
       metadata,
-      // Upload the body with the creation POST when possible
-      uploadDataDuringCreation: true,
 
       onProgress(bytesUploaded, bytesTotal) {
         const prevLoaded = item.loaded;
