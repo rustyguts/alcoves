@@ -12,8 +12,8 @@ vi.mock("~/composables/useUploadQueue", () => ({
   }),
 }));
 
-const UModalStub = defineComponent({
-  name: "UModal",
+const ModalStub = defineComponent({
+  name: "Modal",
   props: {
     open: {
       type: Boolean,
@@ -29,8 +29,8 @@ const UModalStub = defineComponent({
   `,
 });
 
-const UFileUploadStub = defineComponent({
-  name: "UFileUpload",
+const FileUploadStub = defineComponent({
+  name: "FileUpload",
   props: {
     modelValue: {
       type: Array,
@@ -41,8 +41,8 @@ const UFileUploadStub = defineComponent({
   template: `<div data-testid="u-file-upload" />`,
 });
 
-const UButtonStub = defineComponent({
-  name: "UButton",
+const ButtonStub = defineComponent({
+  name: "Button",
   props: {
     disabled: {
       type: Boolean,
@@ -72,9 +72,9 @@ describe("UploadModal", () => {
       },
       global: {
         stubs: {
-          UModal: UModalStub,
-          UFileUpload: UFileUploadStub,
-          UButton: UButtonStub,
+          Modal: ModalStub,
+          FileUpload: FileUploadStub,
+          Button: ButtonStub,
         },
       },
     });
@@ -90,7 +90,7 @@ describe("UploadModal", () => {
 
   it("shows selected file count and pluralization", async () => {
     const wrapper = mountComponent();
-    const upload = wrapper.getComponent(UFileUploadStub);
+    const upload = wrapper.getComponent(FileUploadStub);
 
     upload.vm.$emit("update:modelValue", [new File(["a"], "a.txt"), new File(["b"], "b.txt")]);
     await wrapper.vm.$nextTick();
@@ -102,7 +102,7 @@ describe("UploadModal", () => {
     const wrapper = mountComponent();
     const files = [new File(["hello"], "hello.txt")];
 
-    wrapper.getComponent(UFileUploadStub).vm.$emit("update:modelValue", files);
+    wrapper.getComponent(FileUploadStub).vm.$emit("update:modelValue", files);
     await wrapper.vm.$nextTick();
 
     const uploadButton = wrapper.findAll("button").find((el) => el.text() === "Upload");
@@ -117,11 +117,11 @@ describe("UploadModal", () => {
   it("clears selection after modal leave", async () => {
     const wrapper = mountComponent();
 
-    wrapper.getComponent(UFileUploadStub).vm.$emit("update:modelValue", [new File(["x"], "x.txt")]);
+    wrapper.getComponent(FileUploadStub).vm.$emit("update:modelValue", [new File(["x"], "x.txt")]);
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).toContain("1 file selected");
 
-    wrapper.getComponent(UModalStub).vm.$emit("after:leave");
+    wrapper.getComponent(ModalStub).vm.$emit("after:leave");
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).not.toContain("file selected");

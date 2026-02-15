@@ -1,6 +1,10 @@
 import { mount } from "@vue/test-utils";
 import App from "~/app.vue";
 
+const mocks = vi.hoisted(() => ({
+  hasInFlightUploads: false,
+}));
+
 vi.mock("~/composables/useUploadQueue", () => ({
   useUploadQueue: () => ({
     hasInFlightUploads: {
@@ -14,9 +18,19 @@ vi.mock("~/composables/useUploadQueue", () => ({
   }),
 }));
 
-const mocks = vi.hoisted(() => ({
-  hasInFlightUploads: false,
-}));
+vi.mock("vue-router", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    useRoute: () => ({
+      path: "/",
+      meta: { layout: "dashboard" },
+      query: {},
+      params: {},
+    }),
+    RouterLink: { template: "<a><slot /></a>", props: ["to"] },
+  };
+});
 
 describe("app.vue", () => {
   beforeEach(() => {
@@ -30,7 +44,7 @@ describe("app.vue", () => {
     const wrapper = mount(App, {
       global: {
         stubs: {
-          UApp: { template: "<div><slot /></div>" },
+          App: { template: "<div><slot /></div>" },
           RouterView: { template: "<div />" },
           DashboardLayout: { template: "<div><slot /></div>" },
           UploadProgress: { template: "<div />" },

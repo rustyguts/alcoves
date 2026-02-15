@@ -10,6 +10,17 @@ vi.mock("@nuxt/ui/composables/useToast", () => ({
   useToast: () => mocks.toast,
 }));
 
+vi.mock("vue-router", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    RouterLink: {
+      template: "<a :href='to'><slot /></a>",
+      props: ["to"],
+    },
+  };
+});
+
 vi.mock("~/utils/api-fetch", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
 }));

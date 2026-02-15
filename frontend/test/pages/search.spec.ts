@@ -38,6 +38,7 @@ vi.mock("vue-router", async (importOriginal) => {
     useRoute: () => ({
       query: mocks.routeQuery,
     }),
+    RouterLink: { template: "<a><slot /></a>", props: ["to"] },
   };
 });
 
@@ -70,22 +71,22 @@ vi.mock("~/composables/useApiFetch", () => ({
 }));
 
 const stubs = {
-  UCard: {
+  Card: {
     template: "<div><slot name='header' /><slot /><slot name='body' /></div>",
     props: ["variant", "ui"],
   },
-  UBadge: {
+  Badge: {
     template: "<span><slot>{{ label }}</slot></span>",
     props: ["label", "color", "variant", "size"],
   },
-  UIcon: { template: "<i :data-name='name' />", props: ["name", "class"] },
-  UInput: {
+  Icon: { template: "<i :data-name='name' />", props: ["name", "class"] },
+  Input: {
     template:
       "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />",
     props: ["modelValue"],
     emits: ["update:modelValue"],
   },
-  UButton: {
+  Button: {
     template: "<button type='submit'>{{ label }}</button>",
     props: ["label", "type", "icon"],
   },

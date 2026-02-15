@@ -39,6 +39,7 @@ vi.mock("vue-router", async (importOriginal) => {
     useRoute: () => ({
       params: { token: "abc123" },
     }),
+    RouterLink: { template: "<a><slot /></a>", props: ["to"] },
   };
 });
 
@@ -73,10 +74,10 @@ vi.mock("~/utils/api-fetch", () => ({
 }));
 
 const stubs = {
-  UCard: { template: "<div><slot name='header' /><slot /></div>", props: ["variant"] },
-  UAvatar: { template: "<div />", props: ["src", "alt", "size"] },
-  UIcon: { template: "<i />", props: ["name", "class"] },
-  UButton: {
+  Card: { template: "<div><slot name='header' /><slot /></div>", props: ["variant"] },
+  Avatar: { template: "<div />", props: ["src", "alt", "size"] },
+  Icon: { template: "<i />", props: ["name", "class"] },
+  Button: {
     template: "<button :disabled='loading' @click='$emit(\"click\")'>{{ label }}</button>",
     props: ["label", "icon", "loading", "color", "variant", "to"],
     emits: ["click"],

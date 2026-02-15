@@ -16,18 +16,18 @@ vi.mock("~/utils/api-fetch", () => ({
 }));
 
 const stubs = {
-  UModal: {
+  Modal: {
     template:
       "<div data-testid='modal' :data-open='String(open)'><slot name='header' /><slot name='body' /></div>",
     props: ["open", "fullscreen", "close", "ui"],
     emits: ["update:open"],
   },
-  UButton: {
+  Button: {
     template: "<button :data-icon='icon' @click='$emit(\"click\")'><slot /></button>",
     props: ["icon", "color", "variant", "size", "class"],
     emits: ["click"],
   },
-  UIcon: { template: "<i :data-name='name' />", props: ["name", "class"] },
+  Icon: { template: "<i :data-name='name' />", props: ["name", "class"] },
   AlcovesImage: {
     template: "<img :alt='alt' />",
     props: ["libraryId", "fileId", "alt", "width", "class"],

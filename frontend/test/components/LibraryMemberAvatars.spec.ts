@@ -2,8 +2,8 @@ import { mount } from "@vue/test-utils";
 import { defineComponent } from "vue";
 import LibraryMemberAvatars from "~/components/LibraryMemberAvatars.vue";
 
-const UAvatarStub = defineComponent({
-  name: "UAvatar",
+const AvatarStub = defineComponent({
+  name: "Avatar",
   props: {
     alt: {
       type: String,
@@ -13,8 +13,8 @@ const UAvatarStub = defineComponent({
   template: `<div class="avatar">{{ alt }}</div>`,
 });
 
-const UDropdownMenuStub = defineComponent({
-  name: "UDropdownMenu",
+const DropdownMenuStub = defineComponent({
+  name: "DropdownMenu",
   props: {
     items: {
       type: Array,
@@ -24,8 +24,8 @@ const UDropdownMenuStub = defineComponent({
   template: `<div class="dropdown"><slot /></div>`,
 });
 
-const UButtonStub = defineComponent({
-  name: "UButton",
+const ButtonStub = defineComponent({
+  name: "Button",
   props: {
     label: {
       type: String,
@@ -51,9 +51,9 @@ describe("LibraryMemberAvatars", () => {
       },
       global: {
         stubs: {
-          UAvatar: UAvatarStub,
-          UDropdownMenu: UDropdownMenuStub,
-          UButton: UButtonStub,
+          Avatar: AvatarStub,
+          DropdownMenu: DropdownMenuStub,
+          Button: ButtonStub,
         },
       },
     });

@@ -90,26 +90,26 @@ vi.mock("vue-router", async (importOriginal) => {
 });
 
 const stubs = {
-  UDashboardGroup: { template: "<div><slot /></div>" },
-  UDashboardSidebar: {
+  DashboardGroup: { template: "<div><slot /></div>" },
+  DashboardSidebar: {
     template:
       "<div><slot name='header' :collapsed='false' /><slot :collapsed='false' /><slot name='footer' /></div>",
     props: ["collapsible", "resizable", "ui"],
   },
-  UDashboardSidebarCollapse: { template: "<div />" },
-  UDashboardPanel: { template: "<div><slot name='header' /><slot name='body' /></div>" },
-  UDashboardNavbar: { template: "<div><slot name='left' /><slot name='right' /></div>" },
-  UNavigationMenu: {
+  DashboardSidebarCollapse: { template: "<div />" },
+  DashboardPanel: { template: "<div><slot name='header' /><slot name='body' /></div>" },
+  DashboardNavbar: { template: "<div><slot name='left' /><slot name='right' /></div>" },
+  NavigationMenu: {
     template: "<nav><span v-for='item in items' :key='item.label'>{{ item.label }}</span></nav>",
     props: ["items", "collapsed", "orientation"],
   },
-  USeparator: { template: "<hr />" },
-  UButton: {
+  Separator: { template: "<hr />" },
+  Button: {
     template: "<button @click='$emit(\"click\")'><slot>{{ label }}</slot></button>",
     props: ["icon", "size", "color", "variant", "square", "label", "class"],
     emits: ["click"],
   },
-  UInput: {
+  Input: {
     template:
       "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />",
     props: [
@@ -125,8 +125,8 @@ const stubs = {
     ],
     emits: ["update:modelValue"],
   },
-  UDropdownMenu: { template: "<div><slot /></div>", props: ["items"] },
-  UIcon: { template: "<i />", props: ["name", "class"] },
+  DropdownMenu: { template: "<div><slot /></div>", props: ["items"] },
+  Icon: { template: "<i />", props: ["name", "class"] },
 };
 
 describe("dashboard.vue", () => {

@@ -1,1 +1,0 @@
-ALTER TABLE "face_detections" ADD COLUMN "quality_score" integer;

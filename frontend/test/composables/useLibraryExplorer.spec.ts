@@ -54,6 +54,7 @@ vi.mock("vue-router", async (importOriginal) => ({
   useRouter: () => mocks.router,
 }));
 
+import { flushPromises } from "@vue/test-utils";
 import { useLibraryExplorer } from "~/composables/useLibraryExplorer";
 import { apiFetch } from "~/utils/api-fetch";
 import type { LibraryFile, LibraryFolder, LibraryEntry, PaginatedFiles } from "~~/shared/types/api";
@@ -345,14 +346,15 @@ describe("useLibraryExplorer", () => {
       tags: [],
     };
 
+    const { entries, nextCursor, loadMore, totalCount, breadcrumbs } = useLibraryExplorer();
+    await flushPromises();
+
     mockApiFetch.mockResolvedValueOnce({
       entries: [newEntry],
       nextCursor: "cursor-2",
       totalCount: 5,
       breadcrumbs: [{ id: "b1", name: "Root" }],
     });
-
-    const { entries, nextCursor, loadMore, totalCount, breadcrumbs } = useLibraryExplorer();
     nextCursor.value = "cursor-1";
 
     await loadMore();
@@ -402,15 +404,15 @@ describe("useLibraryExplorer", () => {
   });
 
   it("resetAndFetch updates trashedCount when in trash view", async () => {
+    const { viewMode, resetAndFetch, trashedCount } = useLibraryExplorer();
+    viewMode.value = "trash";
+
     mockApiFetch.mockResolvedValueOnce({
       entries: [],
       nextCursor: null,
       totalCount: 3,
       breadcrumbs: [],
     });
-
-    const { viewMode, resetAndFetch, trashedCount } = useLibraryExplorer();
-    viewMode.value = "trash";
 
     await resetAndFetch();
 
@@ -421,9 +423,10 @@ describe("useLibraryExplorer", () => {
     const tags = [
       { id: "t1", name: "Tag", libraryId: "lib-1", color: "#E11D48", createdAt: "", updatedAt: "" },
     ];
-    mockApiFetch.mockResolvedValueOnce(tags);
 
     const { refreshTags, libraryTags } = useLibraryExplorer();
+    await flushPromises();
+    mockApiFetch.mockResolvedValueOnce(tags);
     await refreshTags();
 
     expect(mockApiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags");
@@ -431,9 +434,9 @@ describe("useLibraryExplorer", () => {
   });
 
   it("refreshTrashedCount fetches trashed count", async () => {
-    mockApiFetch.mockResolvedValueOnce({ totalCount: 7 });
-
     const { refreshTrashedCount, trashedCount } = useLibraryExplorer();
+    await flushPromises();
+    mockApiFetch.mockResolvedValueOnce({ totalCount: 7 });
     await refreshTrashedCount();
 
     expect(trashedCount.value).toBe(7);
@@ -441,9 +444,9 @@ describe("useLibraryExplorer", () => {
 
   it("refreshFolders fetches folders", async () => {
     const folders = [{ id: "fo1", name: "Docs" }];
-    mockApiFetch.mockResolvedValueOnce(folders);
 
     const { refreshFolders } = useLibraryExplorer();
+    mockApiFetch.mockResolvedValueOnce(folders);
     const result = await refreshFolders();
 
     expect(mockApiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/folders");

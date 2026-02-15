@@ -1,0 +1,207 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"time"
+
+	"github.com/labstack/echo/v4"
+	echomw "github.com/labstack/echo/v4/middleware"
+
+	"github.com/alcoves/alcoves-backend/internal/config"
+	"github.com/alcoves/alcoves-backend/internal/database"
+	"github.com/alcoves/alcoves-backend/internal/handlers"
+	"github.com/alcoves/alcoves-backend/internal/middleware"
+	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/access"
+	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
+	"github.com/alcoves/alcoves-backend/internal/services/files"
+	"github.com/alcoves/alcoves-backend/internal/services/storage"
+	"github.com/alcoves/alcoves-backend/internal/spa"
+)
+
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	db, err := database.Connect(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	// Database migrations
+	if cfg.Environment == "production" {
+		// Production: apply versioned SQL migrations
+		if err := database.RunMigrations(cfg.DatabaseURL, "migrations"); err != nil {
+			log.Fatalf("Failed to run database migrations: %v", err)
+		}
+	} else {
+		// Development: GORM auto-migrate for convenience
+		if err := db.AutoMigrate(
+			&models.User{},
+			&models.Library{},
+			&models.LibraryMember{},
+			&models.Account{},
+			&models.Session{},
+			&models.File{},
+			&models.Folder{},
+			&models.Tag{},
+			&models.FileTag{},
+			&models.FolderTag{},
+			&models.Person{},
+			&models.FaceDetection{},
+			&models.LibraryInvite{},
+		); err != nil {
+			log.Fatalf("Failed to auto-migrate database: %v", err)
+		}
+	}
+
+	// Services
+	authSvc, err := authservice.NewService(db, cfg.SessionSecret)
+	if err != nil {
+		log.Fatalf("Failed to initialize auth service: %v", err)
+	}
+
+	accessSvc := access.NewService(db)
+	fileSvc := files.NewService(db)
+
+	storageDriver := storage.NewLocalDriver(cfg.StoragePath, cfg.AvatarStoragePath, cfg.CacheStoragePath)
+	storageSvc := storage.NewService(storageDriver)
+	if err := storageSvc.EnsureReady(); err != nil {
+		log.Fatalf("Failed to initialize storage: %v", err)
+	}
+
+	// Echo setup
+	e := echo.New()
+	e.HideBanner = true
+	e.Validator = handlers.NewValidator()
+
+	// Global middleware
+	e.Use(echomw.Logger())
+	e.Use(echomw.Recover())
+	e.Use(echomw.CORSWithConfig(echomw.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions, http.MethodHead},
+		AllowHeaders: []string{
+			echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization,
+			// tus protocol headers
+			"Tus-Resumable", "Upload-Length", "Upload-Offset", "Upload-Metadata",
+		},
+		ExposeHeaders: []string{
+			// tus protocol response headers the client needs to read
+			"Tus-Resumable", "Tus-Version", "Tus-Extension",
+			"Upload-Offset", "Upload-Length", "Location",
+		},
+		AllowCredentials: true,
+	}))
+
+	// Auth middleware (applies to all /api/* except public routes)
+	e.Use(middleware.AuthMiddleware(authSvc))
+
+	// Library access middleware (applies to /api/libraries/:id/*)
+	e.Use(middleware.LibraryAccessMiddleware(accessSvc))
+
+	// Routes
+	api := e.Group("/api")
+
+	// Auth routes (public - skipped by auth middleware)
+	authHandler := handlers.NewAuthHandler(db, authSvc)
+	authHandler.RegisterRoutes(api.Group("/auth"))
+	authHandler.RegisterSessionRoute(api)
+
+	// Library routes
+	libraryHandler := handlers.NewLibraryHandler(db, accessSvc)
+	libraryHandler.RegisterRoutes(api.Group("/libraries"))
+
+	// File routes (under /api/libraries)
+	fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc)
+	fileHandler.RegisterRoutes(api.Group("/libraries"))
+
+	// Folder routes (under /api/libraries)
+	folderHandler := handlers.NewFolderHandler(db)
+	folderHandler.RegisterRoutes(api.Group("/libraries"))
+
+	// Tag routes (under /api/libraries)
+	tagHandler := handlers.NewTagHandler(db)
+	tagHandler.RegisterRoutes(api.Group("/libraries"))
+
+	// Member routes (under /api/libraries)
+	memberHandler := handlers.NewMemberHandler(db, accessSvc)
+	memberHandler.RegisterRoutes(api.Group("/libraries"))
+
+	// Invite routes
+	inviteHandler := handlers.NewInviteHandler(db)
+	inviteHandler.RegisterRoutes(api.Group("/invites"))
+
+	// Search
+	searchHandler := handlers.NewSearchHandler(db)
+	searchHandler.RegisterRoutes(api)
+
+	// Admin routes
+	adminHandler := handlers.NewAdminHandler(db)
+	adminHandler.RegisterRoutes(api.Group("/admin"))
+
+	// Admin job queue routes
+	adminJobsHandler := handlers.NewAdminJobsHandler()
+	adminJobsHandler.RegisterRoutes(api.Group("/admin"))
+
+	// People routes (under /api/libraries)
+	peopleHandler := handlers.NewPeopleHandler(db, storageSvc)
+	peopleHandler.RegisterRoutes(api.Group("/libraries"))
+
+	// Download routes (under /api/libraries)
+	downloadHandler := handlers.NewDownloadHandler(db, storageSvc)
+	downloadHandler.RegisterRoutes(api.Group("/libraries"))
+
+	// Tus resumable upload routes (under /api/tus)
+	tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath)
+	tusHandler.RegisterRoutes(api)
+
+	// Avatar routes (under /api/auth)
+	avatarHandler := handlers.NewAvatarHandler(db, storageSvc)
+	avatarHandler.RegisterRoutes(api.Group("/auth"))
+
+	// OAuth routes (under /api/auth)
+	oauthHandler := handlers.NewOAuthHandler(db, authSvc, cfg.OAuthGoogleClientID, cfg.OAuthGoogleClientSecret, cfg.BaseURL)
+	oauthHandler.RegisterRoutes(api.Group("/auth"))
+
+	// Public file proxy (skipped by auth middleware)
+	fileProxyHandler := handlers.NewFileProxyHandler(db, storageSvc)
+	fileProxyHandler.RegisterRoutes(api.Group("/files"))
+
+	// Health check
+	api.GET("/health", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	// SPA frontend (no-op in dev mode, serves embedded dist/ in production)
+	spa.RegisterRoutes(e)
+
+	// Graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	go func() {
+		addr := fmt.Sprintf(":%d", cfg.Port)
+		log.Printf("Starting server on %s", addr)
+		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("Shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := e.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Server shutdown error: %v", err)
+	}
+	log.Println("Server stopped")
+}

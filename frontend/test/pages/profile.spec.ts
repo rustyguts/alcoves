@@ -86,23 +86,23 @@ vi.mock("~/utils/api-fetch", () => ({
 }));
 
 const stubs = {
-  UFormField: { template: "<div><slot /></div>", props: ["label", "description"] },
-  UInput: {
+  FormField: { template: "<div><slot /></div>", props: ["label", "description"] },
+  Input: {
     template:
       "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />",
     props: ["modelValue", "placeholder", "class"],
     emits: ["update:modelValue"],
   },
-  USelectMenu: { template: "<select />", props: ["modelValue", "items", "valueKey", "class"] },
-  UButton: {
+  SelectMenu: { template: "<select />", props: ["modelValue", "items", "valueKey", "class"] },
+  Button: {
     template:
       "<button :disabled='disabled' :data-loading='loading' @click='$emit(\"click\")'>{{ label }}</button>",
     props: ["label", "loading", "icon", "color", "variant", "size", "disabled", "square"],
     emits: ["click"],
   },
-  USeparator: { template: "<hr />" },
-  UBadge: { template: "<span><slot>{{ label }}</slot></span>", props: ["label", "color", "size"] },
-  UIcon: { template: "<i />", props: ["name", "class"] },
+  Separator: { template: "<hr />" },
+  Badge: { template: "<span><slot>{{ label }}</slot></span>", props: ["label", "color", "size"] },
+  Icon: { template: "<i />", props: ["name", "class"] },
 };
 
 describe("profile.vue", () => {

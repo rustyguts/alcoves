@@ -19,23 +19,24 @@ vi.mock("vue-router", async (importOriginal) => {
     ...actual,
     useRouter: () => mocks.mockRouter,
     useRoute: () => mocks.mockRoute,
+    RouterLink: { template: "<a><slot /></a>", props: ["to"] },
   };
 });
 
 const stubs = {
   UApp: { template: "<div><slot /></div>" },
-  UPageCard: { template: "<div><slot /></div>" },
-  UAuthForm: {
+  PageCard: { template: "<div><slot /></div>" },
+  AuthForm: {
     template: `<div><slot name="description" /><slot name="footer" /><button data-testid="submit" @click="$emit('submit', { data: { email: 'test@example.com', password: 'password123' }})">Submit</button></div>`,
     props: ["schema", "fields", "title", "description", "icon"],
     emits: ["submit"],
   },
-  USeparator: { template: "<hr />" },
-  UButton: {
+  Separator: { template: "<hr />" },
+  Button: {
     template: "<button><slot /></button>",
     props: ["color", "variant", "block", "to", "external"],
   },
-  ULink: { template: "<a><slot /></a>", props: ["to"] },
+  Link: { template: "<a><slot /></a>", props: ["to"] },
 };
 
 describe("login.vue", () => {

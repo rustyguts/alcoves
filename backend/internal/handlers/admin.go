@@ -1,0 +1,133 @@
+package handlers
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
+
+	"github.com/alcoves/alcoves-backend/internal/middleware"
+	"github.com/alcoves/alcoves-backend/internal/models"
+)
+
+type AdminHandler struct {
+	db *gorm.DB
+}
+
+func NewAdminHandler(db *gorm.DB) *AdminHandler {
+	return &AdminHandler{db: db}
+}
+
+func (h *AdminHandler) RegisterRoutes(g *echo.Group) {
+	g.Use(h.requireOwnerMiddleware)
+	g.GET("/stats", h.Stats)
+	g.GET("/users", h.ListUsers)
+	g.PATCH("/users/:userId", h.UpdateUser)
+}
+
+func (h *AdminHandler) requireOwnerMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID, err := middleware.RequireUserID(c)
+		if err != nil {
+			return err
+		}
+
+		var user models.User
+		if err := h.db.Select("role").Where("id = ?", userID).First(&user).Error; err != nil {
+			return echo.NewHTTPError(http.StatusUnauthorized, "User not found")
+		}
+
+		if user.Role != "owner" {
+			return echo.NewHTTPError(http.StatusForbidden, "Forbidden")
+		}
+
+		return next(c)
+	}
+}
+
+func (h *AdminHandler) Stats(c echo.Context) error {
+	var userCount, libraryCount, fileCount, folderCount int64
+	h.db.Model(&models.User{}).Count(&userCount)
+	h.db.Model(&models.Library{}).Count(&libraryCount)
+	h.db.Model(&models.File{}).Where("trashed_at IS NULL").Count(&fileCount)
+	h.db.Model(&models.Folder{}).Where("trashed_at IS NULL").Count(&folderCount)
+
+	var totalSize int64
+	h.db.Model(&models.File{}).Where("trashed_at IS NULL").Select("COALESCE(SUM(size), 0)").Scan(&totalSize)
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"users":     userCount,
+		"libraries": libraryCount,
+		"files":     fileCount,
+		"folders":   folderCount,
+		"totalSize": totalSize,
+	})
+}
+
+func (h *AdminHandler) ListUsers(c echo.Context) error {
+	var users []models.User
+	h.db.Select("id, email, display_name, avatar_url, role, created_at, updated_at").
+		Order("created_at").Find(&users)
+
+	result := make([]map[string]interface{}, len(users))
+	for i, u := range users {
+		result[i] = map[string]interface{}{
+			"id":          u.ID.String(),
+			"email":       u.Email,
+			"displayName": u.DisplayName,
+			"avatarUrl":   u.AvatarUrl,
+			"role":        u.Role,
+			"createdAt":   u.CreatedAt.Format(time.RFC3339Nano),
+			"updatedAt":   u.UpdatedAt.Format(time.RFC3339Nano),
+		}
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+type updateUserRequest struct {
+	Role *string `json:"role"`
+}
+
+func (h *AdminHandler) UpdateUser(c echo.Context) error {
+	targetUserID, err := uuid.Parse(c.Param("userId"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid user ID")
+	}
+
+	var req updateUserRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	updates := map[string]interface{}{}
+	if req.Role != nil {
+		if *req.Role != "owner" && *req.Role != "member" {
+			return echo.NewHTTPError(http.StatusBadRequest, "Role must be 'owner' or 'member'")
+		}
+		updates["role"] = *req.Role
+	}
+
+	if len(updates) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "No fields to update")
+	}
+	updates["updated_at"] = time.Now()
+
+	result := h.db.Model(&models.User{}).Where("id = ?", targetUserID).Updates(updates)
+	if result.RowsAffected == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "User not found")
+	}
+
+	var user models.User
+	h.db.Where("id = ?", targetUserID).First(&user)
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"id":          user.ID.String(),
+		"email":       user.Email,
+		"displayName": user.DisplayName,
+		"avatarUrl":   user.AvatarUrl,
+		"role":        user.Role,
+	})
+}

@@ -1,24 +1,32 @@
-import { mount } from "@vue/test-utils";
+import { mount, shallowMount } from "@vue/test-utils";
 import ClipModal from "~/components/ClipModal.vue";
 import type { LibraryFile } from "~~/shared/types/api";
 
+const mocks = vi.hoisted(() => ({
+  toast: { add: vi.fn(), remove: vi.fn(), clear: vi.fn() },
+}));
+
+vi.mock("@nuxt/ui/composables/useToast", () => ({
+  useToast: () => mocks.toast,
+}));
+
 const stubs = {
-  UModal: {
+  Modal: {
     template: "<div data-testid='modal'><slot name='body' /></div>",
     props: ["open", "title"],
     emits: ["update:open"],
   },
-  UButton: {
+  Button: {
     template:
       "<button :data-label='label' :disabled='disabled || loading' @click='$emit(\"click\")'><slot />{{ label }}</button>",
     props: ["label", "color", "variant", "loading", "disabled", "icon"],
     emits: ["click"],
   },
-  UFormField: {
+  FormField: {
     template: "<div><slot /><slot name='hint' /></div>",
     props: ["label"],
   },
-  UInput: {
+  Input: {
     template:
       "<input :value='modelValue' @input='$emit(\"update:modelValue\", Number($event.target.value) || $event.target.value)' />",
     props: ["modelValue", "type", "min", "max", "step", "placeholder"],

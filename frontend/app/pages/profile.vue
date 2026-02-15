@@ -209,7 +209,7 @@ function getStatusMessage(error: unknown): string | null {
           ]"
           value-key="value"
           class="w-full"
-          @update:model-value="colorPreference = $event"
+          @update:model-value="colorPreference = $event as 'light' | 'dark' | 'auto'"
         />
       </UFormField>
 
