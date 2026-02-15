@@ -16,18 +16,7 @@ vi.mock("~/utils/api-fetch", () => ({
 }));
 
 const stubs = {
-  Modal: {
-    template:
-      "<div data-testid='modal' :data-open='String(open)'><slot name='header' /><slot name='body' /></div>",
-    props: ["open", "fullscreen", "close", "ui"],
-    emits: ["update:open"],
-  },
-  Button: {
-    template: "<button :data-icon='icon' @click='$emit(\"click\")'><slot /></button>",
-    props: ["icon", "color", "variant", "size", "class"],
-    emits: ["click"],
-  },
-  Icon: { template: "<i :data-name='name' />", props: ["name", "class"] },
+  AppIcon: { template: "<svg :data-name='name' />", props: ["name", "class"] },
   AlcovesImage: {
     template: "<img :alt='alt' />",
     props: ["libraryId", "fileId", "alt", "width", "class"],
@@ -114,13 +103,13 @@ describe("FilePreview", () => {
       global: { stubs },
     });
 
-    // Should have both previous and next buttons
-    const buttons = wrapper.findAll("button");
-    const prevButton = buttons.find((b) => b.attributes("data-icon") === "i-lucide-chevron-left");
-    const nextButton = buttons.find((b) => b.attributes("data-icon") === "i-lucide-chevron-right");
+    // Should have both previous and next navigation buttons (identified by icon name)
+    const svgs = wrapper.findAll("svg");
+    const prevIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-left");
+    const nextIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-right");
 
-    expect(prevButton?.exists()).toBe(true);
-    expect(nextButton?.exists()).toBe(true);
+    expect(prevIcon?.exists()).toBe(true);
+    expect(nextIcon?.exists()).toBe(true);
   });
 
   it("hides previous button on first file", () => {
@@ -134,9 +123,9 @@ describe("FilePreview", () => {
       global: { stubs },
     });
 
-    const buttons = wrapper.findAll("button");
-    const prevButton = buttons.find((b) => b.attributes("data-icon") === "i-lucide-chevron-left");
-    expect(prevButton).toBeUndefined();
+    const svgs = wrapper.findAll("svg");
+    const prevIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-left");
+    expect(prevIcon).toBeUndefined();
   });
 
   it("hides next button on last file", () => {
@@ -150,9 +139,9 @@ describe("FilePreview", () => {
       global: { stubs },
     });
 
-    const buttons = wrapper.findAll("button");
-    const nextButton = buttons.find((b) => b.attributes("data-icon") === "i-lucide-chevron-right");
-    expect(nextButton).toBeUndefined();
+    const svgs = wrapper.findAll("svg");
+    const nextIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-right");
+    expect(nextIcon).toBeUndefined();
   });
 
   it("emits navigate when clicking next", async () => {
@@ -166,10 +155,12 @@ describe("FilePreview", () => {
       global: { stubs },
     });
 
-    const nextButton = wrapper
-      .findAll("button")
-      .find((b) => b.attributes("data-icon") === "i-lucide-chevron-right");
-    await nextButton?.trigger("click");
+    // Find the next button by looking for the button containing the chevron-right icon
+    const svgs = wrapper.findAll("svg");
+    const nextIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-right");
+    // Click the parent button
+    await nextIcon?.element.closest("button")?.click();
+    await nextTick();
 
     expect(wrapper.emitted("navigate")?.[0]).toEqual([files[1]]);
   });
@@ -202,7 +193,7 @@ describe("FilePreview", () => {
       global: { stubs },
     });
     // Video player section should exist (showing loader initially since playerReady is false)
-    expect(wrapper.find("i").exists()).toBe(true);
+    expect(wrapper.find("svg").exists()).toBe(true);
   });
 
   it("computes previewType=audio for audio mimes", () => {
@@ -211,7 +202,7 @@ describe("FilePreview", () => {
       props: { file, libraryId: "lib-1", files: [file], open: true },
       global: { stubs },
     });
-    expect(wrapper.find("i").exists()).toBe(true);
+    expect(wrapper.find("svg").exists()).toBe(true);
   });
 
   it("uses proxy URL for video with proxyStatus=ready", () => {

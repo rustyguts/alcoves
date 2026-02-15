@@ -6,6 +6,7 @@ import "vidstack/player/styles/default/layouts/video.css";
 import type { LibraryFile } from "~~/shared/types/api";
 import { getMimeIcon } from "~/utils/mime-icons";
 import { apiFetch } from "~/utils/api-fetch";
+import AppIcon from "~/components/AppIcon.vue";
 
 const props = defineProps<{
   file: LibraryFile;
@@ -123,63 +124,46 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    fullscreen
-    :close="false"
-    :ui="{
-      content: 'bg-black/95 backdrop-blur-sm',
-      header: 'bg-transparent border-b-0',
-      body: 'flex items-center justify-center p-0 grow',
-    }"
-  >
-    <template #header>
-      <div class="flex items-center justify-between w-full">
+  <dialog class="modal" :class="{ 'modal-open': open }">
+    <div class="modal-box max-w-none w-screen h-screen rounded-none bg-black/95 backdrop-blur-sm flex flex-col p-0">
+      <!-- Header -->
+      <div class="flex items-center justify-between w-full px-4 py-3">
         <div class="flex items-center gap-3 min-w-0">
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            size="lg"
-            class="text-white hover:bg-white/20"
+          <button
+            class="btn btn-lg btn-ghost text-white hover:bg-white/20"
             @click="open = false"
-          />
+          >
+            <AppIcon name="i-lucide-x" class="size-5" />
+          </button>
           <span class="text-white text-sm font-medium truncate">{{ file.name }}</span>
         </div>
-        <UButton
-          icon="i-lucide-download"
-          color="neutral"
-          variant="ghost"
-          size="lg"
-          class="text-white hover:bg-white/20 shrink-0"
+        <button
+          class="btn btn-lg btn-ghost text-white hover:bg-white/20 shrink-0"
           @click="downloadFile"
-        />
+        >
+          <AppIcon name="i-lucide-download" class="size-5" />
+        </button>
       </div>
-    </template>
 
-    <template #body>
-      <div class="relative flex items-center justify-center w-full h-full">
+      <!-- Body -->
+      <div class="relative flex items-center justify-center w-full grow p-0">
         <!-- Previous -->
-        <UButton
+        <button
           v-if="hasPrevious"
-          icon="i-lucide-chevron-left"
-          color="neutral"
-          variant="ghost"
-          size="lg"
-          class="absolute left-4 top-1/2 -translate-y-1/2 z-10 text-white bg-black/50 hover:bg-black/70 rounded-full"
+          class="btn btn-lg btn-ghost absolute left-4 top-1/2 -translate-y-1/2 z-10 text-white bg-black/50 hover:bg-black/70 rounded-full"
           @click="goToPrevious"
-        />
+        >
+          <AppIcon name="i-lucide-chevron-left" class="size-5" />
+        </button>
 
         <!-- Next -->
-        <UButton
+        <button
           v-if="hasNext"
-          icon="i-lucide-chevron-right"
-          color="neutral"
-          variant="ghost"
-          size="lg"
-          class="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white bg-black/50 hover:bg-black/70 rounded-full"
+          class="btn btn-lg btn-ghost absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white bg-black/50 hover:bg-black/70 rounded-full"
           @click="goToNext"
-        />
+        >
+          <AppIcon name="i-lucide-chevron-right" class="size-5" />
+        </button>
 
         <div v-if="previewType === 'video'" class="w-full max-w-5xl px-16">
           <media-player
@@ -195,7 +179,7 @@ onUnmounted(() => {
             <media-video-layout />
           </media-player>
           <div v-else class="flex items-center justify-center py-8">
-            <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
+            <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
           </div>
         </div>
 
@@ -212,7 +196,7 @@ onUnmounted(() => {
             <media-audio-layout />
           </media-player>
           <div v-else class="flex items-center justify-center py-8">
-            <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
+            <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
           </div>
         </div>
 
@@ -243,19 +227,22 @@ onUnmounted(() => {
             >{{ textContent }}</pre
           >
           <div v-else class="flex items-center justify-center py-8">
-            <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
+            <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
           </div>
         </div>
 
         <div v-else class="flex flex-col items-center gap-4 py-8">
-          <UIcon :name="getMimeIcon(file.mimeType)" class="size-24 text-white/40" />
+          <AppIcon :name="getMimeIcon(file.mimeType)" class="size-24 text-white/40" />
           <p class="text-sm text-white/60">
             Preview not available for this file type ({{ file.mimeType }})
           </p>
         </div>
       </div>
-    </template>
-  </UModal>
+    </div>
+    <form method="dialog" class="modal-backdrop" @click="open = false">
+      <button>close</button>
+    </form>
+  </dialog>
 </template>
 
 <style>

@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
-import ui from "@nuxt/ui/vite";
+import tailwindcss from "@tailwindcss/vite";
+import AutoImport from "unplugin-auto-import/vite";
 import { vite as vidstack } from "vidstack/plugins";
 
 export default defineConfig({
@@ -12,10 +13,10 @@ export default defineConfig({
         },
       },
     }),
-    ui({
-      autoImport: {
-        imports: ["vue", "vue-router"],
-      },
+    tailwindcss(),
+    AutoImport({
+      imports: ["vue", "vue-router"],
+      dts: true,
     }),
     vidstack(),
   ],

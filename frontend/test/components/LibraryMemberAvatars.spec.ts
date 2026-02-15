@@ -1,39 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { defineComponent } from "vue";
 import LibraryMemberAvatars from "~/components/LibraryMemberAvatars.vue";
-
-const AvatarStub = defineComponent({
-  name: "Avatar",
-  props: {
-    alt: {
-      type: String,
-      default: "",
-    },
-  },
-  template: `<div class="avatar">{{ alt }}</div>`,
-});
-
-const DropdownMenuStub = defineComponent({
-  name: "DropdownMenu",
-  props: {
-    items: {
-      type: Array,
-      default: () => [],
-    },
-  },
-  template: `<div class="dropdown"><slot /></div>`,
-});
-
-const ButtonStub = defineComponent({
-  name: "Button",
-  props: {
-    label: {
-      type: String,
-      default: "",
-    },
-  },
-  template: `<button>{{ label }}</button>`,
-});
 
 const members = [
   { id: "1", displayName: "Ada", avatarUrl: null },
@@ -49,29 +15,26 @@ describe("LibraryMemberAvatars", () => {
         members,
         ...props,
       },
-      global: {
-        stubs: {
-          Avatar: AvatarStub,
-          DropdownMenu: DropdownMenuStub,
-          Button: ButtonStub,
-        },
-      },
     });
   }
 
   it("renders all members and count by default", () => {
     const wrapper = mountComponent();
 
-    expect(wrapper.findAll(".avatar")).toHaveLength(4);
+    // Each visible member renders a .rounded-full div
+    expect(wrapper.findAll(".rounded-full")).toHaveLength(4);
     expect(wrapper.text()).toContain("4 members");
-    expect(wrapper.find(".dropdown").exists()).toBe(false);
+    // No overflow dropdown when all fit (maxVisible defaults to 5)
+    expect(wrapper.find("details.dropdown").exists()).toBe(false);
   });
 
   it("shows overflow dropdown when members exceed maxVisible", () => {
     const wrapper = mountComponent({ maxVisible: 2 });
 
-    expect(wrapper.findAll(".avatar")).toHaveLength(2);
-    expect(wrapper.find(".dropdown").exists()).toBe(true);
+    // Only 2 visible member avatars in the avatar stack (not counting dropdown avatars)
+    const avatarStack = wrapper.find(".-space-x-2");
+    expect(avatarStack.findAll(".rounded-full")).toHaveLength(2);
+    expect(wrapper.find("details.dropdown").exists()).toBe(true);
     expect(wrapper.text()).toContain("+2");
   });
 

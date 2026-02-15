@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   apiFetch: vi.fn().mockResolvedValue({ success: true }),
 }));
 
-vi.mock("@nuxt/ui/composables/useToast", () => ({
+vi.mock("~/composables/useToast", () => ({
   useToast: () => mocks.toast,
 }));
 
@@ -109,6 +109,11 @@ function getSnapshot(overrides?: Partial<{ queues: unknown[]; jobs: unknown[] }>
   };
 }
 
+const stubs = {
+  AppIcon: { template: "<svg />", props: ["name", "class"] },
+  RouterLink: { template: "<a :href='to'><slot /></a>", props: ["to"] },
+};
+
 describe("admin/jobs.vue", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -117,7 +122,7 @@ describe("admin/jobs.vue", () => {
   });
 
   async function mountPage() {
-    const wrapper = mount(AdminJobsPage);
+    const wrapper = mount(AdminJobsPage, { global: { stubs } });
     // Wait for SSE to connect
     await vi.dynamicImportSettled();
     return wrapper;

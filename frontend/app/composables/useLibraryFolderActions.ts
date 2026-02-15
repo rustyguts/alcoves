@@ -1,6 +1,7 @@
 import type { Ref } from "vue";
 import type { LibraryFolder } from "~~/shared/types/api";
 import { apiFetch } from "~/utils/api-fetch";
+import { useToast } from "~/composables/useToast";
 
 type RefreshFoldersFn = () => Promise<LibraryFolder[]>;
 type AsyncVoidFn = () => Promise<void>;

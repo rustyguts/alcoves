@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,7 +19,9 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
+	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 )
 
 const tusResumableVersion = "1.0.0"
@@ -44,19 +47,23 @@ type tusUpload struct {
 type TusHandler struct {
 	db         *gorm.DB
 	storageSvc *storage.Service
+	faceSvc    *facedetection.Service
+	videoSvc   *videoproxy.Service
 	dataDir    string // staging directory for incomplete uploads
 
 	mu      sync.RWMutex
 	uploads map[string]*tusUpload
 }
 
-func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string) *TusHandler {
+func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, videoSvc *videoproxy.Service) *TusHandler {
 	tusDir := filepath.Join(dataDir, ".tus-uploads")
 	os.MkdirAll(tusDir, 0o755)
 
 	return &TusHandler{
 		db:         db,
 		storageSvc: storageSvc,
+		faceSvc:    faceSvc,
+		videoSvc:   videoSvc,
 		dataDir:    tusDir,
 		uploads:    make(map[string]*tusUpload),
 	}
@@ -358,6 +365,25 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 		// Clean up stored file on DB failure
 		h.storageSvc.DeleteFile(upload.LibraryID, fileID.String())
 		return fmt.Errorf("failed to create file record: %w", err)
+	}
+
+	// Trigger face detection if applicable
+	if h.faceSvc != nil && strings.HasPrefix(upload.MimeType, "image/") {
+		var library models.Library
+		if err := h.db.Select("face_recognition_enabled").Where("id = ?", libUUID).First(&library).Error; err == nil {
+			if library.FaceRecognitionEnabled {
+				if err := h.faceSvc.EnqueueFaceDetection(upload.LibraryID, fileID.String()); err != nil {
+					log.Printf("failed to enqueue face detection for tus upload %s: %v", fileID, err)
+				}
+			}
+		}
+	}
+
+	// Trigger video proxy generation for video files
+	if h.videoSvc != nil && strings.HasPrefix(upload.MimeType, "video/") {
+		if err := h.videoSvc.EnqueueVideoProxy(upload.LibraryID, fileID.String()); err != nil {
+			log.Printf("failed to enqueue video proxy for tus upload %s: %v", fileID, err)
+		}
 	}
 
 	return nil

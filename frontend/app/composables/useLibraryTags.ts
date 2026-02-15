@@ -2,6 +2,7 @@ import type { Ref } from "vue";
 import type { LibraryFile, LibraryFolder, LibraryTag } from "~~/shared/types/api";
 import { isTagColorInPalette, TAG_COLOR_PALETTE } from "~~/shared/tag-colors";
 import { apiFetch } from "~/utils/api-fetch";
+import { useToast } from "~/composables/useToast";
 
 type LibraryTagsRef = Ref<LibraryTag[]>;
 type FilesRef = Ref<LibraryFile[]>;

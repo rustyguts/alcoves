@@ -2,7 +2,9 @@
 import { useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useLibraryTags } from "~/composables/useLibraryTags";
+import { useToast } from "~/composables/useToast";
 import { apiFetch } from "~/utils/api-fetch";
+import AppIcon from "~/components/AppIcon.vue";
 import type { Library, LibraryFile, LibraryTag } from "~~/shared/types/api";
 
 const route = useRoute();
@@ -51,78 +53,78 @@ onMounted(async () => {
   <div class="flex flex-col gap-4">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-h-10">
       <h1 class="text-xl font-semibold truncate">{{ library?.name }}</h1>
-      <UButton
-        label="Back to Library"
-        icon="i-lucide-arrow-left"
-        color="neutral"
-        variant="outline"
-        size="sm"
+      <RouterLink
         :to="`/libraries/${libraryId}`"
-      />
+        class="btn btn-sm btn-neutral btn-outline"
+      >
+        <AppIcon name="i-lucide-arrow-left" class="size-4" />
+        Back to Library
+      </RouterLink>
     </div>
 
     <div class="grid gap-4">
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <p class="text-sm font-semibold">Create Tag</p>
-              <p class="text-xs text-muted">Add labels to organize files and folders.</p>
-            </div>
-            <UBadge
-              color="neutral"
-              variant="soft"
-              :label="`${libraryTags.length} ${libraryTags.length === 1 ? 'tag' : 'tags'}`"
-            />
+      <div class="card bg-base-100 shadow-sm">
+        <div class="flex items-center justify-between gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold">Create Tag</p>
+            <p class="text-xs text-muted">Add labels to organize files and folders.</p>
           </div>
-        </template>
-
-        <div class="flex flex-col sm:flex-row sm:items-end gap-2">
-          <UFormField label="Tag name" class="flex-1">
-            <UInput
-              v-model="createTagName"
-              placeholder="Design docs"
-              icon="i-lucide-tag"
-              class="w-full"
-              @keydown.enter="createTag"
-            />
-          </UFormField>
-          <UButton
-            label="Create Tag"
-            icon="i-lucide-plus"
-            :loading="creatingTag"
-            :disabled="!createTagName.trim()"
-            @click="createTag"
-          />
+          <span class="badge badge-sm badge-ghost badge-soft">
+            {{ `${libraryTags.length} ${libraryTags.length === 1 ? 'tag' : 'tags'}` }}
+          </span>
         </div>
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between gap-3">
-            <p class="text-sm font-semibold">Manage Tags</p>
-            <p class="text-xs text-muted">Click a color dot to open the palette.</p>
+        <div class="card-body">
+          <div class="flex flex-col sm:flex-row sm:items-end gap-2">
+            <fieldset class="fieldset flex-1">
+              <legend class="fieldset-legend">Tag name</legend>
+              <div class="relative w-full">
+                <AppIcon name="i-lucide-tag" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted pointer-events-none" />
+                <input
+                  v-model="createTagName"
+                  placeholder="Design docs"
+                  class="input w-full pl-10"
+                  @keydown.enter="createTag"
+                />
+              </div>
+            </fieldset>
+            <button
+              class="btn btn-sm btn-primary"
+              :disabled="!createTagName.trim() || creatingTag"
+              @click="createTag"
+            >
+              <span v-if="creatingTag" class="loading loading-spinner loading-xs"></span>
+              <AppIcon v-else name="i-lucide-plus" class="size-4" />
+              Create Tag
+            </button>
           </div>
-        </template>
+        </div>
+      </div>
 
-        <div
-          v-if="libraryTags.length"
-          class="divide-y divide-default rounded-lg border border-default"
-        >
+      <div class="card bg-base-100 shadow-sm">
+        <div class="flex items-center justify-between gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
+          <p class="text-sm font-semibold">Manage Tags</p>
+          <p class="text-xs text-muted">Click a color dot to open the palette.</p>
+        </div>
+        <div class="card-body">
           <div
-            v-for="tag in libraryTags"
-            :key="tag.id"
-            class="flex flex-col sm:flex-row sm:items-center gap-3 px-3 py-3 bg-(--ui-bg)/40"
+            v-if="libraryTags.length"
+            class="divide-y divide-default rounded-lg border border-default"
           >
-            <UPopover>
-              <button
-                type="button"
-                class="size-8 rounded-full border-2 border-default cursor-pointer shadow-sm"
-                :style="{ backgroundColor: tag.color }"
-                :title="`Tag color: ${tag.color}`"
-              />
-              <template #content>
-                <div class="p-2">
+            <div
+              v-for="tag in libraryTags"
+              :key="tag.id"
+              class="flex flex-col sm:flex-row sm:items-center gap-3 px-3 py-3 bg-(--ui-bg)/40"
+            >
+              <details class="dropdown">
+                <summary class="list-none">
+                  <button
+                    type="button"
+                    class="size-8 rounded-full border-2 border-default cursor-pointer shadow-sm"
+                    :style="{ backgroundColor: tag.color }"
+                    :title="`Tag color: ${tag.color}`"
+                  />
+                </summary>
+                <div class="dropdown-content bg-base-200 rounded-box p-2 shadow z-10">
                   <div class="flex w-44 flex-wrap gap-2">
                     <button
                       v-for="color in getTagColorChoices(tag)"
@@ -141,36 +143,34 @@ onMounted(async () => {
                     />
                   </div>
                 </div>
-              </template>
-            </UPopover>
+              </details>
 
-            <div class="min-w-0 flex-1 flex items-center gap-2">
-              <UInput
-                v-model="tagDraftNames[tag.id]"
-                class="flex-1"
-                @blur="saveDraftTagName(tag)"
-                @keydown.enter="saveDraftTagName(tag)"
-              />
-              <UBadge color="neutral" variant="outline" :label="tag.color" class="shrink-0" />
+              <div class="min-w-0 flex-1 flex items-center gap-2">
+                <input
+                  v-model="tagDraftNames[tag.id]"
+                  class="input w-full flex-1"
+                  @blur="saveDraftTagName(tag)"
+                  @keydown.enter="saveDraftTagName(tag)"
+                />
+                <span class="badge badge-sm badge-ghost badge-outline shrink-0">{{ tag.color }}</span>
+              </div>
+
+              <button
+                class="btn btn-sm btn-error btn-soft self-start sm:self-auto sm:ml-auto"
+                @click="deleteTag(tag.id)"
+              >
+                <AppIcon name="i-lucide-trash-2" class="size-4" />
+              </button>
             </div>
+          </div>
 
-            <UButton
-              icon="i-lucide-trash-2"
-              color="error"
-              variant="soft"
-              size="sm"
-              class="self-start sm:self-auto sm:ml-auto"
-              @click="deleteTag(tag.id)"
-            />
+          <div v-else class="rounded-lg border border-dashed border-default p-8 text-center">
+            <AppIcon name="i-lucide-tags" class="size-8 text-muted mx-auto mb-2" />
+            <p class="text-sm font-medium">No tags yet</p>
+            <p class="text-xs text-muted mt-1">Create your first tag to start organizing content.</p>
           </div>
         </div>
-
-        <div v-else class="rounded-lg border border-dashed border-default p-8 text-center">
-          <UIcon name="i-lucide-tags" class="size-8 text-muted mx-auto mb-2" />
-          <p class="text-sm font-medium">No tags yet</p>
-          <p class="text-xs text-muted mt-1">Create your first tag to start organizing content.</p>
-        </div>
-      </UCard>
+      </div>
     </div>
   </div>
 </template>

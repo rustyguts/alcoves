@@ -5,6 +5,7 @@ import type {
   LibraryUsersResponse,
 } from "~~/shared/types/api";
 import { apiFetch } from "~/utils/api-fetch";
+import { useToast } from "~/composables/useToast";
 
 type LibraryUsersRef = Ref<LibraryUsersResponse | null | undefined>;
 type RefreshUsersFn = () => Promise<void>;

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   globalFetch: vi.fn(),
 }));
 
-vi.mock("@nuxt/ui/composables/useToast", () => ({
+vi.mock("~/composables/useToast", () => ({
   useToast: () => mocks.toast,
 }));
 

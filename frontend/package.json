@@ -18,7 +18,8 @@
     "coverage:summary": "node test/scripts/coverage-summary.mjs"
   },
   "dependencies": {
-    "@nuxt/ui": "^4.4.0",
+    "@iconify/vue": "^4.3.0",
+    "daisyui": "^5.0.0",
     "tailwindcss": "^4.1.18",
     "tus-js-client": "^4.3.1",
     "vidstack": "^1.12.13",
@@ -27,7 +28,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@iconify-json/lucide": "^1.2.90",
+    "@tailwindcss/vite": "^4.1.18",
+    "unplugin-auto-import": "^19.2.0",
     "@playwright/test": "^1.58.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/vue": "^8.1.0",

@@ -3,8 +3,10 @@ import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useLibraryMembers } from "~/composables/useLibraryMembers";
+import { useToast } from "~/composables/useToast";
 import { apiFetch } from "~/utils/api-fetch";
 import type { Library, LibraryUsersResponse } from "~~/shared/types/api";
+import AppIcon from "~/components/AppIcon.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -188,356 +190,388 @@ async function deleteLibrary() {
           >.
         </p>
       </div>
-      <UButton
-        label="Back to Library"
-        icon="i-lucide-arrow-left"
-        color="neutral"
-        variant="outline"
+      <RouterLink
         :to="`/libraries/${libraryId}`"
-      />
+        class="btn btn-outline btn-neutral"
+      >
+        <AppIcon name="i-lucide-arrow-left" class="size-4" />
+        Back to Library
+      </RouterLink>
     </div>
 
-    <UCard v-if="!library?.isDefault">
-      <template #header>
+    <!-- Library Members Card -->
+    <div v-if="!library?.isDefault" class="card bg-base-100 shadow-sm">
+      <div class="px-6 pt-5 pb-0">
         <div class="min-w-0">
           <p class="text-sm font-semibold">Library Members</p>
           <p class="text-xs text-muted">
             Manage who has access to this library and their permissions.
           </p>
         </div>
-      </template>
-
-      <div class="space-y-6">
-        <div>
-          <p class="text-sm font-medium mb-2">Invite by Email</p>
-          <p class="text-xs text-muted mb-3">
-            Add a specific user directly or send a targeted invite.
-          </p>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <UInput
-              v-model="inviteEmail"
-              type="email"
-              placeholder="user@example.com"
-              icon="i-lucide-mail"
-              class="flex-1"
-              @keydown.enter="inviteUserByEmail"
-            />
-            <USelectMenu
-              v-model="inviteEmailRole"
-              :items="inviteRoleOptions"
-              value-key="value"
-              class="w-full sm:w-32"
-            />
-            <UButton
-              label="Invite"
-              icon="i-lucide-user-plus"
-              :loading="inviteByEmailLoading"
-              :disabled="!inviteEmail.trim()"
-              @click="inviteUserByEmail"
-            />
+      </div>
+      <div class="card-body">
+        <div class="space-y-6">
+          <div>
+            <p class="text-sm font-medium mb-2">Invite by Email</p>
+            <p class="text-xs text-muted mb-3">
+              Add a specific user directly or send a targeted invite.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <div class="flex-1 relative">
+                <AppIcon name="i-lucide-mail" class="size-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
+                <input
+                  v-model="inviteEmail"
+                  type="email"
+                  placeholder="user@example.com"
+                  class="input w-full pl-9"
+                  @keydown.enter="inviteUserByEmail"
+                />
+              </div>
+              <select
+                v-model="inviteEmailRole"
+                class="select w-full sm:w-32"
+              >
+                <option
+                  v-for="item in inviteRoleOptions"
+                  :key="item.value"
+                  :value="item.value"
+                >{{ item.label }}</option>
+              </select>
+              <button
+                class="btn btn-primary"
+                :disabled="!inviteEmail.trim() || inviteByEmailLoading"
+                @click="inviteUserByEmail"
+              >
+                <span v-if="inviteByEmailLoading" class="loading loading-spinner loading-xs"></span>
+                <AppIcon v-else name="i-lucide-user-plus" class="size-4" />
+                Invite
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div v-if="inviteLinks.length">
-          <div class="flex items-center justify-between gap-3 mb-3">
+          <div v-if="inviteLinks.length">
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <p class="text-sm font-medium">Invite Links</p>
+                <p class="text-xs text-muted">Reusable links for authenticated users.</p>
+              </div>
+              <button
+                class="btn btn-sm btn-primary"
+                :disabled="createInviteLinkLoading"
+                @click="createInviteLink"
+              >
+                <span v-if="createInviteLinkLoading" class="loading loading-spinner loading-xs"></span>
+                <AppIcon v-else name="i-lucide-link" class="size-4" />
+                Create Link
+              </button>
+            </div>
+            <div class="divide-y divide-default rounded-lg border border-default">
+              <div
+                v-for="invite in inviteLinks"
+                :key="invite.id"
+                class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
+              >
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium truncate">{{ invite.inviteUrl }}</p>
+                  <p class="text-xs text-muted">
+                    Used {{ invite.useCount }} {{ invite.useCount === 1 ? "time" : "times" }}
+                  </p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    class="btn btn-sm btn-ghost btn-outline"
+                    @click="copyInviteLink(invite.inviteUrl)"
+                  >
+                    <AppIcon name="i-lucide-copy" class="size-4" />
+                  </button>
+                  <button
+                    class="btn btn-sm btn-error btn-soft"
+                    :disabled="revokingInviteId === invite.id"
+                    @click="revokeInvite(invite.id)"
+                  >
+                    <span v-if="revokingInviteId === invite.id" class="loading loading-spinner loading-xs"></span>
+                    <AppIcon v-else name="i-lucide-x" class="size-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="flex items-center justify-between gap-3">
             <div>
               <p class="text-sm font-medium">Invite Links</p>
               <p class="text-xs text-muted">Reusable links for authenticated users.</p>
             </div>
-            <UButton
-              label="Create Link"
-              icon="i-lucide-link"
-              size="sm"
-              :loading="createInviteLinkLoading"
+            <button
+              class="btn btn-sm btn-primary"
+              :disabled="createInviteLinkLoading"
               @click="createInviteLink"
-            />
-          </div>
-          <div class="divide-y divide-default rounded-lg border border-default">
-            <div
-              v-for="invite in inviteLinks"
-              :key="invite.id"
-              class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
             >
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium truncate">{{ invite.inviteUrl }}</p>
-                <p class="text-xs text-muted">
-                  Used {{ invite.useCount }} {{ invite.useCount === 1 ? "time" : "times" }}
-                </p>
-              </div>
-              <div class="flex items-center gap-2">
-                <UButton
-                  icon="i-lucide-copy"
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  @click="copyInviteLink(invite.inviteUrl)"
-                />
-                <UButton
-                  icon="i-lucide-x"
-                  color="error"
-                  variant="soft"
-                  size="sm"
-                  :loading="revokingInviteId === invite.id"
-                  @click="revokeInvite(invite.id)"
-                />
-              </div>
-            </div>
+              <span v-if="createInviteLinkLoading" class="loading loading-spinner loading-xs"></span>
+              <AppIcon v-else name="i-lucide-link" class="size-4" />
+              Create Link
+            </button>
           </div>
-        </div>
-        <div v-else class="flex items-center justify-between gap-3">
-          <div>
-            <p class="text-sm font-medium">Invite Links</p>
-            <p class="text-xs text-muted">Reusable links for authenticated users.</p>
-          </div>
-          <UButton
-            label="Create Link"
-            icon="i-lucide-link"
-            size="sm"
-            :loading="createInviteLinkLoading"
-            @click="createInviteLink"
-          />
-        </div>
 
-        <div v-if="libraryMembers.length">
-          <p class="text-sm font-medium mb-3">Members</p>
-          <div class="divide-y divide-default rounded-lg border border-default">
-            <div
-              v-for="member in libraryMembers"
-              :key="member.id"
-              class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-            >
-              <div class="flex items-center gap-3 flex-1 min-w-0">
-                <UAvatar
-                  :src="member.user.avatarUrl ?? undefined"
-                  :alt="member.user.displayName"
-                  size="sm"
-                />
-                <div class="min-w-0">
-                  <p class="text-sm font-medium truncate">{{ member.user.displayName }}</p>
-                  <p class="text-xs text-muted truncate">{{ member.user.email }}</p>
+          <div v-if="libraryMembers.length">
+            <p class="text-sm font-medium mb-3">Members</p>
+            <div class="divide-y divide-default rounded-lg border border-default">
+              <div
+                v-for="member in libraryMembers"
+                :key="member.id"
+                class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
+              >
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                  <div class="avatar">
+                    <div class="w-8 rounded-full">
+                      <img
+                        :src="member.user.avatarUrl ?? undefined"
+                        :alt="member.user.displayName"
+                      />
+                    </div>
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium truncate">{{ member.user.displayName }}</p>
+                    <p class="text-xs text-muted truncate">{{ member.user.email }}</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <span
+                    v-if="member.role === 'owner'"
+                    class="badge badge-sm badge-primary"
+                  >owner</span>
+                  <template v-else>
+                    <select
+                      v-model="memberRoleDrafts[member.userId]"
+                      class="select w-28"
+                      :disabled="updatingMemberUserId === member.userId"
+                      @change="updateMemberRole(member)"
+                    >
+                      <option
+                        v-for="item in inviteRoleOptions"
+                        :key="item.value"
+                        :value="item.value"
+                      >{{ item.label }}</option>
+                    </select>
+                    <button
+                      class="btn btn-sm btn-error btn-soft"
+                      :disabled="removingMemberUserId === member.userId"
+                      @click="removeMember(member)"
+                    >
+                      <span v-if="removingMemberUserId === member.userId" class="loading loading-spinner loading-xs"></span>
+                      <AppIcon v-else name="i-lucide-user-minus" class="size-4" />
+                    </button>
+                  </template>
                 </div>
               </div>
-
-              <div class="flex items-center gap-2">
-                <UBadge
-                  v-if="member.role === 'owner'"
-                  color="primary"
-                  variant="subtle"
-                  label="owner"
-                />
-                <template v-else>
-                  <USelectMenu
-                    v-model="memberRoleDrafts[member.userId]"
-                    :items="inviteRoleOptions"
-                    value-key="value"
-                    class="w-28"
-                    :loading="updatingMemberUserId === member.userId"
-                    @update:model-value="updateMemberRole(member)"
-                  />
-                  <UButton
-                    icon="i-lucide-user-minus"
-                    color="error"
-                    variant="soft"
-                    size="sm"
-                    :loading="removingMemberUserId === member.userId"
-                    @click="removeMember(member)"
-                  />
-                </template>
-              </div>
             </div>
           </div>
-        </div>
 
-        <div v-if="emailInvites.length">
-          <div class="flex items-center justify-between gap-2 mb-3">
-            <p class="text-sm font-medium">Pending Email Invites</p>
-            <UBadge color="neutral" variant="soft" :label="`${emailInvites.length} pending`" />
-          </div>
-          <div class="divide-y divide-default rounded-lg border border-default">
-            <div
-              v-for="invite in emailInvites"
-              :key="invite.id"
-              class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-            >
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium truncate">{{ invite.invitedEmail }}</p>
-                <p class="text-xs text-muted truncate">{{ invite.inviteUrl }}</p>
-              </div>
-              <div class="flex items-center gap-2">
-                <UBadge color="neutral" variant="outline" :label="invite.role" />
-                <UButton
-                  icon="i-lucide-copy"
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  @click="copyInviteLink(invite.inviteUrl)"
-                />
-                <UButton
-                  icon="i-lucide-x"
-                  color="error"
-                  variant="soft"
-                  size="sm"
-                  :loading="revokingInviteId === invite.id"
-                  @click="revokeInvite(invite.id)"
-                />
+          <div v-if="emailInvites.length">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <p class="text-sm font-medium">Pending Email Invites</p>
+              <span class="badge badge-sm badge-soft badge-neutral">{{ emailInvites.length }} pending</span>
+            </div>
+            <div class="divide-y divide-default rounded-lg border border-default">
+              <div
+                v-for="invite in emailInvites"
+                :key="invite.id"
+                class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
+              >
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium truncate">{{ invite.invitedEmail }}</p>
+                  <p class="text-xs text-muted truncate">{{ invite.inviteUrl }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="badge badge-sm badge-outline badge-neutral">{{ invite.role }}</span>
+                  <button
+                    class="btn btn-sm btn-ghost btn-outline"
+                    @click="copyInviteLink(invite.inviteUrl)"
+                  >
+                    <AppIcon name="i-lucide-copy" class="size-4" />
+                  </button>
+                  <button
+                    class="btn btn-sm btn-error btn-soft"
+                    :disabled="revokingInviteId === invite.id"
+                    @click="revokeInvite(invite.id)"
+                  >
+                    <span v-if="revokingInviteId === invite.id" class="loading loading-spinner loading-xs"></span>
+                    <AppIcon v-else name="i-lucide-x" class="size-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </UCard>
+    </div>
 
-    <UCard>
-      <template #header>
+    <!-- Facial Recognition Card -->
+    <div class="card bg-base-100 shadow-sm">
+      <div class="px-6 pt-5 pb-0">
         <div class="min-w-0">
           <p class="text-sm font-semibold">Facial Recognition</p>
           <p class="text-xs text-muted">
             Detect and group faces from image uploads in this library. Disabled by default.
           </p>
         </div>
-      </template>
-
-      <div class="space-y-4">
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">Enable facial recognition</p>
-            <p class="text-xs text-muted">
-              Turning this off removes all detected face and people data for this library.
-            </p>
+      </div>
+      <div class="card-body">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">Enable facial recognition</p>
+              <p class="text-xs text-muted">
+                Turning this off removes all detected face and people data for this library.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              class="toggle"
+              :checked="library?.faceRecognitionEnabled ?? false"
+              :disabled="faceRecToggling"
+              @change="toggleFaceRecognition(($event.target as HTMLInputElement).checked)"
+            />
           </div>
-          <USwitch
-            :model-value="library?.faceRecognitionEnabled ?? false"
-            :loading="faceRecToggling"
-            @update:model-value="toggleFaceRecognition"
-          />
-        </div>
 
-        <div class="flex items-center justify-between gap-4 rounded-lg border border-default p-3">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">Queue full reprocessing</p>
-            <p class="text-xs text-muted">
-              Deletes current face inference data, then re-runs detection on all images.
-            </p>
+          <div class="flex items-center justify-between gap-4 rounded-lg border border-default p-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">Queue full reprocessing</p>
+              <p class="text-xs text-muted">
+                Deletes current face inference data, then re-runs detection on all images.
+              </p>
+            </div>
+            <button
+              class="btn btn-outline btn-neutral"
+              :disabled="!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing"
+              @click="faceRecReprocessOpen = true"
+            >
+              <span v-if="faceRecReprocessing" class="loading loading-spinner loading-xs"></span>
+              <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
+              Reprocess Faces
+            </button>
           </div>
-          <UButton
-            label="Reprocess Faces"
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="outline"
-            :disabled="!library?.faceRecognitionEnabled || faceRecToggling"
-            :loading="faceRecReprocessing"
-            @click="faceRecReprocessOpen = true"
-          />
         </div>
       </div>
-    </UCard>
+    </div>
 
-    <UCard>
-      <template #header>
+    <!-- Danger Zone Card -->
+    <div class="card bg-base-100 shadow-sm">
+      <div class="px-6 pt-5 pb-0">
         <div class="min-w-0">
           <p class="text-sm font-semibold text-error">Danger Zone</p>
           <p class="text-xs text-muted">Deleting a library is permanent and cannot be undone.</p>
         </div>
-      </template>
-
-      <div class="flex items-center justify-between gap-4">
-        <p class="text-xs text-muted">
-          Only the library owner can delete a non-default library after all files are removed.
-        </p>
-        <UButton
-          label="Delete Library"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          :disabled="!canDeleteLibrary"
-          @click="deleteLibraryOpen = true"
-        />
       </div>
-    </UCard>
+      <div class="card-body">
+        <div class="flex items-center justify-between gap-4">
+          <p class="text-xs text-muted">
+            Only the library owner can delete a non-default library after all files are removed.
+          </p>
+          <button
+            class="btn btn-error btn-soft"
+            :disabled="!canDeleteLibrary"
+            @click="deleteLibraryOpen = true"
+          >
+            <AppIcon name="i-lucide-trash-2" class="size-4" />
+            Delete Library
+          </button>
+        </div>
+      </div>
+    </div>
 
-    <UModal v-model:open="faceRecDisableOpen" title="Disable Facial Recognition">
-      <template #body>
-        <p class="text-sm text-muted">
+    <!-- Disable Face Recognition Modal -->
+    <dialog class="modal" :class="{ 'modal-open': faceRecDisableOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Disable Facial Recognition</h3>
+        <p class="text-sm text-muted py-4">
           This will permanently delete all detected faces and people data for this library. This
           action cannot be undone.
         </p>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
+        <div class="modal-action">
+          <button
+            class="btn btn-outline btn-neutral"
             @click="faceRecDisableOpen = false"
-          />
-          <UButton
-            label="Disable & Delete Data"
-            color="error"
-            icon="i-lucide-trash-2"
-            :loading="faceRecToggling"
+          >Cancel</button>
+          <button
+            class="btn btn-error"
+            :disabled="faceRecToggling"
             @click="confirmDisableFaceRecognition"
-          />
+          >
+            <span v-if="faceRecToggling" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-trash-2" class="size-4" />
+            Disable & Delete Data
+          </button>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop" @click="faceRecDisableOpen = false">
+        <button>close</button>
+      </form>
+    </dialog>
 
-    <UModal v-model:open="faceRecReprocessOpen" title="Reprocess Facial Recognition">
-      <template #body>
-        <p class="text-sm text-muted">
+    <!-- Reprocess Face Recognition Modal -->
+    <dialog class="modal" :class="{ 'modal-open': faceRecReprocessOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Reprocess Facial Recognition</h3>
+        <p class="text-sm text-muted py-4">
           This deletes all existing face inference data and queues a full rebuild. Results may
           change, including how photos are grouped into people.
         </p>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
+        <div class="modal-action">
+          <button
+            class="btn btn-outline btn-neutral"
             :disabled="faceRecReprocessing"
             @click="faceRecReprocessOpen = false"
-          />
-          <UButton
-            label="Delete Data & Requeue"
-            icon="i-lucide-refresh-cw"
-            color="warning"
-            :loading="faceRecReprocessing"
+          >Cancel</button>
+          <button
+            class="btn btn-warning"
+            :disabled="faceRecReprocessing"
             @click="reprocessFaceRecognition"
-          />
+          >
+            <span v-if="faceRecReprocessing" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
+            Delete Data & Requeue
+          </button>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop" @click="faceRecReprocessOpen = false">
+        <button>close</button>
+      </form>
+    </dialog>
 
-    <UModal v-model:open="deleteLibraryOpen" title="Delete Library">
-      <template #body>
-        <div class="flex flex-col gap-4">
+    <!-- Delete Library Modal -->
+    <dialog class="modal" :class="{ 'modal-open': deleteLibraryOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Delete Library</h3>
+        <div class="flex flex-col gap-4 py-4">
           <p class="text-sm text-muted">
             This will permanently delete the library
             <strong>{{ library?.name }}</strong
             >. This action cannot be undone.
           </p>
-          <UFormField label="Type 'delete' to confirm">
-            <UInput v-model="deleteLibraryConfirmation" placeholder="delete" class="w-full" />
-          </UFormField>
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Type 'delete' to confirm</legend>
+            <input v-model="deleteLibraryConfirmation" placeholder="delete" class="input w-full" />
+          </fieldset>
         </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
+        <div class="modal-action">
+          <button
+            class="btn btn-outline btn-neutral"
             @click="deleteLibraryOpen = false"
-          />
-          <UButton
-            label="Delete Library"
-            color="error"
-            icon="i-lucide-trash-2"
+          >Cancel</button>
+          <button
+            class="btn btn-error"
             :disabled="deleteLibraryConfirmation !== 'delete'"
             @click="deleteLibrary"
-          />
+          >
+            <AppIcon name="i-lucide-trash-2" class="size-4" />
+            Delete Library
+          </button>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop" @click="deleteLibraryOpen = false">
+        <button>close</button>
+      </form>
+    </dialog>
   </div>
 </template>

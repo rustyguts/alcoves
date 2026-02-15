@@ -2,6 +2,8 @@
 import { useRouter, useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { apiFetch } from "~/utils/api-fetch";
+import { useToast } from "~/composables/useToast";
+import AppIcon from "~/components/AppIcon.vue";
 import type { InviteLookupResponse } from "~~/shared/types/api";
 
 const router = useRouter();
@@ -71,50 +73,56 @@ async function acceptInvite() {
 
 <template>
   <div class="mx-auto max-w-2xl py-6">
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-3">
-          <UAvatar
-            v-if="invite"
-            :src="invite.invitedBy.avatarUrl ?? undefined"
-            :alt="invite.invitedBy.displayName"
-            size="md"
-          />
-          <div>
-            <h1 class="text-lg font-semibold">{{ inviteTitle }}</h1>
-            <p class="text-sm text-muted">
-              <template v-if="invite?.invitedEmail">Access level: {{ invite.role }}</template>
-              <template v-else>Access level can be adjusted after you join.</template>
-            </p>
+    <div class="card bg-base-100 shadow-sm">
+      <div class="flex items-center gap-3 px-6 pt-5 pb-2">
+        <div v-if="invite" class="avatar">
+          <div class="w-10 rounded-full">
+            <img
+              v-if="invite.invitedBy.avatarUrl"
+              :src="invite.invitedBy.avatarUrl"
+              :alt="invite.invitedBy.displayName"
+            />
           </div>
         </div>
-      </template>
-
-      <div v-if="status === 'pending'" class="flex items-center justify-center py-8">
-        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
-      </div>
-
-      <div v-else class="flex flex-col gap-4">
-        <p class="text-sm text-muted">{{ statusMessage }}</p>
-
-        <div class="flex items-center gap-2">
-          <UButton
-            v-if="invite?.canAccept"
-            label="Accept Invite"
-            icon="i-lucide-check"
-            :loading="accepting"
-            @click="acceptInvite"
-          />
-          <UButton
-            v-if="invite?.library.id"
-            label="Go to library"
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-arrow-right"
-            :to="`/libraries/${invite.library.id}`"
-          />
+        <div>
+          <h1 class="text-lg font-semibold">{{ inviteTitle }}</h1>
+          <p class="text-sm text-muted">
+            <template v-if="invite?.invitedEmail">Access level: {{ invite.role }}</template>
+            <template v-else>Access level can be adjusted after you join.</template>
+          </p>
         </div>
       </div>
-    </UCard>
+
+      <div class="card-body">
+        <div v-if="status === 'pending'" class="flex items-center justify-center py-8">
+          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        </div>
+
+        <div v-else class="flex flex-col gap-4">
+          <p class="text-sm text-muted">{{ statusMessage }}</p>
+
+          <div class="flex items-center gap-2">
+            <button
+              v-if="invite?.canAccept"
+              class="btn btn-primary"
+              :disabled="accepting"
+              @click="acceptInvite"
+            >
+              <span v-if="accepting" class="loading loading-spinner loading-xs"></span>
+              <AppIcon v-else name="i-lucide-check" class="size-4" />
+              Accept Invite
+            </button>
+            <RouterLink
+              v-if="invite?.library.id"
+              :to="`/libraries/${invite.library.id}`"
+              class="btn btn-outline"
+            >
+              <AppIcon name="i-lucide-arrow-right" class="size-4" />
+              Go to library
+            </RouterLink>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

@@ -43,7 +43,7 @@ vi.mock("vue-router", async (importOriginal) => {
   };
 });
 
-vi.mock("@nuxt/ui/composables/useToast", () => ({
+vi.mock("~/composables/useToast", () => ({
   useToast: () => mocks.toast,
 }));
 
@@ -74,14 +74,7 @@ vi.mock("~/utils/api-fetch", () => ({
 }));
 
 const stubs = {
-  Card: { template: "<div><slot name='header' /><slot /></div>", props: ["variant"] },
-  Avatar: { template: "<div />", props: ["src", "alt", "size"] },
-  Icon: { template: "<i />", props: ["name", "class"] },
-  Button: {
-    template: "<button :disabled='loading' @click='$emit(\"click\")'>{{ label }}</button>",
-    props: ["label", "icon", "loading", "color", "variant", "to"],
-    emits: ["click"],
-  },
+  AppIcon: { template: "<svg />", props: ["name", "class"] },
 };
 
 function makeInvite(overrides: Partial<InviteLookupResponse> = {}): InviteLookupResponse {
@@ -174,7 +167,7 @@ describe("invites/[token].vue", () => {
     mocks.apiFetch.mockResolvedValueOnce({ libraryId: "lib-1", libraryName: "My Library" });
 
     const wrapper = mountPage();
-    const acceptButton = wrapper.findAll("button").find((b) => b.text() === "Accept Invite");
+    const acceptButton = wrapper.findAll("button").find((b) => b.text().includes("Accept Invite"));
     await acceptButton?.trigger("click");
 
     await vi.waitFor(() => {
@@ -186,7 +179,7 @@ describe("invites/[token].vue", () => {
     mocks.apiFetch.mockRejectedValueOnce({ data: { message: "Invite expired" } });
 
     const wrapper = mountPage();
-    const acceptButton = wrapper.findAll("button").find((b) => b.text() === "Accept Invite");
+    const acceptButton = wrapper.findAll("button").find((b) => b.text().includes("Accept Invite"));
     await acceptButton?.trigger("click");
 
     await vi.waitFor(() => {
@@ -197,7 +190,7 @@ describe("invites/[token].vue", () => {
   it("shows loading spinner when status is pending", () => {
     mocks.status = "pending";
     const wrapper = mountPage();
-    expect(wrapper.find("i").exists()).toBe(true);
+    expect(wrapper.find("svg").exists()).toBe(true);
   });
 
   it("shows fallback invite title when invite is null", () => {

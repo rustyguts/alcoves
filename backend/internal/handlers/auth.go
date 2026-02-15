@@ -14,12 +14,13 @@ import (
 )
 
 type AuthHandler struct {
-	db      *gorm.DB
-	authSvc *authservice.Service
+	db                *gorm.DB
+	authSvc           *authservice.Service
+	googleAuthEnabled bool
 }
 
-func NewAuthHandler(db *gorm.DB, authSvc *authservice.Service) *AuthHandler {
-	return &AuthHandler{db: db, authSvc: authSvc}
+func NewAuthHandler(db *gorm.DB, authSvc *authservice.Service, googleAuthEnabled bool) *AuthHandler {
+	return &AuthHandler{db: db, authSvc: authSvc, googleAuthEnabled: googleAuthEnabled}
 }
 
 // RegisterRoutes registers all auth routes.
@@ -31,12 +32,21 @@ func (h *AuthHandler) RegisterRoutes(g *echo.Group) {
 	g.PATCH("/me", h.UpdateMe)
 	g.GET("/sessions", h.ListSessions)
 	g.DELETE("/sessions/:id", h.RevokeSession)
+	g.GET("/providers", h.Providers)
 }
 
 // RegisterSessionRoute registers the /_auth/session route on the given api group.
 // This is separate because it lives outside /auth/*.
 func (h *AuthHandler) RegisterSessionRoute(api *echo.Group) {
 	api.GET("/_auth/session", h.Session)
+}
+
+// Providers returns which authentication providers are available.
+// This is a public endpoint so the frontend can show/hide OAuth buttons.
+func (h *AuthHandler) Providers(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"google": h.googleAuthEnabled,
+	})
 }
 
 type registerRequest struct {

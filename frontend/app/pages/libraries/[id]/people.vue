@@ -2,6 +2,7 @@
 import { useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useLibraryPeople } from "~/composables/useLibraryPeople";
+import AppIcon from "~/components/AppIcon.vue";
 import type { Library, LibraryFile } from "~~/shared/types/api";
 
 const route = useRoute();
@@ -85,36 +86,35 @@ onMounted(() => {
   <div class="flex flex-col gap-4">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-h-10">
       <h1 class="text-xl font-semibold truncate">{{ library?.name }}</h1>
-      <UButton
-        label="Back to Library"
-        icon="i-lucide-arrow-left"
-        color="neutral"
-        variant="outline"
-        size="sm"
+      <RouterLink
         :to="`/libraries/${libraryId}`"
-      />
+        class="btn btn-sm btn-neutral btn-outline"
+      >
+        <AppIcon name="i-lucide-arrow-left" class="size-4" />
+        Back to Library
+      </RouterLink>
     </div>
 
     <div class="grid gap-4">
       <div v-if="selectedPeople.size >= 2" class="flex items-center gap-2">
-        <UButton
-          label="Merge Selected"
-          icon="i-lucide-merge"
-          color="primary"
+        <button
+          class="btn btn-sm btn-primary"
           @click="mergePeople"
-        />
+        >
+          <AppIcon name="i-lucide-merge" class="size-4" />
+          Merge Selected
+        </button>
         <span class="text-sm text-muted">{{ selectedPeople.size }} selected</span>
-        <UButton
-          label="Clear"
-          variant="ghost"
-          color="neutral"
-          size="sm"
+        <button
+          class="btn btn-sm btn-neutral btn-ghost"
           @click="selectedPeople.clear()"
-        />
+        >
+          Clear
+        </button>
       </div>
 
       <div v-if="peopleLoading" class="flex items-center justify-center py-16">
-        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
       </div>
 
       <div
@@ -142,12 +142,11 @@ onMounted(() => {
           />
           <div class="text-center w-full">
             <template v-if="renamingPersonId === person.id">
-              <UInput
+              <input
                 v-model="renamePersonValue"
-                size="sm"
                 autofocus
                 placeholder="Enter a name"
-                class="w-full"
+                class="input input-sm w-full"
                 @blur="savePersonRename(person.id)"
                 @keydown.enter.prevent="savePersonRename(person.id)"
                 @keydown.escape="renamingPersonId = null"
@@ -175,7 +174,7 @@ onMounted(() => {
         <div
           class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
         >
-          <UIcon name="i-lucide-scan-face" class="size-8 text-(--ui-text-muted)" />
+          <AppIcon name="i-lucide-scan-face" class="size-8 text-(--ui-text-muted)" />
         </div>
         <p class="text-lg font-medium text-foreground mb-1">No faces detected yet</p>
         <p class="text-sm text-muted">
@@ -184,19 +183,13 @@ onMounted(() => {
       </div>
     </div>
 
-    <UModal
-      :open="!!activePerson"
-      title="Person's Photos"
-      @update:open="
-        (v: boolean) => {
-          if (!v) closePersonDetail();
-        }
-      "
-    >
-      <template #body>
+    <!-- Person detail modal -->
+    <dialog class="modal" :class="{ 'modal-open': !!activePerson }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold mb-4">Person's Photos</h3>
         <div v-if="activePerson">
           <div v-if="loadingFaces" class="flex justify-center py-8">
-            <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+            <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
           </div>
           <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div
@@ -220,7 +213,7 @@ onMounted(() => {
                 :disabled="updatingCoverFaceId === face.id"
                 @click.stop="setPersonCover(activePerson.id, face.id)"
               >
-                <UIcon
+                <AppIcon
                   :name="
                     activePerson.coverFaceDetectionId === face.id
                       ? 'i-lucide-check'
@@ -248,21 +241,24 @@ onMounted(() => {
                   >
                     Cover photo
                   </p>
-                  <UButton
-                    label="Wrong match"
-                    size="xs"
-                    color="neutral"
-                    variant="outline"
-                    :loading="splittingFaceId === face.id"
+                  <button
+                    class="btn btn-xs btn-neutral btn-outline"
+                    :disabled="splittingFaceId === face.id"
                     @click.stop="openSplitFaceModal(face.id, face.fileName)"
-                  />
+                  >
+                    <span v-if="splittingFaceId === face.id" class="loading loading-spinner loading-xs"></span>
+                    Wrong match
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="closePersonDetail()">close</button>
+      </form>
+    </dialog>
 
     <FilePreview
       v-if="previewFile"
@@ -273,8 +269,10 @@ onMounted(() => {
       @navigate="previewFile = $event"
     />
 
-    <UModal v-model:open="splitFaceOpen" title="Create New Person">
-      <template #body>
+    <!-- Split face modal -->
+    <dialog class="modal" :class="{ 'modal-open': splitFaceOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold mb-4">Create New Person</h3>
         <div class="space-y-3">
           <p class="text-sm text-muted">
             This face will be removed from the current person and placed into a new one.
@@ -282,33 +280,38 @@ onMounted(() => {
           <p class="text-xs text-muted truncate">
             Selected photo: {{ splitFaceTarget?.fileName ?? "Unknown file" }}
           </p>
-          <UFormField label="Name (optional)">
-            <UInput
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Name (optional)</legend>
+            <input
               v-model="splitFaceName"
               placeholder="e.g. Alex"
-              class="w-full"
+              class="input w-full"
               @keydown.enter.prevent="confirmSplitFace"
             />
-          </UFormField>
+          </fieldset>
         </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
+        <div class="modal-action">
+          <button
+            class="btn btn-sm btn-neutral btn-outline"
             :disabled="!!splittingFaceId"
             @click="splitFaceOpen = false"
-          />
-          <UButton
-            label="Create New Person"
-            icon="i-lucide-user-round-plus"
-            :loading="!!splittingFaceId"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn btn-sm btn-primary"
+            :disabled="!!splittingFaceId"
             @click="confirmSplitFace"
-          />
+          >
+            <span v-if="!!splittingFaceId" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-user-round-plus" class="size-4" />
+            Create New Person
+          </button>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="splitFaceOpen = false">close</button>
+      </form>
+    </dialog>
   </div>
 </template>

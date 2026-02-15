@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatFileSize } from "~/utils/mime-icons";
 import { useUploadQueue } from "~/composables/useUploadQueue";
+import AppIcon from "~/components/AppIcon.vue";
 
 const {
   activeUploads,
@@ -41,7 +42,7 @@ const expanded = ref(true);
             <span v-if="uploadSpeed > 0" class="text-xs text-muted">
               {{ formatFileSize(uploadSpeed) }}/s
             </span>
-            <UIcon
+            <AppIcon
               :name="expanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
               class="size-4 text-muted"
             />
@@ -54,8 +55,8 @@ const expanded = ref(true);
         >
           <span class="text-xs text-error">{{ erroredUploads.length }} failed</span>
           <div class="flex gap-1">
-            <UButton label="Retry All" size="xs" variant="ghost" @click="retryAll" />
-            <UButton label="Clear" size="xs" variant="ghost" color="error" @click="clearErrors" />
+            <button class="btn btn-xs btn-ghost" @click="retryAll">Retry All</button>
+            <button class="btn btn-xs btn-ghost btn-error" @click="clearErrors">Clear</button>
           </div>
         </div>
 
@@ -71,26 +72,20 @@ const expanded = ref(true);
             </div>
 
             <div v-if="item.status === 'uploading'" class="flex items-center gap-2">
-              <UProgress :model-value="item.progress" size="xs" class="flex-1" />
+              <progress class="progress flex-1" :value="item.progress" max="100"></progress>
               <span class="text-xs text-muted w-8 text-right">{{ item.progress }}%</span>
             </div>
 
             <div v-else-if="item.status === 'error'" class="flex items-center justify-between">
               <span class="text-xs text-error">{{ item.error }}</span>
               <div class="flex gap-1">
-                <UButton label="Retry" size="xs" variant="ghost" @click="retryFile(item.id)" />
-                <UButton
-                  label="Remove"
-                  size="xs"
-                  variant="ghost"
-                  color="error"
-                  @click="removeFile(item.id)"
-                />
+                <button class="btn btn-xs btn-ghost" @click="retryFile(item.id)">Retry</button>
+                <button class="btn btn-xs btn-ghost btn-error" @click="removeFile(item.id)">Remove</button>
               </div>
             </div>
 
             <div v-else-if="item.status === 'done'" class="flex items-center gap-1">
-              <UIcon name="i-lucide-check" class="size-4 text-success" />
+              <AppIcon name="i-lucide-check" class="size-4 text-success" />
               <span class="text-xs text-success">Complete</span>
             </div>
 

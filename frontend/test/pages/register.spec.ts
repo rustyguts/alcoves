@@ -24,19 +24,7 @@ vi.mock("vue-router", async (importOriginal) => {
 });
 
 const stubs = {
-  UApp: { template: "<div><slot /></div>" },
-  PageCard: { template: "<div><slot /></div>" },
-  AuthForm: {
-    template: `<div><slot name="description" /><slot name="footer" /><button data-testid="submit" @click="$emit('submit', { data: { name: 'Test', email: 'test@example.com', password: 'password123', confirmPassword: 'password123' }})">Submit</button></div>`,
-    props: ["schema", "fields", "title", "icon", "submit"],
-    emits: ["submit"],
-  },
-  Separator: { template: "<hr />" },
-  Button: {
-    template: "<button><slot /></button>",
-    props: ["color", "variant", "block", "to", "external"],
-  },
-  Link: { template: "<a><slot /></a>", props: ["to"] },
+  AppIcon: { template: "<svg />", props: ["name", "class"] },
 };
 
 describe("register.vue", () => {
@@ -64,8 +52,20 @@ describe("register.vue", () => {
     mocks.register.mockResolvedValueOnce({});
 
     const wrapper = mountPage();
-    const submitButton = wrapper.find("[data-testid='submit']");
-    await submitButton.trigger("click");
+
+    // Fill in the form fields
+    const inputs = wrapper.findAll("input");
+    const nameInput = inputs.find((i) => i.attributes("type") === "text");
+    const emailInput = inputs.find((i) => i.attributes("type") === "email");
+    const passwordInputs = inputs.filter((i) => i.attributes("type") === "password");
+
+    await nameInput!.setValue("Test");
+    await emailInput!.setValue("test@example.com");
+    await passwordInputs[0]!.setValue("password123");
+    await passwordInputs[1]!.setValue("password123");
+
+    // Submit the form
+    await wrapper.find("form").trigger("submit");
 
     await vi.waitFor(() => {
       expect(mocks.register).toHaveBeenCalledWith("Test", "test@example.com", "password123");
@@ -76,8 +76,18 @@ describe("register.vue", () => {
     mocks.register.mockRejectedValueOnce({ data: { message: "Email taken" } });
 
     const wrapper = mountPage();
-    const submitButton = wrapper.find("[data-testid='submit']");
-    await submitButton.trigger("click");
+
+    const inputs = wrapper.findAll("input");
+    const nameInput = inputs.find((i) => i.attributes("type") === "text");
+    const emailInput = inputs.find((i) => i.attributes("type") === "email");
+    const passwordInputs = inputs.filter((i) => i.attributes("type") === "password");
+
+    await nameInput!.setValue("Test");
+    await emailInput!.setValue("test@example.com");
+    await passwordInputs[0]!.setValue("password123");
+    await passwordInputs[1]!.setValue("password123");
+
+    await wrapper.find("form").trigger("submit");
 
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain("Email taken");
@@ -88,8 +98,18 @@ describe("register.vue", () => {
     mocks.register.mockRejectedValueOnce(new Error("fail"));
 
     const wrapper = mountPage();
-    const submitButton = wrapper.find("[data-testid='submit']");
-    await submitButton.trigger("click");
+
+    const inputs = wrapper.findAll("input");
+    const nameInput = inputs.find((i) => i.attributes("type") === "text");
+    const emailInput = inputs.find((i) => i.attributes("type") === "email");
+    const passwordInputs = inputs.filter((i) => i.attributes("type") === "password");
+
+    await nameInput!.setValue("Test");
+    await emailInput!.setValue("test@example.com");
+    await passwordInputs[0]!.setValue("password123");
+    await passwordInputs[1]!.setValue("password123");
+
+    await wrapper.find("form").trigger("submit");
 
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain("Registration failed");

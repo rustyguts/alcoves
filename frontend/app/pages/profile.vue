@@ -3,6 +3,8 @@ import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { apiFetch } from "~/utils/api-fetch";
 import { useColorMode } from "@vueuse/core";
+import { useToast } from "~/composables/useToast";
+import AppIcon from "~/components/AppIcon.vue";
 
 interface SessionInfo {
   id: string;
@@ -160,7 +162,7 @@ function getStatusMessage(error: unknown): string | null {
       </div>
       <div
         v-else
-        class="size-16 rounded-full bg-(--ui-primary) text-white flex items-center justify-center font-bold text-2xl"
+        class="size-16 rounded-full bg-primary text-white flex items-center justify-center font-bold text-2xl"
       >
         {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
       </div>
@@ -171,22 +173,19 @@ function getStatusMessage(error: unknown): string | null {
     </div>
 
     <div class="flex flex-col gap-4">
-      <UFormField label="Display Name">
-        <UInput v-model="displayName" placeholder="Your display name" class="w-full" />
-      </UFormField>
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">Display Name</legend>
+        <input v-model="displayName" placeholder="Your display name" class="input w-full" />
+      </fieldset>
 
-      <UFormField
-        label="Avatar Photo"
-        description="Upload an image. It will be center-cropped to 128x128."
-      >
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">Avatar Photo</legend>
+        <p class="text-xs text-muted mb-1">Upload an image. It will be center-cropped to 128x128.</p>
         <div class="flex items-center gap-3">
-          <UButton
-            icon="i-lucide-image-plus"
-            color="neutral"
-            variant="subtle"
-            label="Choose photo"
-            @click="openAvatarPicker"
-          />
+          <button class="btn btn-ghost btn-sm" @click="openAvatarPicker">
+            <AppIcon name="i-lucide-image-plus" class="size-4" />
+            Choose photo
+          </button>
           <span v-if="selectedAvatar" class="text-sm text-muted truncate">
             {{ selectedAvatar.name }}
           </span>
@@ -198,27 +197,30 @@ function getStatusMessage(error: unknown): string | null {
           class="hidden"
           @change="onAvatarSelected"
         />
-      </UFormField>
-      <UFormField label="Theme">
-        <USelectMenu
-          :model-value="colorPreference"
-          :items="[
-            { label: 'System', value: 'auto' },
-            { label: 'Light', value: 'light' },
-            { label: 'Dark', value: 'dark' },
-          ]"
-          value-key="value"
-          class="w-full"
-          @update:model-value="colorPreference = $event as 'light' | 'dark' | 'auto'"
-        />
-      </UFormField>
+      </fieldset>
+
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">Theme</legend>
+        <select
+          :value="colorPreference"
+          class="select w-full"
+          @change="colorPreference = ($event.target as HTMLSelectElement).value as 'light' | 'dark' | 'auto'"
+        >
+          <option value="auto">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </fieldset>
 
       <div class="flex justify-end">
-        <UButton label="Save" :loading="saving" @click="save" />
+        <button class="btn btn-primary" :disabled="saving" @click="save">
+          <span v-if="saving" class="loading loading-spinner loading-xs"></span>
+          Save
+        </button>
       </div>
     </div>
 
-    <USeparator />
+    <div class="divider"></div>
 
     <div class="flex flex-col gap-4">
       <h2 class="text-lg font-semibold">Active Sessions</h2>
@@ -234,24 +236,24 @@ function getStatusMessage(error: unknown): string | null {
         >
           <div class="flex flex-col gap-0.5">
             <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-monitor" class="size-4 text-muted" />
+              <AppIcon name="i-lucide-monitor" class="size-4 text-muted" />
               <span class="text-sm font-medium">{{ parseBrowser(session.userAgent) }}</span>
-              <UBadge v-if="session.isCurrent" label="Current" color="primary" size="xs" />
+              <span v-if="session.isCurrent" class="badge badge-primary badge-sm">Current</span>
             </div>
             <div class="flex items-center gap-3 text-xs text-muted">
               <span v-if="session.ipAddress">{{ session.ipAddress }}</span>
               <span>{{ formatSessionDate(session.createdAt) }}</span>
             </div>
           </div>
-          <UButton
+          <button
             v-if="!session.isCurrent"
-            label="Revoke"
-            color="error"
-            variant="ghost"
-            size="xs"
-            :loading="revokingId === session.id"
+            class="btn btn-ghost btn-error btn-xs"
+            :disabled="revokingId === session.id"
             @click="revokeSession(session.id)"
-          />
+          >
+            <span v-if="revokingId === session.id" class="loading loading-spinner loading-xs"></span>
+            Revoke
+          </button>
         </div>
       </div>
       <p v-else class="text-sm text-muted">No active sessions found.</p>

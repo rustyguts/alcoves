@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,18 +17,22 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
+	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 )
 
 type FileHandler struct {
 	db         *gorm.DB
 	fileSvc    *files.Service
 	storageSvc *storage.Service
+	faceSvc    *facedetection.Service
+	videoSvc   *videoproxy.Service
 }
 
-func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service) *FileHandler {
-	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc}
+func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, videoSvc *videoproxy.Service) *FileHandler {
+	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, videoSvc: videoSvc}
 }
 
 func (h *FileHandler) RegisterRoutes(g *echo.Group) {
@@ -104,6 +110,12 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		h.storageSvc.DeleteFile(libraryID.String(), fileID.String())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create file record")
 	}
+
+	// Trigger face detection if library has it enabled and file is an image
+	h.maybeEnqueueFaceDetection(libraryID, fileID, mimeType)
+
+	// Trigger video proxy generation for video files
+	h.maybeEnqueueVideoProxy(libraryID, fileID, mimeType)
 
 	return c.JSON(http.StatusOK, fileToJSON(&file))
 }
@@ -312,10 +324,19 @@ func (h *FileHandler) Purge(c echo.Context) error {
 		h.db.Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Delete(&models.Folder{})
 	}
 
+	purgedFileIDs := make([]string, 0, len(filesToPurge))
 	for _, f := range filesToPurge {
 		h.storageSvc.DeleteFile(libraryID, f.ID.String())
 		h.db.Delete(&f)
+		purgedFileIDs = append(purgedFileIDs, f.ID.String())
 		purgedCount++
+	}
+
+	// Clean up face data for purged files
+	if len(purgedFileIDs) > 0 && h.faceSvc != nil {
+		if err := h.faceSvc.DeleteFaceDataForFiles(libraryID, purgedFileIDs); err != nil {
+			log.Printf("failed to clean face data for purged files: %v", err)
+		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]int{"purged": purgedCount})
@@ -504,6 +525,35 @@ func timeStr(t *time.Time) *string {
 	}
 	s := t.Format(time.RFC3339Nano)
 	return &s
+}
+
+// maybeEnqueueFaceDetection triggers face detection if the library has it enabled
+// and the file is an image.
+func (h *FileHandler) maybeEnqueueFaceDetection(libraryID, fileID uuid.UUID, mimeType string) {
+	if h.faceSvc == nil || !strings.HasPrefix(mimeType, "image/") {
+		return
+	}
+
+	var library models.Library
+	if err := h.db.Select("face_recognition_enabled").Where("id = ?", libraryID).First(&library).Error; err != nil {
+		return
+	}
+
+	if library.FaceRecognitionEnabled {
+		if err := h.faceSvc.EnqueueFaceDetection(libraryID.String(), fileID.String()); err != nil {
+			log.Printf("failed to enqueue face detection for file %s: %v", fileID, err)
+		}
+	}
+}
+
+// maybeEnqueueVideoProxy triggers video proxy generation for video uploads.
+func (h *FileHandler) maybeEnqueueVideoProxy(libraryID, fileID uuid.UUID, mimeType string) {
+	if h.videoSvc == nil || !strings.HasPrefix(mimeType, "video/") {
+		return
+	}
+	if err := h.videoSvc.EnqueueVideoProxy(libraryID.String(), fileID.String()); err != nil {
+		log.Printf("failed to enqueue video proxy for file %s: %v", fileID, err)
+	}
 }
 
 // Ensure errors import is used (for future use)

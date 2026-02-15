@@ -24,19 +24,7 @@ vi.mock("vue-router", async (importOriginal) => {
 });
 
 const stubs = {
-  UApp: { template: "<div><slot /></div>" },
-  PageCard: { template: "<div><slot /></div>" },
-  AuthForm: {
-    template: `<div><slot name="description" /><slot name="footer" /><button data-testid="submit" @click="$emit('submit', { data: { email: 'test@example.com', password: 'password123' }})">Submit</button></div>`,
-    props: ["schema", "fields", "title", "description", "icon"],
-    emits: ["submit"],
-  },
-  Separator: { template: "<hr />" },
-  Button: {
-    template: "<button><slot /></button>",
-    props: ["color", "variant", "block", "to", "external"],
-  },
-  Link: { template: "<a><slot /></a>", props: ["to"] },
+  AppIcon: { template: "<svg />", props: ["name", "class"] },
 };
 
 describe("login.vue", () => {
@@ -64,8 +52,15 @@ describe("login.vue", () => {
     mocks.login.mockResolvedValueOnce({});
 
     const wrapper = mountPage();
-    const submitButton = wrapper.find("[data-testid='submit']");
-    await submitButton.trigger("click");
+
+    // Fill in the form fields
+    const emailInput = wrapper.find("input[type='email']");
+    const passwordInput = wrapper.find("input[type='password']");
+    await emailInput.setValue("test@example.com");
+    await passwordInput.setValue("password123");
+
+    // Submit the form
+    await wrapper.find("form").trigger("submit");
 
     await vi.waitFor(() => {
       expect(mocks.login).toHaveBeenCalledWith("test@example.com", "password123");
@@ -76,8 +71,13 @@ describe("login.vue", () => {
     mocks.login.mockRejectedValueOnce({ data: { message: "Invalid credentials" } });
 
     const wrapper = mountPage();
-    const submitButton = wrapper.find("[data-testid='submit']");
-    await submitButton.trigger("click");
+
+    const emailInput = wrapper.find("input[type='email']");
+    const passwordInput = wrapper.find("input[type='password']");
+    await emailInput.setValue("test@example.com");
+    await passwordInput.setValue("password123");
+
+    await wrapper.find("form").trigger("submit");
 
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain("Invalid credentials");
@@ -88,8 +88,13 @@ describe("login.vue", () => {
     mocks.login.mockRejectedValueOnce(new Error("network"));
 
     const wrapper = mountPage();
-    const submitButton = wrapper.find("[data-testid='submit']");
-    await submitButton.trigger("click");
+
+    const emailInput = wrapper.find("input[type='email']");
+    const passwordInput = wrapper.find("input[type='password']");
+    await emailInput.setValue("test@example.com");
+    await passwordInput.setValue("password123");
+
+    await wrapper.find("form").trigger("submit");
 
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain("Invalid email or password");

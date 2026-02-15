@@ -17,10 +17,14 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/handlers"
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/hibiken/asynq"
+
 	"github.com/alcoves/alcoves-backend/internal/services/access"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
+	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
+	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 	"github.com/alcoves/alcoves-backend/internal/spa"
 )
 
@@ -77,6 +81,47 @@ func main() {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 
+	// Asynq client (Redis-backed job queue)
+	asynqRedisOpt := asynq.RedisClientOpt{
+		Addr:     fmt.Sprintf("%s:%d", cfg.QueueRedisHost, cfg.QueueRedisPort),
+		Password: cfg.QueueRedisPassword,
+	}
+	asynqClient := asynq.NewClient(asynqRedisOpt)
+	defer asynqClient.Close()
+
+	// Face detection service
+	faceConfig := facedetection.NewFaceConfig(
+		cfg.FaceDetectionMinScore,
+		cfg.FaceRecognitionMaxDistance,
+		cfg.FaceRecognitionNeighborLookup,
+		cfg.FaceRecognitionMinFaces,
+		cfg.ModelsPath,
+	)
+	faceSvc := facedetection.NewService(db, storageSvc, asynqClient, faceConfig)
+
+	// Video proxy service
+	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient)
+
+	// Start asynq worker if mode is "all" or "worker"
+	var asynqServer *asynq.Server
+	if cfg.Mode == "all" || cfg.Mode == "worker" {
+		asynqServer = asynq.NewServer(asynqRedisOpt, asynq.Config{
+			Concurrency: 2,
+			Queues:      map[string]int{"default": 1},
+		})
+
+		mux := asynq.NewServeMux()
+		mux.HandleFunc(facedetection.TaskTypeFaceDetect, faceSvc.NewTaskHandler().ProcessTask)
+		mux.HandleFunc(videoproxy.TaskTypeVideoProxy, videoSvc.NewTaskHandler().ProcessTask)
+
+		go func() {
+			log.Println("Starting asynq worker...")
+			if err := asynqServer.Run(mux); err != nil {
+				log.Printf("Asynq worker error: %v", err)
+			}
+		}()
+	}
+
 	// Echo setup
 	e := echo.New()
 	e.HideBanner = true
@@ -111,7 +156,7 @@ func main() {
 	api := e.Group("/api")
 
 	// Auth routes (public - skipped by auth middleware)
-	authHandler := handlers.NewAuthHandler(db, authSvc)
+	authHandler := handlers.NewAuthHandler(db, authSvc, cfg.GoogleAuthEnabled)
 	authHandler.RegisterRoutes(api.Group("/auth"))
 	authHandler.RegisterSessionRoute(api)
 
@@ -120,7 +165,7 @@ func main() {
 	libraryHandler.RegisterRoutes(api.Group("/libraries"))
 
 	// File routes (under /api/libraries)
-	fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc)
+	fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, videoSvc)
 	fileHandler.RegisterRoutes(api.Group("/libraries"))
 
 	// Folder routes (under /api/libraries)
@@ -152,7 +197,7 @@ func main() {
 	adminJobsHandler.RegisterRoutes(api.Group("/admin"))
 
 	// People routes (under /api/libraries)
-	peopleHandler := handlers.NewPeopleHandler(db, storageSvc)
+	peopleHandler := handlers.NewPeopleHandler(db, storageSvc, faceSvc)
 	peopleHandler.RegisterRoutes(api.Group("/libraries"))
 
 	// Download routes (under /api/libraries)
@@ -160,7 +205,7 @@ func main() {
 	downloadHandler.RegisterRoutes(api.Group("/libraries"))
 
 	// Tus resumable upload routes (under /api/tus)
-	tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath)
+	tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, videoSvc)
 	tusHandler.RegisterRoutes(api)
 
 	// Avatar routes (under /api/auth)
@@ -197,6 +242,11 @@ func main() {
 
 	<-ctx.Done()
 	log.Println("Shutting down server...")
+
+	// Shutdown asynq worker
+	if asynqServer != nil {
+		asynqServer.Shutdown()
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

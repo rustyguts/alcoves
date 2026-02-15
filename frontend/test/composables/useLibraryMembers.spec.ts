@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   toast: { add: vi.fn() },
 }));
 
-vi.mock("@nuxt/ui/composables/useToast", () => ({
+vi.mock("~/composables/useToast", () => ({
   useToast: () => mocks.toast,
 }));
 

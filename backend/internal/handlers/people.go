@@ -10,16 +10,18 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
 type PeopleHandler struct {
 	db         *gorm.DB
 	storageSvc *storage.Service
+	faceSvc    *facedetection.Service
 }
 
-func NewPeopleHandler(db *gorm.DB, storageSvc *storage.Service) *PeopleHandler {
-	return &PeopleHandler{db: db, storageSvc: storageSvc}
+func NewPeopleHandler(db *gorm.DB, storageSvc *storage.Service, faceSvc *facedetection.Service) *PeopleHandler {
+	return &PeopleHandler{db: db, storageSvc: storageSvc, faceSvc: faceSvc}
 }
 
 func (h *PeopleHandler) RegisterRoutes(g *echo.Group) {
@@ -29,6 +31,7 @@ func (h *PeopleHandler) RegisterRoutes(g *echo.Group) {
 	g.GET("/:id/people/:personId/thumbnail", h.Thumbnail)
 	g.POST("/:id/people/:personId/faces/:faceId/split", h.SplitFace)
 	g.POST("/:id/people/merge", h.Merge)
+	g.POST("/:id/face-recognition/reprocess", h.Reprocess)
 }
 
 type personResponse struct {
@@ -298,6 +301,21 @@ func (h *PeopleHandler) Merge(c echo.Context) error {
 
 	h.db.Where("id = ?", targetID).First(&target)
 	return c.JSON(http.StatusOK, toPersonResponse(&target))
+}
+
+func (h *PeopleHandler) Reprocess(c echo.Context) error {
+	libraryID := c.Param("id")
+
+	if h.faceSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Face recognition service not available")
+	}
+
+	enqueued, err := h.faceSvc.ReprocessLibrary(libraryID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Reprocess failed: %v", err))
+	}
+
+	return c.JSON(http.StatusOK, map[string]int{"enqueued": enqueued})
 }
 
 func toPersonResponse(p *models.Person) personResponse {

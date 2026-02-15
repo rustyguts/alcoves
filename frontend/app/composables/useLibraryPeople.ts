@@ -1,6 +1,7 @@
 import type { Ref, ComputedRef } from "vue";
 import type { LibraryPerson, PersonFace } from "~~/shared/types/api";
 import { apiFetch } from "~/utils/api-fetch";
+import { useToast } from "~/composables/useToast";
 
 export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
   const toast = useToast();

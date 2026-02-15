@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useUploadQueue } from "~/composables/useUploadQueue";
+import AppIcon from "~/components/AppIcon.vue";
 
 const props = defineProps<{
   libraryId: string;
@@ -23,37 +24,55 @@ function handleUpload() {
 function handleClose() {
   selectedFiles.value = [];
 }
+
+function onFileChange(event: Event) {
+  const target = event.target as HTMLInputElement;
+  if (target.files) {
+    selectedFiles.value = Array.from(target.files);
+  }
+}
+
+watch(open, (val) => {
+  if (!val) handleClose();
+});
 </script>
 
 <template>
-  <UModal v-model:open="open" title="Upload Files" @after:leave="handleClose">
-    <template #body>
-      <p class="text-sm text-muted mb-3">
-        Uploading to <strong>{{ libraryName }}</strong>
-      </p>
-      <UFileUpload
-        v-model="selectedFiles"
-        :preview="false"
-        multiple
-        label="Drop files here or click to browse"
-        description="Any file type accepted"
-        class="min-h-40"
-      />
-      <p v-if="selectedFileCount" class="mt-3 text-sm text-muted">
-        {{ selectedFileCount }} file{{ selectedFileCount === 1 ? "" : "s" }} selected
-      </p>
-    </template>
+  <dialog class="modal" :class="{ 'modal-open': open }">
+    <div class="modal-box">
+      <h3 class="text-lg font-bold">Upload Files</h3>
 
-    <template #footer>
+      <div class="py-4">
+        <p class="text-sm text-muted mb-3">
+          Uploading to <strong>{{ libraryName }}</strong>
+        </p>
+
+        <input
+          type="file"
+          class="file-input w-full"
+          multiple
+          @change="onFileChange"
+        />
+
+        <p v-if="selectedFileCount" class="mt-3 text-sm text-muted">
+          {{ selectedFileCount }} file{{ selectedFileCount === 1 ? "" : "s" }} selected
+        </p>
+      </div>
+
       <div class="flex justify-end gap-2">
-        <UButton label="Cancel" color="neutral" variant="outline" @click="open = false" />
-        <UButton
-          label="Upload"
-          icon="i-lucide-upload"
+        <button class="btn btn-sm btn-outline btn-neutral" @click="open = false">Cancel</button>
+        <button
+          class="btn btn-sm btn-primary"
           :disabled="!selectedFileCount"
           @click="handleUpload"
-        />
+        >
+          <AppIcon name="i-lucide-upload" class="size-4" />
+          Upload
+        </button>
       </div>
-    </template>
-  </UModal>
+    </div>
+    <form method="dialog" class="modal-backdrop" @click="open = false">
+      <button>close</button>
+    </form>
+  </dialog>
 </template>

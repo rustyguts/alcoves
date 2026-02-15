@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { LibraryFile } from "~~/shared/types/api";
 import { apiFetch } from "~/utils/api-fetch";
+import { useToast } from "~/composables/useToast";
 
 const props = defineProps<{
   file: LibraryFile;
@@ -64,39 +65,66 @@ async function createClip() {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="Create Video Clip">
-    <template #body>
-      <div class="flex flex-col gap-4">
+  <dialog class="modal" :class="{ 'modal-open': open }">
+    <div class="modal-box">
+      <h3 class="text-lg font-bold">Create Video Clip</h3>
+
+      <div class="flex flex-col gap-4 py-4">
         <p class="text-sm text-muted">
           Select a time range from <strong>{{ file.name }}</strong> to create a new clip.
         </p>
 
         <div class="grid grid-cols-2 gap-3">
-          <UFormField label="Start Time (seconds)">
-            <UInput v-model.number="startTime" type="number" min="0" :max="endTime" step="0.1" />
-            <template #hint>{{ formatTime(startTime) }}</template>
-          </UFormField>
-          <UFormField label="End Time (seconds)">
-            <UInput
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Start Time (seconds)</legend>
+            <input
+              v-model.number="startTime"
+              type="number"
+              min="0"
+              :max="endTime"
+              step="0.1"
+              class="input w-full"
+            />
+            <p class="label">{{ formatTime(startTime) }}</p>
+          </fieldset>
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">End Time (seconds)</legend>
+            <input
               v-model.number="endTime"
               type="number"
               :min="startTime"
               :max="file.duration ?? 9999"
               step="0.1"
+              class="input w-full"
             />
-            <template #hint>{{ formatTime(endTime) }}</template>
-          </UFormField>
+            <p class="label">{{ formatTime(endTime) }}</p>
+          </fieldset>
         </div>
 
-        <UFormField label="Clip Name (optional)">
-          <UInput v-model="clipName" :placeholder="`${file.name.replace(/\.[^.]+$/, '')}_clip`" />
-        </UFormField>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">Clip Name (optional)</legend>
+          <input
+            v-model="clipName"
+            class="input w-full"
+            :placeholder="`${file.name.replace(/\.[^.]+$/, '')}_clip`"
+          />
+        </fieldset>
 
         <div class="flex justify-end gap-2 pt-2">
-          <UButton label="Cancel" color="neutral" variant="outline" @click="open = false" />
-          <UButton label="Create Clip" :loading="loading" @click="createClip" />
+          <button class="btn btn-sm btn-outline btn-neutral" @click="open = false">Cancel</button>
+          <button
+            class="btn btn-sm btn-primary"
+            :disabled="loading"
+            @click="createClip"
+          >
+            <span v-if="loading" class="loading loading-spinner loading-xs"></span>
+            Create Clip
+          </button>
         </div>
       </div>
-    </template>
-  </UModal>
+    </div>
+    <form method="dialog" class="modal-backdrop" @click="open = false">
+      <button>close</button>
+    </form>
+  </dialog>
 </template>

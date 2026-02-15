@@ -1,6 +1,7 @@
 import type { Ref, ComputedRef } from "vue";
 import { formatFileSize } from "~/utils/mime-icons";
 import { apiFetch } from "~/utils/api-fetch";
+import { useToast } from "~/composables/useToast";
 
 const MAX_ZIP_SIZE_BYTES = 4 * 1024 * 1024 * 1024; // 4 GB - must match server
 

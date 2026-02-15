@@ -1,4 +1,4 @@
-import { mount, shallowMount } from "@vue/test-utils";
+import { mount } from "@vue/test-utils";
 import ClipModal from "~/components/ClipModal.vue";
 import type { LibraryFile } from "~~/shared/types/api";
 
@@ -6,33 +6,9 @@ const mocks = vi.hoisted(() => ({
   toast: { add: vi.fn(), remove: vi.fn(), clear: vi.fn() },
 }));
 
-vi.mock("@nuxt/ui/composables/useToast", () => ({
+vi.mock("~/composables/useToast", () => ({
   useToast: () => mocks.toast,
 }));
-
-const stubs = {
-  Modal: {
-    template: "<div data-testid='modal'><slot name='body' /></div>",
-    props: ["open", "title"],
-    emits: ["update:open"],
-  },
-  Button: {
-    template:
-      "<button :data-label='label' :disabled='disabled || loading' @click='$emit(\"click\")'><slot />{{ label }}</button>",
-    props: ["label", "color", "variant", "loading", "disabled", "icon"],
-    emits: ["click"],
-  },
-  FormField: {
-    template: "<div><slot /><slot name='hint' /></div>",
-    props: ["label"],
-  },
-  Input: {
-    template:
-      "<input :value='modelValue' @input='$emit(\"update:modelValue\", Number($event.target.value) || $event.target.value)' />",
-    props: ["modelValue", "type", "min", "max", "step", "placeholder"],
-    emits: ["update:modelValue"],
-  },
-};
 
 const apiFetchMock = vi.fn();
 
@@ -48,6 +24,10 @@ vi.mock("~/utils/api-fetch", () => ({
     }
   },
 }));
+
+const stubs = {
+  AppIcon: { template: "<svg />", props: ["name", "class"] },
+};
 
 function makeVideoFile(overrides: Partial<LibraryFile> = {}): LibraryFile {
   return {
@@ -123,10 +103,10 @@ describe("ClipModal", () => {
       global: { stubs },
     });
 
-    // Click "Create Clip" button
+    // Click "Create Clip" button — the primary action button
     const createBtn = wrapper
-      .findAll("button")
-      .find((b) => b.attributes("data-label") === "Create Clip");
+      .findAll("button.btn")
+      .find((b) => b.text().includes("Create Clip"));
     expect(createBtn?.exists()).toBe(true);
     await createBtn!.trigger("click");
 
@@ -156,8 +136,8 @@ describe("ClipModal", () => {
     });
 
     const createBtn = wrapper
-      .findAll("button")
-      .find((b) => b.attributes("data-label") === "Create Clip");
+      .findAll("button.btn")
+      .find((b) => b.text().includes("Create Clip"));
     await createBtn!.trigger("click");
 
     // Wait for promises to resolve
@@ -175,8 +155,8 @@ describe("ClipModal", () => {
     });
 
     const cancelBtn = wrapper
-      .findAll("button")
-      .find((b) => b.attributes("data-label") === "Cancel");
+      .findAll("button.btn")
+      .find((b) => b.text().includes("Cancel"));
     expect(cancelBtn?.exists()).toBe(true);
   });
 

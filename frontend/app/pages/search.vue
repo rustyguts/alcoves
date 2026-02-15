@@ -3,6 +3,7 @@ import { useRoute, useRouter } from "vue-router";
 import type { GlobalSearchResponse, GlobalSearchResult } from "~~/shared/types/api";
 import { formatDate, formatFileSize, getMimeIcon } from "~/utils/mime-icons";
 import { useApiFetch } from "~/composables/useApiFetch";
+import AppIcon from "~/components/AppIcon.vue";
 
 const MIN_QUERY_LENGTH = 2;
 const SEARCH_LIMIT = 80;
@@ -120,90 +121,87 @@ function getResultIcon(result: GlobalSearchResult): string {
 
 <template>
   <div class="mx-auto w-full max-w-6xl space-y-6">
-    <UCard
-      variant="subtle"
-      :ui="{
-        root: 'overflow-hidden bg-gradient-to-br from-primary/10 via-elevated to-default shadow-sm',
-        body: 'space-y-4',
-      }"
-    >
-      <div class="space-y-1">
-        <h1 class="text-2xl font-semibold">Global Search</h1>
-        <p class="text-sm text-muted">
-          Search files and folders across every library you can access.
-        </p>
+    <div class="card bg-gradient-to-br from-primary/10 via-elevated to-base-100 shadow-sm overflow-hidden">
+      <div class="card-body space-y-4">
+        <div class="space-y-1">
+          <h1 class="text-2xl font-semibold">Global Search</h1>
+          <p class="text-sm text-muted">
+            Search files and folders across every library you can access.
+          </p>
+        </div>
+
+        <form class="flex flex-col gap-3 md:flex-row md:items-center" @submit.prevent="submitSearch">
+          <div class="relative w-full">
+            <AppIcon name="i-lucide-search" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted pointer-events-none" />
+            <input
+              v-model="searchInput"
+              type="search"
+              placeholder="Search all libraries..."
+              autocomplete="off"
+              enterkeyhint="search"
+              class="input w-full pl-10 rounded-xl"
+            />
+          </div>
+          <button type="submit" class="btn btn-primary">
+            <AppIcon name="i-lucide-search" class="size-4" />
+            Search
+          </button>
+        </form>
+
+        <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
+          <span class="badge badge-ghost badge-sm">{{ searchData?.totalCount ?? 0 }} total matches</span>
+          <span class="badge badge-ghost badge-sm">{{ results.length }} shown</span>
+          <span v-if="(searchData?.totalCount ?? 0) > results.length">
+            Showing the top {{ results.length }} most relevant results.
+          </span>
+        </div>
       </div>
-
-      <form class="flex flex-col gap-3 md:flex-row md:items-center" @submit.prevent="submitSearch">
-        <UInput
-          v-model="searchInput"
-          type="search"
-          leading-icon="i-lucide-search"
-          placeholder="Search all libraries..."
-          autocomplete="off"
-          enterkeyhint="search"
-          class="w-full"
-          :ui="{
-            root: 'rounded-xl',
-          }"
-        />
-        <UButton type="submit" icon="i-lucide-search" label="Search" />
-      </form>
-
-      <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
-        <UBadge color="neutral" variant="subtle"
-          >{{ searchData?.totalCount ?? 0 }} total matches</UBadge
-        >
-        <UBadge color="neutral" variant="subtle">{{ results.length }} shown</UBadge>
-        <span v-if="(searchData?.totalCount ?? 0) > results.length">
-          Showing the top {{ results.length }} most relevant results.
-        </span>
-      </div>
-    </UCard>
-
-    <UCard v-if="activeQuery.length < MIN_QUERY_LENGTH" variant="soft">
-      <div class="flex items-center gap-3 text-muted">
-        <UIcon name="i-lucide-search-check" class="size-5" />
-        <p>Enter at least {{ MIN_QUERY_LENGTH }} characters to start searching.</p>
-      </div>
-    </UCard>
-
-    <div v-else-if="status === 'pending'" class="flex items-center justify-center py-12">
-      <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
     </div>
 
-    <UCard v-else-if="error" variant="soft">
-      <div class="flex items-center gap-3 text-error">
-        <UIcon name="i-lucide-alert-circle" class="size-5" />
-        <p>Search failed. Try again in a moment.</p>
+    <div v-if="activeQuery.length < MIN_QUERY_LENGTH" class="card bg-base-100 shadow-sm">
+      <div class="card-body">
+        <div class="flex items-center gap-3 text-muted">
+          <AppIcon name="i-lucide-search-check" class="size-5" />
+          <p>Enter at least {{ MIN_QUERY_LENGTH }} characters to start searching.</p>
+        </div>
       </div>
-    </UCard>
+    </div>
 
-    <UCard v-else-if="!results.length" variant="soft">
-      <div class="flex items-center gap-3 text-muted">
-        <UIcon name="i-lucide-folder-search" class="size-5" />
-        <p>No results found for "{{ activeQuery }}".</p>
+    <div v-else-if="status === 'pending'" class="flex items-center justify-center py-12">
+      <AppIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+    </div>
+
+    <div v-else-if="error" class="card bg-base-100 shadow-sm">
+      <div class="card-body">
+        <div class="flex items-center gap-3 text-error">
+          <AppIcon name="i-lucide-alert-circle" class="size-5" />
+          <p>Search failed. Try again in a moment.</p>
+        </div>
       </div>
-    </UCard>
+    </div>
+
+    <div v-else-if="!results.length" class="card bg-base-100 shadow-sm">
+      <div class="card-body">
+        <div class="flex items-center gap-3 text-muted">
+          <AppIcon name="i-lucide-folder-search" class="size-5" />
+          <p>No results found for "{{ activeQuery }}".</p>
+        </div>
+      </div>
+    </div>
 
     <div v-else class="space-y-4">
-      <UCard
+      <div
         v-for="group in groupedResults"
         :key="group.libraryId"
-        variant="soft"
-        :ui="{
-          body: 'p-0',
-        }"
+        class="card bg-base-100 shadow-sm"
       >
-        <template #header>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-library" class="size-4 text-primary" />
-              <h2 class="font-semibold">{{ group.libraryName }}</h2>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ group.results.length }}</UBadge>
+        <div class="flex items-center justify-between px-6 pt-5 pb-2">
+          <div class="flex items-center gap-2">
+            <AppIcon name="i-lucide-library" class="size-4 text-primary" />
+            <h2 class="font-semibold">{{ group.libraryName }}</h2>
           </div>
-        </template>
+          <span class="badge badge-ghost badge-sm">{{ group.results.length }}</span>
+        </div>
 
         <div class="space-y-1 p-1">
           <RouterLink
@@ -215,7 +213,7 @@ function getResultIcon(result: GlobalSearchResult): string {
             <div
               class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated/80"
             >
-              <UIcon :name="getResultIcon(result)" class="size-4 text-primary" />
+              <AppIcon :name="getResultIcon(result)" class="size-4 text-primary" />
             </div>
 
             <div class="min-w-0 flex-1">
@@ -225,24 +223,22 @@ function getResultIcon(result: GlobalSearchResult): string {
 
             <div class="hidden shrink-0 items-center gap-2 md:flex">
               <span class="text-xs text-muted">{{ formatDate(result.updatedAt) }}</span>
-              <UBadge color="neutral" variant="soft" size="sm">{{ result.kind }}</UBadge>
-              <UBadge
+              <span class="badge badge-soft badge-neutral badge-sm">{{ result.kind }}</span>
+              <span
                 v-if="result.kind === 'file' && typeof result.size === 'number'"
-                color="neutral"
-                variant="subtle"
-                size="sm"
+                class="badge badge-ghost badge-sm"
               >
                 {{ formatFileSize(result.size) }}
-              </UBadge>
+              </span>
             </div>
 
-            <UIcon
+            <AppIcon
               name="i-lucide-arrow-up-right"
               class="size-4 shrink-0 text-muted transition-colors group-hover:text-primary"
             />
           </RouterLink>
         </div>
-      </UCard>
+      </div>
     </div>
   </div>
 </template>

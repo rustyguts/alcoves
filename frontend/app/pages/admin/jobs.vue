@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { apiFetch } from "~/utils/api-fetch";
+import { useToast } from "~/composables/useToast";
+import AppIcon from "~/components/AppIcon.vue";
 
 interface QueueStat {
   name: string;
@@ -89,20 +91,20 @@ function jobProgress(job: JobEntry): number {
   return 0;
 }
 
-type BadgeColor = "primary" | "secondary" | "success" | "info" | "warning" | "error" | "neutral";
+type BadgeColor = "badge-primary" | "badge-ghost" | "badge-error" | "badge-warning";
 
 function stateColor(state: string): BadgeColor {
   switch (state) {
     case "active":
-      return "primary";
+      return "badge-primary";
     case "waiting":
-      return "neutral";
+      return "badge-ghost";
     case "failed":
-      return "error";
+      return "badge-error";
     case "delayed":
-      return "warning";
+      return "badge-warning";
     default:
-      return "neutral";
+      return "badge-ghost";
   }
 }
 
@@ -213,13 +215,9 @@ onUnmounted(() => {
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="flex items-center gap-2">
-          <UButton
-            icon="i-lucide-arrow-left"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            to="/admin"
-          />
+          <RouterLink to="/admin" class="btn btn-sm btn-ghost">
+            <AppIcon name="i-lucide-arrow-left" class="size-4" />
+          </RouterLink>
           <h1 class="text-xl font-semibold">Background Jobs</h1>
         </div>
         <p class="text-sm text-muted mt-1">Monitor and manage background job queues in realtime.</p>
@@ -237,157 +235,170 @@ onUnmounted(() => {
 
     <!-- Queue stat cards -->
     <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-      <UCard
+      <div
         v-for="queue in queues"
         :key="queue.name"
-        :ui="{ body: 'p-4' }"
-        class="border border-default bg-elevated/40"
+        class="card bg-base-100 shadow-sm border border-default bg-elevated/40"
       >
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <p class="text-sm font-medium capitalize">{{ formatQueueName(queue.name) }}</p>
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted">
-              <span class="flex items-center gap-1">
-                <UIcon name="i-lucide-play" class="size-3 text-primary" />
-                Active: {{ queue.active }}
-              </span>
-              <span class="flex items-center gap-1">
-                <UIcon name="i-lucide-clock" class="size-3" />
-                Waiting: {{ queue.waiting }}
-              </span>
-              <span
-                class="flex items-center gap-1"
-                :class="queue.failed > 0 ? 'text-error font-medium' : ''"
-              >
-                <UIcon name="i-lucide-x-circle" class="size-3" />
-                Failed: {{ queue.failed }}
-              </span>
-              <span class="flex items-center gap-1">
-                <UIcon name="i-lucide-timer" class="size-3 text-warning" />
-                Delayed: {{ queue.delayed }}
-              </span>
+        <div class="card-body p-4">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-medium capitalize">{{ formatQueueName(queue.name) }}</p>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted">
+                <span class="flex items-center gap-1">
+                  <AppIcon name="i-lucide-play" class="size-3 text-primary" />
+                  Active: {{ queue.active }}
+                </span>
+                <span class="flex items-center gap-1">
+                  <AppIcon name="i-lucide-clock" class="size-3" />
+                  Waiting: {{ queue.waiting }}
+                </span>
+                <span
+                  class="flex items-center gap-1"
+                  :class="queue.failed > 0 ? 'text-error font-medium' : ''"
+                >
+                  <AppIcon name="i-lucide-x-circle" class="size-3" />
+                  Failed: {{ queue.failed }}
+                </span>
+                <span class="flex items-center gap-1">
+                  <AppIcon name="i-lucide-timer" class="size-3 text-warning" />
+                  Delayed: {{ queue.delayed }}
+                </span>
+              </div>
+            </div>
+            <div
+              class="size-9 rounded-md bg-primary/10 text-primary flex items-center justify-center"
+            >
+              <AppIcon :name="queueIcon(queue.name)" class="size-5" />
             </div>
           </div>
-          <div
-            class="size-9 rounded-md bg-primary/10 text-primary flex items-center justify-center"
-          >
-            <UIcon :name="queueIcon(queue.name)" class="size-5" />
-          </div>
         </div>
-      </UCard>
+      </div>
     </section>
 
     <!-- Filters -->
     <div class="flex items-center gap-3 flex-wrap">
-      <USelectMenu
-        v-model="statusFilter"
-        :items="statusOptions"
-        value-key="value"
-        class="w-36"
-        placeholder="Status"
-      />
-      <USelectMenu
-        v-model="queueFilter"
-        :items="queueOptions"
-        value-key="value"
-        class="w-48"
-        placeholder="Queue"
-      />
+      <select v-model="statusFilter" class="select select-sm w-36">
+        <option v-for="item in statusOptions" :key="item.value" :value="item.value">
+          {{ item.label }}
+        </option>
+      </select>
+      <select v-model="queueFilter" class="select select-sm w-48">
+        <option v-for="item in queueOptions" :key="item.value" :value="item.value">
+          {{ item.label }}
+        </option>
+      </select>
       <span class="text-xs text-muted ml-auto">
         {{ filteredJobs.length }} {{ filteredJobs.length === 1 ? "job" : "jobs" }}
       </span>
     </div>
 
     <!-- Jobs table -->
-    <UCard :ui="{ body: 'p-0' }">
-      <template #header>
+    <div class="card bg-base-100 shadow-sm">
+      <div class="px-4 pt-4 pb-2">
         <h2 class="text-lg font-semibold">Jobs</h2>
-      </template>
-
-      <div v-if="!connected && jobs.length === 0" class="flex items-center justify-center py-10">
-        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
       </div>
 
-      <div v-else-if="sortedJobs.length" class="overflow-x-auto">
-        <table class="min-w-full">
-          <thead>
-            <tr class="border-b border-default bg-elevated/40">
-              <th class="px-4 py-3 text-left text-xs font-medium text-muted">Status</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-muted">Job Type</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-muted">Queue</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-muted">Library</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-muted">Progress</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-muted">Error</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-muted">Attempts</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-muted">Created</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-muted">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="job in sortedJobs"
-              :key="`${job.queueName}-${job.id}`"
-              class="border-b border-default/70 last:border-b-0 hover:bg-elevated/30 transition-colors"
-            >
-              <td class="px-4 py-3">
-                <UBadge :color="stateColor(job.state)" variant="soft" size="xs">
-                  <UIcon :name="stateIcon(job.state)" class="size-3 mr-1" />
-                  {{ job.state }}
-                </UBadge>
-              </td>
-              <td class="px-4 py-3 text-sm font-medium">{{ jobType(job) }}</td>
-              <td class="px-4 py-3 text-sm text-muted capitalize">
-                {{ formatQueueName(job.queueName) }}
-              </td>
-              <td class="px-4 py-3 text-sm">
-                <code v-if="jobLibraryId(job)" class="text-xs bg-elevated px-1.5 py-0.5 rounded">
-                  {{ jobLibraryId(job)!.slice(0, 8) }}
-                </code>
-                <span v-else class="text-muted">-</span>
-              </td>
-              <td class="px-4 py-3 min-w-[120px]">
-                <div v-if="job.state === 'active'" class="flex items-center gap-2">
-                  <UProgress :value="jobProgress(job)" size="sm" class="flex-1" />
-                  <span class="text-xs text-muted whitespace-nowrap">{{ jobProgress(job) }}%</span>
-                </div>
-                <span v-else-if="job.state === 'failed'" class="text-xs text-error">Failed</span>
-                <span v-else class="text-xs text-muted">-</span>
-              </td>
-              <td class="px-4 py-3 text-sm text-error max-w-xs truncate">
-                {{ job.failedReason ?? "-" }}
-              </td>
-              <td class="px-4 py-3 text-sm">{{ job.attemptsMade }}</td>
-              <td class="px-4 py-3 text-sm text-muted whitespace-nowrap">
-                {{ formatTimestamp(job.timestamp) }}
-              </td>
-              <td class="px-4 py-3 text-right">
-                <div v-if="job.state === 'failed'" class="flex items-center justify-end gap-1">
-                  <UButton
-                    icon="i-lucide-rotate-cw"
-                    color="primary"
-                    variant="soft"
-                    size="xs"
-                    title="Retry"
-                    :loading="actionJobId === job.id"
-                    @click="retryJob(job.queueName, job.id)"
-                  />
-                  <UButton
-                    icon="i-lucide-trash-2"
-                    color="error"
-                    variant="soft"
-                    size="xs"
-                    title="Remove"
-                    :loading="actionJobId === job.id"
-                    @click="removeJob(job.queueName, job.id)"
-                  />
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <div class="card-body p-0">
+        <div v-if="!connected && jobs.length === 0" class="flex items-center justify-center py-10">
+          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        </div>
 
-      <div v-else class="p-6 text-sm text-muted text-center">No jobs matching current filters.</div>
-    </UCard>
+        <div v-else-if="sortedJobs.length" class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead>
+              <tr class="border-b border-default bg-elevated/40">
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Job Type</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Queue</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Library</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Progress</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Error</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Attempts</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Created</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-muted">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="job in sortedJobs"
+                :key="`${job.queueName}-${job.id}`"
+                class="border-b border-default/70 last:border-b-0 hover:bg-elevated/30 transition-colors"
+              >
+                <td class="px-4 py-3">
+                  <span class="badge badge-sm badge-soft" :class="stateColor(job.state)">
+                    <AppIcon :name="stateIcon(job.state)" class="size-3 mr-1" />
+                    {{ job.state }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-sm font-medium">{{ jobType(job) }}</td>
+                <td class="px-4 py-3 text-sm text-muted capitalize">
+                  {{ formatQueueName(job.queueName) }}
+                </td>
+                <td class="px-4 py-3 text-sm">
+                  <code v-if="jobLibraryId(job)" class="text-xs bg-elevated px-1.5 py-0.5 rounded">
+                    {{ jobLibraryId(job)!.slice(0, 8) }}
+                  </code>
+                  <span v-else class="text-muted">-</span>
+                </td>
+                <td class="px-4 py-3 min-w-[120px]">
+                  <div v-if="job.state === 'active'" class="flex items-center gap-2">
+                    <progress
+                      class="progress flex-1"
+                      :value="jobProgress(job)"
+                      max="100"
+                    ></progress>
+                    <span class="text-xs text-muted whitespace-nowrap"
+                      >{{ jobProgress(job) }}%</span
+                    >
+                  </div>
+                  <span v-else-if="job.state === 'failed'" class="text-xs text-error">Failed</span>
+                  <span v-else class="text-xs text-muted">-</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-error max-w-xs truncate">
+                  {{ job.failedReason ?? "-" }}
+                </td>
+                <td class="px-4 py-3 text-sm">{{ job.attemptsMade }}</td>
+                <td class="px-4 py-3 text-sm text-muted whitespace-nowrap">
+                  {{ formatTimestamp(job.timestamp) }}
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <div v-if="job.state === 'failed'" class="flex items-center justify-end gap-1">
+                    <button
+                      class="btn btn-xs btn-soft btn-primary"
+                      title="Retry"
+                      :disabled="actionJobId === job.id"
+                      @click="retryJob(job.queueName, job.id)"
+                    >
+                      <span
+                        v-if="actionJobId === job.id"
+                        class="loading loading-spinner loading-xs"
+                      ></span>
+                      <AppIcon v-else name="i-lucide-rotate-cw" class="size-4" />
+                    </button>
+                    <button
+                      class="btn btn-xs btn-soft btn-error"
+                      title="Remove"
+                      :disabled="actionJobId === job.id"
+                      @click="removeJob(job.queueName, job.id)"
+                    >
+                      <span
+                        v-if="actionJobId === job.id"
+                        class="loading loading-spinner loading-xs"
+                      ></span>
+                      <AppIcon v-else name="i-lucide-trash-2" class="size-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="p-6 text-sm text-muted text-center">
+          No jobs matching current filters.
+        </div>
+      </div>
+    </div>
   </div>
 </template>

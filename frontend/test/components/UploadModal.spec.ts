@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { defineComponent } from "vue";
 import UploadModal from "~/components/UploadModal.vue";
 
 const { addFilesMock } = vi.hoisted(() => ({
@@ -12,50 +11,22 @@ vi.mock("~/composables/useUploadQueue", () => ({
   }),
 }));
 
-const ModalStub = defineComponent({
-  name: "Modal",
-  props: {
-    open: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  emits: ["update:open", "after:leave"],
-  template: `
-    <div data-testid="modal" :data-open="String(open)">
-      <slot name="body" />
-      <slot name="footer" />
-    </div>
-  `,
-});
+const stubs = {
+  AppIcon: { template: "<svg />", props: ["name", "class"] },
+};
 
-const FileUploadStub = defineComponent({
-  name: "FileUpload",
-  props: {
-    modelValue: {
-      type: Array,
-      default: () => [],
-    },
-  },
-  emits: ["update:modelValue"],
-  template: `<div data-testid="u-file-upload" />`,
-});
-
-const ButtonStub = defineComponent({
-  name: "Button",
-  props: {
-    disabled: {
-      type: Boolean,
-      default: false,
-    },
-    label: {
-      type: String,
-      default: "",
-    },
-  },
-  emits: ["click"],
-  template: `<button :disabled="disabled" @click="$emit('click')">{{ label }}</button>`,
-});
+/**
+ * Helper: simulate selecting files on a native <input type="file">.
+ * jsdom lacks DataTransfer, so we define the `files` property directly.
+ */
+function setFiles(inputWrapper: ReturnType<typeof mount>["find"] extends (s: string) => infer R ? R : never, files: File[]) {
+  const fileList = Object.create(null);
+  files.forEach((f, i) => { fileList[i] = f; });
+  fileList.length = files.length;
+  fileList.item = (i: number) => files[i] ?? null;
+  fileList[Symbol.iterator] = function* () { for (const f of files) yield f; };
+  Object.defineProperty(inputWrapper.element, "files", { value: fileList, configurable: true });
+}
 
 describe("UploadModal", () => {
   beforeEach(() => {
@@ -70,19 +41,15 @@ describe("UploadModal", () => {
         libraryName: "My Library",
         parentFolderId: "folder-9",
       },
-      global: {
-        stubs: {
-          Modal: ModalStub,
-          FileUpload: FileUploadStub,
-          Button: ButtonStub,
-        },
-      },
+      global: { stubs },
     });
   }
 
   it("starts with upload disabled", () => {
     const wrapper = mountComponent();
-    const uploadButton = wrapper.findAll("button").find((el) => el.text() === "Upload");
+    const uploadButton = wrapper
+      .findAll("button.btn")
+      .find((el) => el.text().includes("Upload"));
 
     expect(uploadButton?.attributes("disabled")).toBeDefined();
     expect(wrapper.text()).toContain("Uploading to My Library");
@@ -90,9 +57,10 @@ describe("UploadModal", () => {
 
   it("shows selected file count and pluralization", async () => {
     const wrapper = mountComponent();
-    const upload = wrapper.getComponent(FileUploadStub);
+    const fileInput = wrapper.find("input[type='file']");
 
-    upload.vm.$emit("update:modelValue", [new File(["a"], "a.txt"), new File(["b"], "b.txt")]);
+    setFiles(fileInput, [new File(["a"], "a.txt"), new File(["b"], "b.txt")]);
+    await fileInput.trigger("change");
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).toContain("2 files selected");
@@ -100,28 +68,40 @@ describe("UploadModal", () => {
 
   it("queues selected files and closes modal on upload", async () => {
     const wrapper = mountComponent();
-    const files = [new File(["hello"], "hello.txt")];
+    const fileInput = wrapper.find("input[type='file']");
 
-    wrapper.getComponent(FileUploadStub).vm.$emit("update:modelValue", files);
+    const files = [new File(["hello"], "hello.txt")];
+    setFiles(fileInput, files);
+    await fileInput.trigger("change");
     await wrapper.vm.$nextTick();
 
-    const uploadButton = wrapper.findAll("button").find((el) => el.text() === "Upload");
+    const uploadButton = wrapper
+      .findAll("button.btn")
+      .find((el) => el.text().includes("Upload"));
     expect(uploadButton?.attributes("disabled")).toBeUndefined();
 
     await uploadButton?.trigger("click");
 
-    expect(addFilesMock).toHaveBeenCalledWith(files, "lib-123", "My Library", "folder-9");
+    expect(addFilesMock).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.any(File)]),
+      "lib-123",
+      "My Library",
+      "folder-9",
+    );
     expect(wrapper.emitted("update:open")?.at(-1)).toEqual([false]);
   });
 
-  it("clears selection after modal leave", async () => {
+  it("clears selection when modal closes", async () => {
     const wrapper = mountComponent();
+    const fileInput = wrapper.find("input[type='file']");
 
-    wrapper.getComponent(FileUploadStub).vm.$emit("update:modelValue", [new File(["x"], "x.txt")]);
+    setFiles(fileInput, [new File(["x"], "x.txt")]);
+    await fileInput.trigger("change");
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).toContain("1 file selected");
 
-    wrapper.getComponent(ModalStub).vm.$emit("after:leave");
+    // Simulate modal closing by setting open to false
+    await wrapper.setProps({ open: false });
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).not.toContain("file selected");

@@ -3,6 +3,7 @@ import { useRoute } from "vue-router";
 import { useUploadQueue } from "~/composables/useUploadQueue";
 import DashboardLayout from "~/layouts/dashboard.vue";
 import UploadProgress from "~/components/UploadProgress.vue";
+import ToastContainer from "~/components/ToastContainer.vue";
 
 const route = useRoute();
 const { hasInFlightUploads } = useUploadQueue();
@@ -25,11 +26,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <UApp>
+  <div>
     <DashboardLayout v-if="isDashboard">
       <RouterView />
     </DashboardLayout>
     <RouterView v-else />
     <UploadProgress />
-  </UApp>
+    <ToastContainer />
+  </div>
 </template>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { ContextMenuItem, DropdownMenuItem, BreadcrumbItem } from "@nuxt/ui";
 import type { LibraryEntry, LibraryFile, LibraryFolder } from "~~/shared/types/api";
 import { getMimeIcon, formatFileSize, formatDate } from "~/utils/mime-icons";
 import { apiFetch } from "~/utils/api-fetch";
@@ -8,6 +7,8 @@ import { useLibraryTags } from "~/composables/useLibraryTags";
 import { useDownloadZip } from "~/composables/useDownloadZip";
 import { useLibraryFolderActions } from "~/composables/useLibraryFolderActions";
 import { useUploadQueue } from "~/composables/useUploadQueue";
+import { useToast } from "~/composables/useToast";
+import AppIcon from "~/components/AppIcon.vue";
 
 const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
 const ROOT_MOVE_VALUE = "__root__";
@@ -109,7 +110,7 @@ const moveFilesDestinationValue = ref<string>(ROOT_MOVE_VALUE);
 const moveFileFolders = ref<LibraryFolder[]>([]);
 const dragEnabled = computed(() => canManageLibrary.value && !showTrashed.value);
 
-const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
+const breadcrumbItems = computed<Array<{ label: string; icon?: string; to: object }>>(() => {
   if (showTrashed.value) return [];
 
   return [
@@ -131,7 +132,7 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
   ];
 });
 
-const newMenuItems = computed<DropdownMenuItem[][]>(() => [
+const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelect: () => void }>>>(() => [
   [
     {
       label: "New folder",
@@ -144,6 +145,16 @@ const newMenuItems = computed<DropdownMenuItem[][]>(() => [
 function openPreview(file: LibraryFile) {
   previewFile.value = file;
   previewOpen.value = true;
+}
+
+function handleFileUpdate(updated: LibraryFile) {
+  const idx = entries.value.findIndex((e) => e.kind === "file" && e.id === updated.id);
+  if (idx !== -1) {
+    entries.value[idx] = { ...entries.value[idx]!, ...updated };
+  }
+  if (previewFile.value?.id === updated.id) {
+    previewFile.value = { ...previewFile.value, ...updated };
+  }
 }
 
 function isRenaming(entry: LibraryEntry): boolean {
@@ -683,7 +694,7 @@ async function handlePermanentDelete() {
   foldersToPurge.value = [];
 }
 
-function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
+function getContextMenuItems(entry: LibraryEntry) {
   if (entry.kind === "folder") {
     const targetFolderIds = selectedFolders.has(entry.id) ? [...selectedFolders] : [entry.id];
     const folderCount = targetFolderIds.length;
@@ -749,7 +760,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
       ];
     }
 
-    const folderTagItems: ContextMenuItem[] = libraryTags.value.length
+    const folderTagItems = libraryTags.value.length
       ? libraryTags.value.map((tag) => ({
           label: tag.name,
           icon: isFolderTagAssigned(entry, tag.id) ? "i-lucide-check" : "i-lucide-tag",
@@ -837,7 +848,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     ];
   }
 
-  const tagItems: ContextMenuItem[] = libraryTags.value.length
+  const tagItems = libraryTags.value.length
     ? libraryTags.value.map((tag) => ({
         label: tag.name,
         icon: areAllFilesTagged(targetIds, tag.id) ? "i-lucide-check" : "i-lucide-tag",
@@ -937,117 +948,139 @@ const emptyStateDescription = computed(() => {
         >
           {{ library?.name }}
         </h1>
-        <UInput
+        <input
           v-else
           v-model="editName"
           autofocus
-          size="lg"
+          class="input input-lg w-full"
           @blur="saveLibraryName"
           @keydown.enter="saveLibraryName"
           @keydown.escape="editingName = false"
         />
       </div>
       <div class="flex items-center gap-3">
-        <UButton
+        <button
           v-if="showTrashed && !filesPending && totalCount > 0"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          class="hidden sm:flex"
+          class="btn btn-soft btn-error hidden sm:flex"
           @click="openPurgeAllModal()"
         >
+          <AppIcon name="i-lucide-trash-2" class="size-4" />
           <span class="hidden sm:inline">Permanently Delete All</span>
-        </UButton>
-        <UButton
+        </button>
+        <button
           v-if="showTrashed && !filesPending && totalCount > 0"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          class="sm:hidden"
+          class="btn btn-soft btn-error btn-sm sm:hidden"
           title="Delete All"
           @click="openPurgeAllModal()"
-        />
+        >
+          <AppIcon name="i-lucide-trash-2" class="size-4" />
+        </button>
         <template v-if="canManageLibrary && !showTrashed">
-          <UDropdownMenu :items="newMenuItems">
-            <UButton icon="i-lucide-plus" label="New" color="neutral" variant="outline" />
-          </UDropdownMenu>
-          <UButton icon="i-lucide-upload" label="Upload" @click="uploadOpen = true" />
+          <details class="dropdown">
+            <summary class="btn btn-outline">
+              <AppIcon name="i-lucide-plus" class="size-4" />
+              New
+            </summary>
+            <ul class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow">
+              <li v-for="group in newMenuItems" :key="group.map(i => i.label).join()">
+                <a
+                  v-for="item in group"
+                  :key="item.label"
+                  href="#"
+                  @click.prevent="item.onSelect()"
+                >
+                  <AppIcon :name="item.icon" class="size-4" />
+                  {{ item.label }}
+                </a>
+              </li>
+            </ul>
+          </details>
+          <button class="btn btn-primary" @click="uploadOpen = true">
+            <AppIcon name="i-lucide-upload" class="size-4" />
+            Upload
+          </button>
         </template>
       </div>
     </div>
 
-    <UBreadcrumb v-if="!showTrashed" :items="breadcrumbItems" />
+    <div v-if="!showTrashed" class="breadcrumbs text-sm">
+      <ul>
+        <li v-for="item in breadcrumbItems" :key="item.label">
+          <RouterLink :to="item.to">
+            <AppIcon v-if="item.icon" :name="item.icon" class="size-4" />
+            {{ item.label }}
+          </RouterLink>
+        </li>
+      </ul>
+    </div>
 
     <div class="flex flex-wrap items-center justify-between gap-2 w-full">
       <div class="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-        <UButton
-          label="Files"
-          icon="i-lucide-folder"
-          :variant="!showTrashed ? 'soft' : 'ghost'"
-          :color="!showTrashed ? 'primary' : 'neutral'"
-          size="sm"
+        <button
+          class="btn btn-sm"
+          :class="!showTrashed ? 'btn-soft btn-primary' : 'btn-ghost'"
           @click="
             userToggledView = true;
             viewMode = 'files';
           "
-        />
-        <UButton
-          label="Tags"
-          icon="i-lucide-tags"
-          variant="ghost"
-          color="neutral"
-          size="sm"
+        >
+          <AppIcon name="i-lucide-folder" class="size-4" />
+          Files
+        </button>
+        <RouterLink
           :to="`/libraries/${libraryId}/tags`"
-        />
-        <UButton
+          class="btn btn-sm btn-ghost"
+        >
+          <AppIcon name="i-lucide-tags" class="size-4" />
+          Tags
+        </RouterLink>
+        <RouterLink
           v-if="library?.faceRecognitionEnabled"
-          label="People"
-          icon="i-lucide-scan-face"
-          variant="ghost"
-          color="neutral"
-          size="sm"
           :to="`/libraries/${libraryId}/people`"
-        />
+          class="btn btn-sm btn-ghost"
+        >
+          <AppIcon name="i-lucide-scan-face" class="size-4" />
+          People
+        </RouterLink>
       </div>
       <div class="flex items-center gap-1">
         <div v-if="!showTrashed" class="inline-flex items-center">
-          <UButton
-            icon="i-lucide-list"
-            size="sm"
-            :variant="entryViewMode === 'file' ? 'soft' : 'ghost'"
-            :color="entryViewMode === 'file' ? 'primary' : 'neutral'"
+          <button
+            class="btn btn-sm"
+            :class="entryViewMode === 'file' ? 'btn-soft btn-primary' : 'btn-ghost'"
             title="File view"
             @click="entryViewMode = 'file'"
-          />
-          <UButton
-            icon="i-lucide-layout-grid"
-            size="sm"
-            :variant="entryViewMode === 'card' ? 'soft' : 'ghost'"
-            :color="entryViewMode === 'card' ? 'primary' : 'neutral'"
+          >
+            <AppIcon name="i-lucide-list" class="size-4" />
+          </button>
+          <button
+            class="btn btn-sm"
+            :class="entryViewMode === 'card' ? 'btn-soft btn-primary' : 'btn-ghost'"
             title="Card view"
             @click="entryViewMode = 'card'"
-          />
+          >
+            <AppIcon name="i-lucide-layout-grid" class="size-4" />
+          </button>
         </div>
-        <UButton
-          label="Trash"
-          icon="i-lucide-trash-2"
-          :variant="showTrashed ? 'soft' : 'ghost'"
-          :color="'error'"
-          size="sm"
+        <button
+          class="btn btn-sm"
+          :class="showTrashed ? 'btn-soft btn-error' : 'btn-ghost btn-error'"
           @click="
             userToggledView = true;
             viewMode = 'trash';
           "
-        />
-        <UButton
+        >
+          <AppIcon name="i-lucide-trash-2" class="size-4" />
+          Trash
+        </button>
+        <RouterLink
           v-if="canManageLibrary"
-          icon="i-lucide-settings"
-          color="neutral"
-          variant="ghost"
-          size="sm"
           :to="`/libraries/${libraryId}/settings`"
+          class="btn btn-sm btn-ghost"
           title="Settings"
-        />
+        >
+          <AppIcon name="i-lucide-settings" class="size-4" />
+        </RouterLink>
       </div>
     </div>
 
@@ -1071,125 +1104,12 @@ const emptyStateDescription = computed(() => {
         </thead>
         <tbody class="select-none">
           <template v-for="entry in entries ?? []" :key="`${entry.kind}-${entry.id}`">
-            <UContextMenu :items="getContextMenuItems(entry)">
-              <tr
-                class="cursor-pointer transition-colors"
-                :class="[
-                  isEntrySelected(entry) ? 'bg-primary/10' : 'hover:bg-elevated/50',
-                  dropTargetFolderId === entry.id && entry.kind === 'folder'
-                    ? 'ring-2 ring-primary/60 ring-inset bg-primary/5'
-                    : '',
-                  draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
-                ]"
-                :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
-                @click="handleRowClick(entry, $event)"
-                @dblclick="openEntry(entry)"
-                @dragstart="handleFileDragStart(entry, $event)"
-                @dragend="handleFileDragEnd"
-                @dragenter="handleFolderDragEnter(entry)"
-                @dragover="handleFolderDragOver(entry, $event)"
-                @dragleave="handleFolderDragLeave(entry, $event)"
-                @drop="handleFolderDrop(entry, $event)"
-              >
-                <td class="px-3 py-2">
-                  <div class="flex items-center justify-center">
-                    <UIcon
-                      :name="
-                        entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(entry.mimeType)
-                      "
-                      class="size-5 text-muted"
-                      :class="showTrashed && entry.kind === 'file' ? 'opacity-50' : ''"
-                    />
-                  </div>
-                </td>
-                <td class="px-3 py-2">
-                  <UInput
-                    v-if="isRenaming(entry)"
-                    v-model="renameValue"
-                    :data-rename-input-entry-id="entry.id"
-                    size="sm"
-                    autofocus
-                    @blur="saveEntryRename(entry)"
-                    @keydown.enter="saveEntryRename(entry)"
-                    @keydown.escape="renamingEntry = null"
-                    @click.stop
-                  />
-                  <div v-else class="flex items-center gap-1">
-                    <button
-                      v-if="entry.kind === 'folder'"
-                      type="button"
-                      class="text-sm text-left hover:text-primary transition-colors"
-                      @click.stop="openFolder(entry.id)"
-                    >
-                      {{
-                        showTrashed
-                          ? `${entry.name} (${entry.trashFileCount ?? 0} files)`
-                          : entry.name
-                      }}
-                    </button>
-                    <button
-                      v-else
-                      type="button"
-                      class="text-sm text-left hover:text-primary transition-colors"
-                      :class="showTrashed ? 'opacity-60' : ''"
-                      @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
-                    >
-                      {{ entry.name }}
-                    </button>
-                  </div>
-                </td>
-                <td class="px-3 py-2">
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <span
-                      v-for="tag in entry.tags"
-                      :key="tag.id"
-                      class="size-2.5 rounded-full border border-default/50"
-                      :title="tag.name"
-                      :style="{ backgroundColor: tag.color }"
-                    />
-                  </div>
-                </td>
-                <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
-                  <div v-if="entry.kind === 'file' && entry.owner" class="flex items-center">
-                    <UAvatar
-                      :src="entry.owner.avatarUrl ?? undefined"
-                      :alt="entry.owner.displayName"
-                      size="xs"
-                      :title="entry.owner.displayName"
-                    />
-                  </div>
-                  <span v-else>-</span>
-                </td>
-                <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
-                  {{
-                    showTrashed && entry.trashedAt
-                      ? formatDate(entry.trashedAt)
-                      : formatDate(entry.updatedAt)
-                  }}
-                </td>
-                <td class="px-3 py-2 text-sm text-muted text-right hidden sm:table-cell">
-                  {{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}
-                </td>
-              </tr>
-            </UContextMenu>
-          </template>
-        </tbody>
-      </table>
-
-      <div
-        v-else-if="entryViewMode === 'card' && (entries?.length ?? 0) > 0"
-        class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
-      >
-        <template v-for="entry in entries ?? []" :key="`${entry.kind}-${entry.id}`">
-          <UContextMenu :items="getContextMenuItems(entry)">
-            <div
-              class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
+            <tr
+              class="cursor-pointer transition-colors"
               :class="[
-                isEntrySelected(entry)
-                  ? 'ring-2 ring-primary/50 bg-primary/5'
-                  : 'hover:bg-elevated/70',
+                isEntrySelected(entry) ? 'bg-primary/10' : 'hover:bg-elevated/50',
                 dropTargetFolderId === entry.id && entry.kind === 'folder'
-                  ? 'ring-2 ring-primary/60 bg-primary/10'
+                  ? 'ring-2 ring-primary/60 ring-inset bg-primary/5'
                   : '',
                 draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
               ]"
@@ -1203,84 +1123,58 @@ const emptyStateDescription = computed(() => {
               @dragleave="handleFolderDragLeave(entry, $event)"
               @drop="handleFolderDrop(entry, $event)"
             >
-              <div
-                class="h-28 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden"
-              >
-                <template v-if="entry.kind === 'folder'">
-                  <UIcon name="i-lucide-folder" class="size-10 text-muted" />
-                </template>
-                <template v-else-if="entry.kind === 'file' && entry.mimeType.startsWith('video/')">
-                  <img
-                    :src="`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`"
-                    :alt="entry.name"
-                    class="w-full h-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                    @error="($event.target as HTMLImageElement).style.display = 'none'"
+              <td class="px-3 py-2">
+                <div class="flex items-center justify-center">
+                  <AppIcon
+                    :name="
+                      entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(entry.mimeType)
+                    "
+                    class="size-5 text-muted"
+                    :class="showTrashed && entry.kind === 'file' ? 'opacity-50' : ''"
                   />
-                </template>
-                <template v-else-if="isImageFile(entry)">
-                  <AlcovesImage
-                    :library-id="libraryId || ''"
-                    :file-id="entry.id"
-                    :alt="entry.name"
-                    :width="720"
-                    :height="360"
-                    format="jpeg"
-                    :quality="82"
-                    class="w-full h-full object-cover"
-                  />
-                </template>
-                <template v-else>
-                  <UIcon
-                    :name="getMimeIcon(entry.mimeType)"
-                    class="size-10 text-muted"
-                    :class="showTrashed ? 'opacity-50' : ''"
-                  />
-                </template>
-              </div>
-
-              <UInput
-                v-if="isRenaming(entry)"
-                v-model="renameValue"
-                :data-rename-input-entry-id="entry.id"
-                size="sm"
-                autofocus
-                @blur="saveEntryRename(entry)"
-                @keydown.enter="saveEntryRename(entry)"
-                @keydown.escape="renamingEntry = null"
-                @click.stop
-              />
-              <div v-else>
-                <button
-                  v-if="entry.kind === 'folder'"
-                  type="button"
-                  class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
-                  @click.stop="openFolder(entry.id)"
-                >
-                  {{
-                    showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name
-                  }}
-                </button>
-                <button
-                  v-else
-                  type="button"
-                  class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
-                  :class="showTrashed ? 'opacity-60' : ''"
-                  @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
-                >
-                  {{ entry.name }}
-                </button>
-
-                <div class="flex items-center justify-between mt-1 gap-2 text-xs text-muted">
-                  <span>{{
-                    showTrashed && entry.trashedAt
-                      ? formatDate(entry.trashedAt)
-                      : formatDate(entry.updatedAt)
-                  }}</span>
-                  <span>{{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}</span>
                 </div>
-                <div class="flex flex-wrap items-center gap-1.5 mt-2">
+              </td>
+              <td class="px-3 py-2">
+                <div
+                  v-if="isRenaming(entry)"
+                  :data-rename-input-entry-id="entry.id"
+                >
+                  <input
+                    v-model="renameValue"
+                    class="input input-sm w-full"
+                    autofocus
+                    @blur="saveEntryRename(entry)"
+                    @keydown.enter="saveEntryRename(entry)"
+                    @keydown.escape="renamingEntry = null"
+                    @click.stop
+                  />
+                </div>
+                <div v-else class="flex items-center gap-1">
+                  <button
+                    v-if="entry.kind === 'folder'"
+                    type="button"
+                    class="text-sm text-left hover:text-primary transition-colors"
+                    @click.stop="openFolder(entry.id)"
+                  >
+                    {{
+                      showTrashed
+                        ? `${entry.name} (${entry.trashFileCount ?? 0} files)`
+                        : entry.name
+                    }}
+                  </button>
+                  <button
+                    v-else
+                    type="button"
+                    class="text-sm text-left hover:text-primary transition-colors"
+                    :class="showTrashed ? 'opacity-60' : ''"
+                    @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
+                  >
+                    {{ entry.name }}
+                  </button>
+                </div>
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex flex-wrap items-center gap-1.5">
                   <span
                     v-for="tag in entry.tags"
                     :key="tag.id"
@@ -1289,9 +1183,161 @@ const emptyStateDescription = computed(() => {
                     :style="{ backgroundColor: tag.color }"
                   />
                 </div>
+              </td>
+              <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
+                <div v-if="entry.kind === 'file' && entry.owner" class="flex items-center">
+                  <div class="avatar" :title="entry.owner.displayName">
+                    <div class="w-6 rounded-full">
+                      <img
+                        v-if="entry.owner.avatarUrl"
+                        :src="entry.owner.avatarUrl"
+                        :alt="entry.owner.displayName"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <span v-else>-</span>
+              </td>
+              <td class="px-3 py-2 text-sm text-muted hidden sm:table-cell">
+                {{
+                  showTrashed && entry.trashedAt
+                    ? formatDate(entry.trashedAt)
+                    : formatDate(entry.updatedAt)
+                }}
+              </td>
+              <td class="px-3 py-2 text-sm text-muted text-right hidden sm:table-cell">
+                {{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
+      <div
+        v-else-if="entryViewMode === 'card' && (entries?.length ?? 0) > 0"
+        class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+      >
+        <template v-for="entry in entries ?? []" :key="`${entry.kind}-${entry.id}`">
+          <div
+            class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
+            :class="[
+              isEntrySelected(entry)
+                ? 'ring-2 ring-primary/50 bg-primary/5'
+                : 'hover:bg-elevated/70',
+              dropTargetFolderId === entry.id && entry.kind === 'folder'
+                ? 'ring-2 ring-primary/60 bg-primary/10'
+                : '',
+              draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
+            ]"
+            :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
+            @click="handleRowClick(entry, $event)"
+            @dblclick="openEntry(entry)"
+            @dragstart="handleFileDragStart(entry, $event)"
+            @dragend="handleFileDragEnd"
+            @dragenter="handleFolderDragEnter(entry)"
+            @dragover="handleFolderDragOver(entry, $event)"
+            @dragleave="handleFolderDragLeave(entry, $event)"
+            @drop="handleFolderDrop(entry, $event)"
+          >
+            <div
+              class="h-28 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden"
+            >
+              <template v-if="entry.kind === 'folder'">
+                <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
+              </template>
+              <template v-else-if="entry.kind === 'file' && entry.mimeType.startsWith('video/')">
+                <div class="relative w-full h-full">
+                  <img
+                    :src="`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`"
+                    :alt="entry.name"
+                    class="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    @error="($event.target as HTMLImageElement).style.display = 'none'"
+                  />
+                  <div
+                    v-if="entry.proxyStatus === 'processing'"
+                    class="absolute inset-0 flex items-center justify-center bg-black/40"
+                  >
+                    <span class="loading loading-spinner loading-sm text-white"></span>
+                  </div>
+                </div>
+              </template>
+              <template v-else-if="isImageFile(entry)">
+                <AlcovesImage
+                  :library-id="libraryId || ''"
+                  :file-id="entry.id"
+                  :alt="entry.name"
+                  :width="720"
+                  :height="360"
+                  format="jpeg"
+                  :quality="82"
+                  class="w-full h-full object-cover"
+                />
+              </template>
+              <template v-else>
+                <AppIcon
+                  :name="getMimeIcon(entry.mimeType)"
+                  class="size-10 text-muted"
+                  :class="showTrashed ? 'opacity-50' : ''"
+                />
+              </template>
+            </div>
+
+            <div
+              v-if="isRenaming(entry)"
+              :data-rename-input-entry-id="entry.id"
+            >
+              <input
+                v-model="renameValue"
+                class="input input-sm w-full"
+                autofocus
+                @blur="saveEntryRename(entry)"
+                @keydown.enter="saveEntryRename(entry)"
+                @keydown.escape="renamingEntry = null"
+                @click.stop
+              />
+            </div>
+            <div v-else>
+              <button
+                v-if="entry.kind === 'folder'"
+                type="button"
+                class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
+                @click.stop="openFolder(entry.id)"
+              >
+                {{
+                  showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name
+                }}
+              </button>
+              <button
+                v-else
+                type="button"
+                class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
+                :class="showTrashed ? 'opacity-60' : ''"
+                @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
+              >
+                {{ entry.name }}
+              </button>
+
+              <div class="flex items-center justify-between mt-1 gap-2 text-xs text-muted">
+                <span>{{
+                  showTrashed && entry.trashedAt
+                    ? formatDate(entry.trashedAt)
+                    : formatDate(entry.updatedAt)
+                }}</span>
+                <span>{{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                <span
+                  v-for="tag in entry.tags"
+                  :key="tag.id"
+                  class="size-2.5 rounded-full border border-default/50"
+                  :title="tag.name"
+                  :style="{ backgroundColor: tag.color }"
+                />
               </div>
             </div>
-          </UContextMenu>
+          </div>
         </template>
       </div>
 
@@ -1302,7 +1348,7 @@ const emptyStateDescription = computed(() => {
         <div
           class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
         >
-          <UIcon
+          <AppIcon
             :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
             class="size-8 text-(--ui-text-muted)"
           />
@@ -1310,20 +1356,23 @@ const emptyStateDescription = computed(() => {
         <p class="text-lg font-medium text-foreground mb-1">{{ emptyStateTitle }}</p>
         <p class="text-sm text-muted mb-4">{{ emptyStateDescription }}</p>
         <div v-if="canManageLibrary && !showTrashed" class="flex items-center gap-2">
-          <UButton
-            icon="i-lucide-folder-plus"
-            label="Create folder"
-            color="neutral"
-            variant="outline"
+          <button
+            class="btn btn-outline"
             @click="openCreateFolderModal"
-          />
-          <UButton icon="i-lucide-upload" label="Upload files" @click="uploadOpen = true" />
+          >
+            <AppIcon name="i-lucide-folder-plus" class="size-4" />
+            Create folder
+          </button>
+          <button class="btn btn-primary" @click="uploadOpen = true">
+            <AppIcon name="i-lucide-upload" class="size-4" />
+            Upload files
+          </button>
         </div>
       </div>
 
       <div ref="sentinel" class="h-px" />
       <div v-if="loadingMore" class="flex items-center justify-center py-4">
-        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
       </div>
     </div>
 
@@ -1341,6 +1390,7 @@ const emptyStateDescription = computed(() => {
       :library-id="libraryId || ''"
       :files="files"
       @navigate="previewFile = $event"
+      @update:file="handleFileUpdate"
     />
 
     <ClipModal
@@ -1351,149 +1401,188 @@ const emptyStateDescription = computed(() => {
       @created="resetAndFetch()"
     />
 
-    <UModal v-model:open="createFolderOpen" title="Create Folder">
-      <template #body>
-        <div class="flex flex-col gap-4">
-          <UFormField label="Folder name">
-            <UInput
+    <!-- Create Folder Modal -->
+    <dialog class="modal" :class="{ 'modal-open': createFolderOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Create Folder</h3>
+        <div class="flex flex-col gap-4 mt-4">
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Folder name</legend>
+            <input
               v-model="createFolderName"
               autofocus
               placeholder="New folder"
-              class="w-full"
+              class="input w-full"
               @keydown.enter="createFolder"
             />
-          </UFormField>
+          </fieldset>
         </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
+        <div class="modal-action">
+          <button
+            class="btn btn-outline"
             @click="createFolderOpen = false"
-          />
-          <UButton
-            label="Create"
-            icon="i-lucide-folder-plus"
-            :loading="creatingFolder"
-            :disabled="!createFolderName.trim()"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            :disabled="!createFolderName.trim() || creatingFolder"
             @click="createFolder"
-          />
+          >
+            <span v-if="creatingFolder" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-folder-plus" class="size-4" />
+            Create
+          </button>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="createFolderOpen = false">close</button>
+      </form>
+    </dialog>
 
-    <UModal v-model:open="moveFolderOpen" title="Move Folder">
-      <template #body>
-        <div class="flex flex-col gap-4">
+    <!-- Move Folder Modal -->
+    <dialog class="modal" :class="{ 'modal-open': moveFolderOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Move Folder</h3>
+        <div class="flex flex-col gap-4 mt-4">
           <p class="text-sm text-muted">
             Move
             <strong>{{ movingFolder?.name }}</strong>
             to a new location.
           </p>
-          <UFormField label="Destination">
-            <USelectMenu
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Destination</legend>
+            <select
               v-model="moveDestinationValue"
-              :items="moveDestinationOptions"
-              value-key="value"
-              class="w-full"
-              :loading="moveLoading"
-            />
-          </UFormField>
+              class="select w-full"
+              :disabled="moveLoading"
+            >
+              <option
+                v-for="item in moveDestinationOptions"
+                :key="item.value"
+                :value="item.value"
+              >
+                {{ item.label }}
+              </option>
+            </select>
+          </fieldset>
         </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
+        <div class="modal-action">
+          <button
+            class="btn btn-outline"
             @click="moveFolderOpen = false"
-          />
-          <UButton
-            label="Move"
-            icon="i-lucide-folder-input"
-            :loading="moveFolderSaving"
-            :disabled="moveLoading"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            :disabled="moveLoading || moveFolderSaving"
             @click="moveFolder"
-          />
+          >
+            <span v-if="moveFolderSaving" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-folder-input" class="size-4" />
+            Move
+          </button>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="moveFolderOpen = false">close</button>
+      </form>
+    </dialog>
 
-    <UModal v-model:open="moveFilesOpen" title="Move Files">
-      <template #body>
-        <div class="flex flex-col gap-4">
+    <!-- Move Files Modal -->
+    <dialog class="modal" :class="{ 'modal-open': moveFilesOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Move Files</h3>
+        <div class="flex flex-col gap-4 mt-4">
           <p class="text-sm text-muted">
             Move
             <strong>{{ moveFileCount }}</strong>
             {{ moveFileCount === 1 ? "file" : "files" }} to a new location.
           </p>
-          <UFormField label="Destination">
-            <USelectMenu
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Destination</legend>
+            <select
               v-model="moveFilesDestinationValue"
-              :items="moveFileDestinationOptions"
-              value-key="value"
-              class="w-full"
-              :loading="moveFilesLoading"
-            />
-          </UFormField>
+              class="select w-full"
+              :disabled="moveFilesLoading"
+            >
+              <option
+                v-for="item in moveFileDestinationOptions"
+                :key="item.value"
+                :value="item.value"
+              >
+                {{ item.label }}
+              </option>
+            </select>
+          </fieldset>
         </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton label="Cancel" color="neutral" variant="outline" @click="closeMoveFilesModal" />
-          <UButton
-            label="Move"
-            icon="i-lucide-folder-input"
-            :loading="moveFilesSaving"
-            :disabled="moveFilesLoading"
+        <div class="modal-action">
+          <button class="btn btn-outline" @click="closeMoveFilesModal">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            :disabled="moveFilesLoading || moveFilesSaving"
             @click="moveFiles"
-          />
+          >
+            <span v-if="moveFilesSaving" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-folder-input" class="size-4" />
+            Move
+          </button>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="closeMoveFilesModal">close</button>
+      </form>
+    </dialog>
 
-    <UModal v-model:open="purgeModalOpen" title="Permanently Delete Items">
-      <template #body>
-        <div class="flex flex-col gap-4">
+    <!-- Permanently Delete Items Modal -->
+    <dialog class="modal" :class="{ 'modal-open': purgeModalOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Permanently Delete Items</h3>
+        <div class="flex flex-col gap-4 mt-4">
           <p class="text-sm text-muted">
             This will permanently delete
             <strong>{{ purgeFileCount }}</strong>
             {{ purgeFileCount === 1 ? "item" : "items" }} from disk. This action cannot be undone.
           </p>
-          <UFormField label="Type 'delete' to confirm">
-            <UInput v-model="purgeConfirmation" placeholder="delete" class="w-full" />
-          </UFormField>
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Type 'delete' to confirm</legend>
+            <input v-model="purgeConfirmation" placeholder="delete" class="input w-full" />
+          </fieldset>
         </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
+        <div class="modal-action">
+          <button
+            class="btn btn-outline"
             @click="purgeModalOpen = false"
-          />
-          <UButton
-            label="Delete Permanently"
-            color="error"
-            icon="i-lucide-trash-2"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn btn-error"
             :disabled="purgeConfirmation !== 'delete'"
             @click="handlePermanentDelete"
-          />
+          >
+            <AppIcon name="i-lucide-trash-2" class="size-4" />
+            Delete Permanently
+          </button>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="purgeModalOpen = false">close</button>
+      </form>
+    </dialog>
 
-    <UModal v-model:open="showSizeWarning" title="Large Download Warning">
-      <template #body>
-        <div class="flex flex-col gap-3">
+    <!-- Large Download Warning Modal -->
+    <dialog class="modal" :class="{ 'modal-open': showSizeWarning }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Large Download Warning</h3>
+        <div class="flex flex-col gap-3 mt-4">
           <div
             class="flex items-center gap-3 p-3 rounded-lg bg-warning/10 border border-warning/20"
           >
-            <UIcon name="i-lucide-alert-triangle" class="size-5 text-warning shrink-0" />
+            <AppIcon name="i-lucide-alert-triangle" class="size-5 text-warning shrink-0" />
             <p class="text-sm">This download is very large and may take a while.</p>
           </div>
           <div class="grid grid-cols-2 gap-3 text-sm">
@@ -1507,18 +1596,24 @@ const emptyStateDescription = computed(() => {
             </div>
           </div>
         </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton label="Cancel" color="neutral" variant="outline" @click="cancelLargeDownload" />
-          <UButton
-            label="Download Anyway"
-            icon="i-lucide-download"
-            :loading="zipDownloading"
+        <div class="modal-action">
+          <button class="btn btn-outline" @click="cancelLargeDownload">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            :disabled="zipDownloading"
             @click="confirmLargeDownload"
-          />
+          >
+            <span v-if="zipDownloading" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-download" class="size-4" />
+            Download Anyway
+          </button>
         </div>
-      </template>
-    </UModal>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="cancelLargeDownload">close</button>
+      </form>
+    </dialog>
   </div>
 </template>

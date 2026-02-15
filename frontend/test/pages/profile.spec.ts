@@ -55,7 +55,7 @@ vi.mock("~/composables/useAuth", () => ({
   }),
 }));
 
-vi.mock("@nuxt/ui/composables/useToast", () => ({
+vi.mock("~/composables/useToast", () => ({
   useToast: () => mocks.toast,
 }));
 
@@ -64,12 +64,12 @@ vi.mock("@vueuse/core", async (importOriginal) => {
   return {
     ...actual,
     useColorMode: () => ({
-      get preference() {
-        return mocks.colorPreference;
-      },
-      set preference(v: string) {
-        mocks.colorPreference = v;
-      },
+      store: mockRef(
+        () => mocks.colorPreference,
+        (v: string) => {
+          mocks.colorPreference = v;
+        },
+      ),
     }),
   };
 });
@@ -86,23 +86,7 @@ vi.mock("~/utils/api-fetch", () => ({
 }));
 
 const stubs = {
-  FormField: { template: "<div><slot /></div>", props: ["label", "description"] },
-  Input: {
-    template:
-      "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />",
-    props: ["modelValue", "placeholder", "class"],
-    emits: ["update:modelValue"],
-  },
-  SelectMenu: { template: "<select />", props: ["modelValue", "items", "valueKey", "class"] },
-  Button: {
-    template:
-      "<button :disabled='disabled' :data-loading='loading' @click='$emit(\"click\")'>{{ label }}</button>",
-    props: ["label", "loading", "icon", "color", "variant", "size", "disabled", "square"],
-    emits: ["click"],
-  },
-  Separator: { template: "<hr />" },
-  Badge: { template: "<span><slot>{{ label }}</slot></span>", props: ["label", "color", "size"] },
-  Icon: { template: "<i />", props: ["name", "class"] },
+  AppIcon: { template: "<svg />", props: ["name", "class"] },
 };
 
 describe("profile.vue", () => {
@@ -153,7 +137,7 @@ describe("profile.vue", () => {
 
   it("save with no changes shows neutral toast", async () => {
     const wrapper = mountPage();
-    const saveButton = wrapper.findAll("button").find((b) => b.text() === "Save");
+    const saveButton = wrapper.findAll("button").find((b) => b.text().includes("Save"));
 
     await saveButton?.trigger("click");
     await nextTick();
@@ -165,10 +149,11 @@ describe("profile.vue", () => {
     mocks.updateProfile.mockResolvedValueOnce({});
 
     const wrapper = mountPage();
-    const input = wrapper.find("input");
+    // Find the display name input (the one inside the Display Name fieldset)
+    const input = wrapper.find("fieldset .input");
     await input.setValue("New Name");
 
-    const saveButton = wrapper.findAll("button").find((b) => b.text() === "Save");
+    const saveButton = wrapper.findAll("button").find((b) => b.text().includes("Save"));
     await saveButton?.trigger("click");
 
     await vi.waitFor(() => {
@@ -180,7 +165,7 @@ describe("profile.vue", () => {
     mocks.refreshSessions.mockResolvedValueOnce(undefined);
 
     const wrapper = mountPage();
-    const revokeButton = wrapper.findAll("button").find((b) => b.text() === "Revoke");
+    const revokeButton = wrapper.findAll("button").find((b) => b.text().includes("Revoke"));
     await revokeButton?.trigger("click");
 
     await vi.waitFor(() => {
@@ -192,7 +177,7 @@ describe("profile.vue", () => {
     mocks.apiFetch.mockRejectedValueOnce(new Error("fail"));
 
     const wrapper = mountPage();
-    const revokeButton = wrapper.findAll("button").find((b) => b.text() === "Revoke");
+    const revokeButton = wrapper.findAll("button").find((b) => b.text().includes("Revoke"));
     await revokeButton?.trigger("click");
 
     await vi.waitFor(() => {
