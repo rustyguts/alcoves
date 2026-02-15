@@ -62,7 +62,7 @@ function getModelInputSizes(
     : PREFERRED_DYNAMIC_INPUT_SIZES.slice(0, 1);
 }
 
-function iou(a: DetectedFace["box"], b: DetectedFace["box"]): number {
+export function iou(a: DetectedFace["box"], b: DetectedFace["box"]): number {
   const x1 = Math.max(a.x, b.x);
   const y1 = Math.max(a.y, b.y);
   const x2 = Math.min(a.x + a.width, b.x + b.width);
@@ -72,7 +72,7 @@ function iou(a: DetectedFace["box"], b: DetectedFace["box"]): number {
   return union > 0 ? intersection / union : 0;
 }
 
-function nms(faces: DetectedFace[]): DetectedFace[] {
+export function nms(faces: DetectedFace[]): DetectedFace[] {
   const sorted = [...faces].sort((a, b) => b.confidence - a.confidence);
   const keep: DetectedFace[] = [];
 
@@ -90,7 +90,7 @@ function nms(faces: DetectedFace[]): DetectedFace[] {
   return keep;
 }
 
-function decodeOutputs(
+export function decodeOutputs(
   scores: Float32Array,
   bboxes: Float32Array,
   kps: Float32Array,

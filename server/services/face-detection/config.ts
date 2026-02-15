@@ -17,13 +17,13 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export const FACE_DETECTION_MIN_SCORE = clamp(
-  parseNumber("ALCOVES_FACE_DETECTION_MIN_SCORE", 0.5),
+  parseNumber("ALCOVES_FACE_DETECTION_MIN_SCORE", 0.55),
   0.05,
   0.99,
 );
 
 export const FACE_RECOGNITION_MAX_DISTANCE = clamp(
-  parseNumber("ALCOVES_FACE_RECOGNITION_MAX_DISTANCE", 0.6),
+  parseNumber("ALCOVES_FACE_RECOGNITION_MAX_DISTANCE", 0.52),
   0.2,
   0.8,
 );
@@ -36,4 +36,10 @@ export const FACE_RECOGNITION_NEIGHBOR_LOOKUP = Math.max(
 export const FACE_RECOGNITION_MIN_FACES = Math.max(
   parseInteger("ALCOVES_FACE_RECOGNITION_MIN_FACES", 2),
   1,
+);
+
+export const FACE_QUALITY_MIN_SCORE = clamp(
+  parseNumber("ALCOVES_FACE_QUALITY_MIN_SCORE", 0.25),
+  0.0,
+  1.0,
 );

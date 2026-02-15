@@ -5,6 +5,10 @@ import { db, schema } from "~~/server/database";
 import { detectFaces } from "./detect";
 import { computeEmbedding } from "./recognize";
 import { assignFaceUsingCorePoint, reconcileNewPerson } from "./clustering";
+import { computeFaceQuality } from "./quality";
+
+/** Quality threshold below which we skip embedding computation entirely */
+const VERY_LOW_QUALITY = 0.15;
 
 export async function processFaceDetectionJob(job: Job): Promise<void> {
   const { fileId, libraryId } = job.data as { fileId: string; libraryId: string };
@@ -51,6 +55,30 @@ export async function processFaceDetectionJob(job: Job): Promise<void> {
   for (let i = 0; i < faces.length; i++) {
     const face = faces[i]!;
 
+    // Compute face quality score
+    const quality = computeFaceQuality(face, imageWidth, imageHeight);
+    const qualityScoreInt = Math.round(quality * 1000);
+
+    // Skip embedding computation for very low quality faces
+    if (quality < VERY_LOW_QUALITY) {
+      await db.insert(schema.faceDetections).values({
+        fileId,
+        libraryId,
+        boxX: face.box.x,
+        boxY: face.box.y,
+        boxWidth: face.box.width,
+        boxHeight: face.box.height,
+        imageWidth,
+        imageHeight,
+        confidence: Math.round(face.confidence * 1000),
+        qualityScore: qualityScoreInt,
+        embedding: null,
+      });
+
+      await job.updateProgress(40 + Math.round((i + 1) * progressPerFace));
+      continue;
+    }
+
     // Compute face embedding (ArcFace)
     const embedding = await computeEmbedding(imageBuffer, face);
     const embeddingArray = Array.from(embedding);
@@ -68,6 +96,7 @@ export async function processFaceDetectionJob(job: Job): Promise<void> {
         imageWidth,
         imageHeight,
         confidence: Math.round(face.confidence * 1000),
+        qualityScore: qualityScoreInt,
         embedding: embeddingArray,
       })
       .returning({ id: schema.faceDetections.id });

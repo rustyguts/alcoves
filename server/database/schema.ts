@@ -288,6 +288,7 @@ export const faceDetections = pgTable(
     imageWidth: integer("image_width").notNull(),
     imageHeight: integer("image_height").notNull(),
     confidence: integer("confidence").notNull(),
+    qualityScore: integer("quality_score"),
     embedding: vector("embedding", { dimensions: 512 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

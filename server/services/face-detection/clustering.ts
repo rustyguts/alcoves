@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { cosineDistance } from "drizzle-orm/sql/functions/vector";
 import { db, schema } from "~~/server/database";
 import {
+  FACE_QUALITY_MIN_SCORE,
   FACE_RECOGNITION_MAX_DISTANCE,
   FACE_RECOGNITION_MIN_FACES,
   FACE_RECOGNITION_NEIGHBOR_LOOKUP,
@@ -16,15 +17,22 @@ const AUTO_MERGE_BEST_DISTANCE = FACE_RECOGNITION_MAX_DISTANCE;
 const AUTO_MERGE_AVG_DISTANCE = Math.min(FACE_RECOGNITION_MAX_DISTANCE + 0.02, 0.9);
 const AUTO_MERGE_MIN_SUPPORT = 3;
 const AUTO_MERGE_STRONG_DISTANCE = Math.max(0.22, FACE_RECOGNITION_MAX_DISTANCE - 0.06);
-const AUTO_MERGE_AMBIGUITY_MARGIN = 0.015;
+const AUTO_MERGE_AMBIGUITY_MARGIN = 0.025;
+
+/** Distance below which a single high-quality match is enough to assign */
+const DIRECT_ASSIGN_DISTANCE = 0.35;
+
+/** Quality score (0-1000) threshold for clustering lookups */
+const QUALITY_MIN_SCORE_INT = Math.round(FACE_QUALITY_MIN_SCORE * 1000);
 
 interface SimilarFace {
   id: string;
   personId: string | null;
   distance: number;
+  qualityScore: number | null;
 }
 
-interface CandidateEvidence {
+export interface CandidateEvidence {
   personId: string;
   supportCount: number;
   strongCount: number;
@@ -76,15 +84,23 @@ async function findSimilarFaces(
 ): Promise<SimilarFace[]> {
   const similarity = cosineDistance(schema.faceDetections.embedding, embedding);
 
-  const whereClause = assignedOnly
+  // Base conditions: same library, has embedding, quality above threshold
+  const qualityFilter =
+    QUALITY_MIN_SCORE_INT > 0
+      ? gte(schema.faceDetections.qualityScore, QUALITY_MIN_SCORE_INT)
+      : undefined;
+
+  const conditions = assignedOnly
     ? and(
         eq(schema.faceDetections.libraryId, libraryId),
         isNotNull(schema.faceDetections.embedding),
         isNotNull(schema.faceDetections.personId),
+        qualityFilter,
       )
     : and(
         eq(schema.faceDetections.libraryId, libraryId),
         isNotNull(schema.faceDetections.embedding),
+        qualityFilter,
       );
 
   const nearest = await db
@@ -92,9 +108,10 @@ async function findSimilarFaces(
       id: schema.faceDetections.id,
       personId: schema.faceDetections.personId,
       distance: similarity.as("distance"),
+      qualityScore: schema.faceDetections.qualityScore,
     })
     .from(schema.faceDetections)
-    .where(whereClause)
+    .where(conditions)
     .orderBy(similarity)
     .limit(Math.max(limit, 1));
 
@@ -106,6 +123,7 @@ async function findSimilarFaces(
       id: row.id,
       personId: row.personId,
       distance,
+      qualityScore: row.qualityScore,
     });
   }
 
@@ -130,6 +148,7 @@ async function assignUnassignedMatches(personId: string, faceIds: string[]): Pro
 // 1) prefer existing nearby person
 // 2) create a person only when enough nearby faces exist
 // 3) otherwise keep face unassigned for later evidence
+// 4) direct assign when distance is very low (< 0.35) even with only 1 match
 export async function assignFaceUsingCorePoint(
   libraryId: string,
   faceDetectionId: string,
@@ -142,19 +161,26 @@ export async function assignFaceUsingCorePoint(
     false,
   );
 
+  // Find the best assigned person match
+  let bestAssignedMatch = nearby.find((match) => match.personId);
+  if (!bestAssignedMatch) {
+    const nearestAssigned = await findSimilarFaces(libraryId, embedding, 1, true);
+    bestAssignedMatch = nearestAssigned[0] ?? undefined;
+  }
+
+  // Direct assign: if a single very-close match exists with a person, assign immediately
+  if (bestAssignedMatch?.personId && bestAssignedMatch.distance < DIRECT_ASSIGN_DISTANCE) {
+    await assignFaceToPerson(faceDetectionId, bestAssignedMatch.personId);
+    return { personId: bestAssignedMatch.personId, created: false };
+  }
+
   if (FACE_RECOGNITION_MIN_FACES > 1 && nearby.length <= 1) {
     return null;
   }
 
-  let personId = nearby.find((match) => match.personId)?.personId ?? null;
-  if (!personId) {
-    const nearestAssigned = await findSimilarFaces(libraryId, embedding, 1, true);
-    personId = nearestAssigned[0]?.personId ?? null;
-  }
-
-  if (personId) {
-    await assignFaceToPerson(faceDetectionId, personId);
-    return { personId, created: false };
+  if (bestAssignedMatch?.personId) {
+    await assignFaceToPerson(faceDetectionId, bestAssignedMatch.personId);
+    return { personId: bestAssignedMatch.personId, created: false };
   }
 
   const isCorePoint = nearby.length >= FACE_RECOGNITION_MIN_FACES;
@@ -170,7 +196,7 @@ export async function assignFaceUsingCorePoint(
   return { personId: newPersonId, created: true };
 }
 
-function pickAutoMergeTarget(candidates: CandidateEvidence[]): string | null {
+export function pickAutoMergeTarget(candidates: CandidateEvidence[]): string | null {
   const ranked = [...candidates].sort((a, b) => {
     if (b.strongCount !== a.strongCount) return b.strongCount - a.strongCount;
     if (b.supportCount !== a.supportCount) return b.supportCount - a.supportCount;
