@@ -3,11 +3,39 @@ import { useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useLibraryPeople } from "~/composables/useLibraryPeople";
 import AppIcon from "~/components/AppIcon.vue";
+import AlcovesImage from "~/components/AlcovesImage.vue";
+import FilePreview from "~/components/FilePreview.vue";
 import type { Library, LibraryFile } from "~~/shared/types/api";
+import { apiFetch } from "~/utils/api-fetch";
 
 const route = useRoute();
 const libraryId = computed(() => route.params.id as string);
-const { data: library } = useApiFetch<Library>(() => `/api/libraries/${libraryId.value}`);
+const { data: library, refresh: refreshLibrary } = useApiFetch<Library>(() => `/api/libraries/${libraryId.value}`);
+const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
+
+watch(library, () => {
+  refreshLibraries?.();
+});
+
+const canManageLibrary = computed(
+  () => library.value?.currentUserRole === "owner" || library.value?.currentUserRole === "admin",
+);
+
+async function saveLibraryName(name: string) {
+  await apiFetch(`/api/libraries/${libraryId.value}`, {
+    method: "PATCH",
+    body: { name },
+  });
+  await refreshLibrary();
+}
+
+async function saveLibraryEmoji(emoji: string | null) {
+  await apiFetch(`/api/libraries/${libraryId.value}`, {
+    method: "PATCH",
+    body: { emoji: emoji ?? "" },
+  });
+  await refreshLibrary();
+}
 
 const files = ref<LibraryFile[]>([]);
 
@@ -83,18 +111,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-h-10">
-      <h1 class="text-xl font-semibold truncate">{{ library?.name }}</h1>
-      <RouterLink
-        :to="`/libraries/${libraryId}`"
-        class="btn btn-sm btn-neutral btn-outline"
-      >
-        <AppIcon name="i-lucide-arrow-left" class="size-4" />
-        Back to Library
-      </RouterLink>
-    </div>
-
+  <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
     <div class="grid gap-4">
       <div v-if="selectedPeople.size >= 2" class="flex items-center gap-2">
         <button

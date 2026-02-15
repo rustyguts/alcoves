@@ -120,7 +120,7 @@ function getResultIcon(result: GlobalSearchResult): string {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-6xl space-y-6">
+  <div class="mx-auto w-full max-w-6xl space-y-6 overflow-y-auto flex-1 min-h-0">
     <div class="card bg-gradient-to-br from-primary/10 via-elevated to-base-100 shadow-sm overflow-hidden">
       <div class="card-body space-y-4">
         <div class="space-y-1">

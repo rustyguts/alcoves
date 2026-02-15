@@ -83,6 +83,22 @@ const isLibraryManager = computed(() => {
   return membership?.role === "owner" || membership?.role === "admin";
 });
 
+async function saveLibraryName(name: string) {
+  await apiFetch(`/api/libraries/${libraryId.value}`, {
+    method: "PATCH",
+    body: { name },
+  });
+  await refreshLibrary();
+}
+
+async function saveLibraryEmoji(emoji: string | null) {
+  await apiFetch(`/api/libraries/${libraryId.value}`, {
+    method: "PATCH",
+    body: { emoji: emoji ?? "" },
+  });
+  await refreshLibrary();
+}
+
 watchEffect(() => {
   if (library.value && !isLibraryManager.value) {
     router.push(`/libraries/${libraryId.value}`);
@@ -146,8 +162,9 @@ async function reprocessFaceRecognition() {
       title: "Reprocessing queued",
       description: `${result.queuedCount} image${result.queuedCount === 1 ? "" : "s"} queued for fresh facial recognition.`,
     });
-  } catch {
-    toast.add({ title: "Failed to queue facial recognition reprocessing", color: "error" });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to queue facial recognition reprocessing";
+    toast.add({ title: message, color: "error" });
   } finally {
     faceRecReprocessing.value = false;
   }
@@ -181,24 +198,7 @@ async function deleteLibrary() {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <h1 class="text-2xl font-semibold truncate">Library Settings</h1>
-        <p class="text-sm text-muted">
-          Manage settings for <strong>{{ library?.name ?? "this library" }}</strong
-          >.
-        </p>
-      </div>
-      <RouterLink
-        :to="`/libraries/${libraryId}`"
-        class="btn btn-outline btn-neutral"
-      >
-        <AppIcon name="i-lucide-arrow-left" class="size-4" />
-        Back to Library
-      </RouterLink>
-    </div>
-
+  <div class="space-y-4 overflow-y-auto flex-1 min-h-0">
     <!-- Library Members Card -->
     <div v-if="!library?.isDefault" class="card bg-base-100 shadow-sm">
       <div class="px-6 pt-5 pb-0">
@@ -434,7 +434,7 @@ async function deleteLibrary() {
             />
           </div>
 
-          <div class="flex items-center justify-between gap-4 rounded-lg border border-default p-3">
+          <div class="flex items-center justify-between gap-4">
             <div class="min-w-0">
               <p class="text-sm font-medium">Queue full reprocessing</p>
               <p class="text-xs text-muted">
@@ -442,7 +442,7 @@ async function deleteLibrary() {
               </p>
             </div>
             <button
-              class="btn btn-outline btn-neutral"
+              class="btn btn-neutral"
               :disabled="!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing"
               @click="faceRecReprocessOpen = true"
             >

@@ -315,7 +315,7 @@ func (h *PeopleHandler) Reprocess(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Reprocess failed: %v", err))
 	}
 
-	return c.JSON(http.StatusOK, map[string]int{"enqueued": enqueued})
+	return c.JSON(http.StatusOK, map[string]int{"queuedCount": enqueued})
 }
 
 func toPersonResponse(p *models.Person) personResponse {

@@ -2,7 +2,7 @@
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { apiFetch } from "~/utils/api-fetch";
-import { useColorMode } from "@vueuse/core";
+import { useTheme } from "~/composables/useTheme";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 
@@ -19,8 +19,7 @@ const MAX_AVATAR_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 const { user, updateProfile, uploadAvatar } = useAuth();
 const toast = useToast();
-const colorMode = useColorMode();
-const colorPreference = colorMode.store;
+const { preference: colorPreference } = useTheme();
 
 const displayName = ref(user.value?.displayName ?? "");
 const avatarInput = ref<HTMLInputElement | null>(null);
@@ -155,7 +154,7 @@ function getStatusMessage(error: unknown): string | null {
 </script>
 
 <template>
-  <div class="mx-auto max-w-lg flex flex-col gap-6">
+  <div class="mx-auto max-w-lg flex flex-col gap-6 overflow-y-auto flex-1 min-h-0">
     <div class="flex items-center gap-4">
       <div v-if="currentAvatarSrc" class="size-16 rounded-full overflow-hidden">
         <img :src="currentAvatarSrc" alt="" class="size-full object-cover" />

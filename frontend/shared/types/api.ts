@@ -9,6 +9,7 @@ export interface User {
 export interface Library {
   id: string;
   name: string;
+  emoji: string | null;
   isDefault: boolean;
   faceRecognitionEnabled: boolean;
   ownerId: string;

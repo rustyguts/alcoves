@@ -211,7 +211,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl flex flex-col gap-6">
+  <div class="mx-auto max-w-7xl flex flex-col gap-6 overflow-y-auto flex-1 min-h-0">
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="flex items-center gap-2">
@@ -238,7 +238,7 @@ onUnmounted(() => {
       <div
         v-for="queue in queues"
         :key="queue.name"
-        class="card bg-base-100 shadow-sm border border-default bg-elevated/40"
+        class="card shadow-sm border border-default bg-elevated/40"
       >
         <div class="card-body p-4">
           <div class="flex items-start justify-between gap-2">

@@ -5,6 +5,7 @@ type MockState = {
   libraries: Array<{
     id: string;
     name: string;
+    emoji: string | null;
     isDefault: boolean;
     ownerId: string;
     faceRecognitionEnabled: boolean;
@@ -88,6 +89,7 @@ async function mockApi(page: Page, state: MockState) {
       const newLib = {
         id: `lib-${Date.now()}`,
         name: data.name || "Untitled",
+        emoji: null,
         isDefault: false,
         ownerId: "user-1",
         faceRecognitionEnabled: false,
@@ -218,6 +220,7 @@ test.describe("Library management flows", () => {
         {
           id: "lib-personal",
           name: "Personal",
+          emoji: null,
           isDefault: true,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
@@ -240,6 +243,7 @@ test.describe("Library management flows", () => {
         {
           id: "lib-1",
           name: "Photos",
+          emoji: null,
           isDefault: false,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
@@ -273,6 +277,7 @@ test.describe("Library management flows", () => {
         {
           id: "lib-1",
           name: "Photos",
+          emoji: null,
           isDefault: false,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
@@ -315,6 +320,7 @@ test.describe("Library management flows", () => {
         {
           id: "lib-1",
           name: "Shared Library",
+          emoji: null,
           isDefault: false,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
@@ -326,8 +332,78 @@ test.describe("Library management flows", () => {
     await mockApi(page, state);
 
     await page.goto("/libraries/lib-1/settings");
-    await expect(page.getByRole("heading", { name: "Library Settings" })).toBeVisible();
-    await expect(page.getByRole("strong").filter({ hasText: "Shared Library" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Shared Library" })).toBeVisible();
+  });
+
+  test("navigation tab buttons meet minimum height", async ({ page }) => {
+    const state: MockState = {
+      loggedIn: true,
+      libraries: [
+        {
+          id: "lib-1",
+          name: "Photos",
+          emoji: null,
+          isDefault: false,
+          ownerId: "user-1",
+          faceRecognitionEnabled: false,
+        },
+      ],
+      tags: [],
+      folders: [],
+    };
+    await mockApi(page, state);
+
+    await page.goto("/libraries/lib-1");
+    await expect(page.getByRole("tab", { name: "Files", exact: true })).toBeVisible();
+
+    const filesTab = page.getByRole("tab", { name: "Files", exact: true });
+    const box = await filesTab.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeGreaterThanOrEqual(36);
+  });
+
+  test("card view thumbnails render with adequate height", async ({ page }) => {
+    const state: MockState = {
+      loggedIn: true,
+      libraries: [
+        {
+          id: "lib-1",
+          name: "Photos",
+          emoji: null,
+          isDefault: false,
+          ownerId: "user-1",
+          faceRecognitionEnabled: false,
+        },
+      ],
+      tags: [],
+      folders: [
+        {
+          id: "folder-1",
+          libraryId: "lib-1",
+          parentFolderId: null,
+          name: "My Folder",
+          kind: "folder",
+          trashedAt: null,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+          tags: [],
+        },
+      ],
+    };
+    await mockApi(page, state);
+
+    await page.goto("/libraries/lib-1");
+    await expect(page.getByText("My Folder")).toBeVisible();
+
+    // Switch to card view
+    await page.getByRole("button", { name: "Card view" }).click();
+
+    // The card thumbnail area should be visible
+    const thumbnail = page.locator(".h-40").first();
+    await expect(thumbnail).toBeVisible();
+    const box = await thumbnail.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeGreaterThanOrEqual(140);
   });
 
   test("redirects unauthenticated users away from library pages", async ({ page }) => {

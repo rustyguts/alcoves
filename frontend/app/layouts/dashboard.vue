@@ -9,6 +9,7 @@ import { useToast } from "~/composables/useToast";
 interface Library {
   id: string;
   name: string;
+  emoji: string | null;
   isDefault: boolean;
   ownerId: string;
   createdAt: string;
@@ -18,6 +19,7 @@ interface Library {
 interface NavItem {
   label: string;
   icon: string;
+  emoji?: string | null;
   to: string;
 }
 
@@ -70,6 +72,7 @@ const defaultLibraryItems = computed<NavItem[]>(() => {
     {
       label: def.name,
       icon: "i-lucide-library",
+      emoji: def.emoji,
       to: `/libraries/${def.id}`,
     },
   ];
@@ -82,6 +85,7 @@ const libraryItems = computed<NavItem[]>(() => {
       .map((l) => ({
         label: l.name,
         icon: "i-lucide-folder",
+        emoji: l.emoji,
         to: `/libraries/${l.id}`,
       })) ?? []
   );
@@ -144,15 +148,15 @@ provide("refreshLibraries", refreshLibraries);
 </script>
 
 <template>
-  <div class="drawer lg:drawer-open h-screen">
+  <div class="drawer lg:drawer-open h-full overflow-hidden">
     <input id="dashboard-drawer" type="checkbox" class="drawer-toggle" :checked="!collapsed" />
 
     <!-- Main content -->
-    <div class="drawer-content flex flex-col">
+    <div class="drawer-content flex flex-col h-full overflow-hidden">
       <!-- Navbar -->
       <div class="navbar bg-base-100 border-b border-base-300 px-4">
-        <div class="flex-none lg:hidden">
-          <button class="btn btn-sm btn-ghost" @click="collapsed = !collapsed">
+        <div class="flex-none lg:hidden mr-2">
+          <button class="btn btn-ghost btn-square" @click="collapsed = !collapsed">
             <AppIcon name="i-lucide-menu" />
           </button>
         </div>
@@ -209,7 +213,7 @@ provide("refreshLibraries", refreshLibraries);
       </div>
 
       <!-- Page content -->
-      <div class="flex-1 overflow-auto">
+      <div class="flex-1 min-h-0 p-4 sm:p-6 flex flex-col">
         <slot />
       </div>
     </div>
@@ -217,17 +221,17 @@ provide("refreshLibraries", refreshLibraries);
     <!-- Sidebar -->
     <div class="drawer-side z-40">
       <label for="dashboard-drawer" class="drawer-overlay" @click="collapsed = true" />
-      <aside class="bg-base-200 min-h-full w-64 flex flex-col">
+      <aside class="bg-base-200 h-full w-64 flex flex-col overflow-hidden">
         <!-- Sidebar header -->
-        <div class="px-4 py-4 flex items-center gap-2 border-b border-base-300">
+        <div class="px-4 py-4 flex items-center gap-2">
           <span class="text-lg font-bold truncate">Alcoves</span>
         </div>
 
         <!-- Default library nav -->
-        <nav class="menu menu-sm px-2 pt-2">
+        <nav class="menu w-full px-2 pt-2">
           <li v-for="item in defaultLibraryItems" :key="item.to">
             <RouterLink :to="item.to" active-class="active">
-              <AppIcon :name="item.icon" />
+              <span v-if="item.emoji" class="text-lg leading-none">{{ item.emoji }}</span>
               {{ item.label }}
             </RouterLink>
           </li>
@@ -240,23 +244,23 @@ provide("refreshLibraries", refreshLibraries);
           <span class="text-xs font-semibold text-base-content/60 uppercase tracking-wide"
             >Libraries</span
           >
-          <button class="btn btn-xs btn-ghost btn-square" @click="createLibrary">
+          <button class="btn btn-sm btn-ghost btn-square" @click="createLibrary">
             <AppIcon name="i-lucide-plus" />
           </button>
         </div>
 
         <!-- Library items -->
-        <nav class="menu menu-sm px-2 flex-1">
+        <nav class="menu w-full px-2 flex-1 overflow-y-auto">
           <li v-for="item in libraryItems" :key="item.to">
             <RouterLink :to="item.to" active-class="active">
-              <AppIcon :name="item.icon" />
+              <span v-if="item.emoji" class="text-lg leading-none">{{ item.emoji }}</span>
               {{ item.label }}
             </RouterLink>
           </li>
         </nav>
 
         <!-- Bottom nav (admin) -->
-        <nav v-if="bottomItems.length" class="menu menu-sm px-2 mt-auto pb-4">
+        <nav v-if="bottomItems.length" class="menu w-full px-2 mt-auto pb-4">
           <li v-for="item in bottomItems" :key="item.to">
             <RouterLink :to="item.to" active-class="active">
               <AppIcon :name="item.icon" />

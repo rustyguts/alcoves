@@ -72,7 +72,7 @@ async function acceptInvite() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl py-6">
+  <div class="mx-auto max-w-2xl py-6 overflow-y-auto flex-1 min-h-0">
     <div class="card bg-base-100 shadow-sm">
       <div class="flex items-center gap-3 px-6 pt-5 pb-2">
         <div v-if="invite" class="avatar">

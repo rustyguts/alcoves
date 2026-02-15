@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useRoute } from "vue-router";
 import { useUploadQueue } from "~/composables/useUploadQueue";
+import { useTheme } from "~/composables/useTheme";
 import DashboardLayout from "~/layouts/dashboard.vue";
 import UploadProgress from "~/components/UploadProgress.vue";
 import ToastContainer from "~/components/ToastContainer.vue";
 
 const route = useRoute();
+useTheme();
 const { hasInFlightUploads } = useUploadQueue();
 
 const isDashboard = computed(() => route.meta.layout === "dashboard");
@@ -26,7 +28,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div>
+  <div class="h-full overflow-hidden">
     <DashboardLayout v-if="isDashboard">
       <RouterView />
     </DashboardLayout>

@@ -59,20 +59,17 @@ vi.mock("~/composables/useToast", () => ({
   useToast: () => mocks.toast,
 }));
 
-vi.mock("@vueuse/core", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    useColorMode: () => ({
-      store: mockRef(
-        () => mocks.colorPreference,
-        (v: string) => {
-          mocks.colorPreference = v;
-        },
-      ),
-    }),
-  };
-});
+vi.mock("~/composables/useTheme", () => ({
+  useTheme: () => ({
+    theme: mockRef(() => (mocks.colorPreference === "dark" ? "dark" : "light")),
+    preference: mockRef(
+      () => mocks.colorPreference,
+      (v: string) => {
+        mocks.colorPreference = v;
+      },
+    ),
+  }),
+}));
 
 vi.mock("~/composables/useApiFetch", () => ({
   useApiFetch: () => ({

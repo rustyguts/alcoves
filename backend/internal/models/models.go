@@ -46,6 +46,7 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 type Library struct {
 	ID                      uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	Name                    string    `gorm:"column:name;type:text;not null" json:"name"`
+	Emoji                   *string   `gorm:"column:emoji;type:text" json:"emoji"`
 	IsDefault               bool      `gorm:"column:is_default;not null;default:false" json:"isDefault"`
 	FaceRecognitionEnabled  bool      `gorm:"column:face_recognition_enabled;not null;default:false" json:"faceRecognitionEnabled"`
 	OwnerID                 uuid.UUID `gorm:"column:owner_id;type:uuid;not null" json:"ownerId"`

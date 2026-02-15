@@ -15,7 +15,7 @@ const colorClass: Record<string, string> = {
 
 <template>
   <Teleport to="body">
-    <div class="toast toast-end toast-top z-[100]">
+    <div class="toast toast-end toast-bottom z-[100]">
       <TransitionGroup
         enter-active-class="transition duration-200 ease-out"
         enter-from-class="translate-x-4 opacity-0"

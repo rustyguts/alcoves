@@ -15,6 +15,11 @@ const props = withDefaults(defineProps<Props>(), {
   format: "jpeg",
 });
 
+const emit = defineEmits<{
+  error: [event: Event];
+  load: [event: Event];
+}>();
+
 const proxySrc = computed(() => {
   const params: [string, string][] = [["format", props.format]];
   if (props.width) params.push(["width", String(props.width)]);
@@ -38,5 +43,7 @@ const proxySrc = computed(() => {
     :class="$props.class"
     loading="lazy"
     decoding="async"
+    @error="emit('error', $event)"
+    @load="emit('load', $event)"
   />
 </template>

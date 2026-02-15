@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -32,6 +33,7 @@ func (h *LibraryHandler) RegisterRoutes(g *echo.Group) {
 type libraryResponse struct {
 	ID                     string  `json:"id"`
 	Name                   string  `json:"name"`
+	Emoji                  *string `json:"emoji"`
 	IsDefault              bool    `json:"isDefault"`
 	FaceRecognitionEnabled bool    `json:"faceRecognitionEnabled"`
 	OwnerID                string  `json:"ownerId"`
@@ -45,6 +47,7 @@ func toLibraryResponse(lib *models.Library, la *access.LibraryAccess) libraryRes
 	resp := libraryResponse{
 		ID:                     lib.ID.String(),
 		Name:                   lib.Name,
+		Emoji:                  lib.Emoji,
 		IsDefault:              lib.IsDefault,
 		FaceRecognitionEnabled: lib.FaceRecognitionEnabled,
 		OwnerID:                lib.OwnerID.String(),
@@ -175,6 +178,7 @@ func (h *LibraryHandler) Get(c echo.Context) error {
 
 type updateLibraryRequest struct {
 	Name                   *string `json:"name"`
+	Emoji                  *string `json:"emoji"`
 	FaceRecognitionEnabled *bool   `json:"faceRecognitionEnabled"`
 }
 
@@ -187,13 +191,20 @@ func (h *LibraryHandler) Update(c echo.Context) error {
 	la := middleware.GetLibraryAccess(c)
 
 	var req updateLibraryRequest
-	if err := c.Bind(&req); err != nil {
+	if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 	}
 
 	updates := map[string]interface{}{}
 	if req.Name != nil {
 		updates["name"] = *req.Name
+	}
+	if req.Emoji != nil {
+		if *req.Emoji == "" {
+			updates["emoji"] = nil
+		} else {
+			updates["emoji"] = *req.Emoji
+		}
 	}
 	if req.FaceRecognitionEnabled != nil {
 		updates["face_recognition_enabled"] = *req.FaceRecognitionEnabled

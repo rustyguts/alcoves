@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
     {
       id: "lib-default",
       name: "My Files",
+      emoji: null as string | null,
       isDefault: true,
       ownerId: "user-1",
       createdAt: "",
@@ -34,6 +35,7 @@ const mocks = vi.hoisted(() => ({
     {
       id: "lib-2",
       name: "Projects",
+      emoji: null as string | null,
       isDefault: false,
       ownerId: "user-1",
       createdAt: "",
@@ -42,6 +44,7 @@ const mocks = vi.hoisted(() => ({
     {
       id: "lib-3",
       name: "Archives",
+      emoji: null as string | null,
       isDefault: false,
       ownerId: "user-1",
       createdAt: "",
@@ -90,43 +93,7 @@ vi.mock("vue-router", async (importOriginal) => {
 });
 
 const stubs = {
-  DashboardGroup: { template: "<div><slot /></div>" },
-  DashboardSidebar: {
-    template:
-      "<div><slot name='header' :collapsed='false' /><slot :collapsed='false' /><slot name='footer' /></div>",
-    props: ["collapsible", "resizable", "ui"],
-  },
-  DashboardSidebarCollapse: { template: "<div />" },
-  DashboardPanel: { template: "<div><slot name='header' /><slot name='body' /></div>" },
-  DashboardNavbar: { template: "<div><slot name='left' /><slot name='right' /></div>" },
-  NavigationMenu: {
-    template: "<nav><span v-for='item in items' :key='item.label'>{{ item.label }}</span></nav>",
-    props: ["items", "collapsed", "orientation"],
-  },
-  Separator: { template: "<hr />" },
-  Button: {
-    template: "<button @click='$emit(\"click\")'><slot>{{ label }}</slot></button>",
-    props: ["icon", "size", "color", "variant", "square", "label", "class"],
-    emits: ["click"],
-  },
-  Input: {
-    template:
-      "<input :value='modelValue' @input='$emit(\"update:modelValue\", $event.target.value)' />",
-    props: [
-      "modelValue",
-      "type",
-      "autocomplete",
-      "enterkeyhint",
-      "leadingIcon",
-      "placeholder",
-      "variant",
-      "size",
-      "class",
-    ],
-    emits: ["update:modelValue"],
-  },
-  DropdownMenu: { template: "<div><slot /></div>", props: ["items"] },
-  Icon: { template: "<i />", props: ["name", "class"] },
+  AppIcon: { template: "<i />", props: ["name", "class"] },
 };
 
 describe("dashboard.vue", () => {
@@ -182,5 +149,35 @@ describe("dashboard.vue", () => {
     const wrapper = mountLayout();
     const allText = wrapper.text();
     expect(allText).toContain("T");
+  });
+
+  it("sidebar nav elements have w-full class", () => {
+    const wrapper = mountLayout();
+    const navElements = wrapper.findAll("nav");
+    expect(navElements.length).toBeGreaterThanOrEqual(2);
+    for (const nav of navElements) {
+      expect(nav.classes()).toContain("w-full");
+    }
+  });
+
+  it("content container has padding class", () => {
+    const wrapper = mountLayout();
+    const contentDiv = wrapper.find(".drawer-content .p-4");
+    expect(contentDiv.exists()).toBe(true);
+  });
+
+  it("shows emoji instead of icon when library has emoji set", () => {
+    mocks.libraries[1]!.emoji = "\u{1F680}";
+    const wrapper = mountLayout();
+    expect(wrapper.text()).toContain("\u{1F680}");
+    mocks.libraries[1]!.emoji = null;
+  });
+
+  it("sidebar nav uses standard menu size (not menu-sm)", () => {
+    const wrapper = mountLayout();
+    const navElements = wrapper.findAll("nav");
+    for (const nav of navElements) {
+      expect(nav.classes()).not.toContain("menu-sm");
+    }
   });
 });

@@ -49,23 +49,30 @@ const router = createRouter({
     },
     {
       path: "/libraries/:id",
-      component: () => import("~/pages/libraries/[id]/index.vue"),
+      component: () => import("~/layouts/library.vue"),
       meta: { layout: "dashboard" },
-    },
-    {
-      path: "/libraries/:id/settings",
-      component: () => import("~/pages/libraries/[id]/settings.vue"),
-      meta: { layout: "dashboard" },
-    },
-    {
-      path: "/libraries/:id/people",
-      component: () => import("~/pages/libraries/[id]/people.vue"),
-      meta: { layout: "dashboard" },
-    },
-    {
-      path: "/libraries/:id/tags",
-      component: () => import("~/pages/libraries/[id]/tags.vue"),
-      meta: { layout: "dashboard" },
+      children: [
+        {
+          path: "",
+          component: () => import("~/pages/libraries/[id]/index.vue"),
+        },
+        {
+          path: "trash",
+          component: () => import("~/pages/libraries/[id]/index.vue"),
+        },
+        {
+          path: "settings",
+          component: () => import("~/pages/libraries/[id]/settings.vue"),
+        },
+        {
+          path: "people",
+          component: () => import("~/pages/libraries/[id]/people.vue"),
+        },
+        {
+          path: "tags",
+          component: () => import("~/pages/libraries/[id]/tags.vue"),
+        },
+      ],
     },
   ],
 });

@@ -63,7 +63,7 @@ async function onSubmit() {
 
 <template>
   <div class="flex min-h-svh items-center justify-center p-4">
-    <div class="card bg-base-100 shadow-xl w-full max-w-md">
+    <div class="card bg-base-100 shadow-sm w-full max-w-md">
       <div class="card-body">
         <div class="flex flex-col items-center gap-2 mb-4">
           <AppIcon name="i-lucide-lock" class="text-3xl" />
@@ -80,7 +80,7 @@ async function onSubmit() {
               type="email"
               placeholder="Enter your email"
               required
-              class="input input-bordered w-full"
+              class="input w-full"
             />
             <p v-if="fieldErrors.email" class="text-error text-xs mt-1">{{ fieldErrors.email }}</p>
           </fieldset>
@@ -92,7 +92,7 @@ async function onSubmit() {
               type="password"
               placeholder="Enter your password"
               required
-              class="input input-bordered w-full"
+              class="input w-full"
             />
             <p v-if="fieldErrors.password" class="text-error text-xs mt-1">
               {{ fieldErrors.password }}

@@ -11,7 +11,32 @@ const route = useRoute();
 const libraryId = computed(() => route.params.id as string);
 const toast = useToast();
 
-const { data: library } = useApiFetch<Library>(() => `/api/libraries/${libraryId.value}`);
+const { data: library, refresh: refreshLibrary } = useApiFetch<Library>(() => `/api/libraries/${libraryId.value}`);
+const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
+
+watch(library, () => {
+  refreshLibraries?.();
+});
+
+const canManageLibrary = computed(
+  () => library.value?.currentUserRole === "owner" || library.value?.currentUserRole === "admin",
+);
+
+async function saveLibraryName(name: string) {
+  await apiFetch(`/api/libraries/${libraryId.value}`, {
+    method: "PATCH",
+    body: { name },
+  });
+  await refreshLibrary();
+}
+
+async function saveLibraryEmoji(emoji: string | null) {
+  await apiFetch(`/api/libraries/${libraryId.value}`, {
+    method: "PATCH",
+    body: { emoji: emoji ?? "" },
+  });
+  await refreshLibrary();
+}
 
 const libraryTags = ref<LibraryTag[]>([]);
 const files = ref<LibraryFile[]>([]);
@@ -50,18 +75,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-h-10">
-      <h1 class="text-xl font-semibold truncate">{{ library?.name }}</h1>
-      <RouterLink
-        :to="`/libraries/${libraryId}`"
-        class="btn btn-sm btn-neutral btn-outline"
-      >
-        <AppIcon name="i-lucide-arrow-left" class="size-4" />
-        Back to Library
-      </RouterLink>
-    </div>
-
+  <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
     <div class="grid gap-4">
       <div class="card bg-base-100 shadow-sm">
         <div class="flex items-center justify-between gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
@@ -88,7 +102,7 @@ onMounted(async () => {
               </div>
             </fieldset>
             <button
-              class="btn btn-sm btn-primary"
+              class="btn btn-primary"
               :disabled="!createTagName.trim() || creatingTag"
               @click="createTag"
             >
@@ -139,7 +153,7 @@ onMounted(async () => {
                       :style="{ backgroundColor: color }"
                       :title="isTagColorUsedByAnotherTag(tag.id, color) ? `${color} (used)` : color"
                       :disabled="isTagColorUsedByAnotherTag(tag.id, color)"
-                      @click="selectTagColor(tag, color)"
+                      @click="selectTagColor(tag, color); ($event.target as HTMLElement).closest('details')!.open = false"
                     />
                   </div>
                 </div>

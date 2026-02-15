@@ -7,6 +7,7 @@ import type { LibraryFile } from "~~/shared/types/api";
 import { getMimeIcon } from "~/utils/mime-icons";
 import { apiFetch } from "~/utils/api-fetch";
 import AppIcon from "~/components/AppIcon.vue";
+import AlcovesImage from "~/components/AlcovesImage.vue";
 
 const props = defineProps<{
   file: LibraryFile;
@@ -44,6 +45,28 @@ const previewType = computed(() => {
   if (mime === "application/pdf") return "pdf";
   if (mime.startsWith("text/")) return "text";
   return "unsupported";
+});
+
+// For the image proxy, request up to 1080p but cap at the image's actual dimensions
+// so the backend doesn't upscale small images.
+const previewHeight = computed(() => {
+  const actual = props.file.height;
+  if (actual && actual < 1080) return actual;
+  return 1080;
+});
+
+const previewWidth = computed(() => {
+  const actual = props.file.width;
+  if (actual && actual < 1920) return actual;
+  return 1920;
+});
+
+// Small images should not stretch to fill the viewport
+const isSmallImage = computed(() => {
+  const w = props.file.width;
+  const h = props.file.height;
+  if (!w || !h) return false;
+  return w < 640 && h < 640;
 });
 
 // Register vidstack custom elements client-side only
@@ -86,17 +109,65 @@ const hasNext = computed(
   () => currentIndex.value >= 0 && currentIndex.value < props.files.length - 1,
 );
 
+const previousFile = computed(() =>
+  hasPrevious.value ? props.files[currentIndex.value - 1]! : null,
+);
+const nextFile = computed(() =>
+  hasNext.value ? props.files[currentIndex.value + 1]! : null,
+);
+
 function goToPrevious() {
   if (hasPrevious.value) {
+    imageLoaded.value = false;
     emit("navigate", props.files[currentIndex.value - 1]!);
   }
 }
 
 function goToNext() {
   if (hasNext.value) {
+    imageLoaded.value = false;
     emit("navigate", props.files[currentIndex.value + 1]!);
   }
 }
+
+// Image fade-in state
+const imageLoaded = ref(false);
+
+function onImageLoad() {
+  imageLoaded.value = true;
+}
+
+// Reset loaded state when file changes
+watch(() => props.file.id, () => {
+  imageLoaded.value = false;
+});
+
+// Preload adjacent images
+function buildPreviewUrl(file: LibraryFile): string {
+  const w = file.width && file.width < 1920 ? file.width : 1920;
+  const h = file.height && file.height < 1080 ? file.height : 1080;
+  const params = new URLSearchParams([
+    ["format", "jpeg"],
+    ["height", String(h)],
+    ["quality", "90"],
+    ["width", String(w)],
+  ]);
+  return `/api/files/proxy/${props.libraryId}/${file.id}?${params}`;
+}
+
+watch(
+  [() => props.file.id, open],
+  () => {
+    if (!open.value) return;
+    for (const adjacent of [previousFile.value, nextFile.value]) {
+      if (adjacent && adjacent.mimeType.startsWith("image/")) {
+        const img = new Image();
+        img.src = buildPreviewUrl(adjacent);
+      }
+    }
+  },
+  { immediate: true },
+);
 
 // Keyboard navigation
 function handleKeydown(event: KeyboardEvent) {
@@ -125,12 +196,94 @@ onUnmounted(() => {
 
 <template>
   <dialog class="modal" :class="{ 'modal-open': open }">
-    <div class="modal-box max-w-none w-screen h-screen rounded-none bg-black/95 backdrop-blur-sm flex flex-col p-0">
-      <!-- Header -->
-      <div class="flex items-center justify-between w-full px-4 py-3">
-        <div class="flex items-center gap-3 min-w-0">
+    <div class="modal-box max-w-none w-screen h-screen rounded-none bg-black/95 backdrop-blur-sm p-0 flex items-center justify-center">
+      <!-- Media content: fills the entire viewport -->
+      <div v-if="previewType === 'video'" class="w-full h-full flex items-center justify-center px-16">
+        <media-player
+          v-if="playerReady"
+          class="player w-full max-w-5xl"
+          :src="mediaSrc"
+          :title="file.name"
+          crossorigin
+          playsinline
+          autoplay
+        >
+          <media-provider />
+          <media-video-layout />
+        </media-player>
+        <div v-else class="flex items-center justify-center">
+          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
+        </div>
+      </div>
+
+      <div v-else-if="previewType === 'audio'" class="w-full h-full flex items-center justify-center px-16">
+        <media-player
+          v-if="playerReady"
+          class="player w-full max-w-2xl"
+          :src="mediaSrc"
+          :title="file.name"
+          crossorigin
+          playsinline
+        >
+          <media-provider />
+          <media-audio-layout />
+        </media-player>
+        <div v-else class="flex items-center justify-center">
+          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
+        </div>
+      </div>
+
+      <div
+        v-else-if="previewType === 'image'"
+        class="w-full h-full flex items-center justify-center"
+      >
+        <AlcovesImage
+          :library-id="libraryId"
+          :file-id="file.id"
+          :alt="file.name"
+          :width="previewWidth"
+          :height="previewHeight"
+          :quality="90"
+          class="block transition-opacity duration-100"
+          :class="[
+            isSmallImage ? '' : 'max-h-full max-w-full object-contain',
+            imageLoaded ? 'opacity-100' : 'opacity-0',
+          ]"
+          :style="isSmallImage ? { maxWidth: `${file.width}px`, maxHeight: `${file.height}px` } : undefined"
+          @load="onImageLoad"
+        />
+      </div>
+
+      <div v-else-if="previewType === 'pdf'" class="w-full h-full p-16">
+        <iframe :src="fileUrl" class="w-full h-full rounded border-0" />
+      </div>
+
+      <div
+        v-else-if="previewType === 'text'"
+        class="w-full h-full flex items-center justify-center overflow-auto p-16"
+      >
+        <pre
+          v-if="textContent !== null"
+          class="p-4 bg-neutral-900/80 rounded border border-white/20 text-sm text-white whitespace-pre-wrap max-w-4xl w-full self-start"
+          >{{ textContent }}</pre
+        >
+        <div v-else class="flex items-center justify-center">
+          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
+        </div>
+      </div>
+
+      <div v-else class="flex flex-col items-center gap-4">
+        <AppIcon :name="getMimeIcon(file.mimeType)" class="size-24 text-white/40" />
+        <p class="text-sm text-white/60">
+          Preview not available for this file type ({{ file.mimeType }})
+        </p>
+      </div>
+
+      <!-- Overlay: top bar with close, filename, download -->
+      <div class="absolute inset-x-0 top-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-20">
+        <div class="flex items-center gap-3 min-w-0 pointer-events-auto">
           <button
-            class="btn btn-lg btn-ghost text-white hover:bg-white/20"
+            class="btn btn-circle btn-ghost text-white hover:bg-white/20"
             @click="open = false"
           >
             <AppIcon name="i-lucide-x" class="size-5" />
@@ -138,106 +291,30 @@ onUnmounted(() => {
           <span class="text-white text-sm font-medium truncate">{{ file.name }}</span>
         </div>
         <button
-          class="btn btn-lg btn-ghost text-white hover:bg-white/20 shrink-0"
+          class="btn btn-circle btn-ghost text-white hover:bg-white/20 shrink-0 pointer-events-auto"
           @click="downloadFile"
         >
           <AppIcon name="i-lucide-download" class="size-5" />
         </button>
       </div>
 
-      <!-- Body -->
-      <div class="relative flex items-center justify-center w-full grow p-0">
-        <!-- Previous -->
-        <button
-          v-if="hasPrevious"
-          class="btn btn-lg btn-ghost absolute left-4 top-1/2 -translate-y-1/2 z-10 text-white bg-black/50 hover:bg-black/70 rounded-full"
-          @click="goToPrevious"
-        >
-          <AppIcon name="i-lucide-chevron-left" class="size-5" />
-        </button>
+      <!-- Overlay: previous button -->
+      <button
+        v-if="hasPrevious"
+        class="btn btn-circle btn-ghost absolute left-4 top-1/2 -translate-y-1/2 z-20 text-white bg-black/40 hover:bg-black/70"
+        @click="goToPrevious"
+      >
+        <AppIcon name="i-lucide-chevron-left" class="size-5" />
+      </button>
 
-        <!-- Next -->
-        <button
-          v-if="hasNext"
-          class="btn btn-lg btn-ghost absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white bg-black/50 hover:bg-black/70 rounded-full"
-          @click="goToNext"
-        >
-          <AppIcon name="i-lucide-chevron-right" class="size-5" />
-        </button>
-
-        <div v-if="previewType === 'video'" class="w-full max-w-5xl px-16">
-          <media-player
-            v-if="playerReady"
-            class="player w-full"
-            :src="mediaSrc"
-            :title="file.name"
-            crossorigin
-            playsinline
-            autoplay
-          >
-            <media-provider />
-            <media-video-layout />
-          </media-player>
-          <div v-else class="flex items-center justify-center py-8">
-            <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
-          </div>
-        </div>
-
-        <div v-else-if="previewType === 'audio'" class="w-full max-w-2xl px-16">
-          <media-player
-            v-if="playerReady"
-            class="player w-full"
-            :src="mediaSrc"
-            :title="file.name"
-            crossorigin
-            playsinline
-          >
-            <media-provider />
-            <media-audio-layout />
-          </media-player>
-          <div v-else class="flex items-center justify-center py-8">
-            <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
-          </div>
-        </div>
-
-        <div
-          v-else-if="previewType === 'image'"
-          class="flex items-center justify-center w-full h-full px-16"
-        >
-          <AlcovesImage
-            :library-id="libraryId"
-            :file-id="file.id"
-            :alt="file.name"
-            :width="1200"
-            class="max-h-full max-w-full object-contain block"
-          />
-        </div>
-
-        <div v-else-if="previewType === 'pdf'" class="w-full h-full max-w-5xl px-16">
-          <iframe :src="fileUrl" class="w-full h-full rounded border-0" />
-        </div>
-
-        <div
-          v-else-if="previewType === 'text'"
-          class="w-full max-w-4xl max-h-full overflow-auto px-16"
-        >
-          <pre
-            v-if="textContent !== null"
-            class="p-4 bg-neutral-900/80 rounded border border-white/20 text-sm text-white whitespace-pre-wrap"
-            >{{ textContent }}</pre
-          >
-          <div v-else class="flex items-center justify-center py-8">
-            <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
-          </div>
-        </div>
-
-        <div v-else class="flex flex-col items-center gap-4 py-8">
-          <AppIcon :name="getMimeIcon(file.mimeType)" class="size-24 text-white/40" />
-          <p class="text-sm text-white/60">
-            Preview not available for this file type ({{ file.mimeType }})
-          </p>
-        </div>
-      </div>
+      <!-- Overlay: next button -->
+      <button
+        v-if="hasNext"
+        class="btn btn-circle btn-ghost absolute right-4 top-1/2 -translate-y-1/2 z-20 text-white bg-black/40 hover:bg-black/70"
+        @click="goToNext"
+      >
+        <AppIcon name="i-lucide-chevron-right" class="size-5" />
+      </button>
     </div>
     <form method="dialog" class="modal-backdrop" @click="open = false">
       <button>close</button>
