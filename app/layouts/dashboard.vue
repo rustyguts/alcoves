@@ -74,6 +74,11 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
       icon: "i-lucide-shield-check",
       to: "/admin",
     },
+    {
+      label: "Jobs",
+      icon: "i-lucide-activity",
+      to: "/admin/jobs",
+    },
   ];
 });
 

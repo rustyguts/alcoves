@@ -52,6 +52,16 @@ const {
 const { isFolderTagAssigned, areAllFilesTagged, toggleTagForFolder, toggleTagForFiles } =
   useLibraryTags(libraryId, libraryTags, files);
 
+const {
+  downloading: zipDownloading,
+  showSizeWarning,
+  estimatedFileCount,
+  formattedEstimatedSize,
+  startDownload: startZipDownload,
+  confirmLargeDownload,
+  cancelLargeDownload,
+} = useDownloadZip(libraryId);
+
 const editingName = ref(false);
 const editName = ref("");
 const renamingEntry = ref<LibraryEntry | null>(null);
@@ -564,12 +574,29 @@ function handleRowClick(entry: LibraryEntry, event: MouseEvent) {
 }
 
 function downloadFiles(ids: string[]) {
+  if (ids.length > 1) {
+    startZipDownload(ids, []);
+    return;
+  }
   for (const fid of ids) {
     const link = document.createElement("a");
     link.href = `/api/libraries/${libraryId.value}/files/${fid}`;
     link.download = "";
     link.click();
   }
+}
+
+function downloadFolders(folderIds: string[]) {
+  startZipDownload([], folderIds);
+}
+
+function downloadSelection(fileIds: string[], folderIds: string[]) {
+  if (!fileIds.length && !folderIds.length) return;
+  if (fileIds.length === 1 && !folderIds.length) {
+    downloadFiles(fileIds);
+    return;
+  }
+  startZipDownload(fileIds, folderIds);
 }
 
 async function trashFiles(ids: string[]) {
@@ -669,6 +696,11 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
             icon: "i-lucide-folder-open",
             onSelect: () => openFolder(entry.id),
           },
+          {
+            label: folderCount > 1 ? `Download ${folderCount} folders as ZIP` : "Download as ZIP",
+            icon: "i-lucide-download",
+            onSelect: () => downloadFolders(targetFolderIds),
+          },
         ],
       ];
     }
@@ -700,6 +732,13 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
       return [
         [
           {
+            label: `Download ${folderCount} folders as ZIP`,
+            icon: "i-lucide-download",
+            onSelect: () => downloadFolders(targetFolderIds),
+          },
+        ],
+        [
+          {
             label: `Delete ${folderCount} folders`,
             icon: "i-lucide-trash-2",
             color: "error" as const,
@@ -728,6 +767,11 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           label: "Open",
           icon: "i-lucide-folder-open",
           onSelect: () => openFolder(entry.id),
+        },
+        {
+          label: "Download as ZIP",
+          icon: "i-lucide-download",
+          onSelect: () => downloadFolders([entry.id]),
         },
         {
           label: "Rename",
@@ -764,7 +808,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     return [
       [
         {
-          label: count > 1 ? `Download ${count} files` : "Download",
+          label: count > 1 ? `Download ${count} files as ZIP` : "Download",
           icon: "i-lucide-download",
           onSelect: () => downloadFiles(targetIds),
         },
@@ -808,7 +852,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
   return [
     [
       {
-        label: "Download",
+        label: count > 1 ? `Download ${count} files as ZIP` : "Download",
         icon: "i-lucide-download",
         onSelect: () => downloadFiles(targetIds),
       },
@@ -1437,6 +1481,40 @@ const emptyStateDescription = computed(() => {
             icon="i-lucide-trash-2"
             :disabled="purgeConfirmation !== 'delete'"
             @click="handlePermanentDelete"
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="showSizeWarning" title="Large Download Warning">
+      <template #body>
+        <div class="flex flex-col gap-3">
+          <div
+            class="flex items-center gap-3 p-3 rounded-lg bg-warning/10 border border-warning/20"
+          >
+            <UIcon name="i-lucide-alert-triangle" class="size-5 text-warning shrink-0" />
+            <p class="text-sm">This download is very large and may take a while.</p>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p class="text-muted">Estimated Size</p>
+              <p class="font-medium">{{ formattedEstimatedSize }}</p>
+            </div>
+            <div>
+              <p class="text-muted">Files</p>
+              <p class="font-medium">{{ estimatedFileCount.toLocaleString("en-US") }}</p>
+            </div>
+          </div>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton label="Cancel" color="neutral" variant="outline" @click="cancelLargeDownload" />
+          <UButton
+            label="Download Anyway"
+            icon="i-lucide-download"
+            :loading="zipDownloading"
+            @click="confirmLargeDownload"
           />
         </div>
       </template>

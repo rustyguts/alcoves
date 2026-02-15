@@ -380,7 +380,18 @@ onUnmounted(() => {
     </UCard>
 
     <section v-if="jobStats?.configured" class="flex flex-col gap-4">
-      <h2 class="text-lg font-semibold">Job Queues</h2>
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Job Queues</h2>
+        <UButton
+          label="View All Jobs"
+          icon="i-lucide-arrow-right"
+          trailing
+          variant="outline"
+          color="neutral"
+          size="sm"
+          to="/admin/jobs"
+        />
+      </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
         <UCard

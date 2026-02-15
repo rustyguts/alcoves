@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended } from "@nuxt/test-utils/runtime";
-import AdminPage from "~/pages/admin.vue";
+import AdminPage from "~/pages/admin/index.vue";
 
 function mockRef<T>(get: () => T, set?: (value: T) => void) {
   return {
