@@ -9,6 +9,8 @@ export default defineVitestConfig({
       "test/composables/**/*.spec.ts",
       "test/middleware/**/*.spec.ts",
       "test/utils/**/*.spec.ts",
+      "test/domain/**/*.spec.ts",
+      "test/services/**/*.spec.ts",
       "test/app/**/*.spec.ts",
       "test/pages/**/*.spec.ts",
       "test/layouts/**/*.spec.ts",
