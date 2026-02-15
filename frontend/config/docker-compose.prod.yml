@@ -1,0 +1,53 @@
+# Production-style deployment with separate API and worker containers.
+#
+# Usage (from repo root):
+#   docker compose -f docker-compose.yml -f config/docker-compose.prod.yml up
+#
+# This extends docker-compose.yml (postgres + dragonfly) and adds:
+#   - 1+ API containers (serves HTTP, enqueues jobs, no workers)
+#   - 1+ Worker containers (processes BullMQ jobs, no user-facing HTTP)
+#
+# Scale as needed:
+#   docker compose -f docker-compose.yml -f config/docker-compose.prod.yml up --scale api=3 --scale worker=2
+
+x-app-common: &app-common
+  build:
+    context: ..
+    target: dist
+  env_file:
+    - ../.env
+  environment:
+    - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
+    - ALCOVES_QUEUE_HOST=dragonfly
+    - ALCOVES_QUEUE_PORT=6379
+  volumes:
+    - app_data:/app/data
+  depends_on:
+    postgres:
+      condition: service_healthy
+    dragonfly:
+      condition: service_started
+
+services:
+  api:
+    <<: *app-common
+    environment:
+      - ALCOVES_MODE=api
+      - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
+      - ALCOVES_QUEUE_HOST=dragonfly
+      - ALCOVES_QUEUE_PORT=6379
+    ports:
+      - "3000:3000"
+
+  worker:
+    <<: *app-common
+    environment:
+      - ALCOVES_MODE=worker
+      - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
+      - ALCOVES_QUEUE_HOST=dragonfly
+      - ALCOVES_QUEUE_PORT=6379
+    # Workers don't need to expose ports to the host,
+    # but the HTTP port is still available internally for health checks.
+
+volumes:
+  app_data:

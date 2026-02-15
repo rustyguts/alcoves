@@ -1,0 +1,51 @@
+{
+  "name": "alcoves",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare": "husky",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "bun run test:unit:coverage && bun run test:e2e",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:unit:coverage": "vitest run --config vitest.config.ts --coverage",
+    "test:e2e": "playwright test",
+    "coverage:summary": "node test/scripts/coverage-summary.mjs"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^4.4.0",
+    "tailwindcss": "^4.1.18",
+    "tus-js-client": "^4.3.1",
+    "vidstack": "^1.12.13",
+    "vue": "^3.5.28",
+    "vue-router": "^5.0.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@iconify-json/lucide": "^1.2.90",
+    "@playwright/test": "^1.58.2",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/vue": "^8.1.0",
+    "@types/node": "^25.2.3",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vue/test-utils": "^2.4.6",
+    "husky": "^9.1.7",
+    "jsdom": "^28.0.0",
+    "oxfmt": "^0.31.0",
+    "oxlint": "^1.46.0",
+    "oxlint-tsgolint": "^0.12.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
+    "vue-tsc": "^3.2.4"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs}": "bun run lint && bun run fmt"
+  }
+}
