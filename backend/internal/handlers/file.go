@@ -309,19 +309,22 @@ func (h *FileHandler) Purge(c echo.Context) error {
 		// Purge files in those folders
 		h.db.Where("parent_folder_id IN ? AND library_id = ?", allFolderIDs, libraryID).Find(&filesToPurge)
 		// Also delete the folders themselves
-		h.db.Where("id IN ? AND library_id = ?", req.FolderIDs, libraryID).Delete(&models.Folder{})
+		result := h.db.Where("id IN ? AND library_id = ?", req.FolderIDs, libraryID).Delete(&models.Folder{})
+		purgedCount += int(result.RowsAffected)
 		// Delete descendant folders
 		for _, fid := range req.FolderIDs {
 			descs := h.getDescendantFolderIDs(libraryID, fid)
 			if len(descs) > 0 {
-				h.db.Where("id IN ?", descs).Delete(&models.Folder{})
+				result := h.db.Where("id IN ?", descs).Delete(&models.Folder{})
+				purgedCount += int(result.RowsAffected)
 			}
 		}
 	} else {
 		// Purge all trashed files
 		h.db.Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Find(&filesToPurge)
 		// Also purge all trashed folders
-		h.db.Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Delete(&models.Folder{})
+		result := h.db.Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Delete(&models.Folder{})
+		purgedCount += int(result.RowsAffected)
 	}
 
 	purgedFileIDs := make([]string, 0, len(filesToPurge))

@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
-import ui from "@nuxt/ui/vite";
+import AutoImport from "unplugin-auto-import/vite";
 
 export default defineConfig({
   plugins: [
@@ -11,10 +11,8 @@ export default defineConfig({
         },
       },
     }),
-    ui({
-      autoImport: {
-        imports: ["vue", "vue-router"],
-      },
+    AutoImport({
+      imports: ["vue", "vue-router"],
     }),
   ],
   resolve: {

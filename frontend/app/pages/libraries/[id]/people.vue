@@ -6,36 +6,15 @@ import AppIcon from "~/components/AppIcon.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
 import FilePreview from "~/components/FilePreview.vue";
 import type { Library, LibraryFile } from "~~/shared/types/api";
-import { apiFetch } from "~/utils/api-fetch";
 
 const route = useRoute();
 const libraryId = computed(() => route.params.id as string);
-const { data: library, refresh: refreshLibrary } = useApiFetch<Library>(() => `/api/libraries/${libraryId.value}`);
+const { data: library } = useApiFetch<Library>(() => `/api/libraries/${libraryId.value}`);
 const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
 
 watch(library, () => {
   refreshLibraries?.();
 });
-
-const canManageLibrary = computed(
-  () => library.value?.currentUserRole === "owner" || library.value?.currentUserRole === "admin",
-);
-
-async function saveLibraryName(name: string) {
-  await apiFetch(`/api/libraries/${libraryId.value}`, {
-    method: "PATCH",
-    body: { name },
-  });
-  await refreshLibrary();
-}
-
-async function saveLibraryEmoji(emoji: string | null) {
-  await apiFetch(`/api/libraries/${libraryId.value}`, {
-    method: "PATCH",
-    body: { emoji: emoji ?? "" },
-  });
-  await refreshLibrary();
-}
 
 const files = ref<LibraryFile[]>([]);
 

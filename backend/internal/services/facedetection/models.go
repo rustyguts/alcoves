@@ -140,8 +140,8 @@ func LoadRecognitionSession(modelsPath string) (*ort.DynamicAdvancedSession, err
 	}
 
 	modelPath := filepath.Join(modelsPath, recognitionModelFile)
-	inputs := []string{"input.1"}
-	outputs := []string{"683"}
+	inputs := []string{"data"}
+	outputs := []string{"fc1"}
 
 	session, err := ort.NewDynamicAdvancedSession(modelPath, inputs, outputs, nil)
 	if err != nil {

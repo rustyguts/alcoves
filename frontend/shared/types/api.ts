@@ -1,11 +1,3 @@
-export interface User {
-  id: string;
-  email: string;
-  displayName: string;
-  avatarUrl: string | null;
-  role: string;
-}
-
 export interface Library {
   id: string;
   name: string;
@@ -72,15 +64,6 @@ export interface PaginatedFiles {
   totalCount: number;
   breadcrumbs: FolderBreadcrumb[];
   currentFolderId: string | null;
-}
-
-export interface LibraryMember {
-  id: string;
-  libraryId: string;
-  userId: string;
-  role: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface LibraryMemberWithUser {

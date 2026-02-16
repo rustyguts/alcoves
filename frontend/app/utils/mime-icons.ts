@@ -76,12 +76,6 @@ export function getMimeTypeFromFilename(filename: string): string {
   return extensionMimeMap[ext] ?? "application/octet-stream";
 }
 
-export function getFileNameWithoutExtension(filename: string): string {
-  const lastDot = filename.lastIndexOf(".");
-  if (lastDot <= 0) return filename;
-  return filename.substring(0, lastDot);
-}
-
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;

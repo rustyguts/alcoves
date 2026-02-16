@@ -720,28 +720,47 @@ function openPurgeAllModal() {
 }
 
 async function handlePermanentDelete() {
-  if (purgeAll.value) {
-    await apiFetch(`/api/libraries/${libraryId.value}/files/purge`, {
-      method: "POST",
-      body: { all: true },
+  try {
+    if (purgeAll.value) {
+      const result = await apiFetch<{ purged: number }>(`/api/libraries/${libraryId.value}/files/purge`, {
+        method: "POST",
+        body: {},
+      });
+      entries.value = [];
+      nextCursor.value = null;
+      totalCount.value = 0;
+      trashedCount.value = 0;
+      toast.add({
+        title: `${result.purged} ${result.purged === 1 ? 'item' : 'items'} permanently deleted`,
+        color: "success",
+      });
+    } else {
+      const result = await apiFetch<{ purged: number }>(`/api/libraries/${libraryId.value}/files/purge`, {
+        method: "POST",
+        body: foldersToPurge.value.length
+          ? { folderIds: foldersToPurge.value }
+          : { fileIds: filesToPurge.value },
+      });
+      await resetAndFetch();
+      await refreshTrashedCount();
+      toast.add({
+        title: `${result.purged} ${result.purged === 1 ? 'item' : 'items'} permanently deleted`,
+        color: "success",
+      });
+    }
+    purgeModalOpen.value = false;
+    purgeConfirmation.value = "";
+    filesToPurge.value = [];
+    foldersToPurge.value = [];
+    purgeAll.value = false;
+  } catch (error) {
+    console.error("Failed to permanently delete items:", error);
+    toast.add({
+      title: "Failed to permanently delete items",
+      description: error instanceof Error ? error.message : "Unknown error",
+      color: "error",
     });
-    entries.value = [];
-    nextCursor.value = null;
-    totalCount.value = 0;
-    trashedCount.value = 0;
-  } else {
-    await apiFetch(`/api/libraries/${libraryId.value}/files/purge`, {
-      method: "POST",
-      body: foldersToPurge.value.length
-        ? { folderIds: foldersToPurge.value }
-        : { fileIds: filesToPurge.value },
-    });
-    await resetAndFetch();
   }
-  purgeModalOpen.value = false;
-  purgeConfirmation.value = "";
-  filesToPurge.value = [];
-  foldersToPurge.value = [];
 }
 
 function getContextMenuItems(entry: LibraryEntry) {
@@ -988,90 +1007,101 @@ const emptyStateDescription = computed(() => {
 
 <template>
   <div class="flex flex-col gap-4 flex-1 min-h-0">
-    <LibraryHeader
-      :name="library?.name"
-      :emoji="library?.emoji ?? null"
-      :can-edit="canManageLibrary"
-      @update:name="saveLibraryName"
-      @update:emoji="saveLibraryEmoji"
-    >
-      <template #actions>
-        <div id="library-header-actions" class="flex items-center gap-3" />
-      </template>
-    </LibraryHeader>
-
-    <Teleport to="#library-header-actions">
-      <button
-        v-if="showTrashed && !filesPending && totalCount > 0"
-        class="btn btn-soft btn-error hidden sm:flex"
-        @click="openPurgeAllModal()"
-      >
-        <AppIcon name="i-lucide-trash-2" class="size-4" />
-        <span class="hidden sm:inline">Permanently Delete All</span>
-      </button>
-      <button
-        v-if="showTrashed && !filesPending && totalCount > 0"
-        class="btn btn-soft btn-error btn-sm sm:hidden"
-        title="Delete All"
-        @click="openPurgeAllModal()"
-      >
-        <AppIcon name="i-lucide-trash-2" class="size-4" />
-      </button>
-      <template v-if="canManageLibrary && !showTrashed">
-        <details ref="newDropdown" class="dropdown">
-          <summary class="btn btn-outline">
-            <AppIcon name="i-lucide-plus" class="size-4" />
-            New
-          </summary>
-          <ul class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow">
-            <li v-for="group in newMenuItems" :key="group.map(i => i.label).join()">
-              <a
-                v-for="item in group"
-                :key="item.label"
-                href="#"
-                @click.prevent="item.onSelect(); newDropdown!.open = false"
-              >
-                <AppIcon :name="item.icon" class="size-4" />
+    <!-- Condensed Header: Library name + breadcrumbs + actions in one row -->
+    <div v-if="library" class="flex items-center justify-between gap-3 min-h-12">
+      <!-- Left: Library name/emoji + breadcrumbs -->
+      <div class="flex items-center gap-3 min-w-0 flex-1">
+        <EmojiPicker
+          v-if="canManageLibrary"
+          :model-value="library.emoji ?? null"
+          @update:model-value="saveLibraryEmoji"
+        />
+        <span v-else-if="library.emoji" class="text-2xl leading-none">{{ library.emoji }}</span>
+        <h1
+          class="text-xl font-semibold truncate cursor-pointer hover:text-primary"
+          @click="canManageLibrary ? startLibraryRename() : null"
+        >
+          {{ library.name }}
+        </h1>
+        <div v-if="!showTrashed" class="breadcrumbs text-sm min-w-0 hidden sm:block">
+          <ul>
+            <li v-for="item in breadcrumbItems.slice(1)" :key="item.label">
+              <RouterLink :to="item.to">
+                <AppIcon v-if="item.icon" :name="item.icon" class="size-4" />
                 {{ item.label }}
-              </a>
+              </RouterLink>
             </li>
           </ul>
-        </details>
-        <button class="btn btn-primary" @click="uploadOpen = true">
-          <AppIcon name="i-lucide-upload" class="size-4" />
-          Upload
-        </button>
-      </template>
-    </Teleport>
-
-    <div v-if="!showTrashed" class="flex items-center justify-between gap-2">
-      <div class="breadcrumbs text-base min-w-0">
-        <ul>
-          <li v-for="item in breadcrumbItems" :key="item.label">
-            <RouterLink :to="item.to">
-              <AppIcon v-if="item.icon" :name="item.icon" class="size-4" />
-              {{ item.label }}
-            </RouterLink>
-          </li>
-        </ul>
+        </div>
       </div>
-      <div class="flex items-center gap-1 shrink-0">
-        <button
-          class="btn btn-sm"
-          :class="entryViewMode === 'file' ? 'btn-soft btn-primary' : 'btn-ghost'"
-          title="File view"
-          @click="entryViewMode = 'file'"
-        >
-          <AppIcon name="i-lucide-list" class="size-4" />
-        </button>
-        <button
-          class="btn btn-sm"
-          :class="entryViewMode === 'card' ? 'btn-soft btn-primary' : 'btn-ghost'"
-          title="Card view"
-          @click="entryViewMode = 'card'"
-        >
-          <AppIcon name="i-lucide-layout-grid" class="size-4" />
-        </button>
+
+      <!-- Right: View switcher + action buttons -->
+      <div class="flex items-center gap-2 shrink-0">
+        <!-- View switcher (only for normal view) -->
+        <div v-if="!showTrashed" class="flex items-center gap-1">
+          <button
+            class="btn btn-xs btn-ghost"
+            :class="entryViewMode === 'file' ? 'btn-active' : ''"
+            title="List view"
+            @click="entryViewMode = 'file'"
+          >
+            <AppIcon name="i-lucide-list" class="size-4" />
+          </button>
+          <button
+            class="btn btn-xs btn-ghost"
+            :class="entryViewMode === 'card' ? 'btn-active' : ''"
+            title="Grid view"
+            @click="entryViewMode = 'card'"
+          >
+            <AppIcon name="i-lucide-layout-grid" class="size-4" />
+          </button>
+        </div>
+
+        <!-- Trash actions -->
+        <template v-if="showTrashed && !filesPending && totalCount > 0">
+          <button class="btn btn-sm btn-error" @click="openPurgeAllModal()">
+            <AppIcon name="i-lucide-trash-2" class="size-4" />
+            <span class="hidden sm:inline">Delete All</span>
+          </button>
+        </template>
+
+        <!-- Normal view actions -->
+        <template v-if="canManageLibrary && !showTrashed">
+          <details ref="newDropdown" class="dropdown dropdown-end">
+            <summary class="btn btn-sm btn-outline">
+              <AppIcon name="i-lucide-plus" class="size-4" />
+              <span class="hidden sm:inline">New</span>
+            </summary>
+            <ul class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow">
+              <li v-for="group in newMenuItems" :key="group.map((i) => i.label).join()">
+                <a
+                  v-for="item in group"
+                  :key="item.label"
+                  href="#"
+                  @click.prevent="
+                    item.onSelect();
+                    newDropdown!.open = false;
+                  "
+                >
+                  <AppIcon :name="item.icon" class="size-4" />
+                  {{ item.label }}
+                </a>
+              </li>
+            </ul>
+          </details>
+          <button class="btn btn-sm btn-primary" @click="uploadOpen = true">
+            <AppIcon name="i-lucide-upload" class="size-4" />
+            <span class="hidden sm:inline">Upload</span>
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <!-- Loading state for header -->
+    <div v-else class="flex items-center justify-between gap-3 min-h-12">
+      <div class="flex items-center gap-2">
+        <div class="skeleton h-8 w-8 rounded" />
+        <div class="skeleton h-6 w-48 rounded" />
       </div>
     </div>
 

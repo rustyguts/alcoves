@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   getMimeIcon,
   getMimeTypeFromFilename,
-  getFileNameWithoutExtension,
   formatFileSize,
   formatDate,
 } from "~/utils/mime-icons";
@@ -81,36 +80,6 @@ describe("getMimeTypeFromFilename", () => {
   it("handles files with multiple dots", () => {
     expect(getMimeTypeFromFilename("my.file.name.pdf")).toBe("application/pdf");
     expect(getMimeTypeFromFilename("archive.tar.gz")).toBe("application/gzip");
-  });
-});
-
-describe("getFileNameWithoutExtension", () => {
-  it("removes extension from filename", () => {
-    expect(getFileNameWithoutExtension("document.pdf")).toBe("document");
-    expect(getFileNameWithoutExtension("image.png")).toBe("image");
-  });
-
-  it("handles files with multiple dots", () => {
-    expect(getFileNameWithoutExtension("my.file.name.pdf")).toBe("my.file.name");
-    expect(getFileNameWithoutExtension("archive.tar.gz")).toBe("archive.tar");
-  });
-
-  it("returns original filename when no extension", () => {
-    expect(getFileNameWithoutExtension("README")).toBe("README");
-    expect(getFileNameWithoutExtension("Makefile")).toBe("Makefile");
-  });
-
-  it("handles filenames starting with dot", () => {
-    expect(getFileNameWithoutExtension(".gitignore")).toBe(".gitignore");
-    expect(getFileNameWithoutExtension(".hidden")).toBe(".hidden");
-  });
-
-  it("handles empty filename", () => {
-    expect(getFileNameWithoutExtension("")).toBe("");
-  });
-
-  it("handles filename with only extension", () => {
-    expect(getFileNameWithoutExtension(".txt")).toBe(".txt");
   });
 });
 
