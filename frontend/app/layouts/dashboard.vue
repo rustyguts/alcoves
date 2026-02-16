@@ -37,7 +37,7 @@ const { data: libraries, refresh: refreshLibraries } = useApiFetch<Library[]>("/
 
 const route = useRoute();
 const globalSearchQuery = ref("");
-const collapsed = ref(false);
+const collapsed = ref(true); // Start collapsed on mobile, lg:drawer-open handles desktop
 const userMenuOpen = ref(false);
 
 const routeSearchQuery = computed(() => {
@@ -156,7 +156,7 @@ provide("refreshLibraries", refreshLibraries);
       <!-- Navbar -->
       <div class="navbar bg-base-100 border-b border-base-300 px-4">
         <div class="flex-none lg:hidden mr-2">
-          <button class="btn btn-ghost btn-square" @click="collapsed = !collapsed">
+          <button class="btn btn-ghost btn-circle" @click="collapsed = !collapsed">
             <AppIcon name="i-lucide-menu" />
           </button>
         </div>

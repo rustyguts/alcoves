@@ -6,16 +6,16 @@
 // biome-ignore lint: disable
 export {}
 declare global {
-  const EffectScope: typeof import('vue').EffectScope
+  const EffectScope: typeof import('vue')['EffectScope']
   const avatarGroupInjectionKey: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useAvatarGroup.js').avatarGroupInjectionKey
-  const computed: typeof import('vue').computed
-  const createApp: typeof import('vue').createApp
-  const customRef: typeof import('vue').customRef
-  const defineAsyncComponent: typeof import('vue').defineAsyncComponent
-  const defineComponent: typeof import('vue').defineComponent
+  const computed: typeof import('vue')['computed']
+  const createApp: typeof import('vue')['createApp']
+  const customRef: typeof import('vue')['customRef']
+  const defineAsyncComponent: typeof import('vue')['defineAsyncComponent']
+  const defineComponent: typeof import('vue')['defineComponent']
   const defineLocale: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/defineLocale.js').defineLocale
   const defineShortcuts: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts.js').defineShortcuts
-  const effectScope: typeof import('vue').effectScope
+  const effectScope: typeof import('vue')['effectScope']
   const extendLocale: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/defineLocale.js').extendLocale
   const extractShortcuts: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts.js').extractShortcuts
   const fieldGroupInjectionKey: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useFieldGroup.js').fieldGroupInjectionKey
@@ -26,110 +26,86 @@ declare global {
   const formLoadingInjectionKey: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useFormField.js').formLoadingInjectionKey
   const formOptionsInjectionKey: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useFormField.js').formOptionsInjectionKey
   const formStateInjectionKey: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useFormField.js').formStateInjectionKey
-  const getCurrentInstance: typeof import('vue').getCurrentInstance
-  const getCurrentScope: typeof import('vue').getCurrentScope
+  const getCurrentInstance: typeof import('vue')['getCurrentInstance']
+  const getCurrentScope: typeof import('vue')['getCurrentScope']
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
-  const h: typeof import('vue').h
-  const inject: typeof import('vue').inject
+  const h: typeof import('vue')['h']
+  const inject: typeof import('vue')['inject']
   const inputIdInjectionKey: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useFormField.js').inputIdInjectionKey
-  const isProxy: typeof import('vue').isProxy
-  const isReactive: typeof import('vue').isReactive
-  const isReadonly: typeof import('vue').isReadonly
-  const isRef: typeof import('vue').isRef
+  const isProxy: typeof import('vue')['isProxy']
+  const isReactive: typeof import('vue')['isReactive']
+  const isReadonly: typeof import('vue')['isReadonly']
+  const isRef: typeof import('vue')['isRef']
   const isShallow: typeof import('vue').isShallow
   const kbdKeysMap: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useKbd.js').kbdKeysMap
   const localeContextInjectionKey: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useLocale.js').localeContextInjectionKey
-  const markRaw: typeof import('vue').markRaw
-  const nextTick: typeof import('vue').nextTick
-  const onActivated: typeof import('vue').onActivated
-  const onBeforeMount: typeof import('vue').onBeforeMount
-  const onBeforeRouteLeave: typeof import('vue-router').onBeforeRouteLeave
-  const onBeforeRouteUpdate: typeof import('vue-router').onBeforeRouteUpdate
-  const onBeforeUnmount: typeof import('vue').onBeforeUnmount
-  const onBeforeUpdate: typeof import('vue').onBeforeUpdate
-  const onDeactivated: typeof import('vue').onDeactivated
-  const onErrorCaptured: typeof import('vue').onErrorCaptured
-  const onMounted: typeof import('vue').onMounted
-  const onRenderTracked: typeof import('vue').onRenderTracked
-  const onRenderTriggered: typeof import('vue').onRenderTriggered
-  const onScopeDispose: typeof import('vue').onScopeDispose
-  const onServerPrefetch: typeof import('vue').onServerPrefetch
-  const onUnmounted: typeof import('vue').onUnmounted
-  const onUpdated: typeof import('vue').onUpdated
-  const onWatcherCleanup: typeof import('vue').onWatcherCleanup
+  const markRaw: typeof import('vue')['markRaw']
+  const nextTick: typeof import('vue')['nextTick']
+  const onActivated: typeof import('vue')['onActivated']
+  const onBeforeMount: typeof import('vue')['onBeforeMount']
+  const onBeforeRouteLeave: typeof import('vue-router')['onBeforeRouteLeave']
+  const onBeforeRouteUpdate: typeof import('vue-router')['onBeforeRouteUpdate']
+  const onBeforeUnmount: typeof import('vue')['onBeforeUnmount']
+  const onBeforeUpdate: typeof import('vue')['onBeforeUpdate']
+  const onDeactivated: typeof import('vue')['onDeactivated']
+  const onErrorCaptured: typeof import('vue')['onErrorCaptured']
+  const onMounted: typeof import('vue')['onMounted']
+  const onRenderTracked: typeof import('vue')['onRenderTracked']
+  const onRenderTriggered: typeof import('vue')['onRenderTriggered']
+  const onScopeDispose: typeof import('vue')['onScopeDispose']
+  const onServerPrefetch: typeof import('vue')['onServerPrefetch']
+  const onUnmounted: typeof import('vue')['onUnmounted']
+  const onUpdated: typeof import('vue')['onUpdated']
+  const onWatcherCleanup: typeof import('vue')['onWatcherCleanup']
   const portalTargetInjectionKey: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/usePortal.js').portalTargetInjectionKey
-  const provide: typeof import('vue').provide
-  const reactive: typeof import('vue').reactive
-  const readonly: typeof import('vue').readonly
-  const ref: typeof import('vue').ref
-  const resolveComponent: typeof import('vue').resolveComponent
-  const shallowReactive: typeof import('vue').shallowReactive
-  const shallowReadonly: typeof import('vue').shallowReadonly
-  const shallowRef: typeof import('vue').shallowRef
-  const toRaw: typeof import('vue').toRaw
-  const toRef: typeof import('vue').toRef
-  const toRefs: typeof import('vue').toRefs
-  const toValue: typeof import('vue').toValue
+  const provide: typeof import('vue')['provide']
+  const reactive: typeof import('vue')['reactive']
+  const readonly: typeof import('vue')['readonly']
+  const ref: typeof import('vue')['ref']
+  const resolveComponent: typeof import('vue')['resolveComponent']
+  const shallowReactive: typeof import('vue')['shallowReactive']
+  const shallowReadonly: typeof import('vue')['shallowReadonly']
+  const shallowRef: typeof import('vue')['shallowRef']
+  const toRaw: typeof import('vue')['toRaw']
+  const toRef: typeof import('vue')['toRef']
+  const toRefs: typeof import('vue')['toRefs']
+  const toValue: typeof import('vue')['toValue']
   const toastMaxInjectionKey: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useToast.js').toastMaxInjectionKey
-  const triggerRef: typeof import('vue').triggerRef
-  const unref: typeof import('vue').unref
+  const triggerRef: typeof import('vue')['triggerRef']
+  const unref: typeof import('vue')['unref']
   const useAppConfig: typeof import('../node_modules/@nuxt/ui/dist/runtime/vue/composables/useAppConfig.js').useAppConfig
-  const useAttrs: typeof import('vue').useAttrs
+  const useAttrs: typeof import('vue')['useAttrs']
   const useAvatarGroup: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useAvatarGroup.js').useAvatarGroup
   const useComponentIcons: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useComponentIcons.js').useComponentIcons
   const useContentSearch: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useContentSearch.js').useContentSearch
-  const useCssModule: typeof import('vue').useCssModule
-  const useCssVars: typeof import('vue').useCssVars
+  const useCssModule: typeof import('vue')['useCssModule']
+  const useCssVars: typeof import('vue')['useCssVars']
   const useEditorMenu: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useEditorMenu.js').useEditorMenu
   const useFieldGroup: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useFieldGroup.js').useFieldGroup
   const useFileUpload: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useFileUpload.js').useFileUpload
   const useFormField: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useFormField.js').useFormField
-  const useId: typeof import('vue').useId
+  const useId: typeof import('vue')['useId']
   const useKbd: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useKbd.js').useKbd
-  const useLink: typeof import('vue-router').useLink
+  const useLink: typeof import('vue-router')['useLink']
   const useLocale: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useLocale.js').useLocale
-  const useModel: typeof import('vue').useModel
+  const useModel: typeof import('vue')['useModel']
   const useOverlay: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useOverlay.js').useOverlay
   const usePortal: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/usePortal.js').usePortal
   const useResizable: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useResizable.js').useResizable
-  const useRoute: typeof import('vue-router').useRoute
-  const useRouter: typeof import('vue-router').useRouter
+  const useRoute: typeof import('vue-router')['useRoute']
+  const useRouter: typeof import('vue-router')['useRouter']
   const useScrollspy: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useScrollspy.js').useScrollspy
-  const useSlots: typeof import('vue').useSlots
-  const useTemplateRef: typeof import('vue').useTemplateRef
+  const useSlots: typeof import('vue')['useSlots']
+  const useTemplateRef: typeof import('vue')['useTemplateRef']
   const useToast: typeof import('../node_modules/@nuxt/ui/dist/runtime/composables/useToast.js').useToast
-  const watch: typeof import('vue').watch
-  const watchEffect: typeof import('vue').watchEffect
-  const watchPostEffect: typeof import('vue').watchPostEffect
-  const watchSyncEffect: typeof import('vue').watchSyncEffect
+  const watch: typeof import('vue')['watch']
+  const watchEffect: typeof import('vue')['watchEffect']
+  const watchPostEffect: typeof import('vue')['watchPostEffect']
+  const watchSyncEffect: typeof import('vue')['watchSyncEffect']
 }
 // for type re-export
 declare global {
   // @ts-ignore
-  export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, ShallowRef, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
+  export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
-  // @ts-ignore
-  export type { ShortcutConfig, ShortcutsConfig, ShortcutsOptions } from '../node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts.d'
-  import('../node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts.d')
-  // @ts-ignore
-  export type { UseComponentIconsProps } from '../node_modules/@nuxt/ui/dist/runtime/composables/useComponentIcons.d'
-  import('../node_modules/@nuxt/ui/dist/runtime/composables/useComponentIcons.d')
-  // @ts-ignore
-  export type { EditorMenuOptions } from '../node_modules/@nuxt/ui/dist/runtime/composables/useEditorMenu.d'
-  import('../node_modules/@nuxt/ui/dist/runtime/composables/useEditorMenu.d')
-  // @ts-ignore
-  export type { UseFileUploadOptions } from '../node_modules/@nuxt/ui/dist/runtime/composables/useFileUpload.d'
-  import('../node_modules/@nuxt/ui/dist/runtime/composables/useFileUpload.d')
-  // @ts-ignore
-  export type { KbdKey, KbdKeySpecific } from '../node_modules/@nuxt/ui/dist/runtime/composables/useKbd.d'
-  import('../node_modules/@nuxt/ui/dist/runtime/composables/useKbd.d')
-  // @ts-ignore
-  export type { OverlayOptions, Overlay } from '../node_modules/@nuxt/ui/dist/runtime/composables/useOverlay.d'
-  import('../node_modules/@nuxt/ui/dist/runtime/composables/useOverlay.d')
-  // @ts-ignore
-  export type { UseResizableProps, UseResizableReturn } from '../node_modules/@nuxt/ui/dist/runtime/composables/useResizable.d'
-  import('../node_modules/@nuxt/ui/dist/runtime/composables/useResizable.d')
-  // @ts-ignore
-  export type { Toast } from '../node_modules/@nuxt/ui/dist/runtime/composables/useToast.d'
-  import('../node_modules/@nuxt/ui/dist/runtime/composables/useToast.d')
 }

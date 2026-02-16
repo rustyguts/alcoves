@@ -141,6 +141,9 @@ export function useLibraryExplorer() {
       if (showTrashed.value) {
         trashedCount.value = result.totalCount;
       }
+    } catch (error) {
+      console.error("Failed to fetch library files:", error);
+      // State is already reset above, just ensure pending is cleared
     } finally {
       filesPending.value = false;
     }
@@ -182,6 +185,15 @@ export function useLibraryExplorer() {
       totalCount.value = result.totalCount;
       trashedCount.value = trashedResult.totalCount;
       libraryTags.value = tags;
+    } catch (error) {
+      console.error("Failed to fetch library data:", error);
+      // Reset to empty state on error
+      entries.value = [];
+      breadcrumbs.value = [];
+      nextCursor.value = null;
+      totalCount.value = 0;
+      trashedCount.value = 0;
+      libraryTags.value = [];
     } finally {
       filesPending.value = false;
     }

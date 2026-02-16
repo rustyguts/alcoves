@@ -13,12 +13,24 @@ services:
       timeout: 5s
       retries: 30
 
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    ports:
+      - "6389:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+
   backend:
     build:
       context: ./backend
     environment:
       - PORT=3001
       - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
+      - ALCOVES_QUEUE_HOST=dragonfly
+      - ALCOVES_QUEUE_PORT=6379
     env_file:
       - .env
     volumes:
@@ -30,6 +42,8 @@ services:
       - "3001:3001"
     depends_on:
       postgres:
+        condition: service_healthy
+      dragonfly:
         condition: service_healthy
 
   # frontend:
