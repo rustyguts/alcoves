@@ -1,10 +1,11 @@
 FROM golang:1.25-bookworm
 
-# Install build dependencies including libvips for image processing
+# Install build dependencies including libvips for image processing and ffmpeg for video transcoding
 RUN apt-get update && apt-get install -y \
     wget \
     ca-certificates \
     libvips-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install ONNX Runtime (detect architecture)

@@ -7,11 +7,11 @@ import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 
 interface AdminStats {
-  totalFiles: number;
-  totalSizeBytes: number;
-  averageFileSizeBytes: number;
-  totalLibraries: number;
-  totalUsers: number;
+  users: number;
+  libraries: number;
+  files: number;
+  folders: number;
+  totalSize: number;
 }
 
 interface AdminUser {
@@ -22,112 +22,72 @@ interface AdminUser {
   role: "owner" | "member";
   createdAt: string;
   updatedAt: string;
-  lastLoggedInAt: string | null;
-  uploadedFileCount: number;
-  uploadedSizeBytes: number;
 }
 
-interface QueueStat {
-  name: string;
-  waiting: number;
-  active: number;
-  completed: number;
-  failed: number;
-  delayed: number;
-}
-
-interface JobStats {
-  queues: QueueStat[];
-  configured: boolean;
-}
-
-interface FailedJob {
-  id: string;
-  name: string;
-  data: Record<string, unknown>;
-  attemptsMade: number;
-  failedReason: string | null;
-  timestamp: number;
-  processedOn: number | null;
-  finishedOn: number | null;
+interface QueueStats {
+  queues: Record<
+    string,
+    { active: number; completed: number; failed: number; waiting: number; delayed: number }
+  >;
 }
 
 const toast = useToast();
 const { user: currentUser } = useAuth();
 
-const {
-  data: stats,
-  status: statsStatus,
-  refresh: refreshStats,
-} = useApiFetch<AdminStats>("/api/admin/stats");
-const {
-  data: users,
-  status: usersStatus,
-  refresh: refreshUsers,
-} = useApiFetch<AdminUser[]>("/api/admin/users");
+const { data: stats, status: statsStatus, refresh: refreshStats } = useApiFetch<AdminStats>("/api/admin/stats");
+const { data: users, status: usersStatus, refresh: refreshUsers } = useApiFetch<AdminUser[]>("/api/admin/users");
 
-const jobStats = ref<JobStats | null>(null);
-const failedJobs = ref<FailedJob[]>([]);
-const failedJobsQueue = ref<string | null>(null);
-const jobsLoading = ref(false);
-const actionJobId = ref<string | null>(null);
+const queueStats = ref<QueueStats | null>(null);
 
-async function fetchJobStats() {
+async function fetchQueueStats() {
   try {
-    jobStats.value = await apiFetch<JobStats>("/api/admin/jobs/stats");
+    queueStats.value = await apiFetch<QueueStats>("/api/admin/jobs/stats");
   } catch {
-    // Queue not configured, ignore
+    // Queue not configured
   }
 }
 
-async function fetchFailedJobs(queueName: string) {
-  failedJobsQueue.value = queueName;
-  jobsLoading.value = true;
+const roleDrafts = reactive<Record<string, AdminUser["role"]>>({});
+const updatingRoleUserId = ref<string | null>(null);
+
+watchEffect(() => {
+  if (!users.value) return;
+  for (const user of users.value) {
+    roleDrafts[user.id] = user.role;
+  }
+});
+
+async function updateUserRole(user: AdminUser) {
+  const nextRole = roleDrafts[user.id];
+  if (!nextRole || nextRole === user.role) return;
+
+  updatingRoleUserId.value = user.id;
   try {
-    const result = await apiFetch<{ jobs: FailedJob[] }>(
-      `/api/admin/jobs/${encodeURIComponent(queueName)}`,
-      { query: { status: "failed" } },
+    const updated = await apiFetch<{ id: string; role: AdminUser["role"] }>(
+      `/api/admin/users/${user.id}`,
+      { method: "PATCH", body: { role: nextRole } },
     );
-    failedJobs.value = result.jobs;
-  } catch {
-    toast.add({ title: "Failed to load jobs", color: "error" });
+    user.role = updated.role;
+    roleDrafts[user.id] = updated.role;
+    toast.add({ title: "Role updated" });
+  } catch (error: unknown) {
+    roleDrafts[user.id] = user.role;
+    const message = error instanceof Error ? error.message : "Failed to update role";
+    toast.add({ title: message, color: "error" });
   } finally {
-    jobsLoading.value = false;
+    updatingRoleUserId.value = null;
   }
 }
 
-async function retryJob(queueName: string, jobId: string) {
-  actionJobId.value = jobId;
-  try {
-    await apiFetch(`/api/admin/jobs/${encodeURIComponent(queueName)}/${jobId}`, {
-      method: "POST",
-      body: { action: "retry" },
-    });
-    toast.add({ title: "Job retried" });
-    await fetchFailedJobs(queueName);
-    await fetchJobStats();
-  } catch {
-    toast.add({ title: "Failed to retry job", color: "error" });
-  } finally {
-    actionJobId.value = null;
-  }
-}
-
-async function removeJob(queueName: string, jobId: string) {
-  actionJobId.value = jobId;
-  try {
-    await apiFetch(`/api/admin/jobs/${encodeURIComponent(queueName)}/${jobId}`, {
-      method: "POST",
-      body: { action: "remove" },
-    });
-    toast.add({ title: "Job removed" });
-    await fetchFailedJobs(queueName);
-    await fetchJobStats();
-  } catch {
-    toast.add({ title: "Failed to remove job", color: "error" });
-  } finally {
-    actionJobId.value = null;
-  }
+function formatDateTime(dateString: string | null): string {
+  if (!dateString) return "—";
+  return new Date(dateString).toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function formatQueueName(name: string): string {
@@ -141,381 +101,227 @@ function queueIcon(name: string): string {
   return "i-lucide-layers";
 }
 
-const roleDrafts = reactive<Record<string, AdminUser["role"]>>({});
-const updatingRoleUserId = ref<string | null>(null);
-const roleOptions = [
-  { label: "Owner", value: "owner" as const },
-  { label: "Member", value: "member" as const },
-];
-
-watchEffect(() => {
-  if (!users.value) return;
-  for (const user of users.value) {
-    roleDrafts[user.id] = user.role;
-  }
+const queueEntries = computed(() => {
+  if (!queueStats.value?.queues) return [];
+  return Object.entries(queueStats.value.queues).map(([name, counts]) => ({ name, ...counts }));
 });
 
-const statCards = computed(() => {
-  const value = stats.value;
-  if (!value) return [];
-  return [
-    {
-      title: "Total Files",
-      icon: "i-lucide-files",
-      value: value.totalFiles.toLocaleString("en-US"),
-      description: "Files uploaded on this server",
-    },
-    {
-      title: "Total Storage",
-      icon: "i-lucide-hard-drive",
-      value: formatFileSize(value.totalSizeBytes),
-      description: "Combined file storage usage",
-    },
-    {
-      title: "Average File Size",
-      icon: "i-lucide-scale",
-      value: formatFileSize(value.averageFileSizeBytes),
-      description: "Across all uploaded files",
-    },
-    {
-      title: "Libraries",
-      icon: "i-lucide-library",
-      value: value.totalLibraries.toLocaleString("en-US"),
-      description: "Total libraries in this instance",
-    },
-    {
-      title: "Users",
-      icon: "i-lucide-users",
-      value: value.totalUsers.toLocaleString("en-US"),
-      description: "Registered user accounts",
-    },
-  ];
-});
+const totalQueueFailed = computed(() => queueEntries.value.reduce((s, q) => s + q.failed, 0));
+const totalQueueActive = computed(() => queueEntries.value.reduce((s, q) => s + q.active, 0));
+const totalQueueWaiting = computed(() => queueEntries.value.reduce((s, q) => s + q.waiting, 0));
 
-function formatDateTime(dateString: string | null): string {
-  if (!dateString) return "Never";
-  return new Date(dateString).toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+async function refreshAll() {
+  await Promise.all([refreshStats(), refreshUsers(), fetchQueueStats()]);
 }
 
-function formatTimestamp(ts: number | null): string {
-  if (!ts) return "-";
-  return new Date(ts).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function roleBadgeColor(role: AdminUser["role"]) {
-  return role === "owner" ? "badge-primary" : "badge-ghost";
-}
-
-async function updateUserRole(user: AdminUser) {
-  const nextRole = roleDrafts[user.id];
-  if (!nextRole || nextRole === user.role) return;
-
-  updatingRoleUserId.value = user.id;
-  try {
-    const updated = await apiFetch<{ id: string; role: AdminUser["role"] }>(
-      `/api/admin/users/${user.id}`,
-      {
-        method: "PATCH",
-        body: { role: nextRole },
-      },
-    );
-
-    user.role = updated.role;
-    roleDrafts[user.id] = updated.role;
-    toast.add({ title: "Role updated" });
-  } catch (error: unknown) {
-    roleDrafts[user.id] = user.role;
-    const message =
-      error && typeof error === "object"
-        ? ((error as { data?: { statusMessage?: string } }).data?.statusMessage ?? null)
-        : null;
-    toast.add({ title: message ?? "Failed to update role", color: "error" });
-  } finally {
-    updatingRoleUserId.value = null;
-  }
-}
-
-async function refreshAdminData() {
-  await Promise.all([refreshStats(), refreshUsers(), fetchJobStats()]);
-}
-
-// Fetch job stats on mount and auto-refresh
-let jobRefreshInterval: ReturnType<typeof setInterval> | undefined;
-
+let refreshInterval: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
-  fetchJobStats();
-  jobRefreshInterval = setInterval(fetchJobStats, 10_000);
+  fetchQueueStats();
+  refreshInterval = setInterval(fetchQueueStats, 10_000);
 });
-
 onUnmounted(() => {
-  if (jobRefreshInterval) clearInterval(jobRefreshInterval);
+  if (refreshInterval) clearInterval(refreshInterval);
 });
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl flex flex-col gap-6 overflow-y-auto flex-1 min-h-0">
-    <div class="flex items-start justify-between gap-3">
+  <div class="flex flex-col gap-6 overflow-y-auto flex-1 min-h-0">
+    <!-- Header -->
+    <div class="flex items-center justify-between gap-4 flex-wrap">
       <div>
-        <h1 class="text-xl font-semibold">Admin</h1>
-        <p class="text-sm text-muted mt-1">
-          Instance-wide metrics and user administration for server owners.
+        <h1 class="text-2xl font-bold">Admin Dashboard</h1>
+        <p class="text-sm text-base-content/60 mt-0.5">
+          Instance overview, user management, and background jobs.
         </p>
       </div>
       <button
-        class="btn btn-outline btn-neutral"
+        class="btn btn-sm btn-ghost gap-2"
         :disabled="statsStatus === 'pending' || usersStatus === 'pending'"
-        @click="refreshAdminData"
+        @click="refreshAll"
       >
-        <span
-          v-if="statsStatus === 'pending' || usersStatus === 'pending'"
-          class="loading loading-spinner loading-xs"
-        ></span>
+        <span v-if="statsStatus === 'pending'" class="loading loading-spinner loading-xs" />
         <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
         Refresh
       </button>
     </div>
 
-    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
-      <div
-        v-for="card in statCards"
-        :key="card.title"
-        class="card shadow-sm border border-default bg-elevated/40"
-      >
-        <div class="card-body p-4">
-          <div class="flex items-start justify-between gap-2">
-            <div>
-              <p class="text-xs font-medium text-muted uppercase tracking-wide">{{ card.title }}</p>
-              <p class="text-2xl font-semibold mt-1">{{ card.value }}</p>
-            </div>
-            <div
-              class="size-9 rounded-md bg-primary/10 text-primary flex items-center justify-center"
-            >
-              <AppIcon :name="card.icon" class="size-5" />
-            </div>
-          </div>
-          <p class="text-xs text-muted mt-2">{{ card.description }}</p>
-        </div>
+    <!-- Stat cards -->
+    <div class="stats stats-vertical sm:stats-horizontal shadow w-full bg-base-200">
+      <div class="stat">
+        <div class="stat-figure text-primary"><AppIcon name="i-lucide-files" class="size-6" /></div>
+        <div class="stat-title">Files</div>
+        <div class="stat-value text-primary">{{ stats?.files?.toLocaleString("en-US") ?? "—" }}</div>
+        <div class="stat-desc">Active across all libraries</div>
       </div>
-    </section>
-
-    <div class="card bg-base-100 shadow-sm">
-      <div class="flex items-center justify-between gap-3 px-4 pt-4 pb-2">
-        <div>
-          <h2 class="text-lg font-semibold">User Management</h2>
-          <p class="text-xs text-muted mt-1">
-            Manage roles and review storage usage/activity for each account.
-          </p>
-        </div>
-        <span v-if="users" class="badge badge-sm badge-ghost badge-soft">
-          {{ users.length }} {{ users.length === 1 ? "user" : "users" }}
-        </span>
+      <div class="stat">
+        <div class="stat-figure text-secondary"><AppIcon name="i-lucide-hard-drive" class="size-6" /></div>
+        <div class="stat-title">Storage</div>
+        <div class="stat-value text-secondary">{{ stats ? formatFileSize(stats.totalSize) : "—" }}</div>
+        <div class="stat-desc">Total disk usage</div>
       </div>
-
-      <div class="card-body p-0">
-        <div v-if="usersStatus === 'pending'" class="flex items-center justify-center py-10">
-          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
-        </div>
-
-        <div v-else-if="users?.length" class="overflow-x-auto">
-          <table class="min-w-full">
-            <thead>
-              <tr class="border-b border-default bg-elevated/40">
-                <th class="px-4 py-3 text-left text-xs font-medium text-muted">User</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Role</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Storage Used</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Files Uploaded</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Last Logged In</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-muted">Joined</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="user in users"
-                :key="user.id"
-                class="border-b border-default/70 last:border-b-0 hover:bg-elevated/30 transition-colors"
-              >
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-3 min-w-[220px]">
-                    <div class="avatar">
-                      <div class="w-8 rounded-full">
-                        <img :src="user.avatarUrl ?? undefined" :alt="user.displayName" />
-                      </div>
-                    </div>
-                    <div class="min-w-0">
-                      <p class="text-sm font-medium truncate">{{ user.displayName }}</p>
-                      <p class="text-xs text-muted truncate">{{ user.email }}</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="min-w-[170px] flex items-center gap-2">
-                    <select
-                      v-model="roleDrafts[user.id]"
-                      class="select select-sm w-28"
-                      :disabled="updatingRoleUserId === user.id || currentUser?.id === user.id"
-                      @change="updateUserRole(user)"
-                    >
-                      <option
-                        v-for="item in roleOptions"
-                        :key="item.value"
-                        :value="item.value"
-                      >
-                        {{ item.label }}
-                      </option>
-                    </select>
-                    <span class="badge badge-sm badge-soft" :class="roleBadgeColor(user.role)">
-                      {{ user.role }}
-                    </span>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-sm">{{ formatFileSize(user.uploadedSizeBytes) }}</td>
-                <td class="px-4 py-3 text-sm">
-                  {{ user.uploadedFileCount.toLocaleString("en-US") }}
-                </td>
-                <td class="px-4 py-3 text-sm">{{ formatDateTime(user.lastLoggedInAt) }}</td>
-                <td class="px-4 py-3 text-sm text-muted">{{ formatDateTime(user.createdAt) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div v-else class="p-6 text-sm text-muted">No users found.</div>
+      <div class="stat">
+        <div class="stat-figure text-accent"><AppIcon name="i-lucide-library" class="size-6" /></div>
+        <div class="stat-title">Libraries</div>
+        <div class="stat-value">{{ stats?.libraries?.toLocaleString("en-US") ?? "—" }}</div>
+        <div class="stat-desc">Including personal defaults</div>
+      </div>
+      <div class="stat">
+        <div class="stat-figure text-info"><AppIcon name="i-lucide-users" class="size-6" /></div>
+        <div class="stat-title">Users</div>
+        <div class="stat-value">{{ stats?.users?.toLocaleString("en-US") ?? "—" }}</div>
+        <div class="stat-desc">Registered accounts</div>
+      </div>
+      <div class="stat">
+        <div class="stat-figure text-warning"><AppIcon name="i-lucide-folder-tree" class="size-6" /></div>
+        <div class="stat-title">Folders</div>
+        <div class="stat-value">{{ stats?.folders?.toLocaleString("en-US") ?? "—" }}</div>
+        <div class="stat-desc">Active folder hierarchy</div>
       </div>
     </div>
 
-    <section v-if="jobStats?.configured" class="flex flex-col gap-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Job Queues</h2>
-        <RouterLink to="/admin/jobs" class="btn btn-outline btn-neutral btn-sm">
-          View All Jobs
-          <AppIcon name="i-lucide-arrow-right" class="size-4" />
-        </RouterLink>
+    <!-- Main grid: Users + Queues sidebar -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 min-h-0">
+      <!-- Users table -->
+      <div class="xl:col-span-2">
+        <div class="card bg-base-200 shadow">
+          <div class="card-body p-0">
+            <div class="flex items-center justify-between px-6 pt-5 pb-3">
+              <div>
+                <h2 class="card-title text-lg">Users</h2>
+                <p class="text-sm text-base-content/60">Manage accounts and roles.</p>
+              </div>
+              <div v-if="users" class="badge badge-ghost badge-sm">{{ users.length }}</div>
+            </div>
+
+            <div v-if="usersStatus === 'pending'" class="flex justify-center py-12">
+              <span class="loading loading-spinner loading-md" />
+            </div>
+
+            <div v-else-if="users?.length" class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="u in users" :key="u.id" class="hover">
+                    <td>
+                      <div class="flex items-center gap-3">
+                        <div class="avatar placeholder">
+                          <div v-if="u.avatarUrl" class="w-8 rounded-full">
+                            <img :src="u.avatarUrl" :alt="u.displayName" />
+                          </div>
+                          <div
+                            v-else
+                            class="bg-neutral text-neutral-content w-8 rounded-full flex items-center justify-center"
+                          >
+                            <span class="text-xs font-bold">{{ u.displayName.charAt(0).toUpperCase() }}</span>
+                          </div>
+                        </div>
+                        <div class="min-w-0">
+                          <p class="font-medium text-sm truncate">{{ u.displayName }}</p>
+                          <p class="text-xs text-base-content/50 truncate">{{ u.email }}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <select
+                        v-model="roleDrafts[u.id]"
+                        class="select select-xs select-bordered w-24"
+                        :disabled="updatingRoleUserId === u.id || currentUser?.id === u.id"
+                        @change="updateUserRole(u)"
+                      >
+                        <option value="owner">Owner</option>
+                        <option value="member">Member</option>
+                      </select>
+                    </td>
+                    <td class="text-xs text-base-content/60 whitespace-nowrap">
+                      {{ formatDateTime(u.createdAt) }}
+                    </td>
+                    <td class="text-xs text-base-content/60 whitespace-nowrap">
+                      {{ formatDateTime(u.updatedAt) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div v-else class="px-6 pb-6 text-sm text-base-content/50">No users found.</div>
+          </div>
+        </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        <div
-          v-for="queue in jobStats.queues"
-          :key="queue.name"
-          class="card shadow-sm border border-default bg-elevated/40 cursor-pointer hover:bg-elevated/60 transition-colors"
-          @click="queue.failed > 0 ? fetchFailedJobs(queue.name) : undefined"
-        >
-          <div class="card-body p-4">
-            <div class="flex items-start justify-between gap-2">
-              <div>
-                <p class="text-sm font-medium capitalize">{{ formatQueueName(queue.name) }}</p>
-                <div class="flex items-center gap-3 mt-2 text-xs text-muted">
-                  <span>Waiting: {{ queue.waiting }}</span>
-                  <span>Active: {{ queue.active }}</span>
-                  <span :class="queue.failed > 0 ? 'text-error font-medium' : ''">
-                    Failed: {{ queue.failed }}
-                  </span>
-                </div>
+      <!-- Queue sidebar -->
+      <div class="xl:col-span-1 flex flex-col gap-4">
+        <div class="card bg-base-200 shadow">
+          <div class="card-body gap-4">
+            <div class="flex items-center justify-between">
+              <h2 class="card-title text-lg">Job Queues</h2>
+              <RouterLink to="/admin/jobs" class="btn btn-xs btn-ghost gap-1">
+                View all
+                <AppIcon name="i-lucide-arrow-right" class="size-3" />
+              </RouterLink>
+            </div>
+
+            <!-- Queue totals -->
+            <div v-if="queueEntries.length" class="grid grid-cols-3 gap-2 text-center">
+              <div class="rounded-lg bg-base-200 p-2">
+                <div class="text-lg font-bold text-info">{{ totalQueueActive }}</div>
+                <div class="text-[11px] text-base-content/60">Active</div>
               </div>
-              <div
-                class="size-9 rounded-md bg-primary/10 text-primary flex items-center justify-center"
-              >
-                <AppIcon :name="queueIcon(queue.name)" class="size-5" />
+              <div class="rounded-lg bg-base-200 p-2">
+                <div class="text-lg font-bold">{{ totalQueueWaiting }}</div>
+                <div class="text-[11px] text-base-content/60">Waiting</div>
+              </div>
+              <div class="rounded-lg bg-base-200 p-2">
+                <div class="text-lg font-bold" :class="totalQueueFailed > 0 ? 'text-error' : ''">
+                  {{ totalQueueFailed }}
+                </div>
+                <div class="text-[11px] text-base-content/60">Failed</div>
               </div>
             </div>
+
+            <!-- Per-queue breakdown -->
+            <div v-if="queueEntries.length" class="flex flex-col gap-3">
+              <div
+                v-for="q in queueEntries"
+                :key="q.name"
+                class="rounded-lg border border-base-300 p-3"
+              >
+                <div class="flex items-center gap-2 mb-2">
+                  <AppIcon :name="queueIcon(q.name)" class="size-4 text-primary" />
+                  <span class="text-sm font-medium capitalize">{{ formatQueueName(q.name) }}</span>
+                  <span v-if="q.failed > 0" class="badge badge-error badge-xs ml-auto">{{ q.failed }} failed</span>
+                </div>
+                <div class="grid grid-cols-4 gap-1 text-center text-[11px]">
+                  <div>
+                    <div class="font-semibold">{{ q.active }}</div>
+                    <div class="text-base-content/50">Active</div>
+                  </div>
+                  <div>
+                    <div class="font-semibold">{{ q.waiting }}</div>
+                    <div class="text-base-content/50">Wait</div>
+                  </div>
+                  <div>
+                    <div class="font-semibold">{{ q.delayed }}</div>
+                    <div class="text-base-content/50">Delay</div>
+                  </div>
+                  <div>
+                    <div class="font-semibold">{{ q.completed }}</div>
+                    <div class="text-base-content/50">Done</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p v-else class="text-sm text-base-content/50">No queues reported yet.</p>
           </div>
         </div>
       </div>
-
-      <div v-if="failedJobsQueue" class="card bg-base-100 shadow-sm">
-        <div class="flex items-center justify-between gap-3 px-4 pt-4 pb-2">
-          <div>
-            <h3 class="text-base font-semibold capitalize">
-              {{ formatQueueName(failedJobsQueue) }} - Failed Jobs
-            </h3>
-          </div>
-          <button
-            class="btn btn-sm btn-ghost"
-            @click="
-              failedJobsQueue = null;
-              failedJobs = [];
-            "
-          >
-            <AppIcon name="i-lucide-x" class="size-4" />
-          </button>
-        </div>
-
-        <div class="card-body p-0">
-          <div v-if="jobsLoading" class="flex items-center justify-center py-8">
-            <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
-          </div>
-
-          <div v-else-if="failedJobs.length" class="overflow-x-auto">
-            <table class="min-w-full">
-              <thead>
-                <tr class="border-b border-default bg-elevated/40">
-                  <th class="px-4 py-3 text-left text-xs font-medium text-muted">Job</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-muted">Error</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-muted">Attempts</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-muted">Time</th>
-                  <th class="px-4 py-3 text-right text-xs font-medium text-muted">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="job in failedJobs"
-                  :key="job.id"
-                  class="border-b border-default/70 last:border-b-0"
-                >
-                  <td class="px-4 py-3 text-sm">{{ job.name }}</td>
-                  <td class="px-4 py-3 text-sm text-error max-w-xs truncate">
-                    {{ job.failedReason ?? "-" }}
-                  </td>
-                  <td class="px-4 py-3 text-sm">{{ job.attemptsMade }}</td>
-                  <td class="px-4 py-3 text-sm text-muted">
-                    {{ formatTimestamp(job.timestamp) }}
-                  </td>
-                  <td class="px-4 py-3 text-right">
-                    <div class="flex items-center justify-end gap-1">
-                      <button
-                        class="btn btn-xs btn-soft btn-primary"
-                        title="Retry"
-                        :disabled="actionJobId === job.id"
-                        @click="retryJob(failedJobsQueue!, job.id)"
-                      >
-                        <span
-                          v-if="actionJobId === job.id"
-                          class="loading loading-spinner loading-xs"
-                        ></span>
-                        <AppIcon v-else name="i-lucide-rotate-cw" class="size-4" />
-                      </button>
-                      <button
-                        class="btn btn-xs btn-soft btn-error"
-                        title="Remove"
-                        :disabled="actionJobId === job.id"
-                        @click="removeJob(failedJobsQueue!, job.id)"
-                      >
-                        <span
-                          v-if="actionJobId === job.id"
-                          class="loading loading-spinner loading-xs"
-                        ></span>
-                        <AppIcon v-else name="i-lucide-trash-2" class="size-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div v-else class="p-6 text-sm text-muted text-center">No failed jobs.</div>
-        </div>
-      </div>
-    </section>
+    </div>
   </div>
 </template>

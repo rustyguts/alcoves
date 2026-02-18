@@ -158,7 +158,7 @@ function getResultIcon(result: GlobalSearchResult): string {
       </div>
     </div>
 
-    <div v-if="activeQuery.length < MIN_QUERY_LENGTH" class="card bg-base-100 shadow-sm">
+    <div v-if="activeQuery.length < MIN_QUERY_LENGTH" class="card bg-base-200">
       <div class="card-body">
         <div class="flex items-center gap-3 text-muted">
           <AppIcon name="i-lucide-search-check" class="size-5" />
@@ -171,7 +171,7 @@ function getResultIcon(result: GlobalSearchResult): string {
       <AppIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
     </div>
 
-    <div v-else-if="error" class="card bg-base-100 shadow-sm">
+    <div v-else-if="error" class="card bg-base-200">
       <div class="card-body">
         <div class="flex items-center gap-3 text-error">
           <AppIcon name="i-lucide-alert-circle" class="size-5" />
@@ -180,7 +180,7 @@ function getResultIcon(result: GlobalSearchResult): string {
       </div>
     </div>
 
-    <div v-else-if="!results.length" class="card bg-base-100 shadow-sm">
+    <div v-else-if="!results.length" class="card bg-base-200">
       <div class="card-body">
         <div class="flex items-center gap-3 text-muted">
           <AppIcon name="i-lucide-folder-search" class="size-5" />
@@ -193,7 +193,7 @@ function getResultIcon(result: GlobalSearchResult): string {
       <div
         v-for="group in groupedResults"
         :key="group.libraryId"
-        class="card bg-base-100 shadow-sm"
+        class="card bg-base-200"
       >
         <div class="flex items-center justify-between px-6 pt-5 pb-2">
           <div class="flex items-center gap-2">

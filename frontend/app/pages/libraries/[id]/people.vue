@@ -224,8 +224,6 @@ onMounted(() => {
                 :alt="face.fileName"
                 :width="300"
                 :height="300"
-                format="jpeg"
-                :quality="80"
                 class="w-full aspect-square object-cover"
               />
               <div class="p-2">

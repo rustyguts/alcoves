@@ -13,6 +13,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   alt: "",
   format: "jpeg",
+  quality: 80,
 });
 
 const emit = defineEmits<{

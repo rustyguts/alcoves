@@ -129,12 +129,18 @@ func (h *TaskHandler) processFile(ctx context.Context, libraryID, fileID string)
 	log.Printf("face:detect — found %d faces in file %s", len(faces), fileID)
 
 	// 5. Process each face
+	log.Printf("face:detect — loading recognition session for file %s", fileID)
 	recSession, err := h.getRecognitionSession()
 	if err != nil {
+		log.Printf("face:detect — RECOGNITION SESSION ERROR for file %s: %v", fileID, err)
 		return fmt.Errorf("recognition session error: %w", err)
 	}
+	log.Printf("face:detect — recognition session loaded successfully for file %s", fileID)
 
-	for _, face := range faces {
+	log.Printf("face:detect — about to process %d faces for file %s", len(faces), fileID)
+
+	for i, face := range faces {
+		log.Printf("face:detect — processing face %d/%d for file %s", i+1, len(faces), fileID)
 		if err := ctx.Err(); err != nil {
 			return err // Task was cancelled
 		}
@@ -156,6 +162,8 @@ func (h *TaskHandler) processSingleFace(
 	imgW, imgH int,
 	recSession *ort.DynamicAdvancedSession,
 ) error {
+	log.Printf("face:detect — processSingleFace called for file %s", fileID)
+
 	// Compute embedding
 	embedding, err := ComputeEmbedding(recSession, imageData, face)
 	if err != nil {
@@ -171,6 +179,8 @@ func (h *TaskHandler) processSingleFace(
 	detectionID := uuid.New()
 	embStr := embeddingToString(embedding)
 
+	log.Printf("face:detect — inserting detection %s for file %s, embedding length: %d", detectionID, fileID, len(embedding))
+
 	err = h.db.Exec(`
 		INSERT INTO face_detections (id, file_id, library_id, box_x, box_y, box_width, box_height,
 			image_width, image_height, confidence, quality_score, embedding, created_at)
@@ -181,8 +191,11 @@ func (h *TaskHandler) processSingleFace(
 		imgW, imgH, confidenceInt, qualityInt, embStr,
 	).Error
 	if err != nil {
+		log.Printf("face:detect — INSERT ERROR for detection %s: %v", detectionID, err)
 		return fmt.Errorf("failed to insert detection: %w", err)
 	}
+
+	log.Printf("face:detect — successfully inserted detection %s", detectionID)
 
 	// Assign to person using core-point clustering
 	result, err := AssignFaceUsingCorePoint(h.db, h.config, libraryID, detectionID, embedding)

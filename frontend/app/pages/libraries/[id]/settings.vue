@@ -200,7 +200,7 @@ async function deleteLibrary() {
 <template>
   <div class="space-y-4 overflow-y-auto flex-1 min-h-0">
     <!-- Library Members Card -->
-    <div v-if="!library?.isDefault" class="card bg-base-100 shadow-sm">
+    <div v-if="!library?.isDefault" class="card bg-base-200">
       <div class="px-6 pt-5 pb-0">
         <div class="min-w-0">
           <p class="text-sm font-semibold">Library Members</p>
@@ -407,22 +407,14 @@ async function deleteLibrary() {
     </div>
 
     <!-- Facial Recognition Card -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="px-6 pt-5 pb-0">
-        <div class="min-w-0">
-          <p class="text-sm font-semibold">Facial Recognition</p>
-          <p class="text-xs text-muted">
-            Detect and group faces from image uploads in this library. Disabled by default.
-          </p>
-        </div>
-      </div>
+    <div class="card bg-base-200">
       <div class="card-body">
         <div class="space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="min-w-0">
-              <p class="text-sm font-medium">Enable facial recognition</p>
+              <p class="text-sm font-semibold">Facial Recognition</p>
               <p class="text-xs text-muted">
-                Turning this off removes all detected face and people data for this library.
+                Detect and group faces from image uploads. Disabling removes all face data.
               </p>
             </div>
             <input
@@ -456,25 +448,22 @@ async function deleteLibrary() {
     </div>
 
     <!-- Danger Zone Card -->
-    <div class="card bg-base-100 shadow-sm">
-      <div class="px-6 pt-5 pb-0">
-        <div class="min-w-0">
-          <p class="text-sm font-semibold text-error">Danger Zone</p>
-          <p class="text-xs text-muted">Deleting a library is permanent and cannot be undone.</p>
-        </div>
-      </div>
+    <div class="card bg-base-200">
       <div class="card-body">
         <div class="flex items-center justify-between gap-4">
-          <p class="text-xs text-muted">
-            Only the library owner can delete a non-default library after all files are removed.
-          </p>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-error">Delete Library</p>
+            <p class="text-xs text-muted">
+              Permanently remove this library. Must be empty first.
+            </p>
+          </div>
           <button
             class="btn btn-error btn-soft"
             :disabled="!canDeleteLibrary"
             @click="deleteLibraryOpen = true"
           >
             <AppIcon name="i-lucide-trash-2" class="size-4" />
-            Delete Library
+            Delete
           </button>
         </div>
       </div>

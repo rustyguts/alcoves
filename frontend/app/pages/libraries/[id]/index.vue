@@ -115,25 +115,94 @@ const moveFileFolders = ref<LibraryFolder[]>([]);
 const dragEnabled = computed(() => canManageLibrary.value && !showTrashed.value);
 const failedThumbnails = reactive(new Set<string>());
 
-const breadcrumbItems = computed<Array<{ label: string; icon?: string; to: object }>>(() => {
+// Context menu state
+type ContextMenuItem = {
+  label: string;
+  icon?: string;
+  color?: "error";
+  disabled?: boolean;
+  children?: ContextMenuItem[];
+  onSelect?: () => void;
+};
+
+const contextMenuEntry = ref<LibraryEntry | null>(null);
+const contextMenuPosition = ref<{ x: number; y: number } | null>(null);
+const contextMenuPanel = ref<HTMLElement | null>(null);
+
+function showContextMenu(entry: LibraryEntry, event: MouseEvent) {
+  event.preventDefault();
+  contextMenuEntry.value = entry;
+  contextMenuPosition.value = { x: event.clientX, y: event.clientY };
+
+  nextTick(() => {
+    const panel = contextMenuPanel.value;
+    const position = contextMenuPosition.value;
+    if (!panel || !position) return;
+
+    const margin = 8;
+    const panelWidth = panel.offsetWidth;
+    const panelHeight = panel.offsetHeight;
+    const maxX = window.innerWidth - panelWidth - margin;
+    const maxY = window.innerHeight - panelHeight - margin;
+
+    contextMenuPosition.value = {
+      x: Math.max(margin, Math.min(position.x, maxX)),
+      y: Math.max(margin, Math.min(position.y, maxY)),
+    };
+  });
+}
+
+function hideContextMenu() {
+  contextMenuEntry.value = null;
+  contextMenuPosition.value = null;
+}
+
+function handleContextMenuSelect(item: ContextMenuItem) {
+  if (item.disabled) return;
+  item.onSelect?.();
+  hideContextMenu();
+}
+
+// Close context menu on escape or click outside
+onMounted(() => {
+  const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') hideContextMenu();
+  };
+  window.addEventListener('keydown', handleEscape);
+  onUnmounted(() => window.removeEventListener('keydown', handleEscape));
+});
+
+function buildBreadcrumbUrl(folderId: string | null): string {
+  const basePath = `/libraries/${libraryId.value}`;
+  if (!folderId) return basePath;
+  return `${basePath}?folder=${encodeURIComponent(folderId)}`;
+}
+
+const breadcrumbItems = computed<Array<{
+  id: string;
+  label: string;
+  icon?: string;
+  to: string;
+  isCurrent: boolean;
+}>>(() => {
   if (showTrashed.value) return [];
+
+  const folderCrumbs = breadcrumbs.value.map((crumb, index) => ({
+    id: crumb.id,
+    label: crumb.name,
+    to: buildBreadcrumbUrl(crumb.id),
+    isCurrent: index === breadcrumbs.value.length - 1,
+  }));
 
   return [
     {
+      id: "__root__",
       label: library.value?.name ?? "Library",
       icon: "i-lucide-house",
-      to: {
-        path: route.path,
-        query: buildFolderQuery(null),
-      },
+      to: buildBreadcrumbUrl(null),
+      isCurrent: folderCrumbs.length === 0,
     },
-    ...breadcrumbs.value.map((crumb) => ({
-      label: crumb.name,
-      to: {
-        path: route.path,
-        query: buildFolderQuery(crumb.id),
-      },
-    })),
+    ...folderCrumbs,
   ];
 });
 
@@ -724,7 +793,6 @@ async function handlePermanentDelete() {
     if (purgeAll.value) {
       const result = await apiFetch<{ purged: number }>(`/api/libraries/${libraryId.value}/files/purge`, {
         method: "POST",
-        body: {},
       });
       entries.value = [];
       nextCursor.value = null;
@@ -763,7 +831,7 @@ async function handlePermanentDelete() {
   }
 }
 
-function getContextMenuItems(entry: LibraryEntry) {
+function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
   if (entry.kind === "folder") {
     const targetFolderIds = selectedFolders.has(entry.id) ? [...selectedFolders] : [entry.id];
     const folderCount = targetFolderIds.length;
@@ -1017,30 +1085,37 @@ const emptyStateDescription = computed(() => {
           @update:model-value="saveLibraryEmoji"
         />
         <span v-else-if="library.emoji" class="text-2xl leading-none">{{ library.emoji }}</span>
-        <h1
-          class="text-xl font-semibold truncate cursor-pointer hover:text-primary"
-          @click="canManageLibrary ? startLibraryRename() : null"
-        >
-          {{ library.name }}
-        </h1>
-        <div v-if="!showTrashed" class="breadcrumbs text-sm min-w-0 hidden sm:block">
-          <ul>
-            <li v-for="item in breadcrumbItems.slice(1)" :key="item.label">
-              <RouterLink :to="item.to">
-                <AppIcon v-if="item.icon" :name="item.icon" class="size-4" />
-                {{ item.label }}
-              </RouterLink>
-            </li>
-          </ul>
+        <div class="min-w-0 flex-1">
+          <div v-if="!showTrashed" class="breadcrumbs text-sm min-w-0 hidden md:block">
+            <ul class="whitespace-nowrap">
+              <li v-for="item in breadcrumbItems" :key="item.id" class="min-w-0">
+                <RouterLink
+                  v-if="!item.isCurrent"
+                  :to="item.to"
+                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-base-content/70 transition-colors hover:bg-base-200/70 hover:text-primary"
+                >
+                  <AppIcon v-if="item.icon" :name="item.icon" class="size-3.5 shrink-0" />
+                  <span class="truncate max-w-40">{{ item.label }}</span>
+                </RouterLink>
+                <span
+                  v-else
+                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-base-content/90 font-medium"
+                >
+                  <AppIcon v-if="item.icon" :name="item.icon" class="size-3.5 shrink-0" />
+                  <span class="truncate max-w-40">{{ item.label }}</span>
+                </span>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 
       <!-- Right: View switcher + action buttons -->
       <div class="flex items-center gap-2 shrink-0">
         <!-- View switcher (only for normal view) -->
-        <div v-if="!showTrashed" class="flex items-center gap-1">
+        <div v-if="!showTrashed" class="flex items-center gap-1 rounded-md border border-base-300/70 bg-base-100 p-0.5">
           <button
-            class="btn btn-xs btn-ghost"
+            class="btn btn-ghost btn-square btn-sm min-h-8 h-8 w-8 p-0"
             :class="entryViewMode === 'file' ? 'btn-active' : ''"
             title="List view"
             @click="entryViewMode = 'file'"
@@ -1048,7 +1123,7 @@ const emptyStateDescription = computed(() => {
             <AppIcon name="i-lucide-list" class="size-4" />
           </button>
           <button
-            class="btn btn-xs btn-ghost"
+            class="btn btn-ghost btn-square btn-sm min-h-8 h-8 w-8 p-0"
             :class="entryViewMode === 'card' ? 'btn-active' : ''"
             title="Grid view"
             @click="entryViewMode = 'card'"
@@ -1170,6 +1245,7 @@ const emptyStateDescription = computed(() => {
               :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
               @click="handleRowClick(entry, $event)"
               @dblclick="openEntry(entry)"
+              @contextmenu="(e) => showContextMenu(entry, e)"
               @dragstart="handleFileDragStart(entry, $event)"
               @dragend="handleFileDragEnd"
               @dragenter="handleFolderDragEnter(entry)"
@@ -1286,6 +1362,7 @@ const emptyStateDescription = computed(() => {
             :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
             @click="handleRowClick(entry, $event)"
             @dblclick="openEntry(entry)"
+            @contextmenu="(e) => showContextMenu(entry, e)"
             @dragstart="handleFileDragStart(entry, $event)"
             @dragend="handleFileDragEnd"
             @dragenter="handleFolderDragEnter(entry)"
@@ -1682,5 +1759,67 @@ const emptyStateDescription = computed(() => {
         <button @click="cancelLargeDownload">close</button>
       </form>
     </dialog>
+
+    <!-- Floating context menu -->
+    <Teleport to="body">
+      <div
+        v-if="contextMenuEntry && contextMenuPosition"
+        class="fixed inset-0 z-40"
+        @click="hideContextMenu"
+        @contextmenu.prevent="hideContextMenu"
+      >
+        <div
+          ref="contextMenuPanel"
+          class="dropdown dropdown-open absolute z-50"
+          :style="{
+            left: `${contextMenuPosition.x}px`,
+            top: `${contextMenuPosition.y}px`,
+          }"
+          @click.stop
+        >
+          <ul class="menu menu-sm dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl min-w-60 p-2">
+            <template v-for="(group, groupIndex) in getContextMenuItems(contextMenuEntry)" :key="groupIndex">
+              <li v-if="groupIndex > 0" class="menu-title my-1 p-0">
+                <div class="h-px w-full bg-base-300/80" />
+              </li>
+              <template v-for="(item, itemIndex) in group" :key="`${groupIndex}-${itemIndex}-${item.label}`">
+                <li v-if="item.children?.length">
+                  <details>
+                    <summary :class="[item.color === 'error' ? 'text-error' : '']">
+                      <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
+                      <span>{{ item.label }}</span>
+                    </summary>
+                    <ul>
+                      <li v-for="(child, childIndex) in item.children" :key="`${item.label}-${childIndex}-${child.label}`">
+                        <button
+                          type="button"
+                          :class="[child.color === 'error' ? 'text-error' : '']"
+                          :disabled="child.disabled"
+                          @click="handleContextMenuSelect(child)"
+                        >
+                          <AppIcon v-if="child.icon" :name="child.icon" class="size-4 shrink-0" />
+                          <span>{{ child.label }}</span>
+                        </button>
+                      </li>
+                    </ul>
+                  </details>
+                </li>
+                <li v-else>
+                  <button
+                    type="button"
+                    :class="[item.color === 'error' ? 'text-error' : '']"
+                    :disabled="item.disabled"
+                    @click="handleContextMenuSelect(item)"
+                  >
+                    <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
+                    <span>{{ item.label }}</span>
+                  </button>
+                </li>
+              </template>
+            </template>
+          </ul>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

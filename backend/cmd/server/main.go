@@ -23,6 +23,7 @@ import (
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
+	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 	"github.com/alcoves/alcoves-backend/internal/spa"
@@ -217,7 +218,8 @@ func main() {
 	oauthHandler.RegisterRoutes(api.Group("/auth"))
 
 	// Public file proxy (skipped by auth middleware)
-	fileProxyHandler := handlers.NewFileProxyHandler(db, storageSvc)
+	imgProcessor := imageproxy.NewVipsProcessor()
+	fileProxyHandler := handlers.NewFileProxyHandler(db, storageSvc, imgProcessor)
 	fileProxyHandler.RegisterRoutes(api.Group("/files"))
 
 	// Health check

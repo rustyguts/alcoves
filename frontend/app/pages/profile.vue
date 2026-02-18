@@ -154,108 +154,158 @@ function getStatusMessage(error: unknown): string | null {
 </script>
 
 <template>
-  <div class="mx-auto max-w-lg flex flex-col gap-6 overflow-y-auto flex-1 min-h-0">
-    <div class="flex items-center gap-4">
-      <div v-if="currentAvatarSrc" class="size-16 rounded-full overflow-hidden">
-        <img :src="currentAvatarSrc" alt="" class="size-full object-cover" />
-      </div>
-      <div
-        v-else
-        class="size-16 rounded-full bg-primary text-white flex items-center justify-center font-bold text-2xl"
-      >
-        {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
-      </div>
-      <div>
-        <h1 class="text-xl font-semibold">My Profile</h1>
-        <p class="text-sm text-muted">{{ user?.email }}</p>
-      </div>
-    </div>
-
-    <div class="flex flex-col gap-4">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Display Name</legend>
-        <input v-model="displayName" placeholder="Your display name" class="input w-full" />
-      </fieldset>
-
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Avatar Photo</legend>
-        <p class="text-xs text-muted mb-1">Upload an image. It will be center-cropped to 128x128.</p>
-        <div class="flex items-center gap-3">
-          <button class="btn btn-ghost btn-sm" @click="openAvatarPicker">
-            <AppIcon name="i-lucide-image-plus" class="size-4" />
-            Choose photo
-          </button>
-          <span v-if="selectedAvatar" class="text-sm text-muted truncate">
-            {{ selectedAvatar.name }}
-          </span>
+  <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 overflow-y-auto pb-6">
+    <section class="hero rounded-box bg-gradient-to-br from-primary/20 via-base-200 to-secondary/20">
+      <div class="hero-content w-full justify-between gap-6 px-6 py-8">
+        <div class="space-y-2">
+          <h1 class="text-3xl font-bold tracking-tight">Profile</h1>
+          <p class="text-base-content/70">My Profile</p>
+          <p class="text-sm text-base-content/60">
+            Keep your account details current and secure.
+          </p>
         </div>
-        <input
-          ref="avatarInput"
-          type="file"
-          accept="image/*"
-          class="hidden"
-          @change="onAvatarSelected"
-        />
-      </fieldset>
-
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Theme</legend>
-        <select
-          :value="colorPreference"
-          class="select w-full"
-          @change="colorPreference = ($event.target as HTMLSelectElement).value as 'light' | 'dark' | 'auto'"
-        >
-          <option value="auto">System</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </fieldset>
-
-      <div class="flex justify-end">
-        <button class="btn btn-primary" :disabled="saving" @click="save">
-          <span v-if="saving" class="loading loading-spinner loading-xs"></span>
-          Save
-        </button>
+        <div class="hidden items-center gap-3 md:flex">
+          <span class="badge badge-outline">{{ user?.email }}</span>
+          <span class="badge badge-primary badge-outline">Account</span>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div class="divider"></div>
-
-    <div class="flex flex-col gap-4">
-      <h2 class="text-lg font-semibold">Active Sessions</h2>
-      <p class="text-sm text-muted">
-        Manage your active sessions. Revoke any session you don't recognize.
-      </p>
-
-      <div v-if="sessions?.length" class="flex flex-col gap-3">
-        <div
-          v-for="session in sessions"
-          :key="session.id"
-          class="flex items-center justify-between rounded-lg bg-elevated/50 p-3"
-        >
-          <div class="flex flex-col gap-0.5">
-            <div class="flex items-center gap-2">
-              <AppIcon name="i-lucide-monitor" class="size-4 text-muted" />
-              <span class="text-sm font-medium">{{ parseBrowser(session.userAgent) }}</span>
-              <span v-if="session.isCurrent" class="badge badge-primary badge-sm">Current</span>
+    <section class="grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <article class="card bg-base-200">
+        <div class="card-body gap-5">
+          <div class="flex items-center gap-4">
+            <div class="avatar">
+              <div
+                v-if="currentAvatarSrc"
+                class="size-20 rounded-full ring ring-primary/20 ring-offset-2 ring-offset-base-100"
+              >
+                <img :src="currentAvatarSrc" alt="" class="size-full object-cover" />
+              </div>
+              <div
+                v-else
+                class="size-20 rounded-full bg-primary text-primary-content flex items-center justify-center text-3xl font-bold ring ring-primary/20 ring-offset-2 ring-offset-base-100"
+              >
+                {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
+              </div>
             </div>
-            <div class="flex items-center gap-3 text-xs text-muted">
-              <span v-if="session.ipAddress">{{ session.ipAddress }}</span>
-              <span>{{ formatSessionDate(session.createdAt) }}</span>
+            <div class="space-y-1">
+              <p class="text-lg font-semibold">{{ user?.displayName || "User" }}</p>
+              <p class="text-sm text-base-content/60">{{ user?.email }}</p>
             </div>
           </div>
-          <button
-            v-if="!session.isCurrent"
-            class="btn btn-ghost btn-error btn-xs"
-            :disabled="revokingId === session.id"
-            @click="revokeSession(session.id)"
+
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Display Name</legend>
+            <input v-model="displayName" placeholder="Your display name" class="input w-full" />
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Avatar Photo</legend>
+            <p class="text-xs text-base-content/60">
+              Upload an image. It will be center-cropped to 128x128.
+            </p>
+            <div class="mt-2 flex items-center gap-3">
+              <button class="btn btn-outline btn-sm" @click="openAvatarPicker">
+                <AppIcon name="i-lucide-image-plus" class="size-4" />
+                Choose photo
+              </button>
+              <span v-if="selectedAvatar" class="max-w-xs truncate text-sm text-base-content/60">
+                {{ selectedAvatar.name }}
+              </span>
+            </div>
+            <input
+              ref="avatarInput"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="onAvatarSelected"
+            />
+          </fieldset>
+
+          <div class="card-actions justify-end border-t border-base-300/60 pt-4">
+            <button class="btn btn-primary" :disabled="saving" @click="save">
+              <span v-if="saving" class="loading loading-spinner loading-xs"></span>
+              Save
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <aside class="space-y-6">
+        <article class="card bg-base-200">
+          <div class="card-body gap-4">
+            <h2 class="card-title text-base">Appearance</h2>
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend">Theme</legend>
+              <select
+                :value="colorPreference"
+                class="select w-full"
+                @change="colorPreference = ($event.target as HTMLSelectElement).value as 'light' | 'dark' | 'auto'"
+              >
+                <option value="auto">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </fieldset>
+          </div>
+        </article>
+
+        <article class="stats stats-vertical bg-base-200">
+          <div class="stat py-4">
+            <div class="stat-title">Active Sessions</div>
+            <div class="stat-value text-3xl">{{ sessions?.length ?? 0 }}</div>
+            <div class="stat-desc">Devices signed into this account</div>
+          </div>
+        </article>
+      </aside>
+    </section>
+
+    <section class="card bg-base-200">
+      <div class="card-body gap-5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-xl font-semibold">Active Sessions</h2>
+            <p class="text-sm text-base-content/60">
+              Manage your active sessions. Revoke any session you don't recognize.
+            </p>
+          </div>
+          <span class="badge badge-outline">{{ sessions?.length ?? 0 }} total</span>
+        </div>
+
+        <div v-if="sessions?.length" class="grid gap-3">
+          <div
+            v-for="session in sessions"
+            :key="session.id"
+            class="flex items-center justify-between rounded-box border border-base-300/70 bg-base-200/40 p-4"
           >
-            <span v-if="revokingId === session.id" class="loading loading-spinner loading-xs"></span>
-            Revoke
-          </button>
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <AppIcon name="i-lucide-monitor" class="size-4 text-base-content/60" />
+                <span class="font-medium">{{ parseBrowser(session.userAgent) }}</span>
+                <span v-if="session.isCurrent" class="badge badge-primary badge-sm">Current</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 text-xs text-base-content/60">
+                <span v-if="session.ipAddress">{{ session.ipAddress }}</span>
+                <span>Signed in {{ formatSessionDate(session.createdAt) }}</span>
+              </div>
+            </div>
+            <button
+              v-if="!session.isCurrent"
+              class="btn btn-error btn-outline btn-xs"
+              :disabled="revokingId === session.id"
+              @click="revokeSession(session.id)"
+            >
+              <span v-if="revokingId === session.id" class="loading loading-spinner loading-xs"></span>
+              Revoke
+            </button>
+          </div>
+        </div>
+        <div v-else class="alert alert-info/70">
+          <AppIcon name="i-lucide-shield-check" class="size-4" />
+          <span class="text-sm">No active sessions found.</span>
         </div>
       </div>
-      <p v-else class="text-sm text-muted">No active sessions found.</p>
-    </div>
+    </section>
   </div>
 </template>

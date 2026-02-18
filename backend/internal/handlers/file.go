@@ -291,48 +291,70 @@ func (h *FileHandler) Purge(c echo.Context) error {
 	libraryID := c.Param("id")
 
 	var req purgeRequest
-	c.Bind(&req) // ignore error — body may be empty for purge-all
+	if err := c.Bind(&req); err != nil && !errors.Is(err, io.EOF) {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
 
 	var filesToPurge []models.File
+	folderIDsToPurge := make([]string, 0)
 	purgedCount := 0
 
 	if len(req.FileIDs) > 0 {
 		// Purge specific files
-		h.db.Where("id IN ? AND library_id = ? AND trashed_at IS NOT NULL", req.FileIDs, libraryID).Find(&filesToPurge)
+		if err := h.db.Where("id IN ? AND library_id = ? AND trashed_at IS NOT NULL", req.FileIDs, libraryID).Find(&filesToPurge).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load files for purge")
+		}
 	} else if len(req.FolderIDs) > 0 {
 		// Purge specific folders and all their descendants' files
-		allFolderIDs := make([]string, 0)
+		allFolderSet := make(map[string]struct{})
 		for _, fid := range req.FolderIDs {
-			allFolderIDs = append(allFolderIDs, fid)
-			allFolderIDs = append(allFolderIDs, h.getDescendantFolderIDs(libraryID, fid)...)
+			allFolderSet[fid] = struct{}{}
+			for _, descendantID := range h.getDescendantFolderIDs(libraryID, fid) {
+				allFolderSet[descendantID] = struct{}{}
+			}
 		}
+		for id := range allFolderSet {
+			folderIDsToPurge = append(folderIDsToPurge, id)
+		}
+
 		// Purge files in those folders
-		h.db.Where("parent_folder_id IN ? AND library_id = ?", allFolderIDs, libraryID).Find(&filesToPurge)
-		// Also delete the folders themselves
-		result := h.db.Where("id IN ? AND library_id = ?", req.FolderIDs, libraryID).Delete(&models.Folder{})
-		purgedCount += int(result.RowsAffected)
-		// Delete descendant folders
-		for _, fid := range req.FolderIDs {
-			descs := h.getDescendantFolderIDs(libraryID, fid)
-			if len(descs) > 0 {
-				result := h.db.Where("id IN ?", descs).Delete(&models.Folder{})
-				purgedCount += int(result.RowsAffected)
+		if len(folderIDsToPurge) > 0 {
+			if err := h.db.Where("parent_folder_id IN ? AND library_id = ? AND trashed_at IS NOT NULL", folderIDsToPurge, libraryID).Find(&filesToPurge).Error; err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folder files for purge")
 			}
 		}
 	} else {
 		// Purge all trashed files
-		h.db.Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Find(&filesToPurge)
-		// Also purge all trashed folders
-		result := h.db.Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Delete(&models.Folder{})
-		purgedCount += int(result.RowsAffected)
+		if err := h.db.Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Find(&filesToPurge).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load files for purge")
+		}
+		var trashedFolders []models.Folder
+		if err := h.db.Select("id").Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Find(&trashedFolders).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folders for purge")
+		}
+		for _, folder := range trashedFolders {
+			folderIDsToPurge = append(folderIDsToPurge, folder.ID.String())
+		}
 	}
 
 	purgedFileIDs := make([]string, 0, len(filesToPurge))
 	for _, f := range filesToPurge {
-		h.storageSvc.DeleteFile(libraryID, f.ID.String())
-		h.db.Delete(&f)
+		if err := h.db.Delete(&f).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete files")
+		}
+		if err := h.storageSvc.DeleteFile(libraryID, f.ID.String()); err != nil {
+			log.Printf("failed to delete file from storage %s/%s: %v", libraryID, f.ID.String(), err)
+		}
 		purgedFileIDs = append(purgedFileIDs, f.ID.String())
 		purgedCount++
+	}
+
+	if len(folderIDsToPurge) > 0 {
+		result := h.db.Where("id IN ? AND library_id = ?", folderIDsToPurge, libraryID).Delete(&models.Folder{})
+		if result.Error != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete folders")
+		}
+		purgedCount += int(result.RowsAffected)
 	}
 
 	// Clean up face data for purged files
@@ -358,7 +380,9 @@ func (h *FileHandler) getDescendantFolderIDs(libraryID, rootFolderID string) []s
 		}
 		visited[currentID] = true
 
-		var children []struct{ ID string `gorm:"column:id"` }
+		var children []struct {
+			ID string `gorm:"column:id"`
+		}
 		h.db.Raw("SELECT id FROM folders WHERE library_id = ? AND parent_folder_id = ?", libraryID, currentID).Scan(&children)
 		for _, child := range children {
 			descendants = append(descendants, child.ID)

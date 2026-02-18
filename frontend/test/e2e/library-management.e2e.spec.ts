@@ -308,9 +308,10 @@ test.describe("Library management flows", () => {
     await page.goto("/libraries/lib-1/tags");
     await expect(page.getByText("Add labels to organize files and folders.")).toBeVisible();
     await expect(page.getByText("2 tags")).toBeVisible();
-    // Tags appear as input values for inline editing
-    await expect(page.locator('input[value="Important"]')).toBeVisible();
-    await expect(page.locator('input[value="Archive"]')).toBeVisible();
+    const tagNameInputs = page.locator("section:has(h2:has-text('Manage Tags')) input.input-sm.w-full");
+    await expect(tagNameInputs).toHaveCount(2);
+    await expect(tagNameInputs.nth(0)).toHaveValue("Archive");
+    await expect(tagNameInputs.nth(1)).toHaveValue("Important");
   });
 
   test("navigates between library settings sections", async ({ page }) => {

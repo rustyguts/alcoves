@@ -22,7 +22,7 @@ describe("AlcovesImage", () => {
     expect(img.attributes("alt")).toBe("preview");
   });
 
-  it("uses default format and optional attrs when values are omitted", () => {
+  it("uses default format and quality when values are omitted", () => {
     const wrapper = mount(AlcovesImage, {
       props: {
         libraryId: "lib-2",
@@ -31,7 +31,9 @@ describe("AlcovesImage", () => {
     });
 
     const img = wrapper.get("img");
-    expect(img.attributes("src")).toBe("/api/files/proxy/lib-2/file-2?format=jpeg");
+    expect(img.attributes("src")).toBe(
+      "/api/files/proxy/lib-2/file-2?format=jpeg&quality=80",
+    );
     expect(img.attributes("loading")).toBe("lazy");
     expect(img.attributes("decoding")).toBe("async");
   });
@@ -48,6 +50,8 @@ describe("AlcovesImage", () => {
     });
 
     const img = wrapper.get("img");
+    expect(img.attributes("src")).toContain("width=300");
+    expect(img.attributes("src")).toContain("height=200");
     expect(img.attributes("width")).toBe("300");
     expect(img.attributes("height")).toBe("200");
     expect(img.classes()).toEqual(expect.arrayContaining(["rounded-md", "object-cover"]));

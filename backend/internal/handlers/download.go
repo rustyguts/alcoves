@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -145,10 +148,11 @@ func (h *DownloadHandler) Download(c echo.Context) error {
 type FileProxyHandler struct {
 	db         *gorm.DB
 	storageSvc *storage.Service
+	processor  imageproxy.Processor
 }
 
-func NewFileProxyHandler(db *gorm.DB, storageSvc *storage.Service) *FileProxyHandler {
-	return &FileProxyHandler{db: db, storageSvc: storageSvc}
+func NewFileProxyHandler(db *gorm.DB, storageSvc *storage.Service, processor imageproxy.Processor) *FileProxyHandler {
+	return &FileProxyHandler{db: db, storageSvc: storageSvc, processor: processor}
 }
 
 func (h *FileProxyHandler) RegisterRoutes(g *echo.Group) {
@@ -176,6 +180,29 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
 	}
 
+	// Parse optional image transform query parameters.
+	opts := parseTransformOptions(c)
+
+	// If transforms are requested and the file is an image, process through libvips.
+	if h.processor != nil && imageproxy.NeedsTransform(opts) && isImageMime(file.MimeType) {
+		srcData, err := h.storageSvc.ReadFileBuffer(libraryID, fileID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read file")
+		}
+
+		outBytes, mime, err := h.processor.Transform(srcData, opts)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to transform image")
+		}
+
+		c.Response().Header().Set("Content-Type", mime)
+		c.Response().Header().Set("Content-Length", fmt.Sprintf("%d", len(outBytes)))
+		c.Response().Header().Set("Cache-Control", "public, max-age=31536000")
+
+		return c.Blob(http.StatusOK, mime, outBytes)
+	}
+
+	// No transform — stream the original file.
 	size, err := h.storageSvc.FileStat(libraryID, fileID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found on storage")
@@ -194,6 +221,40 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	return c.Stream(http.StatusOK, file.MimeType, reader)
 }
 
+// parseTransformOptions extracts image transform parameters from query string.
+func parseTransformOptions(c echo.Context) imageproxy.TransformOptions {
+	var opts imageproxy.TransformOptions
+
+	if w := c.QueryParam("width"); w != "" {
+		if v, err := strconv.Atoi(w); err == nil && v > 0 {
+			opts.Width = v
+		}
+	}
+	if h := c.QueryParam("height"); h != "" {
+		if v, err := strconv.Atoi(h); err == nil && v > 0 {
+			opts.Height = v
+		}
+	}
+	if q := c.QueryParam("quality"); q != "" {
+		if v, err := strconv.Atoi(q); err == nil && v > 0 && v <= 100 {
+			opts.Quality = v
+		}
+	}
+	if f := c.QueryParam("format"); f != "" {
+		switch f {
+		case "jpeg", "webp", "avif", "png":
+			opts.Format = f
+		}
+	}
+
+	return opts
+}
+
+// isImageMime returns true for MIME types that libvips can process.
+func isImageMime(mime string) bool {
+	return strings.HasPrefix(mime, "image/")
+}
+
 func getDescendants(db *gorm.DB, libraryID, rootID string) []string {
 	var descendants []string
 	visited := map[string]bool{}
@@ -207,7 +268,9 @@ func getDescendants(db *gorm.DB, libraryID, rootID string) []string {
 		}
 		visited[cur] = true
 
-		var children []struct{ ID string `gorm:"column:id"` }
+		var children []struct {
+			ID string `gorm:"column:id"`
+		}
 		db.Raw("SELECT id FROM folders WHERE library_id = ? AND parent_folder_id = ? AND trashed_at IS NULL", libraryID, cur).Scan(&children)
 		for _, ch := range children {
 			descendants = append(descendants, ch.ID)
