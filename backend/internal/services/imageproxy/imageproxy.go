@@ -38,6 +38,11 @@ func (p *VipsProcessor) Transform(srcData []byte, opts TransformOptions) ([]byte
 	}
 	defer img.Close()
 
+	// Apply EXIF rotation so the output matches the intended orientation.
+	if err := img.AutoRotate(); err != nil {
+		return nil, "", fmt.Errorf("failed to auto-rotate image: %w", err)
+	}
+
 	// Resize to fit within requested dimensions (maintain aspect ratio).
 	if opts.Width > 0 || opts.Height > 0 {
 		origW := float64(img.Width())

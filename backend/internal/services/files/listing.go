@@ -96,25 +96,25 @@ type PaginatedFiles struct {
 
 // listingRow is the internal union type for sorting folders and files together.
 type listingRow struct {
-	ID             string
-	LibraryID      string
-	ParentFolderID *string
-	OwnerID        *string
-	Name           string
-	Kind           string // "folder" or "file"
-	KindRank       int    // 0=folder, 1=file
-	SortName       string // lower(name)
-	MimeType       *string
-	Size           *int64
-	Duration       *int
-	Width          *int
-	Height         *int
-	ProxyStatus    *string
-	SourceFileID   *string
+	ID                string
+	LibraryID         string
+	ParentFolderID    *string
+	OwnerID           *string
+	Name              string
+	Kind              string // "folder" or "file"
+	KindRank          int    // 0=folder, 1=file
+	SortName          string // lower(name)
+	MimeType          *string
+	Size              *int64
+	Duration          *int
+	Width             *int
+	Height            *int
+	ProxyStatus       *string
+	SourceFileID      *string
 	OriginalCreatedAt *time.Time
-	TrashedAt      *time.Time
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	TrashedAt         *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 type Service struct {
@@ -593,7 +593,7 @@ func (s *Service) getTrashedFolderFileCounts(libraryID string, folderIDs []strin
 	}
 	var countRows []countRow
 	s.db.Raw(
-		"SELECT parent_folder_id, COUNT(*) as count FROM files WHERE library_id = ? AND parent_folder_id IN ? GROUP BY parent_folder_id",
+		"SELECT parent_folder_id, COUNT(*) as count FROM files WHERE library_id = ? AND trashed_at IS NOT NULL AND parent_folder_id IN ? GROUP BY parent_folder_id",
 		libraryID, ids,
 	).Scan(&countRows)
 

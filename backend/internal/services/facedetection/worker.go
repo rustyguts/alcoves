@@ -21,7 +21,7 @@ import (
 
 const (
 	TaskTypeFaceDetect = "face:detect"
-	thumbnailSize      = 150
+	thumbnailSize      = 300
 	thumbnailPadding   = 0.3 // 30% padding around face crop
 )
 
@@ -33,17 +33,17 @@ type FaceDetectPayload struct {
 
 // TaskHandler handles face detection asynq tasks.
 type TaskHandler struct {
-	db         *gorm.DB
-	storage    *storage.Service
-	config     *FaceConfig
+	db      *gorm.DB
+	storage *storage.Service
+	config  *FaceConfig
 
 	// Lazy-loaded ONNX sessions (thread-safe)
-	detOnce     sync.Once
-	detSession  *ort.DynamicAdvancedSession
-	detErr      error
-	recOnce     sync.Once
-	recSession  *ort.DynamicAdvancedSession
-	recErr      error
+	detOnce    sync.Once
+	detSession *ort.DynamicAdvancedSession
+	detErr     error
+	recOnce    sync.Once
+	recSession *ort.DynamicAdvancedSession
+	recErr     error
 }
 
 // NewTaskHandler creates a new face detection task handler.
@@ -230,42 +230,48 @@ func (h *TaskHandler) generateFaceThumbnail(imageData []byte, face DetectedFace,
 	}
 	defer img.Close()
 
+	// Apply EXIF rotation to match the orientation used during detection.
+	if err := img.AutoRotate(); err != nil {
+		return fmt.Errorf("failed to auto-rotate image: %w", err)
+	}
+
 	imgW := img.Width()
 	imgH := img.Height()
 
-	// Compute crop region with padding
-	padW := face.Box.Width * thumbnailPadding
-	padH := face.Box.Height * thumbnailPadding
+	// Compute a square crop centered on the face. Use the larger of width/height
+	// plus padding so the face is never clipped.
+	side := math.Max(face.Box.Width, face.Box.Height) * (1 + 2*thumbnailPadding)
 
-	cropX := int(math.Max(0, face.Box.X-padW))
-	cropY := int(math.Max(0, face.Box.Y-padH))
-	cropW := int(math.Min(float64(imgW)-float64(cropX), face.Box.Width+2*padW))
-	cropH := int(math.Min(float64(imgH)-float64(cropY), face.Box.Height+2*padH))
+	// Center of the face bounding box
+	cx := face.Box.X + face.Box.Width/2
+	cy := face.Box.Y + face.Box.Height/2
 
-	if cropW <= 0 || cropH <= 0 {
+	// Square crop origin, clamped to image bounds
+	cropX := int(math.Max(0, math.Min(cx-side/2, float64(imgW)-side)))
+	cropY := int(math.Max(0, math.Min(cy-side/2, float64(imgH)-side)))
+	cropSize := int(math.Min(side, math.Min(float64(imgW), float64(imgH))))
+
+	if cropSize <= 0 {
 		return fmt.Errorf("invalid crop dimensions")
 	}
 
-	// Crop
-	if err := img.ExtractArea(cropX, cropY, cropW, cropH); err != nil {
+	// Clamp to image edges
+	if cropX+cropSize > imgW {
+		cropSize = imgW - cropX
+	}
+	if cropY+cropSize > imgH {
+		cropSize = imgH - cropY
+	}
+
+	// Crop square region
+	if err := img.ExtractArea(cropX, cropY, cropSize, cropSize); err != nil {
 		return err
 	}
 
-	// Resize to 150x150 (square)
-	scale := float64(thumbnailSize) / math.Max(float64(cropW), float64(cropH))
+	// Resize to 150x150
+	scale := float64(thumbnailSize) / float64(cropSize)
 	if err := img.Resize(scale, vips.KernelLinear); err != nil {
 		return err
-	}
-
-	// Ensure exactly 150x150 with padding if needed
-	currentW := img.Width()
-	currentH := img.Height()
-	if currentW < thumbnailSize || currentH < thumbnailSize {
-		padLeft := (thumbnailSize - currentW) / 2
-		padTop := (thumbnailSize - currentH) / 2
-		if err := img.Embed(padLeft, padTop, thumbnailSize, thumbnailSize, vips.ExtendBlack); err != nil {
-			return err
-		}
 	}
 
 	// Export as WebP

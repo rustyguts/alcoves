@@ -56,7 +56,22 @@ func (s *Service) StoreFileStream(libraryID, fileID string, reader io.Reader) (i
 }
 
 func (s *Service) DeleteFile(libraryID, fileID string) error {
-	return s.driver.DeletePrefix(ScopeFiles, fmt.Sprintf("%s/%s", libraryID, fileID))
+	prefix := fmt.Sprintf("%s/%s", libraryID, fileID)
+	if err := s.driver.DeletePrefix(ScopeFiles, prefix); err != nil {
+		return err
+	}
+	// Remove derived per-file cache artifacts (e.g. video proxy + thumbnail).
+	if err := s.driver.DeletePrefix(ScopeCache, prefix); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteFileBlob removes only the original file blob from storage,
+// leaving cache artifacts (proxy, thumbnail) intact.
+func (s *Service) DeleteFileBlob(libraryID, fileID string) error {
+	prefix := fmt.Sprintf("%s/%s", libraryID, fileID)
+	return s.driver.DeletePrefix(ScopeFiles, prefix)
 }
 
 func (s *Service) FileExists(libraryID, fileID string) (bool, error) {

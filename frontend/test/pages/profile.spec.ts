@@ -60,6 +60,7 @@ vi.mock("~/composables/useToast", () => ({
 }));
 
 vi.mock("~/composables/useTheme", () => ({
+  daisyThemes: ["light", "dark", "cupcake"],
   useTheme: () => ({
     theme: mockRef(() => (mocks.colorPreference === "dark" ? "dark" : "light")),
     preference: mockRef(

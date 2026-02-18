@@ -10,12 +10,13 @@ import (
 )
 
 const (
-	detInputSize  = 640
-	nmsThreshold  = 0.4
-	minFaceSize   = 20
-	maxFaceCount  = 256
-	minAspect     = 0.3
-	maxAspect     = 3.0
+	detInputSize      = 640
+	nmsThreshold      = 0.4
+	minFaceSize       = 20
+	maxFaceCount      = 256
+	minAspect         = 0.3
+	maxAspect         = 3.0
+	numAnchorsPerCell = 2 // SCRFD det_10g uses 2 anchors per grid cell
 )
 
 // BoundingBox represents a face bounding box in pixel coordinates.
@@ -35,18 +36,23 @@ type DetectedFace struct {
 
 // DetectFaces runs the SCRFD detection model on image data and returns detected faces.
 func DetectFaces(session *ort.DynamicAdvancedSession, imageData []byte, minScore float64) ([]DetectedFace, int, int, error) {
-	// Load image with govips
+	// Load image with govips and apply EXIF rotation so detection runs on
+	// the correctly-oriented pixels (matching what users see in browsers).
 	img, err := vips.NewImageFromBuffer(imageData)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("failed to load image: %w", err)
 	}
 	defer img.Close()
 
+	if err := img.AutoRotate(); err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to auto-rotate image: %w", err)
+	}
+
 	origW := img.Width()
 	origH := img.Height()
 
-	// Letterbox resize to 640x640
-	inputTensor, scaleX, scaleY, padX, padY, err := preprocessForDetection(img)
+	// Resize to fit within 640x640 with top-left padding (matching InsightFace reference).
+	inputTensor, detScale, err := preprocessForDetection(img)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("preprocessing failed: %w", err)
 	}
@@ -73,7 +79,7 @@ func DetectFaces(session *ort.DynamicAdvancedSession, imageData []byte, minScore
 		}
 	}()
 
-	// Parse outputs by stride
+	// Parse outputs by stride.
 	// Output order: score_8, score_16, score_32, bbox_8, bbox_16, bbox_32, kps_8, kps_16, kps_32
 	strides := []int{8, 16, 32}
 
@@ -87,27 +93,25 @@ func DetectFaces(session *ort.DynamicAdvancedSession, imageData []byte, minScore
 		bboxes := bboxTensor.GetData()
 		kps := kpsTensor.GetData()
 
-		scoreShape := scoreTensor.GetShape()
-		anchorCount := int(scoreShape[1])
-
-		faces := decodeStride(scores, bboxes, kps, stride, anchorCount, detInputSize, minScore)
+		faces := decodeStride(scores, bboxes, kps, stride, detInputSize, minScore)
 		allFaces = append(allFaces, faces...)
 	}
 
 	// Apply NMS
 	allFaces = nms(allFaces, nmsThreshold)
 
-	// Map back to original image coordinates
+	// Map back to original image coordinates by dividing by detScale.
+	// The resized image is placed at origin (0,0) so no padding offset is needed.
 	for i := range allFaces {
 		f := &allFaces[i]
-		f.Box.X = (f.Box.X - padX) / scaleX
-		f.Box.Y = (f.Box.Y - padY) / scaleY
-		f.Box.Width = f.Box.Width / scaleX
-		f.Box.Height = f.Box.Height / scaleY
+		f.Box.X /= detScale
+		f.Box.Y /= detScale
+		f.Box.Width /= detScale
+		f.Box.Height /= detScale
 
 		for j := range f.Landmarks {
-			f.Landmarks[j][0] = (f.Landmarks[j][0] - padX) / scaleX
-			f.Landmarks[j][1] = (f.Landmarks[j][1] - padY) / scaleY
+			f.Landmarks[j][0] /= detScale
+			f.Landmarks[j][1] /= detScale
 		}
 	}
 
@@ -135,41 +139,47 @@ func DetectFaces(session *ort.DynamicAdvancedSession, imageData []byte, minScore
 	return filtered, origW, origH, nil
 }
 
-// preprocessForDetection resizes and pads the image to 640x640 with letterboxing.
-// Returns the float32 CHW tensor and the transform parameters.
-func preprocessForDetection(img *vips.ImageRef) ([]float32, float64, float64, float64, float64, error) {
+// preprocessForDetection resizes the image to fit within 640x640, pads with black
+// at the right/bottom edges (top-left aligned, matching InsightFace reference),
+// and returns the float32 CHW tensor plus the detection scale factor.
+func preprocessForDetection(img *vips.ImageRef) ([]float32, float64, error) {
 	w := img.Width()
 	h := img.Height()
 
-	// Compute scale to fit within 640x640
-	scale := math.Min(float64(detInputSize)/float64(w), float64(detInputSize)/float64(h))
-	newW := int(math.Round(float64(w) * scale))
-	newH := int(math.Round(float64(h) * scale))
+	// Compute scale to fit the longer side into 640 pixels.
+	// This matches the reference: det_scale = float(new_height) / img.shape[0]
+	// where new_height is computed from the aspect ratio.
+	ratio := float64(h) / float64(w)
+	var newW, newH int
+	if ratio > 1.0 {
+		// Portrait: height is the constraining dimension
+		newH = detInputSize
+		newW = int(float64(detInputSize) / ratio)
+	} else {
+		// Landscape or square: width is the constraining dimension
+		newW = detInputSize
+		newH = int(float64(newW) * ratio)
+	}
+	detScale := float64(newH) / float64(h)
 
 	// Resize
-	hScale := float64(newH) / float64(h)
-	vScale := float64(newW) / float64(w)
-	_ = hScale
-	if err := img.Resize(vScale, vips.KernelLinear); err != nil {
-		return nil, 0, 0, 0, 0, err
+	if err := img.Resize(detScale, vips.KernelLinear); err != nil {
+		return nil, 0, err
 	}
 
-	// Pad to 640x640 (add black border)
-	padX := float64(detInputSize-newW) / 2
-	padY := float64(detInputSize-newH) / 2
-	padLeft := int(padX)
-	padTop := int(padY)
-	padRight := detInputSize - newW - padLeft
-	padBottom := detInputSize - newH - padTop
-
-	if err := img.Embed(padLeft, padTop, newW+padLeft+padRight, newH+padTop+padBottom, vips.ExtendBlack); err != nil {
-		return nil, 0, 0, 0, 0, err
+	// Pad to 640x640 with black at right/bottom (top-left aligned).
+	actualW := img.Width()
+	actualH := img.Height()
+	if actualW < detInputSize || actualH < detInputSize {
+		if err := img.Embed(0, 0, detInputSize, detInputSize, vips.ExtendBlack); err != nil {
+			return nil, 0, err
+		}
 	}
 
 	// Export to raw bytes (RGB)
 	rawBytes, err := exportRGB(img)
 	if err != nil {
-		return nil, 0, 0, 0, 0, err
+		return nil, 0, err
 	}
 
 	// Convert to CHW float32 with normalization: (pixel - 127.5) / 128.0
@@ -179,12 +189,12 @@ func preprocessForDetection(img *vips.ImageRef) ([]float32, float64, float64, fl
 		r := float32(rawBytes[i*3]) - 127.5
 		g := float32(rawBytes[i*3+1]) - 127.5
 		b := float32(rawBytes[i*3+2]) - 127.5
-		tensor[i] = r / 128.0            // R channel
-		tensor[pixels+i] = g / 128.0     // G channel
-		tensor[2*pixels+i] = b / 128.0   // B channel
+		tensor[i] = r / 128.0          // R channel
+		tensor[pixels+i] = g / 128.0   // G channel
+		tensor[2*pixels+i] = b / 128.0 // B channel
 	}
 
-	return tensor, scale, scale, padX, padY, nil
+	return tensor, detScale, nil
 }
 
 // exportRGB exports a vips image as raw RGB bytes.
@@ -258,63 +268,80 @@ func exportRawRGB(img *vips.ImageRef) ([]byte, error) {
 }
 
 // decodeStride decodes detections for a single stride level.
-func decodeStride(scores, bboxes, kps []float32, stride, anchorCount, inputSize int, minScore float64) []DetectedFace {
-	gridSize := inputSize / stride
-	var faces []DetectedFace
+// Matches the InsightFace SCRFD reference implementation.
+//
+// The score tensor is [1, totalAnchors, 1] (batched) where totalAnchors = H * W * numAnchorsPerCell.
+// The bbox tensor is [1, totalAnchors, 4] with distance predictions (left, top, right, bottom).
+// The kps tensor is [1, totalAnchors, 10] with landmark offsets.
+//
+// Anchor centers are computed as (x * stride, y * stride) for each grid position, repeated
+// for each anchor per cell.
+func decodeStride(scores, bboxes, kps []float32, stride, inputSize int, minScore float64) []DetectedFace {
+	gridH := inputSize / stride
+	gridW := inputSize / stride
+	numCells := gridH * gridW
 
-	for y := 0; y < gridSize; y++ {
-		for x := 0; x < gridSize; x++ {
-			for a := 0; a < anchorCount; a++ {
-				idx := (y*gridSize + x) * anchorCount + a
-				if idx >= len(scores) {
-					continue
-				}
-				score := float64(scores[idx])
-				if score < minScore {
-					continue
-				}
-
-				// Anchor center
-				cx := (float64(x) + 0.5) * float64(stride)
-				cy := (float64(y) + 0.5) * float64(stride)
-
-				// Decode bounding box (distance format)
-				bIdx := idx * 4
-				if bIdx+3 >= len(bboxes) {
-					continue
-				}
-				left := float64(bboxes[bIdx]) * float64(stride)
-				top := float64(bboxes[bIdx+1]) * float64(stride)
-				right := float64(bboxes[bIdx+2]) * float64(stride)
-				bottom := float64(bboxes[bIdx+3]) * float64(stride)
-
-				bx := cx - left
-				by := cy - top
-				bw := left + right
-				bh := top + bottom
-
-				// Decode landmarks
-				var landmarks [5][2]float64
-				kIdx := idx * 10
-				if kIdx+9 < len(kps) {
-					for l := 0; l < 5; l++ {
-						landmarks[l][0] = cx + float64(kps[kIdx+l*2])*float64(stride)
-						landmarks[l][1] = cy + float64(kps[kIdx+l*2+1])*float64(stride)
-					}
-				}
-
-				faces = append(faces, DetectedFace{
-					Box: BoundingBox{
-						X:      bx,
-						Y:      by,
-						Width:  bw,
-						Height: bh,
-					},
-					Landmarks:  landmarks,
-					Confidence: score,
-				})
+	// Build anchor centers: for each (y, x) grid cell, repeated numAnchorsPerCell times.
+	// Order: all anchors for (0,0), all anchors for (0,1), ..., matching InsightFace's
+	// np.stack(np.mgrid[:height, :width][::-1], axis=-1) with anchor stacking.
+	anchorCenters := make([][2]float64, numCells*numAnchorsPerCell)
+	idx := 0
+	for y := 0; y < gridH; y++ {
+		for x := 0; x < gridW; x++ {
+			cx := float64(x) * float64(stride)
+			cy := float64(y) * float64(stride)
+			for a := 0; a < numAnchorsPerCell; a++ {
+				anchorCenters[idx] = [2]float64{cx, cy}
+				idx++
 			}
 		}
+	}
+
+	totalAnchors := len(anchorCenters)
+	var faces []DetectedFace
+
+	for i := 0; i < totalAnchors; i++ {
+		if i >= len(scores) {
+			break
+		}
+		score := float64(scores[i])
+		if score < minScore {
+			continue
+		}
+
+		cx := anchorCenters[i][0]
+		cy := anchorCenters[i][1]
+
+		// Decode bounding box: distance format -> (x1, y1, x2, y2) -> (x, y, w, h)
+		bIdx := i * 4
+		if bIdx+3 >= len(bboxes) {
+			continue
+		}
+		x1 := cx - float64(bboxes[bIdx])*float64(stride)
+		y1 := cy - float64(bboxes[bIdx+1])*float64(stride)
+		x2 := cx + float64(bboxes[bIdx+2])*float64(stride)
+		y2 := cy + float64(bboxes[bIdx+3])*float64(stride)
+
+		// Decode landmarks
+		var landmarks [5][2]float64
+		kIdx := i * 10
+		if kIdx+9 < len(kps) {
+			for l := 0; l < 5; l++ {
+				landmarks[l][0] = cx + float64(kps[kIdx+l*2])*float64(stride)
+				landmarks[l][1] = cy + float64(kps[kIdx+l*2+1])*float64(stride)
+			}
+		}
+
+		faces = append(faces, DetectedFace{
+			Box: BoundingBox{
+				X:      x1,
+				Y:      y1,
+				Width:  x2 - x1,
+				Height: y2 - y1,
+			},
+			Landmarks:  landmarks,
+			Confidence: score,
+		})
 	}
 
 	return faces

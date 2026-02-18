@@ -16,7 +16,6 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/database"
 	"github.com/alcoves/alcoves-backend/internal/handlers"
 	"github.com/alcoves/alcoves-backend/internal/middleware"
-	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/hibiken/asynq"
 
 	"github.com/alcoves/alcoves-backend/internal/services/access"
@@ -40,31 +39,13 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Database migrations
-	if cfg.Environment == "production" {
-		// Production: apply versioned SQL migrations
-		if err := database.RunMigrations(cfg.DatabaseURL, "migrations"); err != nil {
-			log.Fatalf("Failed to run database migrations: %v", err)
-		}
-	} else {
-		// Development: GORM auto-migrate for convenience
-		if err := db.AutoMigrate(
-			&models.User{},
-			&models.Library{},
-			&models.LibraryMember{},
-			&models.Account{},
-			&models.Session{},
-			&models.File{},
-			&models.Folder{},
-			&models.Tag{},
-			&models.FileTag{},
-			&models.FolderTag{},
-			&models.Person{},
-			&models.FaceDetection{},
-			&models.LibraryInvite{},
-		); err != nil {
-			log.Fatalf("Failed to auto-migrate database: %v", err)
-		}
+	// Database migrations — apply all pending SQL migrations (embedded in binary).
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Failed to get underlying *sql.DB: %v", err)
+	}
+	if err := database.RunMigrations(sqlDB); err != nil {
+		log.Fatalf("Failed to run database migrations: %v", err)
 	}
 
 	// Services

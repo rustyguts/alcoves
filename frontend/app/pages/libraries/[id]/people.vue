@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useLibraryPeople } from "~/composables/useLibraryPeople";
 import AppIcon from "~/components/AppIcon.vue";
-import AlcovesImage from "~/components/AlcovesImage.vue";
-import FilePreview from "~/components/FilePreview.vue";
-import type { Library, LibraryFile } from "~~/shared/types/api";
+import type { Library } from "~~/shared/types/api";
 
 const route = useRoute();
+const router = useRouter();
 const libraryId = computed(() => route.params.id as string);
 const { data: library } = useApiFetch<Library>(() => `/api/libraries/${libraryId.value}`);
 const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
@@ -16,72 +15,51 @@ watch(library, () => {
   refreshLibraries?.();
 });
 
-const files = ref<LibraryFile[]>([]);
-
 const {
   people: libraryPeople,
   loading: peopleLoading,
   selectedPeople,
-  activePerson,
-  activePersonFaces,
-  loadingFaces,
-  updatingCoverFaceId,
-  splittingFaceId,
   fetchPeople,
   renamePerson,
   mergePeople,
-  loadPersonFaces,
-  setPersonCover,
-  splitFaceAsNewPerson,
   togglePersonSelection,
   getPersonThumbnailUrl,
-  closePersonDetail,
 } = useLibraryPeople(libraryId);
 
-const renamingPersonId = ref<string | null>(null);
+const renamePersonOpen = ref(false);
+const renamePersonTarget = ref<{ id: string; name: string | null } | null>(null);
 const renamePersonValue = ref("");
 const renamingPersonSavingId = ref<string | null>(null);
-const previewFile = ref<LibraryFile | null>(null);
-const previewOpen = ref(false);
-const splitFaceOpen = ref(false);
-const splitFaceName = ref("");
-const splitFaceTarget = ref<{ faceId: string; fileName: string } | null>(null);
 
-function startPersonRename(person: { id: string; name: string | null }) {
-  renamingPersonId.value = person.id;
+function openRenamePersonModal(person: { id: string; name: string | null }) {
+  renamePersonTarget.value = person;
   renamePersonValue.value = person.name ?? "";
+  renamePersonOpen.value = true;
 }
 
-async function savePersonRename(personId: string) {
-  if (renamingPersonId.value !== personId || renamingPersonSavingId.value === personId) return;
-  renamingPersonSavingId.value = personId;
-  renamingPersonId.value = null;
-  await renamePerson(personId, renamePersonValue.value);
+function closeRenamePersonModal() {
+  if (renamingPersonSavingId.value) return;
+  renamePersonOpen.value = false;
+  renamePersonTarget.value = null;
+  renamePersonValue.value = "";
+}
+
+async function confirmRenamePerson() {
+  const target = renamePersonTarget.value;
+  if (!target || renamingPersonSavingId.value) return;
+
+  renamingPersonSavingId.value = target.id;
+  await renamePerson(target.id, renamePersonValue.value.trim());
   renamingPersonSavingId.value = null;
+  closeRenamePersonModal();
 }
 
-function getPersonLabel(person: { name: string | null }): string {
-  return person.name?.trim() || "Name this person";
+function openPerson(personId: string) {
+  void router.push(`/libraries/${libraryId.value}/people/${personId}`);
 }
 
 function getPersonAlt(person: { name: string | null }): string {
   return person.name?.trim() || "Unnamed person";
-}
-
-function openSplitFaceModal(faceId: string, fileName: string) {
-  splitFaceTarget.value = { faceId, fileName };
-  splitFaceName.value = "";
-  splitFaceOpen.value = true;
-}
-
-async function confirmSplitFace() {
-  const active = activePerson.value;
-  const target = splitFaceTarget.value;
-  if (!active || !target) return;
-
-  await splitFaceAsNewPerson(active.id, target.faceId, splitFaceName.value);
-  splitFaceOpen.value = false;
-  splitFaceTarget.value = null;
 }
 
 onMounted(() => {
@@ -93,18 +71,12 @@ onMounted(() => {
   <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
     <div class="grid gap-4">
       <div v-if="selectedPeople.size >= 2" class="flex items-center gap-2">
-        <button
-          class="btn btn-sm btn-primary"
-          @click="mergePeople"
-        >
+        <button class="btn btn-sm btn-primary" @click="mergePeople">
           <AppIcon name="i-lucide-merge" class="size-4" />
           Merge Selected
         </button>
         <span class="text-sm text-muted">{{ selectedPeople.size }} selected</span>
-        <button
-          class="btn btn-sm btn-neutral btn-ghost"
-          @click="selectedPeople.clear()"
-        >
+        <button class="btn btn-sm btn-neutral btn-ghost" @click="selectedPeople.clear()">
           Clear
         </button>
       </div>
@@ -113,56 +85,44 @@ onMounted(() => {
         <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
       </div>
 
-      <div
-        v-else-if="libraryPeople.length"
-        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"
-      >
-        <div
-          v-for="person in libraryPeople"
-          :key="person.id"
-          class="flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors select-none"
-          :class="
-            selectedPeople.has(person.id)
-              ? 'ring-2 ring-primary/50 bg-primary/5'
-              : 'hover:bg-elevated/50'
-          "
-          @click="togglePersonSelection(person.id)"
-          @dblclick="loadPersonFaces(person)"
-        >
-          <img
-            :src="getPersonThumbnailUrl(person)"
-            :alt="getPersonAlt(person)"
-            class="size-20 rounded-full object-cover border-2 border-default"
-            loading="lazy"
-            @error="($event.target as HTMLImageElement).style.display = 'none'"
-          />
-          <div class="text-center w-full">
-            <template v-if="renamingPersonId === person.id">
-              <input
-                v-model="renamePersonValue"
-                autofocus
-                placeholder="Enter a name"
-                class="input input-sm w-full"
-                @blur="savePersonRename(person.id)"
-                @keydown.enter.prevent="savePersonRename(person.id)"
-                @keydown.escape="renamingPersonId = null"
-                @click.stop
-              />
-            </template>
-            <template v-else>
-              <button
-                type="button"
-                class="text-sm font-medium truncate w-full hover:text-primary transition-colors"
-                @click.stop="startPersonRename(person)"
-              >
-                {{ getPersonLabel(person) }}
-              </button>
-            </template>
-            <p v-if="!person.name" class="text-[11px] text-muted">Tap to add a name</p>
-            <p class="text-xs text-muted">
-              {{ person.faceCount }} {{ person.faceCount === 1 ? "photo" : "photos" }}
-            </p>
-          </div>
+      <div v-else-if="libraryPeople.length" class="space-y-2 p-2">
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="person in libraryPeople"
+            :key="person.id"
+            type="button"
+            class="group relative size-40 shrink-0 overflow-hidden rounded-box border border-base-300 bg-base-200 cursor-pointer select-none transition"
+            :class="
+              selectedPeople.has(person.id)
+                ? 'ring-2 ring-primary ring-offset-2 ring-offset-base-100'
+                : 'hover:border-base-content/40'
+            "
+            :title="person.name?.trim() || 'Unnamed person'"
+            @click="togglePersonSelection(person.id)"
+            @dblclick="openPerson(person.id)"
+            @contextmenu.prevent="openRenamePersonModal(person)"
+          >
+            <img
+              :src="getPersonThumbnailUrl(person)"
+              :alt="getPersonAlt(person)"
+              class="size-full object-cover"
+              loading="lazy"
+              @error="($event.target as HTMLImageElement).style.display = 'none'"
+            />
+            <div
+              class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"
+            />
+            <div
+              class="pointer-events-none absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] text-white"
+            >
+              {{ person.faceCount }}
+            </div>
+            <div v-if="person.name?.trim()" class="pointer-events-none absolute inset-x-2 bottom-2">
+              <p class="truncate text-center text-xs font-medium text-white">
+                {{ person.name }}
+              </p>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -179,132 +139,41 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Person detail modal -->
-    <dialog class="modal" :class="{ 'modal-open': !!activePerson }">
+    <!-- Rename person modal -->
+    <dialog class="modal" :class="{ 'modal-open': renamePersonOpen }">
       <div class="modal-box">
-        <h3 class="text-lg font-bold mb-4">Person's Photos</h3>
-        <div v-if="activePerson">
-          <div v-if="loadingFaces" class="flex justify-center py-8">
-            <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
-          </div>
-          <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div
-              v-for="face in activePersonFaces"
-              :key="face.id"
-              class="relative rounded-lg overflow-hidden bg-elevated/50"
-            >
-              <button
-                type="button"
-                class="absolute top-2 right-2 z-10 rounded-full p-1.5 transition-colors"
-                :class="
-                  activePerson.coverFaceDetectionId === face.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-black/50 text-white hover:bg-black/70'
-                "
-                :title="
-                  activePerson.coverFaceDetectionId === face.id
-                    ? 'Current cover photo'
-                    : 'Set as cover photo'
-                "
-                :disabled="updatingCoverFaceId === face.id"
-                @click.stop="setPersonCover(activePerson.id, face.id)"
-              >
-                <AppIcon
-                  :name="
-                    activePerson.coverFaceDetectionId === face.id
-                      ? 'i-lucide-check'
-                      : 'i-lucide-image-up'
-                  "
-                  class="size-4"
-                />
-              </button>
-              <AlcovesImage
-                :library-id="libraryId || ''"
-                :file-id="face.fileId"
-                :alt="face.fileName"
-                :width="300"
-                :height="300"
-                class="w-full aspect-square object-cover"
-              />
-              <div class="p-2">
-                <p class="text-xs truncate">{{ face.fileName }}</p>
-                <div class="mt-1 flex items-center justify-between gap-2">
-                  <p
-                    v-if="activePerson.coverFaceDetectionId === face.id"
-                    class="text-[11px] text-primary"
-                  >
-                    Cover photo
-                  </p>
-                  <button
-                    class="btn btn-xs btn-neutral btn-outline"
-                    :disabled="splittingFaceId === face.id"
-                    @click.stop="openSplitFaceModal(face.id, face.fileName)"
-                  >
-                    <span v-if="splittingFaceId === face.id" class="loading loading-spinner loading-xs"></span>
-                    Wrong match
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="closePersonDetail()">close</button>
-      </form>
-    </dialog>
-
-    <FilePreview
-      v-if="previewFile"
-      v-model:open="previewOpen"
-      :file="previewFile"
-      :library-id="libraryId || ''"
-      :files="files"
-      @navigate="previewFile = $event"
-    />
-
-    <!-- Split face modal -->
-    <dialog class="modal" :class="{ 'modal-open': splitFaceOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold mb-4">Create New Person</h3>
-        <div class="space-y-3">
-          <p class="text-sm text-muted">
-            This face will be removed from the current person and placed into a new one.
-          </p>
-          <p class="text-xs text-muted truncate">
-            Selected photo: {{ splitFaceTarget?.fileName ?? "Unknown file" }}
-          </p>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Name (optional)</legend>
-            <input
-              v-model="splitFaceName"
-              placeholder="e.g. Alex"
-              class="input w-full"
-              @keydown.enter.prevent="confirmSplitFace"
-            />
-          </fieldset>
-        </div>
+        <h3 class="text-lg font-bold mb-4">Name Person</h3>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">Person name</legend>
+          <input
+            v-model="renamePersonValue"
+            autofocus
+            placeholder="e.g. Alex"
+            class="input w-full"
+            @keydown.enter.prevent="confirmRenamePerson"
+          />
+        </fieldset>
+        <p class="mt-2 text-xs text-muted">Leave blank to remove the name</p>
         <div class="modal-action">
           <button
             class="btn btn-sm btn-neutral btn-outline"
-            :disabled="!!splittingFaceId"
-            @click="splitFaceOpen = false"
+            :disabled="!!renamingPersonSavingId"
+            @click="closeRenamePersonModal"
           >
             Cancel
           </button>
           <button
             class="btn btn-sm btn-primary"
-            :disabled="!!splittingFaceId"
-            @click="confirmSplitFace"
+            :disabled="!!renamingPersonSavingId || !renamePersonTarget"
+            @click="confirmRenamePerson"
           >
-            <span v-if="!!splittingFaceId" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-user-round-plus" class="size-4" />
-            Create New Person
+            <span v-if="!!renamingPersonSavingId" class="loading loading-spinner loading-xs"></span>
+            Save
           </button>
         </div>
       </div>
       <form method="dialog" class="modal-backdrop">
-        <button @click="splitFaceOpen = false">close</button>
+        <button @click="closeRenamePersonModal">close</button>
       </form>
     </dialog>
   </div>

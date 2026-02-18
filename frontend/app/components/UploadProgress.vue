@@ -28,10 +28,10 @@ const expanded = ref(true);
     >
       <div
         v-if="hasActiveUploads"
-        class="fixed bottom-4 right-4 z-50 w-96 bg-elevated rounded-lg shadow-xl overflow-hidden"
+        class="fixed bottom-4 right-4 z-50 w-96 bg-base-100 rounded-lg shadow-xl overflow-hidden"
       >
         <div
-          class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none bg-default/40"
+          class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none bg-base-200"
           @click="expanded = !expanded"
         >
           <span class="text-sm font-medium">
@@ -51,7 +51,7 @@ const expanded = ref(true);
 
         <div
           v-if="expanded && erroredUploads.length > 0"
-          class="flex items-center justify-between px-4 py-1.5 border-t border-default/50"
+          class="flex items-center justify-between px-4 py-1.5 border-t border-base-300"
         >
           <span class="text-xs text-error">{{ erroredUploads.length }} failed</span>
           <div class="flex gap-1">
@@ -64,7 +64,7 @@ const expanded = ref(true);
           <div
             v-for="item in activeUploads"
             :key="item.id"
-            class="px-2 py-2 rounded-md bg-default/35"
+            class="px-2 py-2 rounded-md bg-base-200/60"
           >
             <div class="flex items-center justify-between mb-1">
               <span class="text-sm truncate flex-1 mr-2">{{ item.file.name }}</span>

@@ -452,4 +452,116 @@ describe("useLibraryExplorer", () => {
     expect(mockApiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/folders");
     expect(result).toEqual(folders);
   });
+
+  it("viewMode initializes to trash when route path ends with /trash", () => {
+    mocks.route.path = "/libraries/lib-1/trash";
+    const { viewMode, showTrashed, isTrashRoute } = useLibraryExplorer();
+    expect(isTrashRoute.value).toBe(true);
+    expect(viewMode.value).toBe("trash");
+    expect(showTrashed.value).toBe(true);
+  });
+
+  it("initial fetchInitialData sends trashed=true when route is /trash", async () => {
+    // Simulate navigating directly to /libraries/lib-1/trash.
+    // The composable initializes viewMode="trash" from the route path,
+    // so the immediate watcher's fetchInitialData sends trashed=true.
+    mocks.route.path = "/libraries/lib-1/trash";
+
+    const trashedEntry: LibraryFile = {
+      id: "t1",
+      libraryId: "lib-1",
+      parentFolderId: null,
+      name: "trashed.jpg",
+      mimeType: "image/jpeg",
+      size: 100,
+      kind: "file",
+      originalCreatedAt: null,
+      trashedAt: "2025-01-01",
+      createdAt: "2025-01-01",
+      updatedAt: "2025-01-01",
+      owner: null,
+      tags: [],
+    };
+
+    mockApiFetch.mockResolvedValue({
+      entries: [trashedEntry],
+      nextCursor: null,
+      totalCount: 1,
+      breadcrumbs: [],
+    });
+
+    const { entries } = useLibraryExplorer();
+    await flushPromises();
+
+    // The main listing call (not the trashed count call) must include trashed=true
+    const fileListingCalls = mockApiFetch.mock.calls.filter(
+      (c: unknown[]) =>
+        typeof c[0] === "string" &&
+        (c[0] as string).includes("/files") &&
+        !((c[1] as Record<string, Record<string, string>>)?.query?.limit === "1"),
+    );
+    expect(fileListingCalls.length).toBeGreaterThan(0);
+
+    const mainCall = fileListingCalls[0]!;
+    const query = (mainCall[1] as Record<string, Record<string, string>>)?.query;
+    expect(query?.trashed).toBe("true");
+
+    // Entries should reflect the trashed data
+    expect(entries.value).toHaveLength(1);
+    expect(entries.value[0]!.name).toBe("trashed.jpg");
+  });
+
+  it("resetAndFetch sends trashed=true after switching viewMode to trash", async () => {
+    const { viewMode, resetAndFetch } = useLibraryExplorer();
+    await flushPromises();
+
+    viewMode.value = "trash";
+    mockApiFetch.mockClear();
+    mockApiFetch.mockResolvedValue({
+      entries: [],
+      nextCursor: null,
+      totalCount: 0,
+      breadcrumbs: [],
+    });
+
+    await resetAndFetch();
+
+    const fileListingCalls = mockApiFetch.mock.calls.filter(
+      (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("/files"),
+    );
+    expect(fileListingCalls.length).toBeGreaterThan(0);
+
+    const mainCall = fileListingCalls[0]!;
+    const query = (mainCall[1] as Record<string, Record<string, string>>)?.query;
+    expect(query?.trashed).toBe("true");
+  });
+
+  it("initial fetch does NOT send trashed param when viewMode is files", async () => {
+    mockApiFetch.mockResolvedValue({
+      entries: [],
+      nextCursor: null,
+      totalCount: 0,
+      breadcrumbs: [],
+    });
+
+    const { viewMode } = useLibraryExplorer();
+    await flushPromises();
+
+    // Get all the file listing calls from the initial mount
+    const fileListingCalls = mockApiFetch.mock.calls.filter(
+      (c: unknown[]) =>
+        typeof c[0] === "string" &&
+        (c[0] as string).includes("/files") &&
+        // Exclude the trashed count call (which always has trashed=true and limit=1)
+        !((c[1] as Record<string, Record<string, string>>)?.query?.limit === "1"),
+    );
+
+    expect(viewMode.value).toBe("files");
+    expect(fileListingCalls.length).toBeGreaterThan(0);
+
+    // The main listing call must NOT include trashed=true
+    const mainCall = fileListingCalls[0]!;
+    const query = (mainCall[1] as Record<string, Record<string, string>>)?.query;
+    expect(query?.trashed).toBeUndefined();
+  });
 });

@@ -296,16 +296,15 @@ func (h *FileHandler) Purge(c echo.Context) error {
 	}
 
 	var filesToPurge []models.File
-	folderIDsToPurge := make([]string, 0)
-	purgedCount := 0
+	var folderIDsToPurge []string
 
 	if len(req.FileIDs) > 0 {
-		// Purge specific files
+		// Purge specific files — must be trashed
 		if err := h.db.Where("id IN ? AND library_id = ? AND trashed_at IS NOT NULL", req.FileIDs, libraryID).Find(&filesToPurge).Error; err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load files for purge")
 		}
 	} else if len(req.FolderIDs) > 0 {
-		// Purge specific folders and all their descendants' files
+		// Purge specific trashed folders and their descendants
 		allFolderSet := make(map[string]struct{})
 		for _, fid := range req.FolderIDs {
 			allFolderSet[fid] = struct{}{}
@@ -317,14 +316,13 @@ func (h *FileHandler) Purge(c echo.Context) error {
 			folderIDsToPurge = append(folderIDsToPurge, id)
 		}
 
-		// Purge files in those folders
 		if len(folderIDsToPurge) > 0 {
 			if err := h.db.Where("parent_folder_id IN ? AND library_id = ? AND trashed_at IS NOT NULL", folderIDsToPurge, libraryID).Find(&filesToPurge).Error; err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folder files for purge")
 			}
 		}
 	} else {
-		// Purge all trashed files
+		// Purge all trashed items in the library
 		if err := h.db.Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Find(&filesToPurge).Error; err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load files for purge")
 		}
@@ -337,29 +335,66 @@ func (h *FileHandler) Purge(c echo.Context) error {
 		}
 	}
 
-	purgedFileIDs := make([]string, 0, len(filesToPurge))
+	// Delete original files from disk first, before touching the DB.
+	// If any storage delete fails we stop early and leave the DB intact.
 	for _, f := range filesToPurge {
-		if err := h.db.Delete(&f).Error; err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete files")
+		if err := h.storageSvc.DeleteFileBlob(f.LibraryID.String(), f.ID.String()); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete file from disk")
 		}
-		if err := h.storageSvc.DeleteFile(libraryID, f.ID.String()); err != nil {
-			log.Printf("failed to delete file from storage %s/%s: %v", libraryID, f.ID.String(), err)
-		}
-		purgedFileIDs = append(purgedFileIDs, f.ID.String())
-		purgedCount++
 	}
 
-	if len(folderIDsToPurge) > 0 {
-		result := h.db.Where("id IN ? AND library_id = ?", folderIDsToPurge, libraryID).Delete(&models.Folder{})
-		if result.Error != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete folders")
-		}
-		purgedCount += int(result.RowsAffected)
+	// Collect IDs for the DB cleanup.
+	fileIDs := make([]string, 0, len(filesToPurge))
+	for _, f := range filesToPurge {
+		fileIDs = append(fileIDs, f.ID.String())
 	}
 
-	// Clean up face data for purged files
-	if len(purgedFileIDs) > 0 && h.faceSvc != nil {
-		if err := h.faceSvc.DeleteFaceDataForFiles(libraryID, purgedFileIDs); err != nil {
+	purgedCount := 0
+
+	// All DB mutations inside a transaction.
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		if len(fileIDs) > 0 {
+			// Remove file-tag associations
+			if err := tx.Where("file_id IN ?", fileIDs).Delete(&models.FileTag{}).Error; err != nil {
+				return fmt.Errorf("failed to delete file tags: %w", err)
+			}
+
+			// Clear source_file_id references so proxy rows don't have dangling FKs
+			if err := tx.Model(&models.File{}).Where("source_file_id IN ?", fileIDs).
+				Update("source_file_id", nil).Error; err != nil {
+				return fmt.Errorf("failed to clear source file references: %w", err)
+			}
+
+			// Delete the file records
+			result := tx.Where("id IN ? AND library_id = ?", fileIDs, libraryID).Delete(&models.File{})
+			if result.Error != nil {
+				return fmt.Errorf("failed to delete files: %w", result.Error)
+			}
+			purgedCount += int(result.RowsAffected)
+		}
+
+		if len(folderIDsToPurge) > 0 {
+			// Remove folder-tag associations
+			if err := tx.Where("folder_id IN ?", folderIDsToPurge).Delete(&models.FolderTag{}).Error; err != nil {
+				return fmt.Errorf("failed to delete folder tags: %w", err)
+			}
+
+			result := tx.Where("id IN ? AND library_id = ?", folderIDsToPurge, libraryID).Delete(&models.Folder{})
+			if result.Error != nil {
+				return fmt.Errorf("failed to delete folders: %w", result.Error)
+			}
+			purgedCount += int(result.RowsAffected)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to purge items")
+	}
+
+	// Clean up face data for purged files (best-effort, outside transaction).
+	if len(fileIDs) > 0 && h.faceSvc != nil {
+		if err := h.faceSvc.DeleteFaceDataForFiles(libraryID, fileIDs); err != nil {
 			log.Printf("failed to clean face data for purged files: %v", err)
 		}
 	}

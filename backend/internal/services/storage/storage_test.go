@@ -70,6 +70,43 @@ func TestStorageStoreReadRangeDelete(t *testing.T) {
 	}
 }
 
+func TestStorageDeleteFileAlsoDeletesDerivedCache(t *testing.T) {
+	svc, _ := setupTempStorage(t)
+
+	if err := svc.StoreFile("lib-a", "file-a", []byte("video")); err != nil {
+		t.Fatalf("StoreFile: %v", err)
+	}
+	if err := svc.StoreCacheBuffer("lib-a/file-a/proxy.mp4", []byte("proxy")); err != nil {
+		t.Fatalf("StoreCacheBuffer proxy: %v", err)
+	}
+	if err := svc.StoreCacheBuffer("lib-a/file-a/thumbnail.webp", []byte("thumb")); err != nil {
+		t.Fatalf("StoreCacheBuffer thumbnail: %v", err)
+	}
+
+	if err := svc.DeleteFile("lib-a", "file-a"); err != nil {
+		t.Fatalf("DeleteFile: %v", err)
+	}
+
+	fileExists, err := svc.FileExists("lib-a", "file-a")
+	if err != nil {
+		t.Fatalf("FileExists: %v", err)
+	}
+	if fileExists {
+		t.Fatal("File should not exist after delete")
+	}
+
+	cacheKeys := []string{"lib-a/file-a/proxy.mp4", "lib-a/file-a/thumbnail.webp"}
+	for _, key := range cacheKeys {
+		cacheExists, err := svc.CacheExists(key)
+		if err != nil {
+			t.Fatalf("CacheExists(%s): %v", key, err)
+		}
+		if cacheExists {
+			t.Fatalf("Cache key %s should not exist after delete", key)
+		}
+	}
+}
+
 func TestStorageAvatars(t *testing.T) {
 	svc, _ := setupTempStorage(t)
 

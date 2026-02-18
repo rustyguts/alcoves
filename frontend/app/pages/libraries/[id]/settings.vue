@@ -200,7 +200,7 @@ async function deleteLibrary() {
 <template>
   <div class="space-y-4 overflow-y-auto flex-1 min-h-0">
     <!-- Library Members Card -->
-    <div v-if="!library?.isDefault" class="card bg-base-200">
+    <div v-if="!library?.isDefault" class="card bg-base-100">
       <div class="px-6 pt-5 pb-0">
         <div class="min-w-0">
           <p class="text-sm font-semibold">Library Members</p>
@@ -407,7 +407,7 @@ async function deleteLibrary() {
     </div>
 
     <!-- Facial Recognition Card -->
-    <div class="card bg-base-200">
+    <div class="card bg-base-100">
       <div class="card-body">
         <div class="space-y-4">
           <div class="flex items-center justify-between gap-4">
@@ -448,7 +448,7 @@ async function deleteLibrary() {
     </div>
 
     <!-- Danger Zone Card -->
-    <div class="card bg-base-200">
+    <div class="card bg-base-100">
       <div class="card-body">
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
@@ -479,7 +479,7 @@ async function deleteLibrary() {
         </p>
         <div class="modal-action">
           <button
-            class="btn btn-outline btn-neutral"
+            class="btn"
             @click="faceRecDisableOpen = false"
           >Cancel</button>
           <button
@@ -508,7 +508,7 @@ async function deleteLibrary() {
         </p>
         <div class="modal-action">
           <button
-            class="btn btn-outline btn-neutral"
+            class="btn"
             :disabled="faceRecReprocessing"
             @click="faceRecReprocessOpen = false"
           >Cancel</button>
@@ -545,7 +545,7 @@ async function deleteLibrary() {
         </div>
         <div class="modal-action">
           <button
-            class="btn btn-outline btn-neutral"
+            class="btn"
             @click="deleteLibraryOpen = false"
           >Cancel</button>
           <button

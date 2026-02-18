@@ -2,7 +2,8 @@
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { apiFetch } from "~/utils/api-fetch";
-import { useTheme } from "~/composables/useTheme";
+import { useTheme, daisyThemes } from "~/composables/useTheme";
+import type { DaisyTheme } from "~/composables/useTheme";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 
@@ -19,7 +20,7 @@ const MAX_AVATAR_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 const { user, updateProfile, uploadAvatar } = useAuth();
 const toast = useToast();
-const { preference: colorPreference } = useTheme();
+const { preference: themePreference } = useTheme();
 
 const displayName = ref(user.value?.displayName ?? "");
 const avatarInput = ref<HTMLInputElement | null>(null);
@@ -172,7 +173,7 @@ function getStatusMessage(error: unknown): string | null {
     </section>
 
     <section class="grid gap-6 lg:grid-cols-[2fr_1fr]">
-      <article class="card bg-base-200">
+      <article class="card bg-base-100">
         <div class="card-body gap-5">
           <div class="flex items-center gap-4">
             <div class="avatar">
@@ -233,25 +234,26 @@ function getStatusMessage(error: unknown): string | null {
       </article>
 
       <aside class="space-y-6">
-        <article class="card bg-base-200">
+        <article class="card bg-base-100">
           <div class="card-body gap-4">
             <h2 class="card-title text-base">Appearance</h2>
             <fieldset class="fieldset">
               <legend class="fieldset-legend">Theme</legend>
               <select
-                :value="colorPreference"
-                class="select w-full"
-                @change="colorPreference = ($event.target as HTMLSelectElement).value as 'light' | 'dark' | 'auto'"
+                :value="themePreference"
+                class="select w-full capitalize"
+                @change="themePreference = ($event.target as HTMLSelectElement).value as DaisyTheme | 'auto'"
               >
                 <option value="auto">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
+                <option v-for="t in daisyThemes" :key="t" :value="t" class="capitalize">
+                  {{ t }}
+                </option>
               </select>
             </fieldset>
           </div>
         </article>
 
-        <article class="stats stats-vertical bg-base-200">
+        <article class="stats stats-vertical bg-base-100">
           <div class="stat py-4">
             <div class="stat-title">Active Sessions</div>
             <div class="stat-value text-3xl">{{ sessions?.length ?? 0 }}</div>
@@ -261,7 +263,7 @@ function getStatusMessage(error: unknown): string | null {
       </aside>
     </section>
 
-    <section class="card bg-base-200">
+    <section class="card bg-base-100">
       <div class="card-body gap-5">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>

@@ -77,11 +77,53 @@ go run -tags dev cmd/server/main.go      # Manual start (dev mode)
 
 ## Database
 
-- Dev: GORM AutoMigrate (automatic on startup when `ALCOVES_ENV=development`)
-- Prod: versioned SQL migrations in `backend/migrations/`, applied on startup
-- Schema changes: update `backend/internal/models/models.go`, generate migration if needed
+### Schema migrations
+
+Migrations use [goose](https://github.com/pressly/goose) with versioned SQL files in
+`backend/migrations/`. They are embedded into the binary via `//go:embed` and applied
+automatically on every startup (both development and production). Running twice is a no-op —
+goose tracks applied versions in the `goose_db_version` table.
+
+- Source of truth for schema: SQL migration files in `backend/migrations/`
+- GORM models in `backend/internal/models/models.go` must match the schema
 - Test DB: `postgres://postgres:postgres@localhost:5455/alcoves_test`
+- Tests use GORM AutoMigrate (not goose) for speed and simplicity
 - Tests skip gracefully via `t.Skipf` when the DB is unavailable
+- pgvector extension and `embedding vector(512)` column are created in the initial migration
+
+### Creating a new migration
+
+When changing the database schema (adding/removing/altering columns, tables, or indexes):
+
+1. Update the GORM model in `backend/internal/models/models.go`
+2. Create a new migration file (from `backend/`):
+   ```sh
+   # Install goose CLI once:
+   go install github.com/pressly/goose/v3/cmd/goose@latest
+
+   # Create the migration file:
+   goose -dir migrations -s create describe_the_change sql
+   ```
+   This creates `backend/migrations/00002_describe_the_change.sql` (sequential numbering).
+3. Write the Up and Down SQL in the generated file:
+   ```sql
+   -- +goose Up
+   ALTER TABLE files ADD COLUMN thumbnail_path TEXT;
+
+   -- +goose Down
+   ALTER TABLE files DROP COLUMN thumbnail_path;
+   ```
+4. Restart the server — goose applies the pending migration automatically
+5. Commit both the model change and the migration file together
+
+### Migration conventions
+
+- Use `IF NOT EXISTS` / `IF EXISTS` guards for idempotent DDL where practical
+- Use `-- +goose NO TRANSACTION` only when required (e.g., `CREATE INDEX CONCURRENTLY`)
+- Always write a `-- +goose Down` section for reversibility
+- Sequential numbering (`-s` flag) — do not use timestamps
+- One logical change per migration file
+- Keep migrations small and focused
 
 ## Environment
 
@@ -90,7 +132,7 @@ See `.env.example`. Key variables:
 - `ALCOVES_SESSION_SECRET` — min 32 chars, AES-GCM key
 - `ALCOVES_STORAGE_PATH` — local file storage root
 - `ALCOVES_QUEUE_HOST` / `ALCOVES_QUEUE_PORT` — Redis/Dragonfly for Asynq
-- `ALCOVES_ENV` — `development` (AutoMigrate) or `production` (SQL migrations)
+- `ALCOVES_ENV` — `development` (default) or `production`
 
 ## Working Rules
 

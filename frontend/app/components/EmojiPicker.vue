@@ -100,7 +100,7 @@ onUnmounted(() => {
 
     <div
       v-if="open"
-      class="absolute left-0 top-full mt-2 z-50 bg-base-200 rounded-box shadow-lg border border-base-300 p-3 w-72"
+      class="absolute left-0 top-full mt-2 z-50 bg-base-100 rounded-box shadow-lg border border-base-300 p-3 w-72"
     >
       <div class="flex items-center justify-between mb-2">
         <span class="text-xs font-semibold text-base-content/60">Pick an icon</span>

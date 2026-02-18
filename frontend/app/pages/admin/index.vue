@@ -146,7 +146,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Stat cards -->
-    <div class="stats stats-vertical sm:stats-horizontal shadow w-full bg-base-200">
+    <div class="stats stats-vertical sm:stats-horizontal shadow w-full bg-base-100">
       <div class="stat">
         <div class="stat-figure text-primary"><AppIcon name="i-lucide-files" class="size-6" /></div>
         <div class="stat-title">Files</div>
@@ -183,7 +183,7 @@ onUnmounted(() => {
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 min-h-0">
       <!-- Users table -->
       <div class="xl:col-span-2">
-        <div class="card bg-base-200 shadow">
+        <div class="card bg-base-100 shadow">
           <div class="card-body p-0">
             <div class="flex items-center justify-between px-6 pt-5 pb-3">
               <div>
@@ -257,7 +257,7 @@ onUnmounted(() => {
 
       <!-- Queue sidebar -->
       <div class="xl:col-span-1 flex flex-col gap-4">
-        <div class="card bg-base-200 shadow">
+        <div class="card bg-base-100 shadow">
           <div class="card-body gap-4">
             <div class="flex items-center justify-between">
               <h2 class="card-title text-lg">Job Queues</h2>

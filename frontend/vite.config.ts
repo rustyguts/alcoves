@@ -33,6 +33,7 @@ export default defineConfig({
       "/api": {
         target: process.env.ALCOVES_API_URL || "http://localhost:3001",
         changeOrigin: true,
+        ws: true,
       },
     },
   },

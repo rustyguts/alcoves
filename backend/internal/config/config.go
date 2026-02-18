@@ -46,11 +46,11 @@ type Config struct {
 	BaseURL string
 
 	// Face detection / recognition tuning
-	FaceDetectionMinScore       float64
-	FaceRecognitionMaxDistance   float64
+	FaceDetectionMinScore         float64
+	FaceRecognitionMaxDistance    float64
 	FaceRecognitionNeighborLookup int
-	FaceRecognitionMinFaces     int
-	ModelsPath                  string
+	FaceRecognitionMinFaces       int
+	ModelsPath                    string
 }
 
 func Load() (*Config, error) {
@@ -105,13 +105,13 @@ func Load() (*Config, error) {
 		OAuthGoogleClientSecret: getEnv("ALCOVES_OAUTH_GOOGLE_CLIENT_SECRET", ""),
 		GoogleAuthEnabled:       googleClientID != "",
 
-		BaseURL: getEnv("ALCOVES_BASE_URL", "http://localhost:3000"),
+		BaseURL: getEnv("ALCOVES_BASE_URL", "http://localhost:5173"),
 
-		FaceDetectionMinScore:       faceMinScore,
-		FaceRecognitionMaxDistance:   faceMaxDist,
+		FaceDetectionMinScore:         faceMinScore,
+		FaceRecognitionMaxDistance:    faceMaxDist,
 		FaceRecognitionNeighborLookup: faceNeighborLookup,
-		FaceRecognitionMinFaces:     faceMinFaces,
-		ModelsPath:                  getEnv("ALCOVES_MODELS_PATH", filepath.Join(dataDir, ".models")),
+		FaceRecognitionMinFaces:       faceMinFaces,
+		ModelsPath:                    getEnv("ALCOVES_MODELS_PATH", filepath.Join(dataDir, ".models")),
 	}
 
 	return cfg, nil

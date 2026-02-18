@@ -13,7 +13,7 @@ const route = useRoute();
 
 const currentTab = computed(() => {
   if (route.path.endsWith("/tags")) return "tags";
-  if (route.path.endsWith("/people")) return "people";
+  if (route.path.includes(`/libraries/${props.libraryId}/people`)) return "people";
   if (route.path.endsWith("/settings")) return "settings";
   if (route.path.endsWith("/trash")) return "trash";
   return "files";
@@ -79,7 +79,8 @@ const tabs = computed(() => {
       <span
         v-if="tab.key === 'trash' && (trashedCount ?? 0) > 0"
         class="badge badge-sm badge-error"
-      >{{ trashedCount }}</span>
+        >{{ trashedCount }}</span
+      >
     </RouterLink>
   </div>
 </template>

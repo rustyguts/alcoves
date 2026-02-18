@@ -1,1 +1,0 @@
-ALTER TABLE libraries ADD COLUMN IF NOT EXISTS emoji TEXT;

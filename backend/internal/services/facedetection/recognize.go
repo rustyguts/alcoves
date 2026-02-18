@@ -30,6 +30,11 @@ func ComputeEmbedding(session *ort.DynamicAdvancedSession, imageData []byte, fac
 	}
 	defer img.Close()
 
+	// Apply EXIF rotation to match the orientation used during detection.
+	if err := img.AutoRotate(); err != nil {
+		return nil, fmt.Errorf("failed to auto-rotate image: %w", err)
+	}
+
 	// Compute affine transform from detected landmarks to reference landmarks
 	aligned, err := alignFace(img, face.Landmarks)
 	if err != nil {

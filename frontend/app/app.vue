@@ -28,7 +28,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-full overflow-hidden">
+  <div class="h-full overflow-hidden bg-base-300">
     <DashboardLayout v-if="isDashboard">
       <RouterView />
     </DashboardLayout>

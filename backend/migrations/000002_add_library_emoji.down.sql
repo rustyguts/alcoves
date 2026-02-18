@@ -1,1 +1,0 @@
-ALTER TABLE libraries DROP COLUMN IF EXISTS emoji;

@@ -26,6 +26,7 @@ const {
   user,
   library,
   refreshLibrary,
+  isTrashRoute,
   viewMode,
   entryViewMode,
   showTrashed,
@@ -541,43 +542,20 @@ onLibraryUploadComplete(libraryId.value, () => {
   resetAndFetch();
 });
 
-// Track if view toggle was user-initiated
-const userToggledView = ref(false);
-
-// Initialize viewMode from route path (for /trash route)
-const isTrashRoute = computed(() => route.path.endsWith("/trash"));
-
-if (isTrashRoute.value) {
-  viewMode.value = "trash";
-}
-
 // Sync viewMode when navigating between /libraries/:id and /libraries/:id/trash
 watch(isTrashRoute, (trash) => {
   if (trash && viewMode.value !== "trash") {
-    userToggledView.value = true;
     viewMode.value = "trash";
+    resetAndFetch();
   } else if (!trash && viewMode.value === "trash") {
-    userToggledView.value = true;
     viewMode.value = "files";
+    resetAndFetch();
   }
 });
 
 watch(libraryId, () => {
   viewMode.value = "files";
   failedThumbnails.clear();
-});
-
-watch(currentFolderId, () => {
-  if (viewMode.value === "files") {
-    resetAndFetch();
-  }
-});
-
-watch(viewMode, () => {
-  if (userToggledView.value) {
-    userToggledView.value = false;
-    resetAndFetch();
-  }
 });
 
 watch(entryViewMode, (next) => {
@@ -1147,7 +1125,7 @@ const emptyStateDescription = computed(() => {
               <AppIcon name="i-lucide-plus" class="size-4" />
               <span class="hidden sm:inline">New</span>
             </summary>
-            <ul class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow">
+            <ul class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow">
               <li v-for="group in newMenuItems" :key="group.map((i) => i.label).join()">
                 <a
                   v-for="item in group"
@@ -1214,7 +1192,7 @@ const emptyStateDescription = computed(() => {
         </div>
       </template>
 
-      <table v-else-if="entryViewMode === 'file'" class="w-full">
+      <table v-else-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0" class="w-full">
         <thead>
           <tr class="bg-elevated/50">
             <th class="w-12 px-4 py-3" />

@@ -26,7 +26,10 @@ export function useLibraryExplorer() {
     () => `/api/libraries/${libraryId.value}/users`,
   );
 
-  const viewMode = ref<"files" | "trash" | "tags" | "users">("files");
+  const isTrashRoute = computed(() => route.path.endsWith("/trash"));
+  const viewMode = ref<"files" | "trash" | "tags" | "users">(
+    isTrashRoute.value ? "trash" : "files",
+  );
   const entryViewMode = ref<"file" | "card">("file");
   const showTrashed = computed(() => viewMode.value === "trash");
   const showTags = computed(() => viewMode.value === "tags");
@@ -169,7 +172,11 @@ export function useLibraryExplorer() {
     filesPending.value = true;
     try {
       const filesQuery: Record<string, string> = {};
-      if (currentFolderId.value) filesQuery.folder = currentFolderId.value;
+      if (showTrashed.value) {
+        filesQuery.trashed = "true";
+      } else if (currentFolderId.value) {
+        filesQuery.folder = currentFolderId.value;
+      }
 
       const [result, trashedResult, tags] = await Promise.all([
         apiFetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, { query: filesQuery }),
@@ -211,6 +218,7 @@ export function useLibraryExplorer() {
     refreshLibrary,
     libraryUsers,
     refreshLibraryUsers,
+    isTrashRoute,
     viewMode,
     entryViewMode,
     showTrashed,

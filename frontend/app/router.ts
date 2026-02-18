@@ -69,6 +69,10 @@ const router = createRouter({
           component: () => import("~/pages/libraries/[id]/people.vue"),
         },
         {
+          path: "people/:personId",
+          component: () => import("~/pages/libraries/[id]/people-person.vue"),
+        },
+        {
           path: "tags",
           component: () => import("~/pages/libraries/[id]/tags.vue"),
         },

@@ -227,7 +227,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Summary stats -->
-    <div class="stats stats-vertical sm:stats-horizontal shadow w-full bg-base-200">
+    <div class="stats stats-vertical sm:stats-horizontal shadow w-full bg-base-100">
       <div class="stat">
         <div class="stat-figure text-info"><AppIcon name="i-lucide-play" class="size-5" /></div>
         <div class="stat-title">Active</div>
@@ -257,7 +257,7 @@ onUnmounted(() => {
       <div
         v-for="q in queues"
         :key="q.name"
-        class="card bg-base-200 shadow-sm border border-base-300 hover:border-primary/30 transition-colors cursor-pointer"
+        class="card bg-base-100 shadow-sm border border-base-300 hover:border-primary/30 transition-colors cursor-pointer"
         @click="queueFilter = queueFilter === q.name ? 'all' : q.name"
       >
         <div class="card-body p-4 gap-3">
@@ -291,7 +291,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Filters + job table -->
-    <div class="card bg-base-200 shadow">
+    <div class="card bg-base-100 shadow">
       <div class="card-body p-0">
         <!-- Toolbar -->
         <div class="flex items-center gap-3 flex-wrap px-4 pt-4 pb-2">

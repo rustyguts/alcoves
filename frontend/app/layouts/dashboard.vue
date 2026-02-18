@@ -154,7 +154,7 @@ provide("refreshLibraries", refreshLibraries);
     <!-- Main content -->
     <div class="drawer-content flex flex-col h-full overflow-hidden">
       <!-- Navbar -->
-      <div class="navbar bg-base-100 border-b border-base-300 px-4">
+      <div class="navbar bg-base-200 border-b border-base-300 px-4">
         <div class="flex-none lg:hidden mr-2">
           <button class="btn btn-ghost btn-circle" @click="collapsed = !collapsed">
             <AppIcon name="i-lucide-menu" />
@@ -192,7 +192,7 @@ provide("refreshLibraries", refreshLibraries);
               </div>
             </summary>
             <ul
-              class="dropdown-content menu bg-base-200 rounded-box z-50 w-52 p-2 shadow mt-2"
+              class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow mt-2"
             >
               <template v-for="(group, gi) in userMenuItems" :key="gi">
                 <div v-if="gi > 0" class="divider my-1" />
