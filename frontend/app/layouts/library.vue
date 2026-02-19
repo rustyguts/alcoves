@@ -11,6 +11,14 @@ const route = useRoute();
 const { user } = useAuth();
 const libraryId = computed(() => route.params.id as string);
 
+// Hide the header and tabs on the file browser and trash routes — those pages
+// manage their own chrome. Show them only on sub-routes like settings, people, etc.
+const showHeaderAndTabs = computed(() => {
+  const path = route.path;
+  const base = `/libraries/${libraryId.value}`;
+  return path !== base && path !== `${base}/trash`;
+});
+
 const { data: library, refresh: refreshLibrary } = useApiFetch<Library>(
   () => `/api/libraries/${libraryId.value}`,
 );
@@ -53,19 +61,21 @@ provide("canManageLibrary", canManageLibrary);
 
 <template>
   <div class="flex flex-col gap-4 flex-1 min-h-0">
-    <LibraryHeader
-      :name="library?.name"
-      :emoji="library?.emoji"
-      :can-edit="canManageLibrary"
-      @update:name="saveLibraryName"
-      @update:emoji="saveLibraryEmoji"
-    />
+    <template v-if="showHeaderAndTabs">
+      <LibraryHeader
+        :name="library?.name"
+        :emoji="library?.emoji"
+        :can-edit="canManageLibrary"
+        @update:name="saveLibraryName"
+        @update:emoji="saveLibraryEmoji"
+      />
 
-    <LibraryTabs
-      :library-id="libraryId"
-      :face-recognition-enabled="library?.faceRecognitionEnabled"
-      :can-manage-library="canManageLibrary"
-    />
+      <LibraryTabs
+        :library-id="libraryId"
+        :face-recognition-enabled="library?.faceRecognitionEnabled"
+        :can-manage-library="canManageLibrary"
+      />
+    </template>
 
     <div class="relative flex-1 min-h-0">
       <RouterView v-slot="{ Component, route: tabRoute }">
