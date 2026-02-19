@@ -26,7 +26,7 @@ const initial = computed(() => props.displayName.trim().charAt(0).toUpperCase() 
 <template>
   <div
     class="avatar placeholder"
-    :class="props.tooltip ? `tooltip tooltip-${props.tooltipPosition}` : ''"
+    :class="props.tooltip ? `tooltip tooltip-${props.tooltipPosition} z-20` : ''"
     :data-tip="props.tooltip ? props.displayName : undefined"
   >
     <div v-if="props.avatarUrl" :class="[props.sizeClass, props.roundedClass, 'overflow-hidden']">

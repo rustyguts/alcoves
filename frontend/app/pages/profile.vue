@@ -179,7 +179,7 @@ function getStatusMessage(error: unknown): string | null {
       class="hero rounded-box bg-gradient-to-br from-primary/20 via-base-200 to-secondary/20"
     >
       <div class="hero-content w-full flex-col items-center gap-3 px-4 py-6 text-center sm:px-6 sm:py-8">
-        <button type="button" class="avatar" @click="openAvatarPicker">
+        <button type="button" class="avatar cursor-pointer" @click="openAvatarPicker">
           <div
             v-if="currentAvatarSrc"
             class="size-20 rounded-full ring ring-primary/20 ring-offset-2 ring-offset-base-100"

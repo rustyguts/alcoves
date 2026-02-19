@@ -464,7 +464,7 @@ onUnmounted(() => {
       >
         <div class="flex items-center gap-3 min-w-0 pointer-events-auto">
           <button
-            class="btn btn-soft btn-circle btn-ghost text-white hover:bg-white/20"
+            class="btn btn-circle btn-ghost text-white/80 hover:text-white hover:bg-white/20"
             @click="open = false"
           >
             <AppIcon name="i-lucide-x" class="size-5" />
@@ -492,7 +492,7 @@ onUnmounted(() => {
           </div>
         </div>
         <button
-          class="btn btn-soft btn-circle btn-ghost text-white hover:bg-white/20 shrink-0 pointer-events-auto"
+          class="btn btn-circle btn-ghost text-white/80 hover:text-white hover:bg-white/20 shrink-0 pointer-events-auto"
           @click="downloadFile"
         >
           <AppIcon name="i-lucide-download" class="size-5" />

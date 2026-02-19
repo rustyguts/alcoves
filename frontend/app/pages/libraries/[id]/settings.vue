@@ -586,7 +586,7 @@ async function deleteLibrary() {
               </p>
             </div>
             <button
-              class="btn btn-neutral"
+              class="btn btn-soft btn-warning"
               :disabled="!library?.objectDetectionEnabled || objDetToggling || objDetReprocessing"
               @click="objDetReprocessOpen = true"
             >
