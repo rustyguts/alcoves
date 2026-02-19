@@ -1102,7 +1102,7 @@ const emptyStateDescription = computed(() => {
 
 <template>
   <div
-    class="relative flex flex-col gap-4 flex-1 min-h-0"
+    class="relative flex h-full flex-1 min-h-0 flex-col gap-4"
     v-bind="fileDropZoneProps"
   >
     <div

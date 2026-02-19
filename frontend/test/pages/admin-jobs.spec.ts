@@ -169,8 +169,8 @@ describe("admin/jobs.vue", () => {
     expect(text).toContain("process-video");
     expect(text).toContain("detect-faces");
 
-    const rows = wrapper.findAll("tbody tr");
-    await rows[0]!.trigger("click");
+    const jobRow = wrapper.findAll("tbody tr").find((row) => row.text().includes("process-video"));
+    await jobRow?.trigger("click");
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).toContain("lib-abc123");
@@ -197,8 +197,10 @@ describe("admin/jobs.vue", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    const rows = wrapper.findAll("tbody tr");
-    await rows[2]!.trigger("click");
+    const failedJobRow = wrapper
+      .findAll("tbody tr")
+      .find((row) => row.text().includes("failed") && row.text().includes("process-video"));
+    await failedJobRow?.trigger("click");
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).toContain("ffmpeg exited with code 1");

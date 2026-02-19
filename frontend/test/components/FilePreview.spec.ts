@@ -239,7 +239,7 @@ describe("FilePreview", () => {
     expect(wrapper.find("svg").exists()).toBe(true);
   });
 
-  it("uses proxy URL for video with proxyStatus=ready", () => {
+  it("falls back to direct file URL when no playback source is selected", () => {
     const file = makeFile({
       id: "vid-1",
       name: "movie.mkv",
@@ -256,8 +256,8 @@ describe("FilePreview", () => {
       videoSrc: string;
       mediaSrc: { src: string; type: string };
     };
-    expect(vm.videoSrc).toBe("/api/libraries/lib-1/files/vid-1/proxy");
-    expect(vm.mediaSrc.type).toBe("video/mp4");
+    expect(vm.videoSrc).toBe("/api/libraries/lib-1/files/vid-1?inline=true");
+    expect(vm.mediaSrc.type).toBe("video/x-matroska");
   });
 
   it("uses direct file URL for video with proxyStatus=not_needed", () => {

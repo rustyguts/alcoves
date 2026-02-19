@@ -86,12 +86,12 @@ const emit = defineEmits<{
           />
           <span
             v-if="entry.kind === 'folder'"
-            class="text-sm font-medium text-left truncate w-full"
+            class="text-sm font-semibold text-left truncate w-full"
             :title="showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name"
           >
             {{ showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name }}
           </span>
-          <span v-else class="text-sm font-medium text-left truncate w-full" :title="entry.name">
+          <span v-else class="text-sm font-semibold text-left truncate w-full" :title="entry.name">
             {{ entry.name }}
           </span>
         </div>

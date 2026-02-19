@@ -173,7 +173,8 @@ test.describe("Profile page", () => {
     await mockApi(page, state);
 
     await page.goto("/profile");
-    await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
+    await expect(page.getByText("admin@example.com")).toBeVisible();
+    await page.getByRole("button", { name: "Admin User" }).click();
     await expect(page.locator("input[placeholder='Your display name']")).toHaveValue("Admin User");
   });
 

@@ -114,7 +114,7 @@ const emit = defineEmits<{
             <div v-else class="flex items-center gap-1 min-w-0">
               <span
                 v-if="entry.kind === 'folder'"
-                class="text-sm text-left truncate whitespace-nowrap block"
+                class="text-sm font-semibold text-left truncate whitespace-nowrap block"
                 :title="showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name"
               >
                 {{
@@ -123,7 +123,7 @@ const emit = defineEmits<{
               </span>
               <span
                 v-else
-                class="text-sm text-left truncate whitespace-nowrap block"
+                class="text-sm font-semibold text-left truncate whitespace-nowrap block"
                 :class="showTrashed ? 'opacity-60' : ''"
                 :title="entry.name"
               >
