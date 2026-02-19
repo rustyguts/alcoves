@@ -309,16 +309,23 @@ function buildPreviewUrl(file: LibraryFile): string {
 
 const previewImageUrl = computed(() => buildPreviewUrl(props.file));
 
+// Hold refs to preloaded Image objects so GC cannot cancel in-flight requests.
+const preloadedImages = ref<HTMLImageElement[]>([]);
+
 watch(
   [() => props.file.id, open],
   () => {
-    if (!open.value) return;
-    for (const adjacent of [previousFile.value, nextFile.value]) {
-      if (adjacent && adjacent.mimeType.startsWith("image/")) {
-        const img = new Image();
-        img.src = buildPreviewUrl(adjacent);
-      }
+    if (!open.value) {
+      preloadedImages.value = [];
+      return;
     }
+    preloadedImages.value = [previousFile.value, nextFile.value]
+      .filter((f): f is LibraryFile => f !== null && f.mimeType.startsWith("image/"))
+      .map((f) => {
+        const img = new Image();
+        img.src = buildPreviewUrl(f);
+        return img;
+      });
   },
   { immediate: true },
 );

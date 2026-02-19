@@ -301,6 +301,138 @@ describe("FilePreview", () => {
     expect(vm.mediaSrc.type).toBe("video/x-msvideo");
   });
 
+  describe("adjacent image preloading", () => {
+    let loadedSrcs: string[];
+    let OriginalImage: typeof Image;
+
+    beforeEach(() => {
+      loadedSrcs = [];
+      OriginalImage = globalThis.Image;
+      globalThis.Image = class {
+        private _src = "";
+        get src() {
+          return this._src;
+        }
+        set src(val: string) {
+          this._src = val;
+          loadedSrcs.push(val);
+        }
+      } as unknown as typeof Image;
+    });
+
+    afterEach(() => {
+      globalThis.Image = OriginalImage;
+    });
+
+    it("preloads previous and next image files when the preview is open", async () => {
+      const files = [
+        makeFile({ id: "prev", name: "prev.jpg", mimeType: "image/jpeg" }),
+        makeFile({ id: "curr", name: "curr.jpg", mimeType: "image/jpeg" }),
+        makeFile({ id: "next", name: "next.jpg", mimeType: "image/jpeg" }),
+      ];
+
+      mount(FilePreview, {
+        props: { file: files[1]!, libraryId: "lib-1", files, open: true },
+        global: { stubs },
+      });
+
+      await nextTick();
+
+      expect(loadedSrcs).toContain(
+        "/api/files/proxy/lib-1/prev?format=jpeg&height=1080&quality=90&width=1920",
+      );
+      expect(loadedSrcs).toContain(
+        "/api/files/proxy/lib-1/next?format=jpeg&height=1080&quality=90&width=1920",
+      );
+    });
+
+    it("does not preload non-image adjacent files", async () => {
+      const files = [
+        makeFile({ id: "prev", name: "prev.mp4", mimeType: "video/mp4" }),
+        makeFile({ id: "curr", name: "curr.jpg", mimeType: "image/jpeg" }),
+        makeFile({ id: "next", name: "next.pdf", mimeType: "application/pdf" }),
+      ];
+
+      mount(FilePreview, {
+        props: { file: files[1]!, libraryId: "lib-1", files, open: true },
+        global: { stubs },
+      });
+
+      await nextTick();
+
+      expect(loadedSrcs).toHaveLength(0);
+    });
+
+    it("does not preload when the preview is closed", async () => {
+      const files = [
+        makeFile({ id: "prev", name: "prev.jpg", mimeType: "image/jpeg" }),
+        makeFile({ id: "curr", name: "curr.jpg", mimeType: "image/jpeg" }),
+        makeFile({ id: "next", name: "next.jpg", mimeType: "image/jpeg" }),
+      ];
+
+      mount(FilePreview, {
+        props: { file: files[1]!, libraryId: "lib-1", files, open: false },
+        global: { stubs },
+      });
+
+      await nextTick();
+
+      expect(loadedSrcs).toHaveLength(0);
+    });
+
+    it("preloads only the next image when on the first file", async () => {
+      const files = [
+        makeFile({ id: "first", name: "first.jpg", mimeType: "image/jpeg" }),
+        makeFile({ id: "second", name: "second.jpg", mimeType: "image/jpeg" }),
+      ];
+
+      mount(FilePreview, {
+        props: { file: files[0]!, libraryId: "lib-1", files, open: true },
+        global: { stubs },
+      });
+
+      await nextTick();
+
+      expect(loadedSrcs).toHaveLength(1);
+      expect(loadedSrcs[0]).toContain("lib-1/second");
+    });
+
+    it("preloads only the previous image when on the last file", async () => {
+      const files = [
+        makeFile({ id: "first", name: "first.jpg", mimeType: "image/jpeg" }),
+        makeFile({ id: "second", name: "second.jpg", mimeType: "image/jpeg" }),
+      ];
+
+      mount(FilePreview, {
+        props: { file: files[1]!, libraryId: "lib-1", files, open: true },
+        global: { stubs },
+      });
+
+      await nextTick();
+
+      expect(loadedSrcs).toHaveLength(1);
+      expect(loadedSrcs[0]).toContain("lib-1/first");
+    });
+
+    it("respects file dimensions when building the preload URL", async () => {
+      const files = [
+        makeFile({ id: "prev", name: "prev.jpg", mimeType: "image/jpeg", width: 800, height: 600 }),
+        makeFile({ id: "curr", name: "curr.jpg", mimeType: "image/jpeg" }),
+      ];
+
+      mount(FilePreview, {
+        props: { file: files[1]!, libraryId: "lib-1", files, open: true },
+        global: { stubs },
+      });
+
+      await nextTick();
+
+      expect(loadedSrcs).toHaveLength(1);
+      expect(loadedSrcs[0]).toContain("width=800");
+      expect(loadedSrcs[0]).toContain("height=600");
+    });
+  });
+
   it("uses direct file URL for video still processing", () => {
     const file = makeFile({
       id: "vid-4",
