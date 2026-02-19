@@ -1,0 +1,169 @@
+<script setup lang="ts">
+import type { LibraryEntry, LibraryFile } from "~~/shared/types/api";
+import { formatDate, formatFileSize, getMimeIcon } from "~/utils/mime-icons";
+import AppIcon from "~/components/AppIcon.vue";
+import AlcovesImage from "~/components/AlcovesImage.vue";
+
+interface Props {
+  entries: LibraryEntry[];
+  libraryId: string;
+  showTrashed: boolean;
+  dragEnabled: boolean;
+  draggedFileIds: string[];
+  dropTargetFolderId: string | null;
+  renameValue: string;
+  isEntrySelected: (entry: LibraryEntry) => boolean;
+  isRenaming: (entry: LibraryEntry) => boolean;
+  failedThumbnails: Set<string>;
+  isImageFile: (file: LibraryFile) => boolean;
+  isSmallImage: (file: LibraryFile) => boolean;
+  cardThumbWidth: (file: LibraryFile) => number;
+  cardThumbHeight: (file: LibraryFile) => number;
+}
+
+const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  rowClick: [entry: LibraryEntry, event: MouseEvent];
+  rowDoubleClick: [entry: LibraryEntry];
+  rowContextMenu: [entry: LibraryEntry, event: MouseEvent];
+  dragStart: [entry: LibraryEntry, event: DragEvent];
+  dragEnd: [];
+  dragEnter: [entry: LibraryEntry];
+  dragOver: [entry: LibraryEntry, event: DragEvent];
+  dragLeave: [entry: LibraryEntry, event: DragEvent];
+  drop: [entry: LibraryEntry, event: DragEvent];
+  openFolder: [folderId: string];
+  saveRename: [entry: LibraryEntry];
+  cancelRename: [];
+  updateRenameValue: [value: string];
+  thumbnailError: [fileId: string];
+}>();
+</script>
+
+<template>
+  <div class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+    <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
+      <div
+        class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
+        :class="[
+          props.isEntrySelected(entry)
+            ? 'bg-primary/20 hover:bg-primary/28'
+            : 'hover:bg-primary/10',
+          props.dropTargetFolderId === entry.id && entry.kind === 'folder'
+            ? 'ring-2 ring-primary/60 bg-primary/10'
+            : '',
+          props.draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
+        ]"
+        :draggable="props.dragEnabled && entry.kind === 'file' && !props.isRenaming(entry)"
+        @click="emit('rowClick', entry, $event)"
+        @dblclick="emit('rowDoubleClick', entry)"
+        @contextmenu="emit('rowContextMenu', entry, $event)"
+        @dragstart="emit('dragStart', entry, $event)"
+        @dragend="emit('dragEnd')"
+        @dragenter="emit('dragEnter', entry)"
+        @dragover="emit('dragOver', entry, $event)"
+        @dragleave="emit('dragLeave', entry, $event)"
+        @drop="emit('drop', entry, $event)"
+      >
+        <div
+          class="h-40 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden"
+        >
+          <template v-if="entry.kind === 'folder'">
+            <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
+          </template>
+          <template v-else-if="entry.kind === 'file' && entry.mimeType.startsWith('video/')">
+            <div class="relative w-full h-full flex items-center justify-center">
+              <img
+                v-if="!props.failedThumbnails.has(entry.id)"
+                :src="`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`"
+                :alt="entry.name"
+                class="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+                @error="emit('thumbnailError', entry.id)"
+              />
+              <AppIcon v-else name="i-lucide-film" class="size-10 text-muted" />
+              <div
+                v-if="entry.proxyStatus === 'processing'"
+                class="absolute inset-0 flex items-center justify-center bg-black/40"
+              >
+                <span class="loading loading-spinner loading-sm text-white"></span>
+              </div>
+            </div>
+          </template>
+          <template v-else-if="entry.kind === 'file' && props.isImageFile(entry)">
+            <AlcovesImage
+              v-if="!props.failedThumbnails.has(entry.id)"
+              :library-id="libraryId"
+              :file-id="entry.id"
+              :alt="entry.name"
+              :width="props.cardThumbWidth(entry)"
+              :height="props.cardThumbHeight(entry)"
+              format="jpeg"
+              :quality="82"
+              :class="props.isSmallImage(entry) ? 'object-contain' : 'w-full h-full object-cover'"
+              @error="emit('thumbnailError', entry.id)"
+            />
+            <AppIcon v-else name="i-lucide-image" class="size-10 text-muted" />
+          </template>
+          <template v-else-if="entry.kind === 'file'">
+            <AppIcon
+              :name="getMimeIcon(entry.mimeType)"
+              class="size-10 text-muted"
+              :class="showTrashed ? 'opacity-50' : ''"
+            />
+          </template>
+        </div>
+
+        <div v-if="props.isRenaming(entry)" :data-rename-input-entry-id="entry.id">
+          <input
+            :value="renameValue"
+            class="input input-sm w-full"
+            autofocus
+            @input="emit('updateRenameValue', ($event.target as HTMLInputElement).value)"
+            @blur="emit('saveRename', entry)"
+            @keydown.enter="emit('saveRename', entry)"
+            @keydown.escape="emit('cancelRename')"
+            @click.stop
+          />
+        </div>
+        <div v-else>
+          <button
+            v-if="entry.kind === 'folder'"
+            type="button"
+            class="text-sm font-medium text-left truncate w-full"
+            @click.stop="emit('openFolder', entry.id)"
+          >
+            {{ showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name }}
+          </button>
+          <span
+            v-else
+            class="text-sm font-medium text-left truncate w-full"
+            :class="showTrashed ? 'opacity-60' : ''"
+          >
+            {{ entry.name }}
+          </span>
+
+          <div class="flex items-center justify-between mt-1 gap-2 text-xs text-muted">
+            <span>{{
+              showTrashed && entry.trashedAt
+                ? formatDate(entry.trashedAt)
+                : formatDate(entry.updatedAt)
+            }}</span>
+            <span>{{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5 mt-2">
+            <span
+              v-for="tag in entry.tags"
+              :key="tag.id"
+              class="size-2.5 rounded-full border border-default/50"
+              :title="tag.name"
+              :style="{ backgroundColor: tag.color }"
+            />
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>

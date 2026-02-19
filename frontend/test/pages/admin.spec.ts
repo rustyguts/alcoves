@@ -15,11 +15,11 @@ function mockRef<T>(get: () => T, set?: (value: T) => void) {
 
 const mocks = vi.hoisted(() => ({
   stats: {
-    totalFiles: 100,
-    totalSizeBytes: 1024 * 1024 * 500,
-    averageFileSizeBytes: 1024 * 1024 * 5,
-    totalLibraries: 3,
-    totalUsers: 2,
+    users: 2,
+    libraries: 3,
+    files: 100,
+    folders: 8,
+    totalSize: 1024 * 1024 * 500,
   },
   users: [
     {
@@ -30,9 +30,6 @@ const mocks = vi.hoisted(() => ({
       role: "owner" as const,
       createdAt: "2025-01-01T00:00:00Z",
       updatedAt: "2025-01-01T00:00:00Z",
-      lastLoggedInAt: "2025-06-01T00:00:00Z",
-      uploadedFileCount: 50,
-      uploadedSizeBytes: 1024 * 1024 * 200,
     },
     {
       id: "user-2",
@@ -42,9 +39,6 @@ const mocks = vi.hoisted(() => ({
       role: "member" as const,
       createdAt: "2025-02-01T00:00:00Z",
       updatedAt: "2025-02-01T00:00:00Z",
-      lastLoggedInAt: null,
-      uploadedFileCount: 50,
-      uploadedSizeBytes: 1024 * 1024 * 300,
     },
   ],
   toast: { add: vi.fn() },
@@ -96,32 +90,42 @@ describe("admin.vue", () => {
   });
 
   function mountPage() {
-    return mount(AdminPage);
+    return mount(AdminPage, {
+      global: {
+        stubs: {
+          AdminJobsPanel: { template: "<div>Jobs panel</div>" },
+          UserAvatar: { template: "<div />" },
+          AppIcon: { template: "<svg />" },
+        },
+      },
+    });
   }
 
   it("renders the admin heading", () => {
     const wrapper = mountPage();
-    expect(wrapper.text()).toContain("Admin");
-    expect(wrapper.text()).toContain("Instance-wide metrics");
+    expect(wrapper.text()).toContain("Admin Dashboard");
+    expect(wrapper.text()).toContain("Instance overview, user management, and background jobs.");
   });
 
   it("displays stat cards with correct values", () => {
     const wrapper = mountPage();
     const text = wrapper.text();
-    expect(text).toContain("Total Files");
+    expect(text).toContain("Files");
     expect(text).toContain("100");
-    expect(text).toContain("Total Storage");
+    expect(text).toContain("Storage");
     expect(text).toContain("500 MB");
     expect(text).toContain("Libraries");
     expect(text).toContain("3");
     expect(text).toContain("Users");
     expect(text).toContain("2");
+    expect(text).toContain("Folders");
+    expect(text).toContain("8");
   });
 
   it("shows user management table with user data", () => {
     const wrapper = mountPage();
     const text = wrapper.text();
-    expect(text).toContain("User Management");
+    expect(text).toContain("Users");
     expect(text).toContain("Owner User");
     expect(text).toContain("owner@example.com");
     expect(text).toContain("Member User");
@@ -130,11 +134,12 @@ describe("admin.vue", () => {
 
   it("displays user count badge", () => {
     const wrapper = mountPage();
-    expect(wrapper.text()).toContain("2 users");
+    expect(wrapper.text()).toContain("2");
   });
 
-  it("shows 'Never' for users with null lastLoggedInAt", () => {
+  it("shows role options in the user table", () => {
     const wrapper = mountPage();
-    expect(wrapper.text()).toContain("Never");
+    expect(wrapper.text()).toContain("Owner");
+    expect(wrapper.text()).toContain("Member");
   });
 });

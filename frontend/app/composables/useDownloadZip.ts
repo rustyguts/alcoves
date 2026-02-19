@@ -6,7 +6,10 @@ import { useToast } from "~/composables/useToast";
 const MAX_ZIP_SIZE_BYTES = 4 * 1024 * 1024 * 1024; // 4 GB - must match server
 
 function buildZipDownloadName() {
-  const utc = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const utc = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
   return `alcoves-download-${utc}.zip`;
 }
 

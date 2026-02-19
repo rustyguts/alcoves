@@ -9,13 +9,17 @@ import { useLibraryFolderActions } from "~/composables/useLibraryFolderActions";
 import { useUploadQueue } from "~/composables/useUploadQueue";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
+import ContextMenuItemsRenderer from "~/components/ContextMenuItemsRenderer.vue";
 import LibraryHeader from "~/components/LibraryHeader.vue";
 import UploadModal from "~/components/UploadModal.vue";
 import FilePreview from "~/components/FilePreview.vue";
 import ClipModal from "~/components/ClipModal.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
 import AppContextMenu from "~/components/AppContextMenu.vue";
-import UserAvatar from "~/components/UserAvatar.vue";
+import LibraryEntriesGrid from "~/components/library/LibraryEntriesGrid.vue";
+import LibraryEmptyState from "~/components/library/LibraryEmptyState.vue";
+import LibraryEntriesSkeleton from "~/components/library/LibraryEntriesSkeleton.vue";
+import LibraryEntriesTable from "~/components/library/LibraryEntriesTable.vue";
 
 const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
 const ROOT_MOVE_VALUE = "__root__";
@@ -1155,330 +1159,78 @@ const emptyStateDescription = computed(() => {
 
     <div class="rounded-lg overflow-y-auto flex-1 min-h-0">
       <!-- Skeleton loading state -->
-      <template v-if="filesPending">
-        <table v-if="entryViewMode === 'file'" class="w-full">
-          <thead class="sticky top-0 z-10">
-            <tr>
-              <th class="w-12 px-4 py-3" />
-              <th class="text-left text-xs font-medium text-muted px-4 py-3">Name</th>
-              <th class="text-left text-xs font-medium text-muted px-4 py-3">Tags</th>
-              <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
-                Owner
-              </th>
-              <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
-                {{ showTrashed ? "Trashed" : "Modified" }}
-              </th>
-              <th class="text-right text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
-                Size
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="i in 8" :key="i">
-              <td class="px-4 py-3">
-                <div class="skeleton h-5 w-5 rounded" />
-              </td>
-              <td class="px-4 py-3">
-                <div class="skeleton h-4 rounded" :style="{ width: `${40 + ((i * 17) % 40)}%` }" />
-              </td>
-              <td class="px-4 py-3">
-                <div class="skeleton h-3 w-8 rounded-full" />
-              </td>
-              <td class="px-4 py-3 hidden sm:table-cell">
-                <div class="skeleton h-6 w-6 rounded-full" />
-              </td>
-              <td class="px-4 py-3 hidden sm:table-cell">
-                <div class="skeleton h-4 w-20 rounded" />
-              </td>
-              <td class="px-4 py-3 hidden sm:table-cell">
-                <div class="skeleton h-4 w-14 rounded ml-auto" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-else class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          <div v-for="i in 8" :key="i" class="rounded-lg bg-elevated/50 p-3">
-            <div class="skeleton h-40 w-full rounded-md mb-3" />
-            <div class="skeleton h-4 rounded mb-2" :style="{ width: `${50 + ((i * 13) % 40)}%` }" />
-            <div class="skeleton h-3 w-16 rounded" />
-          </div>
-        </div>
-      </template>
+      <LibraryEntriesSkeleton
+        v-if="filesPending"
+        :entry-view-mode="entryViewMode"
+        :show-trashed="showTrashed"
+      />
 
-      <table v-else-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0" class="w-full">
-        <thead class="sticky top-0 z-10 bg-base-300">
-          <tr class="bg-base-300">
-            <th class="w-12 px-4 py-3" />
-            <th class="text-left text-xs font-medium text-muted px-4 py-3">Name</th>
-            <th class="text-left text-xs font-medium text-muted px-4 py-3">Tags</th>
-            <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
-              Owner
-            </th>
-            <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
-              {{ showTrashed ? "Trashed" : "Modified" }}
-            </th>
-            <th class="text-right text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
-              Size
-            </th>
-          </tr>
-        </thead>
-        <tbody class="select-none">
-          <template v-for="entry in entries ?? []" :key="`${entry.kind}-${entry.id}`">
-            <tr
-              class="cursor-pointer transition-colors"
-              :class="[
-                isEntrySelected(entry)
-                  ? 'bg-primary/20 hover:bg-primary/28'
-                  : 'hover:bg-primary/10',
-                dropTargetFolderId === entry.id && entry.kind === 'folder'
-                  ? 'ring-2 ring-primary/60 ring-inset bg-primary/5'
-                  : '',
-                draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
-              ]"
-              :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
-              @click="handleRowClick(entry, $event)"
-              @dblclick="openEntry(entry)"
-              @contextmenu="(e) => showContextMenu(entry, e)"
-              @dragstart="handleFileDragStart(entry, $event)"
-              @dragend="handleFileDragEnd"
-              @dragenter="handleFolderDragEnter(entry)"
-              @dragover="handleFolderDragOver(entry, $event)"
-              @dragleave="handleFolderDragLeave(entry, $event)"
-              @drop="handleFolderDrop(entry, $event)"
-            >
-              <td class="px-4 py-3">
-                <div class="flex items-center justify-center">
-                  <AppIcon
-                    :name="
-                      entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(entry.mimeType)
-                    "
-                    class="size-5 text-muted"
-                    :class="showTrashed && entry.kind === 'file' ? 'opacity-50' : ''"
-                  />
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <div v-if="isRenaming(entry)" :data-rename-input-entry-id="entry.id">
-                  <input
-                    v-model="renameValue"
-                    class="input input-sm w-full"
-                    autofocus
-                    @blur="saveEntryRename(entry)"
-                    @keydown.enter="saveEntryRename(entry)"
-                    @keydown.escape="renamingEntry = null"
-                    @click.stop
-                  />
-                </div>
-                <div v-else class="flex items-center gap-1">
-                  <button
-                    v-if="entry.kind === 'folder'"
-                    type="button"
-                    class="text-sm text-left"
-                    @click.stop="openFolder(entry.id)"
-                  >
-                    {{
-                      showTrashed
-                        ? `${entry.name} (${entry.trashFileCount ?? 0} files)`
-                        : entry.name
-                    }}
-                  </button>
-                  <span v-else class="text-sm text-left" :class="showTrashed ? 'opacity-60' : ''">
-                    {{ entry.name }}
-                  </span>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex flex-wrap items-center gap-1.5">
-                  <span
-                    v-for="tag in entry.tags"
-                    :key="tag.id"
-                    class="size-2.5 rounded-full border border-default/50"
-                    :title="tag.name"
-                    :style="{ backgroundColor: tag.color }"
-                  />
-                </div>
-              </td>
-              <td class="px-4 py-3 text-sm text-muted hidden sm:table-cell">
-                <div v-if="entry.owner" class="flex items-center">
-                  <UserAvatar
-                    :display-name="entry.owner.displayName"
-                    :avatar-url="entry.owner.avatarUrl"
-                    size-class="w-6"
-                    text-size-class="text-[10px]"
-                    bg-class="bg-primary/20 text-primary"
-                    tooltip
-                    tooltip-position="right"
-                  />
-                </div>
-                <span v-else>-</span>
-              </td>
-              <td class="px-4 py-3 text-sm text-muted hidden sm:table-cell">
-                {{
-                  showTrashed && entry.trashedAt
-                    ? formatDate(entry.trashedAt)
-                    : formatDate(entry.updatedAt)
-                }}
-              </td>
-              <td class="px-4 py-3 text-sm text-muted text-right hidden sm:table-cell">
-                {{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+      <LibraryEntriesTable
+        v-else-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0"
+        :entries="entries ?? []"
+        :show-trashed="showTrashed"
+        :drag-enabled="dragEnabled"
+        :dragged-file-ids="draggedFileIds"
+        :drop-target-folder-id="dropTargetFolderId"
+        :rename-value="renameValue"
+        :is-entry-selected="isEntrySelected"
+        :is-renaming="isRenaming"
+        @row-click="handleRowClick"
+        @row-double-click="openEntry"
+        @row-context-menu="showContextMenu"
+        @drag-start="handleFileDragStart"
+        @drag-end="handleFileDragEnd"
+        @drag-enter="handleFolderDragEnter"
+        @drag-over="handleFolderDragOver"
+        @drag-leave="handleFolderDragLeave"
+        @drop="handleFolderDrop"
+        @open-folder="openFolder"
+        @save-rename="saveEntryRename"
+        @cancel-rename="renamingEntry = null"
+        @update-rename-value="renameValue = $event"
+      />
 
-      <div
+      <LibraryEntriesGrid
         v-else-if="entryViewMode === 'card' && (entries?.length ?? 0) > 0"
-        class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
-      >
-        <template v-for="entry in entries ?? []" :key="`${entry.kind}-${entry.id}`">
-          <div
-            class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
-            :class="[
-              isEntrySelected(entry) ? 'bg-primary/20 hover:bg-primary/28' : 'hover:bg-primary/10',
-              dropTargetFolderId === entry.id && entry.kind === 'folder'
-                ? 'ring-2 ring-primary/60 bg-primary/10'
-                : '',
-              draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
-            ]"
-            :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
-            @click="handleRowClick(entry, $event)"
-            @dblclick="openEntry(entry)"
-            @contextmenu="(e) => showContextMenu(entry, e)"
-            @dragstart="handleFileDragStart(entry, $event)"
-            @dragend="handleFileDragEnd"
-            @dragenter="handleFolderDragEnter(entry)"
-            @dragover="handleFolderDragOver(entry, $event)"
-            @dragleave="handleFolderDragLeave(entry, $event)"
-            @drop="handleFolderDrop(entry, $event)"
-          >
-            <div
-              class="h-40 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden"
-            >
-              <template v-if="entry.kind === 'folder'">
-                <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
-              </template>
-              <template v-else-if="entry.kind === 'file' && entry.mimeType.startsWith('video/')">
-                <div class="relative w-full h-full flex items-center justify-center">
-                  <img
-                    v-if="!failedThumbnails.has(entry.id)"
-                    :src="`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`"
-                    :alt="entry.name"
-                    class="w-full h-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                    @error="failedThumbnails.add(entry.id)"
-                  />
-                  <AppIcon v-else name="i-lucide-film" class="size-10 text-muted" />
-                  <div
-                    v-if="entry.proxyStatus === 'processing'"
-                    class="absolute inset-0 flex items-center justify-center bg-black/40"
-                  >
-                    <span class="loading loading-spinner loading-sm text-white"></span>
-                  </div>
-                </div>
-              </template>
-              <template v-else-if="isImageFile(entry)">
-                <AlcovesImage
-                  v-if="!failedThumbnails.has(entry.id)"
-                  :library-id="libraryId || ''"
-                  :file-id="entry.id"
-                  :alt="entry.name"
-                  :width="cardThumbWidth(entry)"
-                  :height="cardThumbHeight(entry)"
-                  format="jpeg"
-                  :quality="82"
-                  :class="isSmallImage(entry) ? 'object-contain' : 'w-full h-full object-cover'"
-                  @error="failedThumbnails.add(entry.id)"
-                />
-                <AppIcon v-else name="i-lucide-image" class="size-10 text-muted" />
-              </template>
-              <template v-else>
-                <AppIcon
-                  :name="getMimeIcon(entry.mimeType)"
-                  class="size-10 text-muted"
-                  :class="showTrashed ? 'opacity-50' : ''"
-                />
-              </template>
-            </div>
+        :entries="entries ?? []"
+        :library-id="libraryId || ''"
+        :show-trashed="showTrashed"
+        :drag-enabled="dragEnabled"
+        :dragged-file-ids="draggedFileIds"
+        :drop-target-folder-id="dropTargetFolderId"
+        :rename-value="renameValue"
+        :is-entry-selected="isEntrySelected"
+        :is-renaming="isRenaming"
+        :failed-thumbnails="failedThumbnails"
+        :is-image-file="isImageFile"
+        :is-small-image="isSmallImage"
+        :card-thumb-width="cardThumbWidth"
+        :card-thumb-height="cardThumbHeight"
+        @row-click="handleRowClick"
+        @row-double-click="openEntry"
+        @row-context-menu="showContextMenu"
+        @drag-start="handleFileDragStart"
+        @drag-end="handleFileDragEnd"
+        @drag-enter="handleFolderDragEnter"
+        @drag-over="handleFolderDragOver"
+        @drag-leave="handleFolderDragLeave"
+        @drop="handleFolderDrop"
+        @open-folder="openFolder"
+        @save-rename="saveEntryRename"
+        @cancel-rename="renamingEntry = null"
+        @update-rename-value="renameValue = $event"
+        @thumbnail-error="failedThumbnails.add($event)"
+      />
 
-            <div v-if="isRenaming(entry)" :data-rename-input-entry-id="entry.id">
-              <input
-                v-model="renameValue"
-                class="input input-sm w-full"
-                autofocus
-                @blur="saveEntryRename(entry)"
-                @keydown.enter="saveEntryRename(entry)"
-                @keydown.escape="renamingEntry = null"
-                @click.stop
-              />
-            </div>
-            <div v-else>
-              <button
-                v-if="entry.kind === 'folder'"
-                type="button"
-                class="text-sm font-medium text-left truncate w-full"
-                @click.stop="openFolder(entry.id)"
-              >
-                {{
-                  showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name
-                }}
-              </button>
-              <span
-                v-else
-                class="text-sm font-medium text-left truncate w-full"
-                :class="showTrashed ? 'opacity-60' : ''"
-              >
-                {{ entry.name }}
-              </span>
-
-              <div class="flex items-center justify-between mt-1 gap-2 text-xs text-muted">
-                <span>{{
-                  showTrashed && entry.trashedAt
-                    ? formatDate(entry.trashedAt)
-                    : formatDate(entry.updatedAt)
-                }}</span>
-                <span>{{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}</span>
-              </div>
-              <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                <span
-                  v-for="tag in entry.tags"
-                  :key="tag.id"
-                  class="size-2.5 rounded-full border border-default/50"
-                  :title="tag.name"
-                  :style="{ backgroundColor: tag.color }"
-                />
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <div
+      <LibraryEmptyState
         v-if="(entries?.length ?? 0) === 0 && !filesPending"
-        class="flex flex-col items-center justify-center py-16 px-4"
-      >
-        <div
-          class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
-        >
-          <AppIcon
-            :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
-            class="size-8 text-(--ui-text-muted)"
-          />
-        </div>
-        <p class="text-lg font-medium text-foreground mb-1">{{ emptyStateTitle }}</p>
-        <p class="text-sm text-muted mb-4">{{ emptyStateDescription }}</p>
-        <div v-if="canManageLibrary && !showTrashed" class="flex items-center gap-2">
-          <button class="btn btn-outline" @click="openCreateFolderModal">
-            <AppIcon name="i-lucide-folder-plus" class="size-4" />
-            Create folder
-          </button>
-          <button class="btn btn-primary" @click="uploadOpen = true">
-            <AppIcon name="i-lucide-upload" class="size-4" />
-            Upload files
-          </button>
-        </div>
-      </div>
+        :show-trashed="showTrashed"
+        :title="emptyStateTitle"
+        :description="emptyStateDescription"
+        :can-manage-library="canManageLibrary"
+        @create-folder="openCreateFolderModal"
+        @upload-files="uploadOpen = true"
+      />
 
       <div ref="sentinel" class="h-px" />
       <div v-if="loadingMore" class="flex items-center justify-center py-4">
@@ -1703,62 +1455,7 @@ const emptyStateDescription = computed(() => {
       <ul
         class="menu dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl p-2 w-auto max-h-[calc(100vh-1rem)] overflow-y-auto"
       >
-        <template v-for="(group, groupIndex) in contextMenuGroups" :key="groupIndex">
-          <li v-if="groupIndex > 0" class="menu-title my-1 p-0">
-            <div class="h-px w-full bg-base-300/80" />
-          </li>
-          <template
-            v-for="(item, itemIndex) in group"
-            :key="`${groupIndex}-${itemIndex}-${item.label}`"
-          >
-            <li v-if="item.children?.length">
-              <details>
-                <summary
-                  :class="[
-                    item.color === 'error' ? 'text-error' : '',
-                    'px-2 py-1.5 gap-2 whitespace-nowrap',
-                  ]"
-                >
-                  <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-                  <span>{{ item.label }}</span>
-                </summary>
-                <ul>
-                  <li
-                    v-for="(child, childIndex) in item.children"
-                    :key="`${item.label}-${childIndex}-${child.label}`"
-                  >
-                    <button
-                      type="button"
-                      :class="[
-                        child.color === 'error' ? 'text-error' : '',
-                        'px-2 py-1.5 gap-2 whitespace-nowrap',
-                      ]"
-                      :disabled="child.disabled"
-                      @click="handleContextMenuSelect(child)"
-                    >
-                      <AppIcon v-if="child.icon" :name="child.icon" class="size-4 shrink-0" />
-                      <span>{{ child.label }}</span>
-                    </button>
-                  </li>
-                </ul>
-              </details>
-            </li>
-            <li v-else>
-              <button
-                type="button"
-                :class="[
-                  item.color === 'error' ? 'text-error' : '',
-                  'px-2 py-1.5 gap-2 whitespace-nowrap',
-                ]"
-                :disabled="item.disabled"
-                @click="handleContextMenuSelect(item)"
-              >
-                <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-                <span>{{ item.label }}</span>
-              </button>
-            </li>
-          </template>
-        </template>
+        <ContextMenuItemsRenderer :groups="contextMenuGroups" @select="handleContextMenuSelect" />
       </ul>
     </AppContextMenu>
   </div>

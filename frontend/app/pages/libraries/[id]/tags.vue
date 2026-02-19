@@ -5,6 +5,7 @@ import { useLibraryTags } from "~/composables/useLibraryTags";
 import { useToast } from "~/composables/useToast";
 import { apiFetch } from "~/utils/api-fetch";
 import AppIcon from "~/components/AppIcon.vue";
+import TagColorPickerDropdown from "~/components/library/TagColorPickerDropdown.vue";
 import { TAG_COLOR_PALETTE } from "~~/shared/tag-colors";
 import type {
   Library,
@@ -258,53 +259,18 @@ onBeforeUnmount(() => {
             <tbody>
               <tr>
                 <td>
-                  <details
-                    class="dropdown"
-                    data-color-dropdown
+                  <TagColorPickerDropdown
+                    key-id="create"
                     :open="openColorDropdown === 'create'"
-                  >
-                    <summary
-                      class="btn btn-sm btn-circle btn-ghost p-0"
-                      title="Select new tag color"
-                      @click.prevent="toggleColorDropdown('create')"
-                    >
-                      <span
-                        class="size-4 rounded-full"
-                        :style="{ backgroundColor: createTagColor }"
-                      />
-                    </summary>
-                    <div
-                      class="dropdown-content rounded-box z-20 mt-2 w-52 border border-base-300/80 bg-base-100 p-4 shadow-xl"
-                    >
-                      <div class="grid grid-cols-4 gap-2">
-                        <button
-                          v-for="color in TAG_COLOR_PALETTE"
-                          :key="`create-${color}`"
-                          type="button"
-                          class="relative size-9 rounded-full border border-base-300 transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-                          :class="
-                            color === createTagColor.toUpperCase() ? 'ring-2 ring-primary/40' : ''
-                          "
-                          :style="{ backgroundColor: color }"
-                          :title="color"
-                          @click="selectCreateTagColor(color)"
-                        >
-                          <AppIcon
-                            v-if="color === createTagColor.toUpperCase()"
-                            name="i-lucide-check"
-                            class="absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow"
-                          />
-                        </button>
-                      </div>
-                      <input
-                        v-model="createTagColorDraft"
-                        class="input input-sm mt-2 w-full font-mono uppercase"
-                        placeholder="#3B82F6"
-                        @blur="applyCreateColorDraft"
-                        @keydown.enter.prevent="applyCreateColorDraft"
-                      />
-                    </div>
-                  </details>
+                    :color="createTagColor"
+                    :draft="createTagColorDraft"
+                    :palette="TAG_COLOR_PALETTE"
+                    title="Select new tag color"
+                    @toggle="toggleColorDropdown('create')"
+                    @pick="selectCreateTagColor"
+                    @update-draft="createTagColorDraft = $event"
+                    @commit-draft="applyCreateColorDraft"
+                  />
                 </td>
                 <td>
                   <div class="flex items-center gap-2">
@@ -338,50 +304,22 @@ onBeforeUnmount(() => {
 
               <tr v-for="tag in sortedTags" :key="tag.id">
                 <td>
-                  <details
-                    class="dropdown"
-                    data-color-dropdown
+                  <TagColorPickerDropdown
+                    :key-id="tag.id"
                     :open="openColorDropdown === tag.id"
-                  >
-                    <summary
-                      class="btn btn-sm btn-circle btn-ghost p-0"
-                      @click.prevent="toggleColorDropdown(tag.id)"
-                    >
-                      <span class="size-4 rounded-full" :style="{ backgroundColor: tag.color }" />
-                    </summary>
-                    <div
-                      class="dropdown-content rounded-box z-20 mt-2 w-52 border border-base-300/80 bg-base-100 p-4 shadow-xl"
-                    >
-                      <div class="grid grid-cols-4 gap-2">
-                        <button
-                          v-for="color in TAG_COLOR_PALETTE"
-                          :key="`${tag.id}-${color}`"
-                          type="button"
-                          class="relative size-9 rounded-full border border-base-300 transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-                          :class="color === tag.color.toUpperCase() ? 'ring-2 ring-primary/40' : ''"
-                          :style="{ backgroundColor: color }"
-                          :title="color"
-                          @click="
-                            updateTagColor(tag, color);
-                            tagColorDrafts[tag.id] = color;
-                          "
-                        >
-                          <AppIcon
-                            v-if="color === tag.color.toUpperCase()"
-                            name="i-lucide-check"
-                            class="absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow"
-                          />
-                        </button>
-                      </div>
-                      <input
-                        v-model="tagColorDrafts[tag.id]"
-                        class="input input-sm mt-2 w-full font-mono uppercase"
-                        placeholder="#3B82F6"
-                        @blur="applyTagColorDraft(tag)"
-                        @keydown.enter.prevent="applyTagColorDraft(tag)"
-                      />
-                    </div>
-                  </details>
+                    :color="tag.color"
+                    :draft="tagColorDrafts[tag.id]"
+                    :palette="TAG_COLOR_PALETTE"
+                    @toggle="toggleColorDropdown(tag.id)"
+                    @pick="
+                      (color) => {
+                        updateTagColor(tag, color);
+                        tagColorDrafts[tag.id] = color;
+                      }
+                    "
+                    @update-draft="tagColorDrafts[tag.id] = $event"
+                    @commit-draft="applyTagColorDraft(tag)"
+                  />
                 </td>
                 <td>
                   <div class="flex items-center gap-2">

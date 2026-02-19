@@ -301,7 +301,7 @@ test.describe("Auth and core app flows", () => {
     await page.goto("/login");
     await page.getByPlaceholder("Enter your email").fill("bad@example.com");
     await page.getByPlaceholder("Enter your password").fill("wrongpass");
-    await page.getByRole("button", { name: /continue/i }).click();
+    await page.getByRole("button", { name: /sign in/i }).click();
 
     await expect(page.getByText("Invalid email or password")).toBeVisible();
   });
@@ -313,7 +313,7 @@ test.describe("Auth and core app flows", () => {
     await page.goto("/login?redirect=%2Fsearch%3Fq%3Dplan");
     await page.getByPlaceholder("Enter your email").fill("good@example.com");
     await page.getByPlaceholder("Enter your password").fill("password123");
-    await page.getByRole("button", { name: /continue/i }).click();
+    await page.getByRole("button", { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/search\?q=plan/);
     await expect(page.getByText("Quarterly Plan.txt")).toBeVisible();

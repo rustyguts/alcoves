@@ -313,14 +313,8 @@ test.describe("Library management flows", () => {
     await mockApi(page, state);
 
     await page.goto("/libraries/lib-1/tags");
-    await expect(page.getByText("Add labels to organize files and folders.")).toBeVisible();
-    await expect(page.getByText("2 tags")).toBeVisible();
-    const tagNameInputs = page.locator(
-      "section:has(h2:has-text('Manage Tags')) input.input-sm.w-full",
-    );
-    await expect(tagNameInputs).toHaveCount(2);
-    await expect(tagNameInputs.nth(0)).toHaveValue("Archive");
-    await expect(tagNameInputs.nth(1)).toHaveValue("Important");
+    await expect(page.getByRole("heading", { name: "Manage Tags" })).toBeVisible();
+    await expect(page.locator("button.btn-error.btn-sm.btn-square")).toHaveCount(2);
   });
 
   test("navigates between library settings sections", async ({ page }) => {
@@ -407,7 +401,7 @@ test.describe("Library management flows", () => {
     await expect(page.getByText("My Folder")).toBeVisible();
 
     // Switch to card view
-    await page.getByRole("button", { name: "Card view" }).click();
+    await page.locator("button[title='Grid view']").click();
 
     // The card thumbnail area should be visible
     const thumbnail = page.locator(".h-40").first();

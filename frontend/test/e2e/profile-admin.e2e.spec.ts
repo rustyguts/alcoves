@@ -116,11 +116,11 @@ async function mockApi(page: Page, state: MockState) {
 
     if (path === "/api/admin/stats") {
       await fulfillJson(route, 200, {
-        totalFiles: 42,
-        totalSizeBytes: 1073741824,
-        averageFileSizeBytes: 25562148,
-        totalLibraries: 3,
-        totalUsers: 5,
+        users: 5,
+        libraries: 3,
+        files: 42,
+        folders: 12,
+        totalSize: 1073741824,
       });
       return;
     }
@@ -135,9 +135,6 @@ async function mockApi(page: Page, state: MockState) {
           role: "owner",
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
-          lastLoggedInAt: "2025-06-01T00:00:00Z",
-          uploadedFileCount: 30,
-          uploadedSizeBytes: 524288000,
         },
         {
           id: "user-2",
@@ -147,9 +144,6 @@ async function mockApi(page: Page, state: MockState) {
           role: "member",
           createdAt: "2025-02-01T00:00:00.000Z",
           updatedAt: "2025-02-01T00:00:00.000Z",
-          lastLoggedInAt: null,
-          uploadedFileCount: 12,
-          uploadedSizeBytes: 524288000,
         },
       ]);
       return;
@@ -180,7 +174,7 @@ test.describe("Profile page", () => {
 
     await page.goto("/profile");
     await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
-    await expect(page.locator('input[value="Admin User"]')).toBeVisible();
+    await expect(page.locator("input[placeholder='Your display name']")).toHaveValue("Admin User");
   });
 
   test("shows active sessions", async ({ page }) => {
@@ -200,10 +194,10 @@ test.describe("Admin page", () => {
     await mockApi(page, state);
 
     await page.goto("/admin");
-    await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
-    await expect(page.getByText("Total Files")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
+    await expect(page.getByText("Files")).toBeVisible();
     await expect(page.getByText("42")).toBeVisible();
-    await expect(page.getByText("Total Storage")).toBeVisible();
+    await expect(page.getByText("Storage")).toBeVisible();
   });
 
   test("shows user management table", async ({ page }) => {
@@ -211,17 +205,20 @@ test.describe("Admin page", () => {
     await mockApi(page, state);
 
     await page.goto("/admin");
-    await expect(page.getByText("User Management")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
     await expect(page.getByText("Admin User")).toBeVisible();
     await expect(page.getByText("Regular User")).toBeVisible();
-    await expect(page.getByText("2 users")).toBeVisible();
+    await expect(page.locator(".badge").filter({ hasText: "2" }).first()).toBeVisible();
   });
 
-  test("shows 'Never' for users who haven't logged in", async ({ page }) => {
+  test("shows role controls in the users table", async ({ page }) => {
     const state: MockState = { loggedIn: true, role: "owner" };
     await mockApi(page, state);
 
     await page.goto("/admin");
-    await expect(page.getByText("Never")).toBeVisible();
+    const roleSelects = page.locator("select.select-xs");
+    await expect(roleSelects).toHaveCount(2);
+    await expect(roleSelects.nth(0)).toHaveValue("owner");
+    await expect(roleSelects.nth(1)).toHaveValue("member");
   });
 });

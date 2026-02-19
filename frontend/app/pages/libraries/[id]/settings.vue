@@ -7,6 +7,9 @@ import { useToast } from "~/composables/useToast";
 import { apiFetch } from "~/utils/api-fetch";
 import type { Library, LibraryUsersResponse } from "~~/shared/types/api";
 import AppIcon from "~/components/AppIcon.vue";
+import ConfirmModal from "~/components/ConfirmModal.vue";
+import InviteLinkRow from "~/components/library/settings/InviteLinkRow.vue";
+import LibraryMemberRow from "~/components/library/settings/LibraryMemberRow.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -272,37 +275,14 @@ async function deleteLibrary() {
               </button>
             </div>
             <div class="divide-y divide-default rounded-lg border border-default">
-              <div
+              <InviteLinkRow
                 v-for="invite in inviteLinks"
                 :key="invite.id"
-                class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-              >
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium truncate">{{ invite.inviteUrl }}</p>
-                  <p class="text-xs text-muted">
-                    Used {{ invite.useCount }} {{ invite.useCount === 1 ? "time" : "times" }}
-                  </p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <button
-                    class="btn btn-sm btn-ghost btn-outline"
-                    @click="copyInviteLink(invite.inviteUrl)"
-                  >
-                    <AppIcon name="i-lucide-copy" class="size-4" />
-                  </button>
-                  <button
-                    class="btn btn-sm btn-error btn-soft"
-                    :disabled="revokingInviteId === invite.id"
-                    @click="revokeInvite(invite.id)"
-                  >
-                    <span
-                      v-if="revokingInviteId === invite.id"
-                      class="loading loading-spinner loading-xs"
-                    ></span>
-                    <AppIcon v-else name="i-lucide-x" class="size-4" />
-                  </button>
-                </div>
-              </div>
+                :invite="invite"
+                :revoking="revokingInviteId === invite.id"
+                @copy="copyInviteLink"
+                @revoke="revokeInvite"
+              />
             </div>
           </div>
           <div v-else class="flex items-center justify-between gap-3">
@@ -327,59 +307,22 @@ async function deleteLibrary() {
           <div v-if="libraryMembers.length">
             <p class="text-sm font-medium mb-3">Members</p>
             <div class="divide-y divide-default rounded-lg border border-default">
-              <div
+              <LibraryMemberRow
                 v-for="member in libraryMembers"
                 :key="member.id"
-                class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-              >
-                <div class="flex items-center gap-3 flex-1 min-w-0">
-                  <div class="avatar">
-                    <div class="w-8 rounded-full">
-                      <img
-                        :src="member.user.avatarUrl ?? undefined"
-                        :alt="member.user.displayName"
-                      />
-                    </div>
-                  </div>
-                  <div class="min-w-0">
-                    <p class="text-sm font-medium truncate">{{ member.user.displayName }}</p>
-                    <p class="text-xs text-muted truncate">{{ member.user.email }}</p>
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <span v-if="member.role === 'owner'" class="badge badge-sm badge-primary"
-                    >owner</span
-                  >
-                  <template v-else>
-                    <select
-                      v-model="memberRoleDrafts[member.userId]"
-                      class="select w-28"
-                      :disabled="updatingMemberUserId === member.userId"
-                      @change="updateMemberRole(member)"
-                    >
-                      <option
-                        v-for="item in inviteRoleOptions"
-                        :key="item.value"
-                        :value="item.value"
-                      >
-                        {{ item.label }}
-                      </option>
-                    </select>
-                    <button
-                      class="btn btn-sm btn-error btn-soft"
-                      :disabled="removingMemberUserId === member.userId"
-                      @click="removeMember(member)"
-                    >
-                      <span
-                        v-if="removingMemberUserId === member.userId"
-                        class="loading loading-spinner loading-xs"
-                      ></span>
-                      <AppIcon v-else name="i-lucide-user-minus" class="size-4" />
-                    </button>
-                  </template>
-                </div>
-              </div>
+                :member="member"
+                :role-draft="memberRoleDrafts[member.userId]"
+                :updating-role="updatingMemberUserId === member.userId"
+                :removing="removingMemberUserId === member.userId"
+                :role-options="inviteRoleOptions"
+                @update-role="
+                  (_, role) => {
+                    memberRoleDrafts[member.userId] = role;
+                    updateMemberRole(member);
+                  }
+                "
+                @remove="removeMember"
+              />
             </div>
           </div>
 
@@ -488,59 +431,27 @@ async function deleteLibrary() {
       </div>
     </div>
 
-    <!-- Disable Face Recognition Modal -->
-    <dialog class="modal" :class="{ 'modal-open': faceRecDisableOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Disable Facial Recognition</h3>
-        <p class="text-sm text-muted py-4">
-          This will permanently delete all detected faces and people data for this library. This
-          action cannot be undone.
-        </p>
-        <div class="modal-action">
-          <button class="btn" @click="faceRecDisableOpen = false">Cancel</button>
-          <button
-            class="btn btn-error"
-            :disabled="faceRecToggling"
-            @click="confirmDisableFaceRecognition"
-          >
-            <span v-if="faceRecToggling" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-trash-2" class="size-4" />
-            Disable & Delete Data
-          </button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop" @click="faceRecDisableOpen = false">
-        <button>close</button>
-      </form>
-    </dialog>
+    <ConfirmModal
+      v-model:open="faceRecDisableOpen"
+      title="Disable Facial Recognition"
+      message="This will permanently delete all detected faces and people data for this library. This action cannot be undone."
+      confirm-label="Disable & Delete Data"
+      confirm-class="btn-error"
+      confirm-icon="i-lucide-trash-2"
+      :pending="faceRecToggling"
+      @confirm="confirmDisableFaceRecognition"
+    />
 
-    <!-- Reprocess Face Recognition Modal -->
-    <dialog class="modal" :class="{ 'modal-open': faceRecReprocessOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Reprocess Facial Recognition</h3>
-        <p class="text-sm text-muted py-4">
-          This deletes all existing face inference data and queues a full rebuild. Results may
-          change, including how photos are grouped into people.
-        </p>
-        <div class="modal-action">
-          <button class="btn" :disabled="faceRecReprocessing" @click="faceRecReprocessOpen = false">
-            Cancel
-          </button>
-          <button
-            class="btn btn-warning"
-            :disabled="faceRecReprocessing"
-            @click="reprocessFaceRecognition"
-          >
-            <span v-if="faceRecReprocessing" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
-            Delete Data & Requeue
-          </button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop" @click="faceRecReprocessOpen = false">
-        <button>close</button>
-      </form>
-    </dialog>
+    <ConfirmModal
+      v-model:open="faceRecReprocessOpen"
+      title="Reprocess Facial Recognition"
+      message="This deletes all existing face inference data and queues a full rebuild. Results may change, including how photos are grouped into people."
+      confirm-label="Delete Data & Requeue"
+      confirm-class="btn-warning"
+      confirm-icon="i-lucide-refresh-cw"
+      :pending="faceRecReprocessing"
+      @confirm="reprocessFaceRecognition"
+    />
 
     <!-- Delete Library Modal -->
     <dialog class="modal" :class="{ 'modal-open': deleteLibraryOpen }">

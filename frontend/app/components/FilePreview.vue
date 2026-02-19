@@ -24,8 +24,35 @@ const fileUrl = computed(
   () => `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`,
 );
 
+const proxyStatus = ref<string | null>(props.file.proxyStatus ?? null);
+const proxyProgress = ref<number | null>(props.file.proxyProgress ?? null);
+const proxyEtaSeconds = ref<number | null>(props.file.proxyEtaSeconds ?? null);
+
+const videoProxyProcessing = computed(
+  () => previewType.value === "video" && proxyStatus.value === "processing",
+);
+
+const videoProxyProgressPercent = computed(() => {
+  const raw = proxyProgress.value;
+  if (raw === null || Number.isNaN(raw)) return 0;
+  return Math.min(100, Math.max(0, Math.round(raw)));
+});
+
+const videoProxyEtaLabel = computed(() => {
+  const eta = proxyEtaSeconds.value;
+  if (eta === null || eta <= 0) return null;
+
+  const hours = Math.floor(eta / 3600);
+  const minutes = Math.floor((eta % 3600) / 60);
+  const seconds = eta % 60;
+
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+});
+
 const videoSrc = computed(() => {
-  if (props.file.mimeType.startsWith("video/") && props.file.proxyStatus === "ready") {
+  if (props.file.mimeType.startsWith("video/") && proxyStatus.value === "ready") {
     return `/api/libraries/${props.libraryId}/files/${props.file.id}/proxy`;
   }
   return fileUrl.value;
@@ -35,7 +62,7 @@ const mediaSrc = computed(
   () =>
     ({
       src: videoSrc.value,
-      type: props.file.proxyStatus === "ready" ? "video/mp4" : props.file.mimeType,
+      type: proxyStatus.value === "ready" ? "video/mp4" : props.file.mimeType,
     }) as unknown as import("vidstack").PlayerSrc,
 );
 
@@ -103,6 +130,34 @@ watch(
   },
 );
 
+async function refreshProxyState() {
+  if (!open.value || !props.file.mimeType.startsWith("video/")) return;
+
+  try {
+    const latest = await apiFetch<LibraryFile>(
+      `/api/libraries/${props.libraryId}/files/${props.file.id}`,
+    );
+    proxyStatus.value = latest.proxyStatus ?? null;
+    proxyProgress.value = latest.proxyProgress ?? null;
+    proxyEtaSeconds.value = latest.proxyEtaSeconds ?? null;
+  } catch {}
+}
+
+let proxyPollTimer: ReturnType<typeof setInterval> | null = null;
+
+function stopProxyPolling() {
+  if (!proxyPollTimer) return;
+  clearInterval(proxyPollTimer);
+  proxyPollTimer = null;
+}
+
+function startProxyPolling() {
+  if (proxyPollTimer) return;
+  proxyPollTimer = setInterval(() => {
+    void refreshProxyState();
+  }, 2000);
+}
+
 function downloadFile() {
   const link = document.createElement("a");
   link.href = `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`;
@@ -154,10 +209,39 @@ function onImageLoad(event: Event) {
 watch(
   () => props.file.id,
   () => {
+    proxyStatus.value = props.file.proxyStatus ?? null;
+    proxyProgress.value = props.file.proxyProgress ?? null;
+    proxyEtaSeconds.value = props.file.proxyEtaSeconds ?? null;
     imageLoaded.value = false;
     loadedImageWidth.value = null;
     loadedImageHeight.value = null;
   },
+);
+
+watch(
+  [open, () => props.file.id, () => props.file.mimeType],
+  ([isOpen, _fileID, mimeType]) => {
+    if (!isOpen || !mimeType.startsWith("video/")) {
+      stopProxyPolling();
+      return;
+    }
+    void refreshProxyState();
+  },
+  { immediate: true },
+);
+
+watch(
+  videoProxyProcessing,
+  (processing) => {
+    if (processing && open.value) {
+      startProxyPolling();
+      return;
+    }
+    if (!processing) {
+      stopProxyPolling();
+    }
+  },
+  { immediate: true },
 );
 
 // Preload adjacent images
@@ -211,6 +295,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", handleKeydown);
+  stopProxyPolling();
 });
 </script>
 
@@ -323,6 +408,24 @@ onUnmounted(() => {
         >
           <AppIcon name="i-lucide-download" class="size-5" />
         </button>
+      </div>
+
+      <div
+        v-if="videoProxyProcessing"
+        class="absolute left-1/2 top-14 z-20 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 rounded-box border border-white/15 bg-black/65 p-3 backdrop-blur-sm"
+      >
+        <div class="mb-2 flex items-center justify-between text-xs text-white/80">
+          <span>Preparing video preview</span>
+          <span class="font-semibold">{{ videoProxyProgressPercent }}%</span>
+        </div>
+        <progress
+          class="progress progress-primary w-full"
+          :value="videoProxyProgressPercent"
+          max="100"
+        />
+        <p v-if="videoProxyEtaLabel" class="mt-1 text-xs text-white/70">
+          ETA {{ videoProxyEtaLabel }}
+        </p>
       </div>
 
       <!-- Overlay: previous button -->

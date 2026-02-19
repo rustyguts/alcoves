@@ -29,6 +29,8 @@ export interface LibraryFile {
   width: number | null;
   height: number | null;
   proxyStatus: string | null;
+  proxyProgress?: number | null;
+  proxyEtaSeconds?: number | null;
   sourceFileId: string | null;
   originalCreatedAt: string | null;
   trashedAt: string | null;

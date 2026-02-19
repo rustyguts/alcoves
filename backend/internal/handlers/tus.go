@@ -57,7 +57,9 @@ type TusHandler struct {
 
 func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, videoSvc *videoproxy.Service) *TusHandler {
 	tusDir := filepath.Join(dataDir, ".tus-uploads")
-	os.MkdirAll(tusDir, 0o755)
+	if err := os.MkdirAll(tusDir, 0o755); err != nil {
+		log.Printf("Failed to create tus staging directory %s: %v", tusDir, err)
+	}
 
 	return &TusHandler{
 		db:         db,
@@ -183,8 +185,13 @@ func (h *TusHandler) Create(c echo.Context) error {
 
 	// Create the staging file
 	stagingPath := h.stagingPath(uploadID)
+	if err := os.MkdirAll(h.dataDir, 0o755); err != nil {
+		log.Printf("Failed to ensure tus staging directory %s: %v", h.dataDir, err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to prepare upload directory")
+	}
 	f, err := os.Create(stagingPath)
 	if err != nil {
+		log.Printf("Failed to create tus upload file %s: %v", stagingPath, err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create upload file")
 	}
 
