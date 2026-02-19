@@ -377,13 +377,13 @@ func (s *Service) buildFileQueries(libraryID string, showTrashed bool, currentFo
 	var where string
 	if showTrashed {
 		where = fmt.Sprintf(
-			"library_id = '%s' AND trashed_at IS NOT NULL AND (parent_folder_id IS NULL OR NOT EXISTS (SELECT 1 FROM folders tp WHERE tp.id = files.parent_folder_id AND tp.trashed_at IS NOT NULL))",
+			"library_id = '%s' AND source_file_id IS NULL AND trashed_at IS NOT NULL AND (parent_folder_id IS NULL OR NOT EXISTS (SELECT 1 FROM folders tp WHERE tp.id = files.parent_folder_id AND tp.trashed_at IS NOT NULL))",
 			libraryID,
 		)
 	} else if currentFolderID != nil {
-		where = fmt.Sprintf("library_id = '%s' AND trashed_at IS NULL AND parent_folder_id = '%s'", libraryID, *currentFolderID)
+		where = fmt.Sprintf("library_id = '%s' AND source_file_id IS NULL AND trashed_at IS NULL AND parent_folder_id = '%s'", libraryID, *currentFolderID)
 	} else {
-		where = fmt.Sprintf("library_id = '%s' AND trashed_at IS NULL AND parent_folder_id IS NULL", libraryID)
+		where = fmt.Sprintf("library_id = '%s' AND source_file_id IS NULL AND trashed_at IS NULL AND parent_folder_id IS NULL", libraryID)
 	}
 
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM files WHERE %s", where)

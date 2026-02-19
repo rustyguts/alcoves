@@ -388,8 +388,24 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 
 	// Trigger video proxy generation for video files
 	if h.videoSvc != nil && strings.HasPrefix(upload.MimeType, "video/") {
-		if err := h.videoSvc.EnqueueVideoProxy(upload.LibraryID, fileID.String()); err != nil {
-			log.Printf("failed to enqueue video proxy for tus upload %s: %v", fileID, err)
+		if videoproxy.ShouldCreateProxyByDefault(upload.MimeType) {
+			queued := "queued"
+			zero := 0
+			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+				"proxy_status":      queued,
+				"proxy_progress":    zero,
+				"proxy_eta_seconds": nil,
+			})
+			if err := h.videoSvc.EnqueueVideoProxy(upload.LibraryID, fileID.String(), false); err != nil {
+				log.Printf("failed to enqueue video proxy for tus upload %s: %v", fileID, err)
+			}
+		} else {
+			notNeeded := "not_needed"
+			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+				"proxy_status":      notNeeded,
+				"proxy_progress":    nil,
+				"proxy_eta_seconds": nil,
+			})
 		}
 	}
 

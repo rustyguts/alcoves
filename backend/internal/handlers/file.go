@@ -461,6 +461,7 @@ type playbackSourceResponse struct {
 	Name      string `json:"name"`
 	MimeType  string `json:"mimeType"`
 	Kind      string `json:"kind"`
+	StreamURL string `json:"streamUrl"`
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -511,6 +512,7 @@ func (h *FileHandler) PlaybackSources(c echo.Context) error {
 		Name:      source.Name,
 		MimeType:  source.MimeType,
 		Kind:      "source",
+		StreamURL: fmt.Sprintf("/api/libraries/%s/files/%s?inline=true", libraryID, source.ID.String()),
 		CreatedAt: source.CreatedAt.Format(time.RFC3339Nano),
 	})
 	for _, proxy := range proxies {
@@ -519,8 +521,24 @@ func (h *FileHandler) PlaybackSources(c echo.Context) error {
 			Name:      proxy.Name,
 			MimeType:  proxy.MimeType,
 			Kind:      "proxy",
+			StreamURL: fmt.Sprintf("/api/libraries/%s/files/%s?inline=true", libraryID, proxy.ID.String()),
 			CreatedAt: proxy.CreatedAt.Format(time.RFC3339Nano),
 		})
+	}
+
+	if len(proxies) == 0 && source.ProxyStatus != nil && *source.ProxyStatus == "ready" {
+		cacheKey := fmt.Sprintf("%s/%s/proxy.mp4", libraryID, source.ID.String())
+		if exists, _ := h.storageSvc.CacheExists(cacheKey); exists {
+			defaultSourceID = source.ID.String() + "::legacy-proxy"
+			sources = append(sources, playbackSourceResponse{
+				ID:        defaultSourceID,
+				Name:      "Legacy Proxy",
+				MimeType:  "video/mp4",
+				Kind:      "proxy",
+				StreamURL: fmt.Sprintf("/api/libraries/%s/files/%s/proxy", libraryID, source.ID.String()),
+				CreatedAt: source.UpdatedAt.Format(time.RFC3339Nano),
+			})
+		}
 	}
 
 	return c.JSON(http.StatusOK, playbackSourcesResponse{DefaultSourceID: defaultSourceID, Sources: sources})
@@ -559,7 +577,7 @@ func (h *FileHandler) GenerateProxy(c echo.Context) error {
 		Where("id = ?", file.ID).
 		Updates(map[string]interface{}{
 			"proxy_status":      queued,
-			"proxy_progress":    &zero,
+			"proxy_progress":    zero,
 			"proxy_eta_seconds": nil,
 			"updated_at":        now,
 		}).Error; err != nil {
@@ -754,7 +772,7 @@ func (h *FileHandler) maybeEnqueueVideoProxy(libraryID, fileID uuid.UUID, mimeTy
 	if !videoproxy.ShouldCreateProxyByDefault(mimeType) {
 		notNeeded := "not_needed"
 		h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-			"proxy_status":      &notNeeded,
+			"proxy_status":      notNeeded,
 			"proxy_progress":    nil,
 			"proxy_eta_seconds": nil,
 		})
@@ -764,8 +782,8 @@ func (h *FileHandler) maybeEnqueueVideoProxy(libraryID, fileID uuid.UUID, mimeTy
 	queued := "queued"
 	zero := 0
 	h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-		"proxy_status":      &queued,
-		"proxy_progress":    &zero,
+		"proxy_status":      queued,
+		"proxy_progress":    zero,
 		"proxy_eta_seconds": nil,
 	})
 

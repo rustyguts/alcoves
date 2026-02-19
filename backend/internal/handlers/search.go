@@ -63,6 +63,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		INNER JOIN libraries l ON l.id = f.library_id
 		LEFT JOIN library_members lm ON lm.library_id = l.id AND lm.user_id = ?
 		WHERE f.trashed_at IS NULL
+		  AND f.source_file_id IS NULL
 		  AND (l.owner_id = ? OR lm.user_id IS NOT NULL)
 		  AND f.name ILIKE ?
 		ORDER BY f.name ASC

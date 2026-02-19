@@ -20,16 +20,34 @@ const emit = defineEmits<{
 
 const open = defineModel<boolean>("open", { default: false });
 
+interface PlaybackSource {
+  id: string;
+  name: string;
+  mimeType: string;
+  kind: "source" | "proxy";
+  streamUrl: string;
+  createdAt: string;
+}
+
+interface PlaybackSourcesResponse {
+  defaultSourceId: string;
+  sources: PlaybackSource[];
+}
+
 const fileUrl = computed(
   () => `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`,
 );
+
+const playbackSources = ref<PlaybackSource[]>([]);
+const selectedPlaybackSourceId = ref<string | null>(null);
+const generatingProxy = ref(false);
 
 const proxyStatus = ref<string | null>(props.file.proxyStatus ?? null);
 const proxyProgress = ref<number | null>(props.file.proxyProgress ?? null);
 const proxyEtaSeconds = ref<number | null>(props.file.proxyEtaSeconds ?? null);
 
 const videoProxyProcessing = computed(
-  () => previewType.value === "video" && proxyStatus.value === "processing",
+  () => previewType.value === "video" && ["queued", "processing"].includes(proxyStatus.value ?? ""),
 );
 
 const videoProxyProgressPercent = computed(() => {
@@ -51,9 +69,19 @@ const videoProxyEtaLabel = computed(() => {
   return `${seconds}s`;
 });
 
+const selectedPlaybackSource = computed(() => {
+  if (!selectedPlaybackSourceId.value) return null;
+  return (
+    playbackSources.value.find((source) => source.id === selectedPlaybackSourceId.value) ?? null
+  );
+});
+
 const videoSrc = computed(() => {
-  if (props.file.mimeType.startsWith("video/") && proxyStatus.value === "ready") {
-    return `/api/libraries/${props.libraryId}/files/${props.file.id}/proxy`;
+  if (props.file.mimeType.startsWith("video/")) {
+    const source = selectedPlaybackSource.value;
+    if (source) {
+      return source.streamUrl;
+    }
   }
   return fileUrl.value;
 });
@@ -62,7 +90,7 @@ const mediaSrc = computed(
   () =>
     ({
       src: videoSrc.value,
-      type: proxyStatus.value === "ready" ? "video/mp4" : props.file.mimeType,
+      type: selectedPlaybackSource.value?.mimeType ?? props.file.mimeType,
     }) as unknown as import("vidstack").PlayerSrc,
 );
 
@@ -143,6 +171,38 @@ async function refreshProxyState() {
   } catch {}
 }
 
+async function refreshPlaybackSources() {
+  if (!open.value || !props.file.mimeType.startsWith("video/")) return;
+  try {
+    const response = await apiFetch<PlaybackSourcesResponse>(
+      `/api/libraries/${props.libraryId}/files/${props.file.id}/playback-sources`,
+    );
+    playbackSources.value = response.sources ?? [];
+    const hasCurrentSelection = playbackSources.value.some(
+      (source) => source.id === selectedPlaybackSourceId.value,
+    );
+    selectedPlaybackSourceId.value = hasCurrentSelection
+      ? selectedPlaybackSourceId.value
+      : response.defaultSourceId;
+  } catch {
+    playbackSources.value = [];
+    selectedPlaybackSourceId.value = null;
+  }
+}
+
+async function generateProxy() {
+  if (!props.file.mimeType.startsWith("video/")) return;
+  generatingProxy.value = true;
+  try {
+    await apiFetch<LibraryFile>(`/api/libraries/${props.libraryId}/files/${props.file.id}/proxy`, {
+      method: "POST",
+    });
+    await refreshProxyState();
+  } finally {
+    generatingProxy.value = false;
+  }
+}
+
 let proxyPollTimer: ReturnType<typeof setInterval> | null = null;
 
 function stopProxyPolling() {
@@ -215,6 +275,8 @@ watch(
     imageLoaded.value = false;
     loadedImageWidth.value = null;
     loadedImageHeight.value = null;
+    playbackSources.value = [];
+    selectedPlaybackSourceId.value = null;
   },
 );
 
@@ -226,9 +288,16 @@ watch(
       return;
     }
     void refreshProxyState();
+    void refreshPlaybackSources();
   },
   { immediate: true },
 );
+
+watch(proxyStatus, (status) => {
+  if (status === "ready") {
+    void refreshPlaybackSources();
+  }
+});
 
 watch(
   videoProxyProcessing,
@@ -310,7 +379,7 @@ onUnmounted(() => {
         class="w-full h-full flex items-center justify-center px-16"
       >
         <media-player
-          v-if="playerReady"
+          v-if="playerReady && open"
           class="player w-full max-w-5xl"
           :src="mediaSrc"
           :title="file.name"
@@ -331,7 +400,7 @@ onUnmounted(() => {
         class="w-full h-full flex items-center justify-center px-16"
       >
         <media-player
-          v-if="playerReady"
+          v-if="playerReady && open"
           class="player w-full max-w-2xl"
           :src="mediaSrc"
           :title="file.name"
@@ -401,6 +470,26 @@ onUnmounted(() => {
             <AppIcon name="i-lucide-x" class="size-5" />
           </button>
           <span class="text-white text-sm font-medium truncate">{{ file.name }}</span>
+          <div v-if="previewType === 'video'" class="flex items-center gap-2">
+            <button
+              class="btn btn-xs btn-primary"
+              :disabled="generatingProxy"
+              @click="generateProxy"
+            >
+              <span v-if="generatingProxy" class="loading loading-spinner loading-xs"></span>
+              <AppIcon v-else name="i-lucide-clapperboard" class="size-3.5" />
+              Create Proxy
+            </button>
+            <select
+              v-if="playbackSources.length > 0"
+              v-model="selectedPlaybackSourceId"
+              class="select select-xs select-bordered bg-black/40 text-white border-white/25"
+            >
+              <option v-for="source in playbackSources" :key="source.id" :value="source.id">
+                {{ source.kind === "proxy" ? "Proxy" : "Source" }} - {{ source.name }}
+              </option>
+            </select>
+          </div>
         </div>
         <button
           class="btn btn-circle btn-ghost text-white hover:bg-white/20 shrink-0 pointer-events-auto"
