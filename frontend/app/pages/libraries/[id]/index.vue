@@ -1104,7 +1104,7 @@ const emptyStateDescription = computed(() => {
         <details
           v-if="canManageLibrary && !showTrashed"
           ref="newDropdown"
-          class="dropdown dropdown-end relative z-20"
+          class="dropdown dropdown-end relative z-40"
         >
           <summary class="btn btn-soft btn-sm btn-primary">
             <AppIcon name="i-lucide-plus" class="size-4" />

@@ -150,11 +150,11 @@ func (h *DownloadHandler) Download(c echo.Context) error {
 type FileProxyHandler struct {
 	db         *gorm.DB
 	storageSvc *storage.Service
-	processor  imageproxy.Processor
+	imgSvc     *imageproxy.Service
 }
 
-func NewFileProxyHandler(db *gorm.DB, storageSvc *storage.Service, processor imageproxy.Processor) *FileProxyHandler {
-	return &FileProxyHandler{db: db, storageSvc: storageSvc, processor: processor}
+func NewFileProxyHandler(db *gorm.DB, storageSvc *storage.Service, imgSvc *imageproxy.Service) *FileProxyHandler {
+	return &FileProxyHandler{db: db, storageSvc: storageSvc, imgSvc: imgSvc}
 }
 
 func (h *FileProxyHandler) RegisterRoutes(g *echo.Group) {
@@ -185,21 +185,17 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	// Parse optional image transform query parameters.
 	opts := parseTransformOptions(c)
 
-	// If transforms are requested and the file is an image, process through libvips.
-	if h.processor != nil && imageproxy.NeedsTransform(opts) && isImageMime(file.MimeType) {
-		srcData, err := h.storageSvc.ReadFileBuffer(libraryID, fileID)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read file")
-		}
-
-		outBytes, mime, err := h.processor.Transform(srcData, opts)
+	// If transforms are requested and the file is an image, route through the
+	// image proxy service (cache check → enqueue job → wait for result).
+	if imageproxy.NeedsTransform(opts) && isImageMime(file.MimeType) {
+		outBytes, mime, err := h.imgSvc.ServeTransform(c.Request().Context(), libraryID, fileID, opts)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to transform image")
 		}
 
 		c.Response().Header().Set("Content-Type", mime)
 		c.Response().Header().Set("Content-Length", fmt.Sprintf("%d", len(outBytes)))
-		c.Response().Header().Set("Cache-Control", "public, max-age=31536000")
+		c.Response().Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 
 		return c.Blob(http.StatusOK, mime, outBytes)
 	}
