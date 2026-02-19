@@ -100,8 +100,8 @@ func setupProxyTestHandler(t *testing.T, proc imageproxy.Processor) (*FileProxyH
 	driver := storage.NewLocalDriver(storageDir, storageDir, storageDir)
 	storageSvc := storage.NewService(driver)
 
-	// nil asynq client → inline transform mode (no queue needed in tests).
-	imgSvc := imageproxy.NewService(storageSvc, nil, proc)
+	// nil asynq client + nil redis conn → inline transform mode (no queue needed in tests).
+	imgSvc := imageproxy.NewService(storageSvc, nil, nil, proc)
 	handler := NewFileProxyHandler(db, storageSvc, imgSvc)
 	return handler, db, storageSvc, storageDir
 }

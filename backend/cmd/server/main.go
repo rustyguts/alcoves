@@ -115,8 +115,8 @@ func main() {
 	// Video proxy service
 	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient)
 
-	// Image proxy service — handles cache lookup, job enqueueing, and polling.
-	imgSvc := imageproxy.NewService(storageSvc, asynqClient, imageproxy.NewVipsProcessor())
+	// Image proxy service — cache lookup, Redis pub/sub signaling, queued processing.
+	imgSvc := imageproxy.NewService(storageSvc, asynqClient, asynqRedisOpt, imageproxy.NewVipsProcessor())
 
 	// Start asynq worker if mode is "all" or "worker"
 	var asynqServer *asynq.Server

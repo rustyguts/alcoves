@@ -186,7 +186,7 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	opts := parseTransformOptions(c)
 
 	// If transforms are requested and the file is an image, route through the
-	// image proxy service (cache check → enqueue job → wait for result).
+	// image proxy service (NFS cache check → enqueue job → Redis pub/sub wait).
 	if imageproxy.NeedsTransform(opts) && isImageMime(file.MimeType) {
 		outBytes, mime, err := h.imgSvc.ServeTransform(c.Request().Context(), libraryID, fileID, opts)
 		if err != nil {
