@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { LibraryEntry, LibraryFile, LibraryFolder } from "~~/shared/types/api";
 import { getMimeIcon, formatFileSize, formatDate } from "~/utils/mime-icons";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useLibraryExplorer } from "~/composables/useLibraryExplorer";
 import { useLibraryTags } from "~/composables/useLibraryTags";
 import { useDownloadZip } from "~/composables/useDownloadZip";
@@ -19,7 +19,6 @@ import AppContextMenu from "~/components/AppContextMenu.vue";
 import LibraryEntriesGrid from "~/components/library/LibraryEntriesGrid.vue";
 import LibraryEmptyState from "~/components/library/LibraryEmptyState.vue";
 import LibraryEntriesTable from "~/components/library/LibraryEntriesTable.vue";
-import LibraryTabs from "~/components/LibraryTabs.vue";
 
 const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
 const ROOT_MOVE_VALUE = "__root__";
@@ -271,13 +270,7 @@ async function saveEntryRename(entry: LibraryEntry) {
     }
 
     try {
-      const updated = await apiFetch<LibraryFolder>(
-        `/api/libraries/${libraryId.value}/folders/${entry.id}`,
-        {
-          method: "PATCH",
-          body: { name: rawName },
-        },
-      );
+      const updated = await api.folders.update(libraryId.value, entry.id, { name: rawName });
       entry.name = updated.name;
       entry.updatedAt = updated.updatedAt;
       breadcrumbs.value = breadcrumbs.value.map((crumb) =>
@@ -302,10 +295,7 @@ async function saveEntryRename(entry: LibraryEntry) {
   }
 
   try {
-    await apiFetch(`/api/libraries/${libraryId.value}/files/${entry.id}`, {
-      method: "PATCH",
-      body: { name: nextName },
-    });
+    await api.files.update(libraryId.value, entry.id, { name: nextName });
     entry.name = nextName;
   } catch {
     toast.add({ title: "Failed to rename file", color: "error" });
@@ -374,10 +364,7 @@ const moveFileCount = computed(() => moveFileIds.value.length);
 async function moveFilesToFolder(fileIds: string[], targetFolderId: string | null) {
   await Promise.all(
     fileIds.map((fileId) =>
-      apiFetch(`/api/libraries/${libraryId.value}/files/${fileId}`, {
-        method: "PATCH",
-        body: { parentFolderId: targetFolderId },
-      }),
+      api.files.update(libraryId.value, fileId, { parentFolderId: targetFolderId }),
     ),
   );
 }
@@ -712,10 +699,7 @@ function downloadSelection(fileIds: string[], folderIds: string[]) {
 }
 
 async function trashFiles(ids: string[]) {
-  await apiFetch(`/api/libraries/${libraryId.value}/files/${ids[0]}`, {
-    method: "DELETE",
-    body: { fileIds: ids },
-  });
+  await api.files.delete(libraryId.value, ids[0]!, { fileIds: ids });
   ids.forEach((id) => selectedFiles.delete(id));
   entries.value = entries.value.filter(
     (entry) => !(entry.kind === "file" && ids.includes(entry.id)),
@@ -725,10 +709,7 @@ async function trashFiles(ids: string[]) {
 }
 
 async function restoreFiles(ids: string[]) {
-  await apiFetch(`/api/libraries/${libraryId.value}/files/restore`, {
-    method: "POST",
-    body: { fileIds: ids },
-  });
+  await api.files.restore(libraryId.value, { fileIds: ids });
   ids.forEach((id) => selectedFiles.delete(id));
   entries.value = entries.value.filter(
     (entry) => !(entry.kind === "file" && ids.includes(entry.id)),
@@ -738,10 +719,7 @@ async function restoreFiles(ids: string[]) {
 }
 
 async function restoreFolders(ids: string[]) {
-  await apiFetch(`/api/libraries/${libraryId.value}/folders/restore`, {
-    method: "POST",
-    body: { folderIds: ids },
-  });
+  await api.folders.restore(libraryId.value, { folderIds: ids });
   await Promise.all([resetAndFetch(), refreshTrashedCount()]);
 }
 
@@ -772,12 +750,7 @@ function openPurgeAllModal() {
 async function handlePermanentDelete() {
   try {
     if (purgeAll.value) {
-      const result = await apiFetch<{ purged: number }>(
-        `/api/libraries/${libraryId.value}/files/purge`,
-        {
-          method: "POST",
-        },
-      );
+      const result = await api.files.purge(libraryId.value);
       entries.value = [];
       nextCursor.value = null;
       totalCount.value = 0;
@@ -787,15 +760,9 @@ async function handlePermanentDelete() {
         color: "success",
       });
     } else {
-      const result = await apiFetch<{ purged: number }>(
-        `/api/libraries/${libraryId.value}/files/purge`,
-        {
-          method: "POST",
-          body: foldersToPurge.value.length
+      const result = await api.files.purge(libraryId.value, foldersToPurge.value.length
             ? { folderIds: foldersToPurge.value }
-            : { fileIds: filesToPurge.value },
-        },
-      );
+            : { fileIds: filesToPurge.value });
       await resetAndFetch();
       await refreshTrashedCount();
       toast.add({
@@ -1081,12 +1048,6 @@ const emptyStateDescription = computed(() => {
         Drop files to upload to this folder
       </div>
     </div>
-
-    <LibraryTabs
-      :library-id="libraryId || ''"
-      :face-recognition-enabled="library?.faceRecognitionEnabled"
-      :can-manage-library="canManageLibrary"
-    />
 
     <div class="flex min-h-10 w-full items-center gap-2 pl-2 sm:pl-3 lg:pl-4">
       <div v-if="!showTrashed" class="min-w-0 flex-1">

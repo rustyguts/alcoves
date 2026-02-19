@@ -2,20 +2,11 @@
 import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import AppIcon from "~/components/AppIcon.vue";
 import UserAvatar from "~/components/UserAvatar.vue";
 import { useToast } from "~/composables/useToast";
-
-interface Library {
-  id: string;
-  name: string;
-  emoji: string | null;
-  isDefault: boolean;
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { Library } from "~~/shared/types/api";
 
 interface NavItem {
   label: string;
@@ -124,10 +115,7 @@ const userMenuItems = computed<MenuAction[][]>(() => [
 ]);
 
 async function createLibrary() {
-  await apiFetch("/api/libraries", {
-    method: "POST",
-    body: { name: "Untitled Library" },
-  });
+  await api.libraries.create({ name: "Untitled Library" });
   await refreshLibraries();
 }
 
@@ -166,7 +154,7 @@ provide("refreshLibraries", refreshLibraries);
     <!-- Main content -->
     <div class="drawer-content flex flex-col h-full overflow-hidden">
       <!-- Navbar -->
-      <div class="navbar bg-base-100 border-b border-base-300 px-4">
+      <div class="navbar bg-base-100 shadow-xs px-4 lg:pl-0">
         <div class="flex-none lg:hidden mr-2">
           <label for="dashboard-drawer" class="btn btn-ghost btn-circle" aria-label="open sidebar">
             <AppIcon name="i-lucide-menu" />
@@ -174,7 +162,7 @@ provide("refreshLibraries", refreshLibraries);
         </div>
         <div class="flex-1 min-w-0">
           <form class="min-w-0 w-full max-w-sm" @submit.prevent="submitGlobalSearch">
-            <label class="input w-full">
+            <label class="input w-full focus-within:outline-none">
               <AppIcon name="i-lucide-search" class="opacity-50" />
               <input
                 v-model="globalSearchQuery"
@@ -190,7 +178,7 @@ provide("refreshLibraries", refreshLibraries);
         <div class="flex-none pl-4">
           <details ref="userMenuRef" class="dropdown dropdown-end" :open="userMenuOpen">
             <summary
-              class="btn btn-soft btn-ghost btn-circle avatar"
+              class="btn btn-ghost btn-circle avatar"
               @click.prevent="userMenuOpen = !userMenuOpen"
             >
               <UserAvatar

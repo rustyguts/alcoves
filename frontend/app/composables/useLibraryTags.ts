@@ -1,7 +1,7 @@
 import type { Ref } from "vue";
 import type { LibraryFile, LibraryFolder, LibraryTag } from "~~/shared/types/api";
 import { isTagColorInPalette, TAG_COLOR_PALETTE } from "~~/shared/tag-colors";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
 
 type LibraryTagsRef = Ref<LibraryTag[]>;
@@ -35,24 +35,12 @@ export function useLibraryTags(
   );
 
   async function saveFileTags(file: LibraryFile, tagIds: string[]) {
-    const result = await apiFetch<{ tags: LibraryTag[] }>(
-      `/api/libraries/${libraryId.value}/files/${file.id}/tags`,
-      {
-        method: "PUT",
-        body: { tagIds },
-      },
-    );
+    const result = await api.tags.syncFileTags(libraryId.value, file.id, { tagIds });
     file.tags = result.tags;
   }
 
   async function saveFolderTags(folder: LibraryFolder, tagIds: string[]) {
-    const result = await apiFetch<{ tags: LibraryTag[] }>(
-      `/api/libraries/${libraryId.value}/folders/${folder.id}/tags`,
-      {
-        method: "PUT",
-        body: { tagIds },
-      },
-    );
+    const result = await api.tags.syncFolderTags(libraryId.value, folder.id, { tagIds });
     folder.tags = result.tags;
   }
 
@@ -115,10 +103,7 @@ export function useLibraryTags(
     creatingTag.value = true;
     try {
       const normalizedColor = color?.trim().toUpperCase();
-      const tag = await apiFetch<LibraryTag>(`/api/libraries/${libraryId.value}/tags`, {
-        method: "POST",
-        body: normalizedColor ? { name, color: normalizedColor } : { name },
-      });
+      const tag = await api.tags.create(libraryId.value, normalizedColor ? { name, color: normalizedColor } : { name });
       libraryTags.value = [...libraryTags.value, tag].sort((a, b) => a.name.localeCompare(b.name));
       createTagName.value = "";
     } catch {
@@ -133,13 +118,7 @@ export function useLibraryTags(
     if (normalized === tag.color.toUpperCase()) return;
 
     try {
-      const updated = await apiFetch<LibraryTag>(
-        `/api/libraries/${libraryId.value}/tags/${tag.id}`,
-        {
-          method: "PATCH",
-          body: { color: normalized },
-        },
-      );
+      const updated = await api.tags.update(libraryId.value, tag.id, { color: normalized });
       replaceTag(updated);
     } catch {
       toast.add({ title: "Failed to update tag color", color: "error" });
@@ -167,13 +146,7 @@ export function useLibraryTags(
     const name = nextName.trim();
     if (!name || name === tag.name) return;
     try {
-      const updated = await apiFetch<LibraryTag>(
-        `/api/libraries/${libraryId.value}/tags/${tag.id}`,
-        {
-          method: "PATCH",
-          body: { name },
-        },
-      );
+      const updated = await api.tags.update(libraryId.value, tag.id, { name });
       replaceTag(updated);
     } catch {
       toast.add({ title: "Failed to rename tag", color: "error" });
@@ -186,7 +159,7 @@ export function useLibraryTags(
 
   async function deleteTag(tagId: string) {
     try {
-      await apiFetch(`/api/libraries/${libraryId.value}/tags/${tagId}`, { method: "DELETE" });
+      await api.tags.delete(libraryId.value, tagId);
       libraryTags.value = libraryTags.value.filter((tag) => tag.id !== tagId);
       for (const file of files.value) {
         file.tags = file.tags.filter((tag) => tag.id !== tagId);

@@ -3,9 +3,10 @@ import "vidstack/player/styles/default/theme.css";
 import "vidstack/player/styles/default/layouts/audio.css";
 import "vidstack/player/styles/default/layouts/video.css";
 
-import type { LibraryFile } from "~~/shared/types/api";
+import type { LibraryFile, PlaybackSource, PlaybackSourcesResponse } from "~~/shared/types/api";
 import { getMimeIcon } from "~/utils/mime-icons";
 import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import AppIcon from "~/components/AppIcon.vue";
 
 const props = defineProps<{
@@ -19,20 +20,6 @@ const emit = defineEmits<{
 }>();
 
 const open = defineModel<boolean>("open", { default: false });
-
-interface PlaybackSource {
-  id: string;
-  name: string;
-  mimeType: string;
-  kind: "source" | "proxy";
-  streamUrl: string;
-  createdAt: string;
-}
-
-interface PlaybackSourcesResponse {
-  defaultSourceId: string;
-  sources: PlaybackSource[];
-}
 
 const fileUrl = computed(
   () => `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`,
@@ -162,9 +149,7 @@ async function refreshProxyState() {
   if (!open.value || !props.file.mimeType.startsWith("video/")) return;
 
   try {
-    const latest = await apiFetch<LibraryFile>(
-      `/api/libraries/${props.libraryId}/files/${props.file.id}`,
-    );
+    const latest = await api.files.get(props.libraryId, props.file.id);
     proxyStatus.value = latest.proxyStatus ?? null;
     proxyProgress.value = latest.proxyProgress ?? null;
     proxyEtaSeconds.value = latest.proxyEtaSeconds ?? null;
@@ -174,9 +159,7 @@ async function refreshProxyState() {
 async function refreshPlaybackSources() {
   if (!open.value || !props.file.mimeType.startsWith("video/")) return;
   try {
-    const response = await apiFetch<PlaybackSourcesResponse>(
-      `/api/libraries/${props.libraryId}/files/${props.file.id}/playback-sources`,
-    );
+    const response = await api.files.playbackSources(props.libraryId, props.file.id);
     playbackSources.value = response.sources ?? [];
     const hasCurrentSelection = playbackSources.value.some(
       (source) => source.id === selectedPlaybackSourceId.value,
@@ -194,9 +177,7 @@ async function generateProxy() {
   if (!props.file.mimeType.startsWith("video/")) return;
   generatingProxy.value = true;
   try {
-    await apiFetch<LibraryFile>(`/api/libraries/${props.libraryId}/files/${props.file.id}/proxy`, {
-      method: "POST",
-    });
+    await api.files.generateProxy(props.libraryId, props.file.id);
     await refreshProxyState();
   } finally {
     generatingProxy.value = false;

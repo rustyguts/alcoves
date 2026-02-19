@@ -1,6 +1,6 @@
 import type { Ref } from "vue";
 import type { LibraryFolder } from "~~/shared/types/api";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
 
 type RefreshFoldersFn = () => Promise<LibraryFolder[]>;
@@ -39,13 +39,7 @@ export function useLibraryFolderActions(
 
     creatingFolder.value = true;
     try {
-      await apiFetch<LibraryFolder>(`/api/libraries/${libraryId.value}/folders`, {
-        method: "POST",
-        body: {
-          name,
-          parentFolderId: currentFolderId.value,
-        },
-      });
+      await api.folders.create(libraryId.value, { name, parentFolderId: currentFolderId.value });
       createFolderOpen.value = false;
       createFolderName.value = "";
       await resetAndFetch();
@@ -141,10 +135,7 @@ export function useLibraryFolderActions(
       const parentFolderId =
         moveDestinationValue.value === ROOT_MOVE_VALUE ? null : moveDestinationValue.value;
 
-      await apiFetch(`/api/libraries/${libraryId.value}/folders/${movingFolder.value.id}/move`, {
-        method: "POST",
-        body: { parentFolderId },
-      });
+      await api.folders.move(libraryId.value, movingFolder.value.id, { parentFolderId });
 
       moveFolderOpen.value = false;
       await resetAndFetch();
@@ -158,11 +149,7 @@ export function useLibraryFolderActions(
   async function deleteFolders(folderIds: string[]) {
     try {
       await Promise.all(
-        folderIds.map((folderId) =>
-          apiFetch(`/api/libraries/${libraryId.value}/folders/${folderId}`, {
-            method: "DELETE",
-          }),
-        ),
+        folderIds.map((folderId) => api.folders.delete(libraryId.value, folderId)),
       );
       await Promise.all([resetAndFetch(), refreshTrashedCount()]);
     } catch {

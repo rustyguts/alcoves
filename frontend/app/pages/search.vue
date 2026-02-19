@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from "vue-router";
-import type { GlobalSearchResponse, GlobalSearchResult } from "~~/shared/types/api";
+import type { GlobalSearchResponse, GlobalSearchResult, LibraryFile } from "~~/shared/types/api";
 import { formatDate, formatFileSize, getMimeIcon } from "~/utils/mime-icons";
 import { useApiFetch } from "~/composables/useApiFetch";
+import { api } from "~/api";
 import AppIcon from "~/components/AppIcon.vue";
+import AlcovesImage from "~/components/AlcovesImage.vue";
+import FilePreview from "~/components/FilePreview.vue";
 
 const MIN_QUERY_LENGTH = 2;
 const SEARCH_LIMIT = 80;
@@ -100,22 +103,36 @@ const groupedResults = computed(() => {
   return groups;
 });
 
-function getResultLink(result: GlobalSearchResult) {
-  if (result.targetFolderId) {
-    return {
-      path: `/libraries/${result.libraryId}`,
-      query: { folder: result.targetFolderId },
-    };
-  }
-
-  return {
-    path: `/libraries/${result.libraryId}`,
-  };
-}
-
 function getResultIcon(result: GlobalSearchResult): string {
   if (result.kind === "folder") return "i-lucide-folder";
   return getMimeIcon(result.mimeType ?? "application/octet-stream");
+}
+
+const failedThumbnails = new Set<string>();
+
+function getThumbnailFileId(result: GlobalSearchResult): string | null {
+  if (result.kind !== "file" || failedThumbnails.has(result.id)) return null;
+  const mime = result.mimeType ?? "";
+  if (mime.startsWith("image/")) return result.id;
+  if (mime.startsWith("video/") && result.thumbnailFileId) return result.thumbnailFileId;
+  return null;
+}
+
+const previewFile = ref<LibraryFile | null>(null);
+const previewOpen = ref(false);
+const previewFiles = computed<LibraryFile[]>(() =>
+  previewFile.value ? [previewFile.value] : [],
+);
+
+async function openPreview(result: GlobalSearchResult) {
+  if (result.kind !== "file") return;
+  try {
+    const file = await api.files.get(result.libraryId, result.id);
+    previewFile.value = file;
+    previewOpen.value = true;
+  } catch {
+    // silently fail
+  }
 }
 </script>
 
@@ -210,16 +227,29 @@ function getResultIcon(result: GlobalSearchResult): string {
         </div>
 
         <div class="space-y-1 p-1">
-          <RouterLink
+          <div
             v-for="result in group.results"
             :key="`${result.kind}-${result.id}`"
-            :to="getResultLink(result)"
             class="group flex items-center gap-3 rounded-lg px-4 py-3 transition-colors hover:bg-elevated/70"
+            :class="result.kind === 'file' ? 'cursor-pointer' : ''"
+            @dblclick="openPreview(result)"
           >
             <div
-              class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated/80"
+              class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated/80 overflow-hidden"
             >
-              <AppIcon :name="getResultIcon(result)" class="size-4 text-primary" />
+              <AlcovesImage
+                v-if="getThumbnailFileId(result)"
+                :library-id="result.libraryId"
+                :file-id="getThumbnailFileId(result)!"
+                :alt="result.name"
+                :width="80"
+                :height="80"
+                format="jpeg"
+                :quality="70"
+                class="size-full object-cover"
+                @error="failedThumbnails.add(result.id)"
+              />
+              <AppIcon v-else :name="getResultIcon(result)" class="size-4 text-primary" />
             </div>
 
             <div class="min-w-0 flex-1">
@@ -249,14 +279,18 @@ function getResultIcon(result: GlobalSearchResult): string {
                 {{ formatFileSize(result.size) }}
               </span>
             </div>
-
-            <AppIcon
-              name="i-lucide-arrow-up-right"
-              class="size-4 shrink-0 text-muted transition-colors group-hover:text-primary"
-            />
-          </RouterLink>
+          </div>
         </div>
       </div>
     </div>
+
+    <FilePreview
+      v-if="previewFile"
+      v-model:open="previewOpen"
+      :file="previewFile"
+      :library-id="previewFile.libraryId"
+      :files="previewFiles"
+      @navigate="previewFile = $event"
+    />
   </div>
 </template>

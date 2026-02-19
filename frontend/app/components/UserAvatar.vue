@@ -25,24 +25,25 @@ const initial = computed(() => props.displayName.trim().charAt(0).toUpperCase() 
 
 <template>
   <div
-    class="avatar placeholder"
-    :class="props.tooltip ? `tooltip tooltip-${props.tooltipPosition} z-20` : ''"
+    :class="props.tooltip ? `tooltip tooltip-${props.tooltipPosition}` : ''"
     :data-tip="props.tooltip ? props.displayName : undefined"
   >
-    <div v-if="props.avatarUrl" :class="[props.sizeClass, props.roundedClass, 'overflow-hidden']">
-      <img :src="props.avatarUrl" :alt="props.displayName" class="size-full object-cover" />
-    </div>
-    <div
-      v-else
-      :class="[
-        props.sizeClass,
-        props.roundedClass,
-        props.bgClass,
-        props.textSizeClass,
-        'flex items-center justify-center font-semibold',
-      ]"
-    >
-      {{ initial }}
+    <div class="avatar placeholder">
+      <div v-if="props.avatarUrl" :class="[props.sizeClass, props.roundedClass, 'overflow-hidden']">
+        <img :src="props.avatarUrl" :alt="props.displayName" class="size-full object-cover" />
+      </div>
+      <div
+        v-else
+        :class="[
+          props.sizeClass,
+          props.roundedClass,
+          props.bgClass,
+          props.textSizeClass,
+          'flex items-center justify-center font-semibold',
+        ]"
+      >
+        {{ initial }}
+      </div>
     </div>
   </div>
 </template>

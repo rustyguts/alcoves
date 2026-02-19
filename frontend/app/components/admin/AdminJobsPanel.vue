@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 
@@ -177,10 +177,7 @@ function connectSSE() {
 async function retryJob(queueName: string, jobId: string) {
   actionJobId.value = jobId;
   try {
-    await apiFetch(`/api/admin/jobs/${encodeURIComponent(queueName)}/${jobId}`, {
-      method: "POST",
-      body: { action: "retry" },
-    });
+    await api.admin.controlJob(queueName, jobId, { action: "retry" });
     toast.add({ title: "Job retried" });
   } catch {
     toast.add({ title: "Failed to retry job", color: "error" });
@@ -192,10 +189,7 @@ async function retryJob(queueName: string, jobId: string) {
 async function removeJob(queueName: string, jobId: string) {
   actionJobId.value = jobId;
   try {
-    await apiFetch(`/api/admin/jobs/${encodeURIComponent(queueName)}/${jobId}`, {
-      method: "POST",
-      body: { action: "remove" },
-    });
+    await api.admin.controlJob(queueName, jobId, { action: "remove" });
     toast.add({ title: "Job removed" });
   } catch {
     toast.add({ title: "Failed to remove job", color: "error" });
@@ -213,10 +207,7 @@ async function purgeQueue(queueName: string) {
 
   actionQueueName.value = queueName;
   try {
-    const result = await apiFetch<{ total: number }>(
-      `/api/admin/jobs/${encodeURIComponent(queueName)}/purge`,
-      { method: "POST" },
-    );
+    const result = await api.admin.purgeQueue(queueName);
     toast.add({ title: `Purged ${result.total} jobs from ${target}` });
   } catch {
     toast.add({ title: "Failed to purge queue", color: "error" });

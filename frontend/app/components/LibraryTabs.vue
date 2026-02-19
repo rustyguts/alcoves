@@ -5,6 +5,7 @@ import AppIcon from "~/components/AppIcon.vue";
 const props = defineProps<{
   libraryId: string;
   faceRecognitionEnabled?: boolean;
+  objectDetectionEnabled?: boolean;
   canManageLibrary?: boolean;
 }>();
 
@@ -13,6 +14,7 @@ const route = useRoute();
 const currentTab = computed(() => {
   if (route.path.endsWith("/tags")) return "tags";
   if (route.path.includes(`/libraries/${props.libraryId}/people`)) return "people";
+  if (route.path.endsWith("/objects")) return "objects";
   if (route.path.endsWith("/settings")) return "settings";
   if (route.path.endsWith("/trash")) return "trash";
   return "files";
@@ -40,6 +42,15 @@ const tabs = computed(() => {
       label: "People",
       icon: "i-lucide-scan-face",
       to: `/libraries/${props.libraryId}/people`,
+    });
+  }
+
+  if (props.objectDetectionEnabled) {
+    items.push({
+      key: "objects",
+      label: "Objects",
+      icon: "i-lucide-scan-search",
+      to: `/libraries/${props.libraryId}/objects`,
     });
   }
 

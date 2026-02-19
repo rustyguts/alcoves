@@ -65,5 +65,8 @@ function saveName() {
     <div v-if="slots.subtitle" class="mt-1 text-sm text-base-content/70">
       <slot name="subtitle" />
     </div>
+    <div v-if="slots.default" class="mt-3">
+      <slot />
+    </div>
   </div>
 </template>

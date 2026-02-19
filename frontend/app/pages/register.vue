@@ -4,7 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import AuthCardShell from "~/components/AuthCardShell.vue";
 import OAuthGoogleButton from "~/components/OAuthGoogleButton.vue";
 import { useAuth } from "~/composables/useAuth";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 
 const { register } = useAuth();
 const route = useRoute();
@@ -17,7 +17,7 @@ const googleAuthEnabled = ref(false);
 
 onMounted(async () => {
   try {
-    const providers = await apiFetch<{ google: boolean }>("/api/auth/providers");
+    const providers = await api.auth.providers();
     googleAuthEnabled.value = providers.google;
   } catch (err) {
     console.error("Failed to load auth providers:", err);

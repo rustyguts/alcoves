@@ -11,7 +11,7 @@ import type {
 } from "~~/shared/types/api";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useAuth } from "~/composables/useAuth";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 
 export function useLibraryExplorer() {
   const route = useRoute();
@@ -158,7 +158,7 @@ export function useLibraryExplorer() {
       query.folder = currentFolderId.value;
     }
     if (cursor) query.cursor = cursor;
-    return apiFetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, { query });
+    return api.files.list(libraryId.value, query);
   }
 
   async function loadMore() {
@@ -225,18 +225,16 @@ export function useLibraryExplorer() {
   }
 
   async function refreshTags() {
-    libraryTags.value = await apiFetch<LibraryTag[]>(`/api/libraries/${libraryId.value}/tags`);
+    libraryTags.value = await api.tags.list(libraryId.value);
   }
 
   async function refreshTrashedCount() {
-    const result = await apiFetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, {
-      query: { trashed: "true", limit: "1" },
-    });
+    const result = await api.files.list(libraryId.value, { trashed: "true", limit: "1" });
     trashedCount.value = result.totalCount;
   }
 
   async function refreshFolders(): Promise<LibraryFolder[]> {
-    return apiFetch<LibraryFolder[]>(`/api/libraries/${libraryId.value}/folders`);
+    return api.folders.list(libraryId.value);
   }
 
   // Initial data load + re-fetch on libraryId/folder changes
@@ -251,11 +249,9 @@ export function useLibraryExplorer() {
       }
 
       const [result, trashedResult, tags] = await Promise.all([
-        apiFetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, { query: filesQuery }),
-        apiFetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, {
-          query: { trashed: "true", limit: "1" },
-        }),
-        apiFetch<LibraryTag[]>(`/api/libraries/${libraryId.value}/tags`),
+        api.files.list(libraryId.value, filesQuery),
+        api.files.list(libraryId.value, { trashed: "true", limit: "1" }),
+        api.tags.list(libraryId.value),
       ]);
 
       entries.value = result.entries;

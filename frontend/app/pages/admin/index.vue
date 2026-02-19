@@ -1,30 +1,14 @@
 <script setup lang="ts">
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { formatFileSize } from "~/utils/mime-icons";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 import AdminJobsPanel from "~/components/admin/AdminJobsPanel.vue";
 import UserAvatar from "~/components/UserAvatar.vue";
 
-interface AdminStats {
-  users: number;
-  libraries: number;
-  files: number;
-  folders: number;
-  totalSize: number;
-}
-
-interface AdminUser {
-  id: string;
-  email: string;
-  displayName: string;
-  avatarUrl: string | null;
-  role: "owner" | "member";
-  createdAt: string;
-  updatedAt: string;
-}
+import type { AdminStats, AdminUser } from "~~/shared/types/api";
 
 const toast = useToast();
 const { user: currentUser } = useAuth();
@@ -48,10 +32,7 @@ async function updateUserRole(user: AdminUser) {
 
   updatingRoleUserId.value = user.id;
   try {
-    const updated = await apiFetch<{ id: string; role: AdminUser["role"] }>(
-      `/api/admin/users/${user.id}`,
-      { method: "PATCH", body: { role: nextRole } },
-    );
+    const updated = await api.admin.updateUserRole(user.id, { role: nextRole });
     user.role = updated.role;
     roleDrafts[user.id] = updated.role;
     toast.add({ title: "Role updated" });
@@ -77,7 +58,7 @@ function formatDateTime(dateString: string | null): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6 h-full">
+  <div class="flex flex-col gap-6 overflow-y-auto flex-1 min-h-0">
     <!-- Header -->
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <div>

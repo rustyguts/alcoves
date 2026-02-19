@@ -14,15 +14,15 @@ import (
 )
 
 const (
-	objectModelFile = "yolov8s.onnx"
+	objectModelFile = "yolo26x_fp16.onnx"
 
-	// YOLOv8s ONNX model hosted on the alcoves-models HuggingFace repo.
-	objectModelURL = "https://huggingface.co/rustyguts/alcoves-models/resolve/main/yolov8s.onnx"
+	// YOLO26x FP16 ONNX model from the onnx-community HuggingFace repo.
+	objectModelURL = "https://huggingface.co/onnx-community/yolo26x-ONNX/resolve/main/onnx/model_fp16.onnx"
 
 	minModelSize = 1 * 1024 * 1024 // 1MB — anything smaller is likely invalid
 )
 
-// EnsureModelsDownloaded downloads the YOLOv8 ONNX model if not already present.
+// EnsureModelsDownloaded downloads the YOLO26x ONNX model if not already present.
 func EnsureModelsDownloaded(modelsPath string) error {
 	if err := os.MkdirAll(modelsPath, 0o755); err != nil {
 		return fmt.Errorf("failed to create models directory: %w", err)
@@ -108,8 +108,8 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// LoadDetectionSession creates an ONNX Runtime session for the YOLOv8 model.
-// YOLOv8 has a single input "images" and a single output "output0".
+// LoadDetectionSession creates an ONNX Runtime session for the YOLO26x model.
+// YOLO26x has input "pixel_values" and two outputs: "logits" [1,300,80] and "pred_boxes" [1,300,4].
 // Downloads the model on first use if not already present.
 func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error) {
 	if err := EnsureModelsDownloaded(modelsPath); err != nil {
@@ -122,51 +122,39 @@ func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error
 
 	modelPath := filepath.Join(modelsPath, objectModelFile)
 
-	// Try known input/output name combinations for YOLOv8 ONNX exports
-	combinations := []struct {
-		input  string
-		output string
-	}{
-		{"images", "output0"},  // Ultralytics default export
-		{"input", "output"},    // Alternative ONNX naming
-		{"input.1", "output0"}, // Torch export variant
+	session, err := ort.NewDynamicAdvancedSession(
+		modelPath,
+		[]string{"pixel_values"},
+		[]string{"logits", "pred_boxes"},
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ONNX session: %w", err)
 	}
 
-	for _, combo := range combinations {
-		session, err := ort.NewDynamicAdvancedSession(modelPath, []string{combo.input}, []string{combo.output}, nil)
-		if err != nil {
-			continue
-		}
-
-		// Test with a dummy input to verify the combination works
-		dummyData := make([]float32, 3*640*640)
-		inputShape := ort.NewShape(1, 3, 640, 640)
-		testInput, err := ort.NewTensor(inputShape, dummyData)
-		if err != nil {
-			session.Destroy()
-			continue
-		}
-
-		outputs := make([]ort.Value, 1)
-		err = session.Run([]ort.Value{testInput}, outputs)
-		testInput.Destroy()
-
-		if err == nil {
-			if outputs[0] != nil {
-				outputs[0].Destroy()
-			}
-			log.Printf("Object detection model loaded successfully with input='%s', output='%s'", combo.input, combo.output)
-			return session, nil
-		}
-
-		log.Printf("  Tried input='%s', output='%s' — inference test failed: %v", combo.input, combo.output, err)
+	// Test with a dummy input to verify the session works
+	dummyData := make([]float32, 3*640*640)
+	inputShape := ort.NewShape(1, 3, 640, 640)
+	testInput, err := ort.NewTensor(inputShape, dummyData)
+	if err != nil {
 		session.Destroy()
-		for _, o := range outputs {
-			if o != nil {
-				o.Destroy()
-			}
+		return nil, fmt.Errorf("failed to create test tensor: %w", err)
+	}
+
+	outputs := make([]ort.Value, 2)
+	err = session.Run([]ort.Value{testInput}, outputs)
+	testInput.Destroy()
+	for _, o := range outputs {
+		if o != nil {
+			o.Destroy()
 		}
 	}
 
-	return nil, fmt.Errorf("failed to load object detection model: tried all known input/output name combinations but none worked")
+	if err != nil {
+		session.Destroy()
+		return nil, fmt.Errorf("YOLO26x inference test failed: %w", err)
+	}
+
+	log.Printf("YOLO26x object detection model loaded successfully")
+	return session, nil
 }

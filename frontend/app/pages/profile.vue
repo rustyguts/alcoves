@@ -1,20 +1,13 @@
 <script setup lang="ts">
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useTheme, daisyThemes } from "~/composables/useTheme";
 import type { DaisyTheme } from "~/composables/useTheme";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 
-interface SessionInfo {
-  id: string;
-  userAgent: string | null;
-  ipAddress: string | null;
-  createdAt: string;
-  expiresAt: string;
-  isCurrent: boolean;
-}
+import type { SessionInfo } from "~~/shared/types/api";
 
 const MAX_AVATAR_UPLOAD_BYTES = 25 * 1024 * 1024;
 
@@ -134,7 +127,7 @@ const revokingId = ref<string | null>(null);
 async function revokeSession(id: string) {
   revokingId.value = id;
   try {
-    await apiFetch(`/api/auth/sessions/${id}`, { method: "DELETE" });
+    await api.auth.revokeSession(id);
     toast.add({ title: "Session revoked", color: "success" });
     await refreshSessions();
   } catch {

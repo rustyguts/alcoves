@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 import UserAvatar from "~/components/UserAvatar.vue";
@@ -50,12 +50,7 @@ async function acceptInvite() {
 
   accepting.value = true;
   try {
-    const result = await apiFetch<{ libraryId: string; libraryName: string }>(
-      `/api/invites/${token.value}/accept`,
-      {
-        method: "POST",
-      },
-    );
+    const result = await api.invites.accept(token.value);
 
     await refreshLibraries?.();
     toast.add({ title: `Joined ${result.libraryName}` });

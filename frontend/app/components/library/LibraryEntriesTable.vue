@@ -35,7 +35,7 @@ const emit = defineEmits<{
 
 <template>
   <table class="w-full">
-    <thead class="sticky top-0 z-10 shadow-[0_1px_0_0] shadow-base-300/70">
+    <thead class="sticky top-0 z-30 shadow-[0_1px_0_0] shadow-base-300/70">
       <tr>
         <th class="w-12 px-4 py-3 bg-base-100/90 backdrop-blur-sm rounded-tl-lg" />
         <th class="text-left text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm">

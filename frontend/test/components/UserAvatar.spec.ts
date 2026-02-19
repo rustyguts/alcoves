@@ -67,26 +67,26 @@ describe("UserAvatar", () => {
     const wrapper = mount(UserAvatar, {
       props: { displayName: "Jane", tooltip: true },
     });
-    const outer = wrapper.find(".avatar");
-    expect(outer.classes()).toContain("tooltip");
-    expect(outer.attributes("data-tip")).toBe("Jane");
+    const root = wrapper.element as HTMLElement;
+    expect(root.classList.contains("tooltip")).toBe(true);
+    expect(root.getAttribute("data-tip")).toBe("Jane");
   });
 
   it("does not apply tooltip by default", () => {
     const wrapper = mount(UserAvatar, {
       props: { displayName: "Jane" },
     });
-    const outer = wrapper.find(".avatar");
-    expect(outer.classes()).not.toContain("tooltip");
-    expect(outer.attributes("data-tip")).toBeUndefined();
+    const root = wrapper.element as HTMLElement;
+    expect(root.classList.contains("tooltip")).toBe(false);
+    expect(root.getAttribute("data-tip")).toBeNull();
   });
 
   it("applies custom tooltip position", () => {
     const wrapper = mount(UserAvatar, {
       props: { displayName: "Jane", tooltip: true, tooltipPosition: "bottom" },
     });
-    const outer = wrapper.find(".avatar");
-    expect(outer.classes()).toContain("tooltip-bottom");
+    const root = wrapper.element as HTMLElement;
+    expect(root.classList.contains("tooltip-bottom")).toBe(true);
   });
 
   it("applies custom rounded class", () => {

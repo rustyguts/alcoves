@@ -2,21 +2,14 @@
 import { useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useAuth } from "~/composables/useAuth";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import LibraryHeader from "~/components/LibraryHeader.vue";
+import LibraryTabs from "~/components/LibraryTabs.vue";
 import type { Library } from "~~/shared/types/api";
 
 const route = useRoute();
 const { user } = useAuth();
 const libraryId = computed(() => route.params.id as string);
-
-// Hide the header and tabs on the file browser and trash routes — those pages
-// manage their own chrome. Show them only on sub-routes like settings, people, etc.
-const showHeaderAndTabs = computed(() => {
-  const path = route.path;
-  const base = `/libraries/${libraryId.value}`;
-  return path !== base && path !== `${base}/trash`;
-});
 
 const { data: library, refresh: refreshLibrary } = useApiFetch<Library>(
   () => `/api/libraries/${libraryId.value}`,
@@ -37,18 +30,12 @@ const canManageLibrary = computed(() => {
 });
 
 async function saveLibraryName(name: string) {
-  await apiFetch(`/api/libraries/${libraryId.value}`, {
-    method: "PATCH",
-    body: { name },
-  });
+  await api.libraries.update(libraryId.value, { name });
   await refreshLibrary();
 }
 
 async function saveLibraryEmoji(emoji: string | null) {
-  await apiFetch(`/api/libraries/${libraryId.value}`, {
-    method: "PATCH",
-    body: { emoji: emoji ?? "" },
-  });
+  await api.libraries.update(libraryId.value, { emoji: emoji ?? "" });
   await refreshLibrary();
 }
 
@@ -60,21 +47,20 @@ provide("canManageLibrary", canManageLibrary);
 
 <template>
   <div class="flex flex-col gap-4 flex-1 min-h-0">
-    <template v-if="showHeaderAndTabs">
-      <LibraryHeader
-        :name="library?.name"
-        :emoji="library?.emoji"
-        :can-edit="canManageLibrary"
-        @update:name="saveLibraryName"
-        @update:emoji="saveLibraryEmoji"
-      />
-
+    <LibraryHeader
+      :name="library?.name"
+      :emoji="library?.emoji"
+      :can-edit="canManageLibrary"
+      @update:name="saveLibraryName"
+      @update:emoji="saveLibraryEmoji"
+    >
       <LibraryTabs
         :library-id="libraryId"
         :face-recognition-enabled="library?.faceRecognitionEnabled"
+        :object-detection-enabled="library?.objectDetectionEnabled"
         :can-manage-library="canManageLibrary"
       />
-    </template>
+    </LibraryHeader>
 
     <div class="relative flex-1 min-h-0">
       <RouterView v-slot="{ Component, route: tabRoute }">

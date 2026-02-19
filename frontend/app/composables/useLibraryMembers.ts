@@ -4,7 +4,7 @@ import type {
   LibraryPendingInvite,
   LibraryUsersResponse,
 } from "~~/shared/types/api";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
 
 type LibraryUsersRef = Ref<LibraryUsersResponse | null | undefined>;
@@ -82,13 +82,7 @@ export function useLibraryMembers(
 
     inviteByEmailLoading.value = true;
     try {
-      const result = await apiFetch<{
-        action: "added" | "invited" | "already_member";
-        invite?: { inviteUrl: string };
-      }>(`/api/libraries/${libraryId.value}/users/invite-email`, {
-        method: "POST",
-        body: { email, role: inviteEmailRole.value },
-      });
+      const result = await api.members.inviteByEmail(libraryId.value, { email, role: inviteEmailRole.value });
 
       if (result.action === "already_member") {
         toast.add({ title: "User already has access" });
@@ -116,12 +110,7 @@ export function useLibraryMembers(
   async function createInviteLink() {
     createInviteLinkLoading.value = true;
     try {
-      const invite = await apiFetch<{ inviteUrl: string }>(
-        `/api/libraries/${libraryId.value}/users/invite-link`,
-        {
-          method: "POST",
-        },
-      );
+      const invite = await api.members.createInviteLink(libraryId.value);
 
       await refreshLibraryUsers();
       await copyInviteLink(invite.inviteUrl);
@@ -140,10 +129,7 @@ export function useLibraryMembers(
 
     updatingMemberUserId.value = member.userId;
     try {
-      await apiFetch(`/api/libraries/${libraryId.value}/users/${member.userId}`, {
-        method: "PATCH",
-        body: { role: nextRole },
-      });
+      await api.members.updateRole(libraryId.value, member.userId, { role: nextRole });
       await refreshLibraryUsers();
     } catch {
       memberRoleDrafts[member.userId] = member.role;
@@ -158,9 +144,7 @@ export function useLibraryMembers(
 
     removingMemberUserId.value = member.userId;
     try {
-      await apiFetch(`/api/libraries/${libraryId.value}/users/${member.userId}`, {
-        method: "DELETE",
-      });
+      await api.members.remove(libraryId.value, member.userId);
       await refreshLibraryUsers();
     } catch {
       toast.add({ title: "Failed to remove member", color: "error" });
@@ -172,9 +156,7 @@ export function useLibraryMembers(
   async function revokeInvite(inviteId: string) {
     revokingInviteId.value = inviteId;
     try {
-      await apiFetch(`/api/libraries/${libraryId.value}/users/invites/${inviteId}`, {
-        method: "DELETE",
-      });
+      await api.members.revokeInvite(libraryId.value, inviteId);
       await refreshLibraryUsers();
     } catch {
       toast.add({ title: "Failed to revoke invite", color: "error" });

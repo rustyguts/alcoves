@@ -1,14 +1,9 @@
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
+import type { AuthUser } from "~~/shared/types/api";
 
-export interface AuthUser {
-  id: string;
-  email: string;
-  displayName: string;
-  avatarUrl: string | null;
-  role: string;
-}
+export type { AuthUser };
 
 interface AuthState {
   user: AuthUser | null;
@@ -24,7 +19,7 @@ export function useAuth() {
 
   async function fetchSession() {
     try {
-      const data = await apiFetch<{ user?: AuthUser }>("/api/_auth/session");
+      const data = await api.auth.session();
       authState.value.user = data.user || null;
     } catch {
       authState.value.user = null;
@@ -36,24 +31,18 @@ export function useAuth() {
   }
 
   async function login(email: string, password: string) {
-    await apiFetch("/api/auth/login", {
-      method: "POST",
-      body: { email, password },
-    });
+    await api.auth.login({ email, password });
     await fetchSession();
   }
 
   async function register(name: string, email: string, password: string) {
-    await apiFetch("/api/auth/register", {
-      method: "POST",
-      body: { name, email, password },
-    });
+    await api.auth.register({ name, email, password });
     await fetchSession();
   }
 
   async function logout() {
     try {
-      await apiFetch("/api/auth/logout", { method: "POST" });
+      await api.auth.logout();
     } finally {
       clearSession();
       router.replace("/login");
@@ -61,10 +50,7 @@ export function useAuth() {
   }
 
   async function updateProfile(updates: { displayName?: string }) {
-    const data = await apiFetch<AuthUser>("/api/auth/me", {
-      method: "PATCH",
-      body: updates,
-    });
+    const data = await api.auth.updateMe(updates);
     await fetchSession();
     return data;
   }
@@ -73,10 +59,7 @@ export function useAuth() {
     const formData = new FormData();
     formData.append("avatar", file);
 
-    const data = await apiFetch<AuthUser>("/api/auth/me/avatar", {
-      method: "POST",
-      body: formData,
-    });
+    const data = await api.auth.uploadAvatar(formData);
     await fetchSession();
     return data;
   }

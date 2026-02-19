@@ -1,6 +1,6 @@
 import type { Ref, ComputedRef } from "vue";
 import type { LibraryPerson, PersonFace } from "~~/shared/types/api";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
 
 export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
@@ -18,7 +18,7 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
   async function fetchPeople() {
     loading.value = true;
     try {
-      people.value = await apiFetch<LibraryPerson[]>(`/api/libraries/${libraryId.value}/people`);
+      people.value = await api.people.list(libraryId.value);
     } catch {
       toast.add({ title: "Failed to load people", color: "error" });
     } finally {
@@ -28,13 +28,7 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
 
   async function renamePerson(personId: string, name: string) {
     try {
-      const updated = await apiFetch<LibraryPerson>(
-        `/api/libraries/${libraryId.value}/people/${personId}`,
-        {
-          method: "PATCH",
-          body: { name },
-        },
-      );
+      const updated = await api.people.update(libraryId.value, personId, { name });
       const idx = people.value.findIndex((p) => p.id === personId);
       if (idx !== -1) people.value[idx] = updated;
       if (activePerson.value?.id === personId) activePerson.value = updated;
@@ -49,10 +43,7 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
     if (ids.length < 2) return;
 
     try {
-      await apiFetch(`/api/libraries/${libraryId.value}/people/merge`, {
-        method: "POST",
-        body: { personIds: ids },
-      });
+      await api.people.merge(libraryId.value, { personIds: ids });
       selectedPeople.clear();
       await fetchPeople();
       toast.add({ title: "People merged" });
@@ -65,9 +56,7 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
     activePerson.value = person;
     loadingFaces.value = true;
     try {
-      activePersonFaces.value = await apiFetch<PersonFace[]>(
-        `/api/libraries/${libraryId.value}/people/${person.id}/faces`,
-      );
+      activePersonFaces.value = await api.people.listFaces(libraryId.value, person.id);
     } catch {
       toast.add({ title: "Failed to load faces", color: "error" });
     } finally {
@@ -85,19 +74,13 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
 
   function getPersonThumbnailUrl(person: LibraryPerson): string {
     const version = person.coverFaceDetectionId ?? person.updatedAt;
-    return `/api/libraries/${libraryId.value}/people/${person.id}/thumbnail?v=${encodeURIComponent(version)}`;
+    return api.people.thumbnailUrl(libraryId.value, person.id, version);
   }
 
   async function setPersonCover(personId: string, faceDetectionId: string) {
     updatingCoverFaceId.value = faceDetectionId;
     try {
-      const updated = await apiFetch<LibraryPerson>(
-        `/api/libraries/${libraryId.value}/people/${personId}`,
-        {
-          method: "PATCH",
-          body: { coverFaceDetectionId: faceDetectionId },
-        },
-      );
+      const updated = await api.people.update(libraryId.value, personId, { coverFaceDetectionId: faceDetectionId });
 
       const idx = people.value.findIndex((p) => p.id === personId);
       if (idx !== -1) people.value[idx] = updated;
@@ -114,13 +97,7 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
   async function splitFaceAsNewPerson(personId: string, faceDetectionId: string, name?: string) {
     splittingFaceId.value = faceDetectionId;
     try {
-      await apiFetch(
-        `/api/libraries/${libraryId.value}/people/${personId}/faces/${faceDetectionId}/split`,
-        {
-          method: "POST",
-          body: { name },
-        },
-      );
+      await api.people.splitFace(libraryId.value, personId, faceDetectionId, { name });
       await fetchPeople();
       if (activePerson.value?.id === personId) {
         const refreshed = people.value.find((person) => person.id === personId) ?? null;

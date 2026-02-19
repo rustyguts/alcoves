@@ -1,6 +1,7 @@
 import type { Ref, ComputedRef } from "vue";
+import type { DownloadEstimate } from "~~/shared/types/api";
 import { formatFileSize } from "~/utils/mime-icons";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
 
 const MAX_ZIP_SIZE_BYTES = 4 * 1024 * 1024 * 1024; // 4 GB - must match server
@@ -13,11 +14,6 @@ function buildZipDownloadName() {
   return `alcoves-download-${utc}.zip`;
 }
 
-interface DownloadEstimate {
-  totalSize: number;
-  fileCount: number;
-}
-
 export function useDownloadZip(libraryId: Ref<string> | ComputedRef<string>) {
   const toast = useToast();
   const downloading = ref(false);
@@ -27,10 +23,7 @@ export function useDownloadZip(libraryId: Ref<string> | ComputedRef<string>) {
   const estimatedFileCount = ref(0);
 
   async function estimateSize(fileIds: string[], folderIds: string[]): Promise<DownloadEstimate> {
-    return apiFetch<DownloadEstimate>(`/api/libraries/${libraryId.value}/download-estimate`, {
-      method: "POST",
-      body: { fileIds, folderIds },
-    });
+    return api.downloads.estimate(libraryId.value, { fileIds, folderIds });
   }
 
   async function startDownload(fileIds: string[], folderIds: string[], skipSizeCheck = false) {

@@ -32,9 +32,10 @@ type searchResult struct {
 	Name           string   `gorm:"column:name" json:"name"`
 	Kind           string   `gorm:"column:kind" json:"kind"`
 	LocationPath   string   `json:"locationPath"`
-	MimeType       *string  `gorm:"column:mime_type" json:"mimeType,omitempty"`
-	Size           *int64   `gorm:"column:size" json:"size,omitempty"`
-	UpdatedAt      string   `gorm:"column:updated_at" json:"updatedAt"`
+	MimeType        *string  `gorm:"column:mime_type" json:"mimeType,omitempty"`
+	Size            *int64   `gorm:"column:size" json:"size,omitempty"`
+	ThumbnailFileID *string  `gorm:"column:thumbnail_file_id" json:"thumbnailFileId,omitempty"`
+	UpdatedAt       string   `gorm:"column:updated_at" json:"updatedAt"`
 	MatchReason    string   `gorm:"-" json:"matchReason,omitempty"`
 	MatchedLabels  []string `gorm:"-" json:"matchedLabels,omitempty"`
 }
@@ -60,7 +61,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 	var fileResults []searchResult
 	h.db.Raw(`
 		SELECT f.id, f.library_id, l.name as library_name, f.parent_folder_id,
-		       f.name, 'file' as kind, f.mime_type, f.size,
+		       f.name, 'file' as kind, f.mime_type, f.size, f.thumbnail_file_id,
 		       to_char(f.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
 		FROM files f
 		INNER JOIN libraries l ON l.id = f.library_id
@@ -91,14 +92,23 @@ func (h *SearchHandler) Search(c echo.Context) error {
 
 	// Search files by detected object labels
 	type objectMatch struct {
-		searchResult
-		MatchedLabel string `gorm:"column:matched_label"`
+		ID              string  `gorm:"column:id"`
+		LibraryID       string  `gorm:"column:library_id"`
+		LibraryName     string  `gorm:"column:library_name"`
+		ParentFolderID  *string `gorm:"column:parent_folder_id"`
+		Name            string  `gorm:"column:name"`
+		Kind            string  `gorm:"column:kind"`
+		MimeType        *string `gorm:"column:mime_type"`
+		Size            *int64  `gorm:"column:size"`
+		ThumbnailFileID *string `gorm:"column:thumbnail_file_id"`
+		UpdatedAt       string  `gorm:"column:updated_at"`
+		MatchedLabel    string  `gorm:"column:matched_label"`
 	}
 	var objectResults []objectMatch
 	h.db.Raw(`
 		SELECT DISTINCT ON (f.id)
 		       f.id, f.library_id, l.name as library_name, f.parent_folder_id,
-		       f.name, 'file' as kind, f.mime_type, f.size,
+		       f.name, 'file' as kind, f.mime_type, f.size, f.thumbnail_file_id,
 		       to_char(f.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
 		       od.label as matched_label
 		FROM files f
@@ -166,10 +176,21 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		if fileNameMatchIDs[r.ID] {
 			continue
 		}
-		result := r.searchResult
-		result.LocationPath = result.LibraryName
-		result.MatchReason = "object"
-		result.MatchedLabels = dedup(fileLabels[result.ID])
+		result := searchResult{
+			ID:              r.ID,
+			LibraryID:       r.LibraryID,
+			LibraryName:     r.LibraryName,
+			ParentFolderID:  r.ParentFolderID,
+			Name:            r.Name,
+			Kind:            r.Kind,
+			MimeType:        r.MimeType,
+			Size:            r.Size,
+			ThumbnailFileID: r.ThumbnailFileID,
+			UpdatedAt:       r.UpdatedAt,
+			LocationPath:    r.LibraryName,
+			MatchReason:     "object",
+			MatchedLabels:   dedup(fileLabels[r.ID]),
+		}
 		if len(result.MatchedLabels) == 0 {
 			result.MatchedLabels = []string{r.MatchedLabel}
 		}

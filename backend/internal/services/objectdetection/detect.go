@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	inputSize  = 640
-	numClasses = 80
+	inputSize      = 640
+	numClasses     = 80
+	numProposals   = 300 // YOLO26x outputs exactly 300 NMS-free proposals
 )
 
 // Detection represents a single detected object.
@@ -25,7 +26,7 @@ type Detection struct {
 	BoxHeight  float64
 }
 
-// DetectObjects runs YOLOv8 inference on raw image data and returns detections.
+// DetectObjects runs YOLO26x inference on raw image data and returns detections.
 func DetectObjects(session *ort.DynamicAdvancedSession, imageData []byte, config *ObjectConfig) ([]Detection, int, int, error) {
 	img, err := vips.NewImageFromBuffer(imageData)
 	if err != nil {
@@ -40,8 +41,8 @@ func DetectObjects(session *ort.DynamicAdvancedSession, imageData []byte, config
 	origW := img.Width()
 	origH := img.Height()
 
-	// Preprocess: resize with letterboxing to 640x640
-	inputTensor, scale, padX, padY, err := preprocessForDetection(img)
+	// Preprocess: resize to 640x640, normalize to [0, 1]
+	inputTensor, err := preprocessForDetection(img)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("preprocessing failed: %w", err)
 	}
@@ -54,8 +55,8 @@ func DetectObjects(session *ort.DynamicAdvancedSession, imageData []byte, config
 	}
 	defer input.Destroy()
 
-	// Run inference
-	outputs := make([]ort.Value, 1)
+	// Run inference — YOLO26x produces two outputs: logits and pred_boxes
+	outputs := make([]ort.Value, 2)
 	if err := session.Run([]ort.Value{input}, outputs); err != nil {
 		return nil, 0, 0, fmt.Errorf("inference failed: %w", err)
 	}
@@ -67,52 +68,33 @@ func DetectObjects(session *ort.DynamicAdvancedSession, imageData []byte, config
 		}
 	}()
 
-	// YOLOv8 output shape: [1, 84, 8400]
-	// 84 = 4 (bbox: cx, cy, w, h) + 80 (class scores)
-	// 8400 = total number of detection candidates
-	outputTensor := outputs[0].(*ort.Tensor[float32])
-	rawData := outputTensor.GetData()
+	// logits: [1, 300, 80] — raw class scores (apply sigmoid for probabilities)
+	logitsTensor := outputs[0].(*ort.Tensor[float32])
+	logits := logitsTensor.GetData()
 
-	detections := decodeYOLOv8Output(rawData, scale, padX, padY, config)
+	// pred_boxes: [1, 300, 4] — normalized [cx, cy, w, h] in [0, 1]
+	boxesTensor := outputs[1].(*ort.Tensor[float32])
+	boxes := boxesTensor.GetData()
+
+	detections := decodeYOLO26Output(logits, boxes, origW, origH, config)
 
 	return detections, origW, origH, nil
 }
 
-// preprocessForDetection resizes the image to 640x640 with letterboxing (padding),
-// normalizes to 0..1, and returns the CHW float32 tensor plus scaling/padding info.
-func preprocessForDetection(img *vips.ImageRef) ([]float32, float64, float64, float64, error) {
-	w := img.Width()
-	h := img.Height()
+// preprocessForDetection resizes the image to 640x640 and normalizes to [0, 1].
+// YOLO26x uses a direct resize (no letterboxing) per its preprocessor config.
+func preprocessForDetection(img *vips.ImageRef) ([]float32, error) {
+	hScale := float64(inputSize) / float64(img.Width())
+	vScale := float64(inputSize) / float64(img.Height())
 
-	// Scale to fit within 640x640 preserving aspect ratio
-	scale := math.Min(float64(inputSize)/float64(w), float64(inputSize)/float64(h))
-	newW := int(math.Round(float64(w) * scale))
-	newH := int(math.Round(float64(h) * scale))
-
-	if err := img.Resize(scale, vips.KernelLinear); err != nil {
-		return nil, 0, 0, 0, err
-	}
-
-	// Compute padding for center-aligned letterbox
-	padX := float64(inputSize-newW) / 2.0
-	padY := float64(inputSize-newH) / 2.0
-	padLeft := int(math.Round(padX))
-	padTop := int(math.Round(padY))
-
-	// Embed in 640x640 canvas with gray (114, 114, 114) padding — standard YOLO letterbox color
-	if newW < inputSize || newH < inputSize {
-		if err := img.Embed(padLeft, padTop, inputSize, inputSize, vips.ExtendBackground); err != nil {
-			// Fallback to black padding if background extend fails
-			if err2 := img.Embed(padLeft, padTop, inputSize, inputSize, vips.ExtendBlack); err2 != nil {
-				return nil, 0, 0, 0, err2
-			}
-		}
+	if err := img.ResizeWithVScale(hScale, vScale, vips.KernelLinear); err != nil {
+		return nil, err
 	}
 
 	// Get raw RGB pixel data
 	rawBytes, err := exportRawRGB(img)
 	if err != nil {
-		return nil, 0, 0, 0, err
+		return nil, err
 	}
 
 	// Convert to CHW float32 normalized to [0, 1]
@@ -124,7 +106,7 @@ func preprocessForDetection(img *vips.ImageRef) ([]float32, float64, float64, fl
 		tensor[2*pixels+i] = float32(rawBytes[i*3+2]) / 255.0 // B
 	}
 
-	return tensor, scale, padX, padY, nil
+	return tensor, nil
 }
 
 // exportRawRGB extracts raw RGB pixel data from a vips image.
@@ -171,29 +153,28 @@ func exportRawRGB(img *vips.ImageRef) ([]byte, error) {
 	return result, nil
 }
 
-// decodeYOLOv8Output parses the raw [1, 84, 8400] output tensor into detections.
-// YOLOv8 output is transposed compared to YOLOv5: each of 8400 candidates has
-// 84 values stored column-major (84 rows x 8400 cols in the raw layout).
-func decodeYOLOv8Output(data []float32, scale, padX, padY float64, config *ObjectConfig) []Detection {
-	// Output layout: [1, 84, 8400] flattened
-	// Row 0-3: cx, cy, w, h
-	// Row 4-83: class scores for 80 COCO classes
-	const numCandidates = 8400
-	const rowLen = numCandidates
+// sigmoid applies the logistic sigmoid function.
+func sigmoid(x float64) float64 {
+	return 1.0 / (1.0 + math.Exp(-x))
+}
 
-	// Safety check
-	if len(data) < 84*numCandidates {
+// decodeYOLO26Output parses the YOLO26x outputs into detections.
+// logits: [1, 300, 80] — raw class scores (pre-sigmoid)
+// boxes:  [1, 300, 4]  — normalized [cx, cy, w, h] in [0, 1]
+// YOLO26x is NMS-free: the 300 proposals are already deduplicated by the model.
+func decodeYOLO26Output(logits, boxes []float32, origW, origH int, config *ObjectConfig) []Detection {
+	if len(logits) < numProposals*numClasses || len(boxes) < numProposals*4 {
 		return nil
 	}
 
 	var detections []Detection
 
-	for i := 0; i < numCandidates; i++ {
-		// Find the class with the highest score
+	for i := 0; i < numProposals; i++ {
+		// Find the class with the highest score (apply sigmoid)
 		bestClass := -1
-		bestScore := float64(0)
+		bestScore := 0.0
 		for c := 0; c < numClasses; c++ {
-			score := float64(data[(4+c)*rowLen+i])
+			score := sigmoid(float64(logits[i*numClasses+c]))
 			if score > bestScore {
 				bestScore = score
 				bestClass = c
@@ -204,19 +185,19 @@ func decodeYOLOv8Output(data []float32, scale, padX, padY float64, config *Objec
 			continue
 		}
 
-		// Decode bounding box (center format -> corner format)
-		cx := float64(data[0*rowLen+i])
-		cy := float64(data[1*rowLen+i])
-		w := float64(data[2*rowLen+i])
-		h := float64(data[3*rowLen+i])
+		// Decode bounding box — values are normalized to [0, 1]
+		cx := float64(boxes[i*4+0])
+		cy := float64(boxes[i*4+1])
+		w := float64(boxes[i*4+2])
+		h := float64(boxes[i*4+3])
 
-		// Convert from letterboxed coordinates to original image coordinates
-		x1 := (cx - w/2 - padX) / scale
-		y1 := (cy - h/2 - padY) / scale
-		bw := w / scale
-		bh := h / scale
+		// Convert from normalized center format to pixel coordinates
+		x1 := (cx - w/2) * float64(origW)
+		y1 := (cy - h/2) * float64(origH)
+		bw := w * float64(origW)
+		bh := h * float64(origH)
 
-		// Clamp to positive values
+		// Clamp to image bounds
 		if x1 < 0 {
 			x1 = 0
 		}
@@ -242,10 +223,7 @@ func decodeYOLOv8Output(data []float32, scale, padX, padY float64, config *Objec
 		})
 	}
 
-	// Apply NMS per class
-	detections = nmsPerClass(detections, config.NMSThreshold)
-
-	// Sort by confidence descending and cap
+	// Sort by confidence descending and cap at max detections
 	sort.Slice(detections, func(i, j int) bool {
 		return detections[i].Confidence > detections[j].Confidence
 	})
@@ -254,61 +232,4 @@ func decodeYOLOv8Output(data []float32, scale, padX, padY float64, config *Objec
 	}
 
 	return detections
-}
-
-// nmsPerClass applies non-maximum suppression independently per class.
-func nmsPerClass(detections []Detection, iouThreshold float64) []Detection {
-	// Group by class
-	byClass := map[int][]int{}
-	for i, d := range detections {
-		byClass[d.ClassID] = append(byClass[d.ClassID], i)
-	}
-
-	kept := make([]bool, len(detections))
-	for _, indices := range byClass {
-		// Sort indices by confidence descending
-		sort.Slice(indices, func(a, b int) bool {
-			return detections[indices[a]].Confidence > detections[indices[b]].Confidence
-		})
-
-		for i := 0; i < len(indices); i++ {
-			if !kept[indices[i]] {
-				// First time seeing this index — mark as kept initially
-			}
-			kept[indices[i]] = true
-			for j := i + 1; j < len(indices); j++ {
-				if !kept[indices[j]] {
-					continue
-				}
-				if iou(detections[indices[i]], detections[indices[j]]) > iouThreshold {
-					kept[indices[j]] = false
-				}
-			}
-		}
-	}
-
-	var result []Detection
-	for i, k := range kept {
-		if k {
-			result = append(result, detections[i])
-		}
-	}
-	return result
-}
-
-// iou computes intersection over union between two detections.
-func iou(a, b Detection) float64 {
-	x1 := math.Max(a.BoxX, b.BoxX)
-	y1 := math.Max(a.BoxY, b.BoxY)
-	x2 := math.Min(a.BoxX+a.BoxWidth, b.BoxX+b.BoxWidth)
-	y2 := math.Min(a.BoxY+a.BoxHeight, b.BoxY+b.BoxHeight)
-
-	intersection := math.Max(0, x2-x1) * math.Max(0, y2-y1)
-	if intersection == 0 {
-		return 0
-	}
-
-	areaA := a.BoxWidth * a.BoxHeight
-	areaB := b.BoxWidth * b.BoxHeight
-	return intersection / (areaA + areaB - intersection)
 }

@@ -1,6 +1,6 @@
 package objectdetection
 
-// COCOLabels maps YOLOv8 class indices (0-79) to human-readable COCO labels.
+// COCOLabels maps YOLO26 class indices (0-79) to human-readable COCO labels.
 var COCOLabels = [80]string{
 	"person", "bicycle", "car", "motorcycle", "airplane",
 	"bus", "train", "truck", "boat", "traffic light",

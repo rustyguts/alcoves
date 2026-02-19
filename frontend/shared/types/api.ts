@@ -160,6 +160,7 @@ export interface GlobalSearchResult {
   locationPath: string;
   mimeType?: string;
   size?: number;
+  thumbnailFileId?: string;
   updatedAt: string;
   matchReason?: "name" | "object" | "name+object";
   matchedLabels?: string[];
@@ -169,4 +170,81 @@ export interface GlobalSearchResponse {
   query: string;
   totalCount: number;
   results: GlobalSearchResult[];
+}
+
+// ─── Auth ──────────────────────────────────────────────
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: string;
+}
+
+export interface SessionInfo {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
+  isCurrent: boolean;
+}
+
+export interface AuthProvidersResponse {
+  google: boolean;
+}
+
+// ─── Admin ─────────────────────────────────────────────
+
+export interface AdminStats {
+  users: number;
+  libraries: number;
+  files: number;
+  folders: number;
+  totalSize: number;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: "owner" | "member";
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Media ─────────────────────────────────────────────
+
+export interface PlaybackSource {
+  id: string;
+  name: string;
+  mimeType: string;
+  kind: "source" | "proxy";
+  streamUrl: string;
+  createdAt: string;
+}
+
+export interface PlaybackSourcesResponse {
+  defaultSourceId: string;
+  sources: PlaybackSource[];
+}
+
+// ─── Object Detection ──────────────────────────────────
+
+export interface ObjectLabel {
+  label: string;
+  fileCount: number;
+}
+
+export interface ObjectLabelsResponse {
+  labels: ObjectLabel[];
+}
+
+// ─── Downloads ─────────────────────────────────────────
+
+export interface DownloadEstimate {
+  totalSize: number;
+  fileCount: number;
 }

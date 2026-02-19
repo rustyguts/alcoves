@@ -4,7 +4,7 @@ import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useLibraryMembers } from "~/composables/useLibraryMembers";
 import { useToast } from "~/composables/useToast";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import type { Library, LibraryUsersResponse } from "~~/shared/types/api";
 import AppIcon from "~/components/AppIcon.vue";
 import ConfirmModal from "~/components/ConfirmModal.vue";
@@ -51,12 +51,8 @@ const fileCounts = ref<{ totalCount: number; trashedCount: number } | null>(null
 async function fetchFileCounts() {
   try {
     const [activeFiles, trashedFiles] = await Promise.all([
-      apiFetch<{ totalCount: number }>(`/api/libraries/${libraryId.value}/files`, {
-        query: { limit: "1" },
-      }),
-      apiFetch<{ totalCount: number }>(`/api/libraries/${libraryId.value}/files`, {
-        query: { trashed: "true", limit: "1" },
-      }),
+      api.files.list(libraryId.value, { limit: "1" }),
+      api.files.list(libraryId.value, { trashed: "true", limit: "1" }),
     ]);
 
     fileCounts.value = {
@@ -91,18 +87,12 @@ const isLibraryManager = computed(() => {
 });
 
 async function saveLibraryName(name: string) {
-  await apiFetch(`/api/libraries/${libraryId.value}`, {
-    method: "PATCH",
-    body: { name },
-  });
+  await api.libraries.update(libraryId.value, { name });
   await refreshLibrary();
 }
 
 async function saveLibraryEmoji(emoji: string | null) {
-  await apiFetch(`/api/libraries/${libraryId.value}`, {
-    method: "PATCH",
-    body: { emoji: emoji ?? "" },
-  });
+  await api.libraries.update(libraryId.value, { emoji: emoji ?? "" });
   await refreshLibrary();
 }
 
@@ -160,10 +150,7 @@ async function toggleFaceRecognition(enabled: boolean) {
 
   faceRecToggling.value = true;
   try {
-    await apiFetch(`/api/libraries/${libraryId.value}`, {
-      method: "PATCH",
-      body: { faceRecognitionEnabled: true },
-    });
+    await api.libraries.update(libraryId.value, { faceRecognitionEnabled: true });
     await refreshLibrary();
     toast.add({ title: "Face recognition enabled. Processing will begin shortly." });
   } catch {
@@ -177,10 +164,7 @@ async function confirmDisableFaceRecognition() {
   faceRecToggling.value = true;
   faceRecDisableOpen.value = false;
   try {
-    await apiFetch(`/api/libraries/${libraryId.value}`, {
-      method: "PATCH",
-      body: { faceRecognitionEnabled: false },
-    });
+    await api.libraries.update(libraryId.value, { faceRecognitionEnabled: false });
     await refreshLibrary();
     toast.add({ title: "Face recognition disabled. All face data has been deleted." });
   } catch {
@@ -194,10 +178,7 @@ async function reprocessFaceRecognition() {
   faceRecReprocessing.value = true;
   faceRecReprocessOpen.value = false;
   try {
-    const result = await apiFetch<{ queuedCount: number }>(
-      `/api/libraries/${libraryId.value}/face-recognition/reprocess`,
-      { method: "POST" },
-    );
+    const result = await api.people.reprocess(libraryId.value);
     toast.add({
       title: "Reprocessing queued",
       description: `${result.queuedCount} image${result.queuedCount === 1 ? "" : "s"} queued for fresh facial recognition.`,
@@ -219,10 +200,7 @@ async function toggleObjectDetection(enabled: boolean) {
 
   objDetToggling.value = true;
   try {
-    await apiFetch(`/api/libraries/${libraryId.value}`, {
-      method: "PATCH",
-      body: { objectDetectionEnabled: true },
-    });
+    await api.libraries.update(libraryId.value, { objectDetectionEnabled: true });
     await refreshLibrary();
     toast.add({ title: "Object detection enabled. Processing will begin shortly." });
   } catch {
@@ -236,10 +214,7 @@ async function confirmDisableObjectDetection() {
   objDetToggling.value = true;
   objDetDisableOpen.value = false;
   try {
-    await apiFetch(`/api/libraries/${libraryId.value}`, {
-      method: "PATCH",
-      body: { objectDetectionEnabled: false },
-    });
+    await api.libraries.update(libraryId.value, { objectDetectionEnabled: false });
     await refreshLibrary();
     toast.add({ title: "Object detection disabled. All detection data has been deleted." });
   } catch {
@@ -253,10 +228,7 @@ async function reprocessObjectDetection() {
   objDetReprocessing.value = true;
   objDetReprocessOpen.value = false;
   try {
-    const result = await apiFetch<{ queuedCount: number }>(
-      `/api/libraries/${libraryId.value}/object-detection/reprocess`,
-      { method: "POST" },
-    );
+    const result = await api.objects.reprocess(libraryId.value);
     toast.add({
       title: "Reprocessing queued",
       description: `${result.queuedCount} image${result.queuedCount === 1 ? "" : "s"} queued for fresh object detection.`,
@@ -277,10 +249,7 @@ async function reprocessVideoThumbnails() {
   videoThumbReprocessing.value = true;
   videoThumbReprocessOpen.value = false;
   try {
-    const result = await apiFetch<{ queuedCount: number }>(
-      `/api/libraries/${libraryId.value}/files/video-thumbnails/reprocess`,
-      { method: "POST" },
-    );
+    const result = await api.files.reprocessVideoThumbnails(libraryId.value);
     toast.add({
       title: "Thumbnail regeneration queued",
       description: `${result.queuedCount} video${result.queuedCount === 1 ? "" : "s"} queued for thumbnail regeneration.`,
@@ -305,7 +274,7 @@ const canDeleteLibrary = computed(() => {
 
 async function deleteLibrary() {
   try {
-    await apiFetch(`/api/libraries/${libraryId.value}`, { method: "DELETE" });
+    await api.libraries.delete(libraryId.value);
     deleteLibraryOpen.value = false;
     await refreshLibraries?.();
     router.push("/");
@@ -566,7 +535,7 @@ async function deleteLibrary() {
             <div class="min-w-0">
               <p class="text-sm font-semibold">Object Detection</p>
               <p class="text-xs text-muted">
-                Detect objects in image uploads using YOLOv8. Disabling removes all detection data.
+                Detect objects in image uploads using YOLO26. Disabling removes all detection data.
               </p>
             </div>
             <input

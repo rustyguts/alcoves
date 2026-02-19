@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { LibraryFile } from "~~/shared/types/api";
-import { apiFetch } from "~/utils/api-fetch";
+import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
 import AppModal from "~/components/AppModal.vue";
 
@@ -45,13 +45,10 @@ async function createClip() {
 
   loading.value = true;
   try {
-    await apiFetch(`/api/libraries/${props.libraryId}/files/${props.file.id}/clip`, {
-      method: "POST",
-      body: {
-        startTime: startTime.value,
-        endTime: endTime.value,
-        name: clipName.value || undefined,
-      },
+    await api.files.clip(props.libraryId, props.file.id, {
+      startTime: startTime.value,
+      endTime: endTime.value,
+      name: clipName.value || undefined,
     });
     toast.add({ title: "Clip created", color: "success" });
     open.value = false;

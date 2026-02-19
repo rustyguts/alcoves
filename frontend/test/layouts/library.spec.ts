@@ -85,7 +85,7 @@ const LibraryHeaderStub = defineComponent({
 
 const LibraryTabsStub = defineComponent({
   name: "LibraryTabs",
-  props: ["libraryId", "faceRecognitionEnabled", "canManageLibrary"],
+  props: ["libraryId", "faceRecognitionEnabled", "objectDetectionEnabled", "canManageLibrary"],
   template: "<div data-stub='tabs' />",
 });
 
@@ -156,32 +156,18 @@ describe("library layout", () => {
     expect(header.props("canEdit")).toBe(false);
   });
 
-  it("hides header and tabs on file browser route", () => {
-    mocks.routePath = "/libraries/lib-1";
-    const wrapper = mountLayout();
-    expect(wrapper.find("[data-stub='header']").exists()).toBe(false);
-    expect(wrapper.find("[data-stub='tabs']").exists()).toBe(false);
-  });
-
-  it("hides header and tabs on trash route", () => {
-    mocks.routePath = "/libraries/lib-1/trash";
-    const wrapper = mountLayout();
-    expect(wrapper.find("[data-stub='header']").exists()).toBe(false);
-    expect(wrapper.find("[data-stub='tabs']").exists()).toBe(false);
-  });
-
-  it("shows header and tabs on settings route", () => {
-    mocks.routePath = "/libraries/lib-1/settings";
-    const wrapper = mountLayout();
-    expect(wrapper.find("[data-stub='header']").exists()).toBe(true);
-    expect(wrapper.find("[data-stub='tabs']").exists()).toBe(true);
-  });
-
-  it("shows header and tabs on people route", () => {
-    mocks.routePath = "/libraries/lib-1/people";
-    const wrapper = mountLayout();
-    expect(wrapper.find("[data-stub='header']").exists()).toBe(true);
-    expect(wrapper.find("[data-stub='tabs']").exists()).toBe(true);
+  it("always shows header and tabs", () => {
+    for (const path of [
+      "/libraries/lib-1",
+      "/libraries/lib-1/trash",
+      "/libraries/lib-1/settings",
+      "/libraries/lib-1/people",
+    ]) {
+      mocks.routePath = path;
+      const wrapper = mountLayout();
+      expect(wrapper.find("[data-stub='header']").exists()).toBe(true);
+      expect(wrapper.find("[data-stub='tabs']").exists()).toBe(true);
+    }
   });
 
   it("calls apiFetch on saveLibraryName event", async () => {

@@ -76,6 +76,10 @@ const router = createRouter({
           path: "tags",
           component: () => import("~/pages/libraries/[id]/tags.vue"),
         },
+        {
+          path: "objects",
+          component: () => import("~/pages/libraries/[id]/objects.vue"),
+        },
       ],
     },
   ],
