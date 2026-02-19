@@ -388,6 +388,10 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 
 	// Trigger video proxy generation for video files
 	if h.videoSvc != nil && strings.HasPrefix(upload.MimeType, "video/") {
+		if err := h.videoSvc.EnqueueVideoThumbnail(upload.LibraryID, fileID.String()); err != nil {
+			log.Printf("failed to enqueue video thumbnail for tus upload %s: %v", fileID, err)
+		}
+
 		if videoproxy.ShouldCreateProxyByDefault(upload.MimeType) {
 			queued := "queued"
 			zero := 0

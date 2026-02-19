@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -27,17 +28,32 @@ func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Cli
 	}
 }
 
+const completedTaskRetention = 24 * time.Hour
+
 // EnqueueVideoProxy enqueues a video proxy generation task.
 func (s *Service) EnqueueVideoProxy(libraryID, fileID string, force bool) error {
 	task, err := NewVideoProxyTask(libraryID, fileID, force)
 	if err != nil {
 		return fmt.Errorf("failed to create video proxy task: %w", err)
 	}
-	_, err = s.asynqClient.Enqueue(task)
+	_, err = s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention))
 	if err != nil {
 		return fmt.Errorf("failed to enqueue video proxy task: %w", err)
 	}
 	log.Printf("Enqueued video proxy for file %s in library %s", fileID, libraryID)
+	return nil
+}
+
+func (s *Service) EnqueueVideoThumbnail(libraryID, fileID string) error {
+	task, err := NewVideoThumbnailTask(libraryID, fileID)
+	if err != nil {
+		return fmt.Errorf("failed to create video thumbnail task: %w", err)
+	}
+	_, err = s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention))
+	if err != nil {
+		return fmt.Errorf("failed to enqueue video thumbnail task: %w", err)
+	}
+	log.Printf("Enqueued video thumbnail for file %s in library %s", fileID, libraryID)
 	return nil
 }
 

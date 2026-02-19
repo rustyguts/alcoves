@@ -25,6 +25,7 @@ import (
 
 const (
 	TaskTypeVideoProxy = "video:proxy"
+	TaskTypeVideoThumb = "video:thumbnail"
 
 	// ffmpeg encoding settings for web proxy
 	maxHeight     = 1080
@@ -39,6 +40,11 @@ type VideoProxyPayload struct {
 	FileID    string `json:"fileId"`
 	LibraryID string `json:"libraryId"`
 	Force     bool   `json:"force"`
+}
+
+type VideoThumbnailPayload struct {
+	FileID    string `json:"fileId"`
+	LibraryID string `json:"libraryId"`
 }
 
 // TaskHandler handles video proxy asynq tasks.
@@ -63,6 +69,15 @@ func (h *TaskHandler) ProcessTask(ctx context.Context, t *asynq.Task) error {
 	}
 
 	return h.processVideo(ctx, payload.LibraryID, payload.FileID, payload.Force)
+}
+
+func (h *TaskHandler) ProcessThumbnailTask(ctx context.Context, t *asynq.Task) error {
+	var payload VideoThumbnailPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return fmt.Errorf("invalid thumbnail task payload: %w", err)
+	}
+
+	return h.processVideoThumbnail(ctx, payload.LibraryID, payload.FileID)
 }
 
 func (h *TaskHandler) processVideo(ctx context.Context, libraryID, fileID string, force bool) error {
@@ -203,6 +218,92 @@ func (h *TaskHandler) processVideo(ctx context.Context, libraryID, fileID string
 	completeProgress := 100
 	h.setProxyState(fileID, "ready", &completeProgress, nil)
 	log.Printf("video:proxy — completed for file %s", fileID)
+
+	return nil
+}
+
+func (h *TaskHandler) processVideoThumbnail(ctx context.Context, libraryID, fileID string) error {
+	var file models.File
+	err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil
+		}
+		return err
+	}
+
+	if file.SourceFileID != nil || !strings.HasPrefix(file.MimeType, "video/") {
+		return nil
+	}
+
+	tmpDir, err := os.MkdirTemp("", "alcoves-thumb-*")
+	if err != nil {
+		return fmt.Errorf("failed to create thumbnail temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	srcPath := filepath.Join(tmpDir, "source")
+	thumbPath := filepath.Join(tmpDir, "thumbnail.jpg")
+
+	reader, err := h.storage.OpenFileReadStream(libraryID, fileID, nil)
+	if err != nil {
+		return fmt.Errorf("failed to open source file for thumbnail: %w", err)
+	}
+	defer reader.Close()
+
+	srcFile, err := os.Create(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to create thumbnail temp source: %w", err)
+	}
+	if _, err := srcFile.ReadFrom(reader); err != nil {
+		srcFile.Close()
+		return fmt.Errorf("failed to write thumbnail temp source: %w", err)
+	}
+	if err := srcFile.Close(); err != nil {
+		return fmt.Errorf("failed to close thumbnail temp source: %w", err)
+	}
+
+	if err := generateJPEGThumbnail(ctx, srcPath, thumbPath); err != nil {
+		return fmt.Errorf("failed to generate jpeg thumbnail: %w", err)
+	}
+
+	thumbData, err := os.ReadFile(thumbPath)
+	if err != nil {
+		return fmt.Errorf("failed to read jpeg thumbnail: %w", err)
+	}
+
+	now := time.Now()
+	if err := h.db.Model(&models.File{}).
+		Where("source_file_id = ? AND library_id = ? AND mime_type = ? AND trashed_at IS NULL", file.ID, file.LibraryID, "image/jpeg").
+		Updates(map[string]interface{}{"trashed_at": now, "updated_at": now}).Error; err != nil {
+		return fmt.Errorf("failed to expire previous thumbnails: %w", err)
+	}
+
+	thumbID := uuid.New()
+	thumb := models.File{
+		ID:           thumbID,
+		LibraryID:    file.LibraryID,
+		Name:         buildThumbnailName(file.Name),
+		MimeType:     "image/jpeg",
+		Size:         int64(len(thumbData)),
+		OwnerID:      file.OwnerID,
+		SourceFileID: &file.ID,
+	}
+	if err := h.db.Create(&thumb).Error; err != nil {
+		return fmt.Errorf("failed to create thumbnail file record: %w", err)
+	}
+
+	if err := h.storage.StoreFile(libraryID, thumbID.String(), thumbData); err != nil {
+		h.db.Where("id = ?", thumbID).Delete(&models.File{})
+		return fmt.Errorf("failed to store thumbnail file: %w", err)
+	}
+
+	if err := h.db.Model(&models.File{}).Where("id = ?", file.ID).Updates(map[string]interface{}{
+		"thumbnail_file_id": thumbID,
+		"updated_at":        now,
+	}).Error; err != nil {
+		return fmt.Errorf("failed to update source thumbnail pointer: %w", err)
+	}
 
 	return nil
 }
@@ -508,6 +609,30 @@ func generateThumbnail(ctx context.Context, srcPath, thumbPath string) error {
 	return nil
 }
 
+func generateJPEGThumbnail(ctx context.Context, srcPath, thumbPath string) error {
+	cmd := exec.CommandContext(ctx, "ffmpeg",
+		"-i", srcPath,
+		"-ss", thumbnailTime,
+		"-vframes", "1",
+		"-vf", "scale=1280:-2",
+		"-q:v", "3",
+		"-y",
+		thumbPath,
+	)
+	if err := cmd.Run(); err != nil {
+		cmd2 := exec.CommandContext(ctx, "ffmpeg",
+			"-i", srcPath,
+			"-vframes", "1",
+			"-vf", "scale=1280:-2",
+			"-q:v", "3",
+			"-y",
+			thumbPath,
+		)
+		return cmd2.Run()
+	}
+	return nil
+}
+
 func (h *TaskHandler) setProxyState(fileID, status string, progress, etaSeconds *int) {
 	updates := map[string]interface{}{
 		"proxy_status":      status,
@@ -542,6 +667,14 @@ func NewVideoProxyTask(libraryID, fileID string, force bool) (*asynq.Task, error
 	return asynq.NewTask(TaskTypeVideoProxy, payload), nil
 }
 
+func NewVideoThumbnailTask(libraryID, fileID string) (*asynq.Task, error) {
+	payload, err := json.Marshal(VideoThumbnailPayload{FileID: fileID, LibraryID: libraryID})
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TaskTypeVideoThumb, payload), nil
+}
+
 func buildProxyName(sourceName string) string {
 	idx := strings.LastIndex(sourceName, ".")
 	base := sourceName
@@ -549,4 +682,13 @@ func buildProxyName(sourceName string) string {
 		base = sourceName[:idx]
 	}
 	return fmt.Sprintf("%s_proxy_%s.mp4", base, time.Now().UTC().Format("20060102T150405Z"))
+}
+
+func buildThumbnailName(sourceName string) string {
+	idx := strings.LastIndex(sourceName, ".")
+	base := sourceName
+	if idx > 0 {
+		base = sourceName[:idx]
+	}
+	return fmt.Sprintf("%s_thumbnail_%s.jpg", base, time.Now().UTC().Format("20060102T150405Z"))
 }

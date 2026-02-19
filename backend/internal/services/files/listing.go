@@ -60,6 +60,7 @@ type FileResponse struct {
 	ProxyStatus       *string       `json:"proxyStatus"`
 	ProxyProgress     *int          `json:"proxyProgress"`
 	ProxyEtaSeconds   *int          `json:"proxyEtaSeconds"`
+	ThumbnailFileID   *string       `json:"thumbnailFileId"`
 	SourceFileID      *string       `json:"sourceFileId"`
 	OriginalCreatedAt *string       `json:"originalCreatedAt"`
 	TrashedAt         *string       `json:"trashedAt"`
@@ -115,6 +116,7 @@ type listingRow struct {
 	ProxyStatus       *string
 	ProxyProgress     *int
 	ProxyEtaSeconds   *int
+	ThumbnailFileID   *string
 	SourceFileID      *string
 	OriginalCreatedAt *time.Time
 	TrashedAt         *time.Time
@@ -295,6 +297,7 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 				ProxyStatus:       row.ProxyStatus,
 				ProxyProgress:     row.ProxyProgress,
 				ProxyEtaSeconds:   row.ProxyEtaSeconds,
+				ThumbnailFileID:   row.ThumbnailFileID,
 				SourceFileID:      row.SourceFileID,
 				OriginalCreatedAt: timePtr(row.OriginalCreatedAt),
 				TrashedAt:         timePtr(row.TrashedAt),
@@ -363,6 +366,7 @@ func (s *Service) buildFolderQueries(libraryID string, showTrashed bool, current
 		'folder' as kind, 0 as kind_rank, lower(name) as sort_name,
 		NULL as mime_type, NULL as size, NULL as duration, NULL as width, NULL as height,
 		NULL as proxy_status, NULL as proxy_progress, NULL as proxy_eta_seconds,
+		NULL as thumbnail_file_id,
 		NULL as source_file_id, NULL as original_created_at,
 		trashed_at, created_at, updated_at
 		FROM folders WHERE %s%s
@@ -405,7 +409,8 @@ func (s *Service) buildFileQueries(libraryID string, showTrashed bool, currentFo
 		`SELECT id, library_id, parent_folder_id, owner_id, name,
 		'file' as kind, 1 as kind_rank, lower(name) as sort_name,
 		mime_type, size, duration, width, height,
-		proxy_status, proxy_progress, proxy_eta_seconds, source_file_id, original_created_at,
+		proxy_status, proxy_progress, proxy_eta_seconds, thumbnail_file_id,
+		source_file_id, original_created_at,
 		trashed_at, created_at, updated_at
 		FROM files WHERE %s%s
 		ORDER BY lower(name) ASC, id ASC LIMIT %d`,

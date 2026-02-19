@@ -116,8 +116,33 @@ const faceRecToggling = ref(false);
 const faceRecDisableOpen = ref(false);
 const faceRecReprocessOpen = ref(false);
 const faceRecReprocessing = ref(false);
+const savingLibraryName = ref(false);
 const deleteLibraryOpen = ref(false);
 const deleteLibraryConfirmation = ref("");
+const libraryNameDraft = ref("");
+
+watch(
+  () => library.value?.name,
+  (name) => {
+    libraryNameDraft.value = name ?? "";
+  },
+  { immediate: true },
+);
+
+async function saveLibraryNameFromSettings() {
+  const trimmed = libraryNameDraft.value.trim();
+  if (!trimmed || trimmed === library.value?.name) return;
+
+  savingLibraryName.value = true;
+  try {
+    await saveLibraryName(trimmed);
+    toast.add({ title: "Library name updated", color: "success" });
+  } catch {
+    toast.add({ title: "Failed to update library name", color: "error" });
+  } finally {
+    savingLibraryName.value = false;
+  }
+}
 
 async function toggleFaceRecognition(enabled: boolean) {
   if (!enabled) {
@@ -207,6 +232,38 @@ async function deleteLibrary() {
 
 <template>
   <div class="space-y-4 overflow-y-auto flex-1 min-h-0">
+    <div class="card bg-base-100">
+      <div class="card-body">
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm font-semibold">Library Name</p>
+            <p class="text-xs text-muted">Rename this library.</p>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input
+              v-model="libraryNameDraft"
+              class="input w-full"
+              placeholder="Library name"
+              @keydown.enter="saveLibraryNameFromSettings"
+            />
+            <button
+              class="btn btn-primary"
+              :disabled="
+                savingLibraryName ||
+                !libraryNameDraft.trim() ||
+                libraryNameDraft.trim() === (library?.name ?? '')
+              "
+              @click="saveLibraryNameFromSettings"
+            >
+              <span v-if="savingLibraryName" class="loading loading-spinner loading-xs"></span>
+              <AppIcon v-else name="i-lucide-check" class="size-4" />
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Library Members Card -->
     <div v-if="!library?.isDefault" class="card bg-base-100">
       <div class="px-6 pt-5 pb-0">

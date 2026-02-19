@@ -10,7 +10,8 @@ import { useUploadQueue } from "~/composables/useUploadQueue";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 import ContextMenuItemsRenderer from "~/components/ContextMenuItemsRenderer.vue";
-import LibraryHeader from "~/components/LibraryHeader.vue";
+import LibraryTabs from "~/components/LibraryTabs.vue";
+import EmojiPicker from "~/components/EmojiPicker.vue";
 import UploadModal from "~/components/UploadModal.vue";
 import FilePreview from "~/components/FilePreview.vue";
 import ClipModal from "~/components/ClipModal.vue";
@@ -122,6 +123,8 @@ const moveFilesDestinationValue = ref<string>(ROOT_MOVE_VALUE);
 const moveFileFolders = ref<LibraryFolder[]>([]);
 const dragEnabled = computed(() => canManageLibrary.value && !showTrashed.value);
 const failedThumbnails = reactive(new Set<string>());
+const isFileDragActive = ref(false);
+const dragDepth = ref(0);
 
 // Context menu state
 type ContextMenuItem = {
@@ -172,13 +175,10 @@ const breadcrumbItems = computed<
   Array<{
     id: string;
     label: string;
-    icon?: string;
     to: string;
     isCurrent: boolean;
   }>
 >(() => {
-  if (showTrashed.value) return [];
-
   const folderCrumbs = breadcrumbs.value.map((crumb, index) => ({
     id: crumb.id,
     label: crumb.name,
@@ -190,11 +190,10 @@ const breadcrumbItems = computed<
     {
       id: "__root__",
       label: library.value?.name ?? "Library",
-      icon: "i-lucide-house",
       to: buildBreadcrumbUrl(null),
-      isCurrent: folderCrumbs.length === 0,
+      isCurrent: folderCrumbs.length === 0 || showTrashed.value,
     },
-    ...folderCrumbs,
+    ...(showTrashed.value ? [] : folderCrumbs),
   ];
 });
 
@@ -202,7 +201,14 @@ const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelec
   () => [
     [
       {
-        label: "New folder",
+        label: "Upload",
+        icon: "i-lucide-upload",
+        onSelect: () => {
+          uploadOpen.value = true;
+        },
+      },
+      {
+        label: "Folder",
         icon: "i-lucide-folder-plus",
         onSelect: openCreateFolderModal,
       },
@@ -527,7 +533,52 @@ const foldersToPurge = ref<string[]>([]);
 const purgeAll = ref(false);
 
 // Upload queue integration
-const { onLibraryUploadComplete, removeOnComplete } = useUploadQueue();
+const { addFiles, onLibraryUploadComplete, removeOnComplete } = useUploadQueue();
+
+const canDropUpload = computed(() => canManageLibrary.value && !showTrashed.value);
+
+function hasFilePayload(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types ?? []).includes("Files");
+}
+
+function handlePageDragEnter(event: DragEvent) {
+  if (!canDropUpload.value || !hasFilePayload(event)) return;
+  event.preventDefault();
+  dragDepth.value += 1;
+  isFileDragActive.value = true;
+}
+
+function handlePageDragOver(event: DragEvent) {
+  if (!canDropUpload.value || !hasFilePayload(event)) return;
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "copy";
+  }
+}
+
+function handlePageDragLeave(event: DragEvent) {
+  if (!canDropUpload.value || !hasFilePayload(event)) return;
+  event.preventDefault();
+  dragDepth.value = Math.max(0, dragDepth.value - 1);
+  if (dragDepth.value === 0) {
+    isFileDragActive.value = false;
+  }
+}
+
+function handlePageDrop(event: DragEvent) {
+  if (!canDropUpload.value || !hasFilePayload(event)) return;
+  event.preventDefault();
+  dragDepth.value = 0;
+  isFileDragActive.value = false;
+
+  const droppedFiles = Array.from(event.dataTransfer?.files ?? []);
+  if (!droppedFiles.length) return;
+
+  addFiles(droppedFiles, libraryId.value, library.value?.name ?? "Library", currentFolderId.value);
+  toast.add({
+    title: `${droppedFiles.length} file${droppedFiles.length === 1 ? "" : "s"} added to upload queue`,
+  });
+}
 
 onLibraryUploadComplete(libraryId.value, () => {
   // Always refresh when uploads complete, regardless of current view mode
@@ -602,10 +653,10 @@ onMounted(() => {
 
 onUnmounted(() => removeOnComplete(libraryId.value));
 
-async function saveLibraryName(name: string) {
+async function saveLibraryEmoji(emoji: string | null) {
   await apiFetch(`/api/libraries/${libraryId.value}`, {
     method: "PATCH",
-    body: { name },
+    body: { emoji: emoji ?? "" },
   });
   await refreshLibrary();
 }
@@ -1056,40 +1107,57 @@ const emptyStateDescription = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 flex-1 min-h-0">
-    <!-- Condensed Header: Library name + breadcrumbs + actions in one row -->
-    <div v-if="library" class="flex items-center justify-between gap-3 min-h-12">
-      <!-- Left: Library name/emoji + breadcrumbs -->
-      <div class="flex items-center gap-3 min-w-0 flex-1">
-        <span v-if="library.emoji" class="text-2xl leading-none">{{ library.emoji }}</span>
-        <div class="min-w-0 flex-1">
-          <div v-if="!showTrashed" class="breadcrumbs text-sm min-w-0 hidden md:block">
-            <ul class="whitespace-nowrap">
-              <li v-for="item in breadcrumbItems" :key="item.id" class="min-w-0">
-                <RouterLink
-                  v-if="!item.isCurrent"
-                  :to="item.to"
-                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-base-content/70 transition-colors hover:bg-base-200/70 hover:text-primary"
-                >
-                  <AppIcon v-if="item.icon" :name="item.icon" class="size-3.5 shrink-0" />
-                  <span class="truncate max-w-40">{{ item.label }}</span>
-                </RouterLink>
-                <span
-                  v-else
-                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-base-content/90 font-medium"
-                >
-                  <AppIcon v-if="item.icon" :name="item.icon" class="size-3.5 shrink-0" />
-                  <span class="truncate max-w-40">{{ item.label }}</span>
-                </span>
-              </li>
-            </ul>
-          </div>
-        </div>
+  <div
+    class="relative flex flex-col gap-4 flex-1 min-h-0"
+    @dragenter="handlePageDragEnter"
+    @dragover="handlePageDragOver"
+    @dragleave="handlePageDragLeave"
+    @drop="handlePageDrop"
+  >
+    <div
+      v-if="isFileDragActive"
+      class="absolute inset-0 z-30 rounded-lg border-2 border-dashed border-primary bg-primary/10 flex items-center justify-center pointer-events-none"
+    >
+      <div class="badge badge-primary badge-lg px-4 py-3 text-sm font-medium">
+        Drop files to upload to this folder
       </div>
+    </div>
+    <div v-if="library" class="min-h-12 flex items-center gap-2">
+      <EmojiPicker
+        v-if="canManageLibrary"
+        :model-value="library.emoji ?? null"
+        @update:model-value="saveLibraryEmoji"
+      />
+      <span v-else-if="library.emoji" class="text-2xl leading-none">{{ library.emoji }}</span>
 
-      <!-- Right: View switcher + action buttons -->
-      <div class="flex items-center gap-2 shrink-0">
-        <!-- View switcher (only for normal view) -->
+      <div class="breadcrumbs text-2xl font-semibold leading-tight min-w-0">
+        <ul class="whitespace-nowrap">
+          <li v-for="item in breadcrumbItems" :key="item.id" class="min-w-0">
+            <RouterLink
+              v-if="!item.isCurrent"
+              :to="item.to"
+              class="truncate max-w-56 text-base-content/70 transition-colors hover:text-primary"
+            >
+              {{ item.label }}
+            </RouterLink>
+            <span v-else class="truncate max-w-56 text-base-content">{{ item.label }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div v-else class="min-h-12 flex items-center">
+      <div class="skeleton h-8 w-52 rounded" />
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <LibraryTabs
+        :library-id="libraryId"
+        :face-recognition-enabled="library?.faceRecognitionEnabled"
+        :can-manage-library="canManageLibrary"
+        class="flex-1 min-w-0 overflow-x-auto"
+      />
+
+      <div class="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto">
         <template v-if="!showTrashed">
           <button
             class="btn btn-ghost btn-square btn-sm min-h-8 h-8 w-8 p-0"
@@ -1109,55 +1177,45 @@ const emptyStateDescription = computed(() => {
           </button>
         </template>
 
-        <!-- Trash actions -->
-        <template v-if="showTrashed && !filesPending && totalCount > 0">
-          <button class="btn btn-sm btn-error" @click="openPurgeAllModal()">
-            <AppIcon name="i-lucide-trash-2" class="size-4" />
-            <span class="hidden sm:inline">Delete All</span>
-          </button>
-        </template>
+        <button
+          v-if="showTrashed && !filesPending && totalCount > 0"
+          class="btn btn-sm btn-error"
+          @click="openPurgeAllModal()"
+        >
+          <AppIcon name="i-lucide-trash-2" class="size-4" />
+          <span class="hidden sm:inline">Delete All</span>
+        </button>
 
-        <!-- Normal view actions -->
-        <template v-if="canManageLibrary && !showTrashed">
-          <details ref="newDropdown" class="dropdown dropdown-end">
-            <summary class="btn btn-sm btn-outline">
-              <AppIcon name="i-lucide-plus" class="size-4" />
-              <span class="hidden sm:inline">New</span>
-            </summary>
-            <ul class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow">
-              <li v-for="group in newMenuItems" :key="group.map((i) => i.label).join()">
-                <a
-                  v-for="item in group"
-                  :key="item.label"
-                  href="#"
-                  @click.prevent="
-                    item.onSelect();
-                    newDropdown!.open = false;
-                  "
-                >
-                  <AppIcon :name="item.icon" class="size-4" />
-                  {{ item.label }}
-                </a>
-              </li>
-            </ul>
-          </details>
-          <button class="btn btn-sm btn-primary" @click="uploadOpen = true">
-            <AppIcon name="i-lucide-upload" class="size-4" />
-            <span class="hidden sm:inline">Upload</span>
-          </button>
-        </template>
+        <details
+          v-if="canManageLibrary && !showTrashed"
+          ref="newDropdown"
+          class="dropdown dropdown-end relative z-20"
+        >
+          <summary class="btn btn-sm btn-primary">
+            <AppIcon name="i-lucide-plus" class="size-4" />
+            <span>New</span>
+          </summary>
+          <ul class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow">
+            <li v-for="group in newMenuItems" :key="group.map((i) => i.label).join()">
+              <a
+                v-for="item in group"
+                :key="item.label"
+                href="#"
+                @click.prevent="
+                  item.onSelect();
+                  newDropdown!.open = false;
+                "
+              >
+                <AppIcon :name="item.icon" class="size-4" />
+                {{ item.label }}
+              </a>
+            </li>
+          </ul>
+        </details>
       </div>
     </div>
 
-    <!-- Loading state for header -->
-    <div v-else class="flex items-center justify-between gap-3 min-h-12">
-      <div class="flex items-center gap-2">
-        <div class="skeleton h-8 w-8 rounded" />
-        <div class="skeleton h-6 w-48 rounded" />
-      </div>
-    </div>
-
-    <div class="rounded-lg overflow-y-auto flex-1 min-h-0">
+    <div class="overflow-y-auto flex-1 min-h-0">
       <!-- Skeleton loading state -->
       <LibraryEntriesSkeleton
         v-if="filesPending"

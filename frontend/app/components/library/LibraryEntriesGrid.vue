@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { LibraryEntry, LibraryFile } from "~~/shared/types/api";
-import { formatDate, formatFileSize, getMimeIcon } from "~/utils/mime-icons";
+import { getMimeIcon } from "~/utils/mime-icons";
 import AppIcon from "~/components/AppIcon.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
 
@@ -45,7 +45,7 @@ const emit = defineEmits<{
   <div class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
     <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
       <div
-        class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
+        class="rounded-lg bg-base-100 px-2 pt-2 pb-1 cursor-pointer transition-colors select-none"
         :class="[
           props.isEntrySelected(entry)
             ? 'bg-primary/20 hover:bg-primary/28'
@@ -66,16 +66,61 @@ const emit = defineEmits<{
         @dragleave="emit('dragLeave', entry, $event)"
         @drop="emit('drop', entry, $event)"
       >
+        <div v-if="props.isRenaming(entry)" :data-rename-input-entry-id="entry.id" class="mb-3">
+          <input
+            :value="renameValue"
+            class="input input-sm w-full"
+            autofocus
+            @input="emit('updateRenameValue', ($event.target as HTMLInputElement).value)"
+            @blur="emit('saveRename', entry)"
+            @keydown.enter="emit('saveRename', entry)"
+            @keydown.escape="emit('cancelRename')"
+            @click.stop
+          />
+        </div>
+
+        <div v-else class="mb-3 flex items-start gap-2 min-w-0">
+          <AppIcon
+            :name="entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(entry.mimeType)"
+            class="size-4 mt-0.5 shrink-0 text-muted"
+            :class="showTrashed && entry.kind === 'file' ? 'opacity-50' : ''"
+          />
+          <button
+            v-if="entry.kind === 'folder'"
+            type="button"
+            class="text-sm font-medium text-left truncate w-full"
+            :title="showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name"
+            @click.stop="emit('openFolder', entry.id)"
+          >
+            {{ showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name }}
+          </button>
+          <span v-else class="text-sm font-medium text-left truncate w-full" :title="entry.name">
+            {{ entry.name }}
+          </span>
+        </div>
+
         <div
-          class="h-40 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden"
+          class="h-40 rounded-md bg-base-100 mb-3 flex items-center justify-center overflow-hidden"
         >
           <template v-if="entry.kind === 'folder'">
             <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
           </template>
           <template v-else-if="entry.kind === 'file' && entry.mimeType.startsWith('video/')">
             <div class="relative w-full h-full flex items-center justify-center">
+              <AlcovesImage
+                v-if="!props.failedThumbnails.has(entry.id) && entry.thumbnailFileId"
+                :library-id="libraryId"
+                :file-id="entry.thumbnailFileId"
+                :alt="entry.name"
+                :width="props.cardThumbWidth(entry)"
+                :height="props.cardThumbHeight(entry)"
+                format="jpeg"
+                :quality="82"
+                class="w-full h-full object-cover"
+                @error="emit('thumbnailError', entry.id)"
+              />
               <img
-                v-if="!props.failedThumbnails.has(entry.id)"
+                v-else-if="!props.failedThumbnails.has(entry.id)"
                 :src="`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`"
                 :alt="entry.name"
                 class="w-full h-full object-cover"
@@ -116,52 +161,14 @@ const emit = defineEmits<{
           </template>
         </div>
 
-        <div v-if="props.isRenaming(entry)" :data-rename-input-entry-id="entry.id">
-          <input
-            :value="renameValue"
-            class="input input-sm w-full"
-            autofocus
-            @input="emit('updateRenameValue', ($event.target as HTMLInputElement).value)"
-            @blur="emit('saveRename', entry)"
-            @keydown.enter="emit('saveRename', entry)"
-            @keydown.escape="emit('cancelRename')"
-            @click.stop
-          />
-        </div>
-        <div v-else>
-          <button
-            v-if="entry.kind === 'folder'"
-            type="button"
-            class="text-sm font-medium text-left truncate w-full"
-            @click.stop="emit('openFolder', entry.id)"
-          >
-            {{ showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name }}
-          </button>
+        <div class="flex flex-wrap items-center gap-1.5">
           <span
-            v-else
-            class="text-sm font-medium text-left truncate w-full"
-            :class="showTrashed ? 'opacity-60' : ''"
-          >
-            {{ entry.name }}
-          </span>
-
-          <div class="flex items-center justify-between mt-1 gap-2 text-xs text-muted">
-            <span>{{
-              showTrashed && entry.trashedAt
-                ? formatDate(entry.trashedAt)
-                : formatDate(entry.updatedAt)
-            }}</span>
-            <span>{{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}</span>
-          </div>
-          <div class="flex flex-wrap items-center gap-1.5 mt-2">
-            <span
-              v-for="tag in entry.tags"
-              :key="tag.id"
-              class="size-2.5 rounded-full border border-default/50"
-              :title="tag.name"
-              :style="{ backgroundColor: tag.color }"
-            />
-          </div>
+            v-for="tag in entry.tags"
+            :key="tag.id"
+            class="size-2.5 rounded-full border border-default/50"
+            :title="tag.name"
+            :style="{ backgroundColor: tag.color }"
+          />
         </div>
       </div>
     </template>

@@ -70,6 +70,8 @@ func main() {
 	}
 	asynqClient := asynq.NewClient(asynqRedisOpt)
 	defer asynqClient.Close()
+	asynqInspector := asynq.NewInspector(asynqRedisOpt)
+	defer asynqInspector.Close()
 
 	// Face detection service
 	faceConfig := facedetection.NewFaceConfig(
@@ -80,6 +82,11 @@ func main() {
 		cfg.ModelsPath,
 	)
 	faceSvc := facedetection.NewService(db, storageSvc, asynqClient, faceConfig)
+	if cfg.Mode == "all" || cfg.Mode == "worker" {
+		if err := faceSvc.EnsureModels(); err != nil {
+			log.Printf("Face model download failed (face jobs may fail until models exist): %v", err)
+		}
+	}
 
 	// Video proxy service
 	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient)
@@ -94,7 +101,9 @@ func main() {
 
 		mux := asynq.NewServeMux()
 		mux.HandleFunc(facedetection.TaskTypeFaceDetect, faceSvc.NewTaskHandler().ProcessTask)
-		mux.HandleFunc(videoproxy.TaskTypeVideoProxy, videoSvc.NewTaskHandler().ProcessTask)
+		videoTaskHandler := videoSvc.NewTaskHandler()
+		mux.HandleFunc(videoproxy.TaskTypeVideoProxy, videoTaskHandler.ProcessTask)
+		mux.HandleFunc(videoproxy.TaskTypeVideoThumb, videoTaskHandler.ProcessThumbnailTask)
 
 		go func() {
 			log.Println("Starting asynq worker...")
@@ -175,7 +184,7 @@ func main() {
 	adminHandler.RegisterRoutes(api.Group("/admin"))
 
 	// Admin job queue routes
-	adminJobsHandler := handlers.NewAdminJobsHandler()
+	adminJobsHandler := handlers.NewAdminJobsHandler(asynqInspector)
 	adminJobsHandler.RegisterRoutes(api.Group("/admin"))
 
 	// People routes (under /api/libraries)

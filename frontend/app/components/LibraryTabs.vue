@@ -6,7 +6,6 @@ const props = defineProps<{
   libraryId: string;
   faceRecognitionEnabled?: boolean;
   canManageLibrary?: boolean;
-  trashedCount?: number;
 }>();
 
 const route = useRoute();
@@ -76,11 +75,6 @@ const tabs = computed(() => {
     >
       <AppIcon :name="tab.icon" class="size-4" />
       <span class="hidden sm:inline">{{ tab.label }}</span>
-      <span
-        v-if="tab.key === 'trash' && (trashedCount ?? 0) > 0"
-        class="badge badge-sm badge-error"
-        >{{ trashedCount }}</span
-      >
     </RouterLink>
   </div>
 </template>

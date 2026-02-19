@@ -47,6 +47,7 @@ const connected = ref(false);
 const statusFilter = ref("all");
 const queueFilter = ref("all");
 const actionJobId = ref<string | null>(null);
+const actionQueueName = ref<string | null>(null);
 const expandedJobId = ref<string | null>(null);
 
 const statusOptions = [
@@ -203,6 +204,27 @@ async function removeJob(queueName: string, jobId: string) {
   }
 }
 
+async function purgeQueue(queueName: string) {
+  const target = formatQueueName(queueName);
+  const confirmed = window.confirm(
+    `Purge jobs in queue "${target}"? This removes waiting, delayed, failed, and completed jobs.`,
+  );
+  if (!confirmed) return;
+
+  actionQueueName.value = queueName;
+  try {
+    const result = await apiFetch<{ total: number }>(
+      `/api/admin/jobs/${encodeURIComponent(queueName)}/purge`,
+      { method: "POST" },
+    );
+    toast.add({ title: `Purged ${result.total} jobs from ${target}` });
+  } catch {
+    toast.add({ title: "Failed to purge queue", color: "error" });
+  } finally {
+    actionQueueName.value = null;
+  }
+}
+
 onMounted(() => connectSSE());
 onUnmounted(() => {
   if (eventSource) {
@@ -258,43 +280,61 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-if="queues.length" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-      <div
-        v-for="q in queues"
-        :key="q.name"
-        class="card bg-base-100 shadow-sm border border-base-300 hover:border-primary/30 transition-colors cursor-pointer"
-        @click="queueFilter = queueFilter === q.name ? 'all' : q.name"
-      >
-        <div class="card-body p-4 gap-3">
-          <div class="flex items-center gap-2">
-            <div
-              class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"
-            >
-              <AppIcon :name="queueIcon(q.name)" class="size-4" />
-            </div>
-            <span class="text-sm font-semibold capitalize flex-1">{{
-              formatQueueName(q.name)
-            }}</span>
-            <span v-if="queueFilter === q.name" class="badge badge-primary badge-xs">filtered</span>
-          </div>
-          <div class="grid grid-cols-4 gap-1 text-center text-xs">
-            <div>
-              <div class="font-bold text-info">{{ q.active }}</div>
-              <div class="text-base-content/50">Active</div>
-            </div>
-            <div>
-              <div class="font-bold">{{ q.waiting }}</div>
-              <div class="text-base-content/50">Wait</div>
-            </div>
-            <div>
-              <div class="font-bold" :class="q.failed > 0 ? 'text-error' : ''">{{ q.failed }}</div>
-              <div class="text-base-content/50">Fail</div>
-            </div>
-            <div>
-              <div class="font-bold text-warning">{{ q.delayed }}</div>
-              <div class="text-base-content/50">Delay</div>
-            </div>
-          </div>
+    <div v-if="queues.length" class="card bg-base-100 shadow">
+      <div class="card-body p-0">
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Queue</th>
+                <th class="text-right">Active</th>
+                <th class="text-right">Waiting</th>
+                <th class="text-right">Delayed</th>
+                <th class="text-right">Failed</th>
+                <th class="text-right">Completed</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="q in queues"
+                :key="q.name"
+                class="hover cursor-pointer"
+                @click="queueFilter = queueFilter === q.name ? 'all' : q.name"
+              >
+                <td>
+                  <div class="flex items-center gap-2">
+                    <AppIcon :name="queueIcon(q.name)" class="size-4 text-primary" />
+                    <span class="font-medium capitalize">{{ formatQueueName(q.name) }}</span>
+                    <span v-if="queueFilter === q.name" class="badge badge-primary badge-xs"
+                      >filtered</span
+                    >
+                  </div>
+                </td>
+                <td class="text-right text-info font-medium">{{ q.active }}</td>
+                <td class="text-right font-medium">{{ q.waiting }}</td>
+                <td class="text-right text-warning font-medium">{{ q.delayed }}</td>
+                <td class="text-right font-medium" :class="q.failed > 0 ? 'text-error' : ''">
+                  {{ q.failed }}
+                </td>
+                <td class="text-right text-success font-medium">{{ q.completed }}</td>
+                <td class="text-right" @click.stop>
+                  <button
+                    class="btn btn-xs btn-outline btn-error"
+                    :disabled="actionQueueName === q.name"
+                    @click="purgeQueue(q.name)"
+                  >
+                    <span
+                      v-if="actionQueueName === q.name"
+                      class="loading loading-spinner loading-xs"
+                    />
+                    <AppIcon v-else name="i-lucide-trash-2" class="size-3.5" />
+                    Purge Jobs
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

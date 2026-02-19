@@ -105,6 +105,7 @@ type File struct {
 	ProxyStatus       *string    `gorm:"column:proxy_status;type:text" json:"proxyStatus"`
 	ProxyProgress     *int       `gorm:"column:proxy_progress;type:integer" json:"proxyProgress"`
 	ProxyEtaSeconds   *int       `gorm:"column:proxy_eta_seconds;type:integer" json:"proxyEtaSeconds"`
+	ThumbnailFileID   *uuid.UUID `gorm:"column:thumbnail_file_id;type:uuid" json:"thumbnailFileId"`
 	SourceFileID      *uuid.UUID `gorm:"column:source_file_id;type:uuid" json:"sourceFileId"`
 	OriginalCreatedAt *time.Time `gorm:"column:original_created_at" json:"originalCreatedAt"`
 	TrashedAt         *time.Time `gorm:"column:trashed_at;index:files_library_parent_trash_name_idx" json:"trashedAt"`

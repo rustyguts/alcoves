@@ -29,16 +29,8 @@ interface AdminUser {
 const toast = useToast();
 const { user: currentUser } = useAuth();
 
-const {
-  data: stats,
-  status: statsStatus,
-  refresh: refreshStats,
-} = useApiFetch<AdminStats>("/api/admin/stats");
-const {
-  data: users,
-  status: usersStatus,
-  refresh: refreshUsers,
-} = useApiFetch<AdminUser[]>("/api/admin/users");
+const { data: stats } = useApiFetch<AdminStats>("/api/admin/stats");
+const { data: users, status: usersStatus } = useApiFetch<AdminUser[]>("/api/admin/users");
 
 const roleDrafts = reactive<Record<string, AdminUser["role"]>>({});
 const updatingRoleUserId = ref<string | null>(null);
@@ -82,10 +74,6 @@ function formatDateTime(dateString: string | null): string {
     minute: "2-digit",
   });
 }
-
-async function refreshAll() {
-  await Promise.all([refreshStats(), refreshUsers()]);
-}
 </script>
 
 <template>
@@ -98,15 +86,6 @@ async function refreshAll() {
           Instance overview, user management, and background jobs.
         </p>
       </div>
-      <button
-        class="btn btn-sm btn-ghost gap-2"
-        :disabled="statsStatus === 'pending' || usersStatus === 'pending'"
-        @click="refreshAll"
-      >
-        <span v-if="statsStatus === 'pending'" class="loading loading-spinner loading-xs" />
-        <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
-        Refresh
-      </button>
     </div>
 
     <!-- Stat cards -->

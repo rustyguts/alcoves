@@ -118,6 +118,7 @@ func (h *FileHandler) Upload(c echo.Context) error {
 
 	// Trigger video proxy generation for video files
 	h.maybeEnqueueVideoProxy(libraryID, fileID, mimeType)
+	h.maybeEnqueueVideoThumbnail(libraryID, fileID, mimeType)
 
 	return c.JSON(http.StatusOK, fileToJSON(&file))
 }
@@ -682,8 +683,12 @@ func (h *FileHandler) Thumbnail(c echo.Context) error {
 
 	// Check file exists
 	var file models.File
-	if err := h.db.Select("id").Where("id = ? AND library_id = ?", fileID, libraryID).First(&file).Error; err != nil {
+	if err := h.db.Select("id, thumbnail_file_id").Where("id = ? AND library_id = ?", fileID, libraryID).First(&file).Error; err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+
+	if file.ThumbnailFileID != nil {
+		return c.Redirect(http.StatusFound, fmt.Sprintf("/api/libraries/%s/files/%s?inline=true", libraryID, file.ThumbnailFileID.String()))
 	}
 
 	cacheKey := fmt.Sprintf("%s/%s/thumbnail.webp", libraryID, fileID)
@@ -716,6 +721,7 @@ func fileToJSON(f *models.File) map[string]interface{} {
 		"proxyStatus":     f.ProxyStatus,
 		"proxyProgress":   f.ProxyProgress,
 		"proxyEtaSeconds": f.ProxyEtaSeconds,
+		"thumbnailFileId": uuidPtr(f.ThumbnailFileID),
 		"sourceFileId":    uuidPtr(f.SourceFileID),
 		"trashedAt":       timeStr(f.TrashedAt),
 		"createdAt":       f.CreatedAt.Format(time.RFC3339Nano),
@@ -789,6 +795,16 @@ func (h *FileHandler) maybeEnqueueVideoProxy(libraryID, fileID uuid.UUID, mimeTy
 
 	if err := h.videoSvc.EnqueueVideoProxy(libraryID.String(), fileID.String(), false); err != nil {
 		log.Printf("failed to enqueue video proxy for file %s: %v", fileID, err)
+	}
+}
+
+func (h *FileHandler) maybeEnqueueVideoThumbnail(libraryID, fileID uuid.UUID, mimeType string) {
+	if h.videoSvc == nil || !strings.HasPrefix(mimeType, "video/") {
+		return
+	}
+
+	if err := h.videoSvc.EnqueueVideoThumbnail(libraryID.String(), fileID.String()); err != nil {
+		log.Printf("failed to enqueue video thumbnail for file %s: %v", fileID, err)
 	}
 }
 

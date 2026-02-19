@@ -14,6 +14,7 @@ const emit = defineEmits<{
 
 const editingName = ref(false);
 const editName = ref("");
+const slots = useSlots();
 
 function startRename() {
   if (!props.canEdit) return;
@@ -30,34 +31,39 @@ function saveName() {
 </script>
 
 <template>
-  <div class="flex items-center justify-between gap-3 min-h-12">
-    <div class="flex items-center gap-2 min-w-0">
-      <EmojiPicker
-        v-if="canEdit"
-        :model-value="emoji ?? null"
-        @update:model-value="emit('update:emoji', $event)"
-      />
-      <span v-else-if="emoji" class="text-2xl leading-none">{{ emoji }}</span>
-      <h1
-        v-if="!editingName"
-        class="text-2xl font-semibold truncate"
-        :class="canEdit ? 'cursor-pointer hover:text-primary' : ''"
-        @click="startRename"
-      >
-        {{ name }}
-      </h1>
-      <input
-        v-else
-        v-model="editName"
-        autofocus
-        class="input input-lg w-full"
-        @blur="saveName"
-        @keydown.enter="saveName"
-        @keydown.escape="editingName = false"
-      />
+  <div>
+    <div class="flex items-center justify-between gap-3 min-h-12">
+      <div class="flex items-center gap-2 min-w-0">
+        <EmojiPicker
+          v-if="canEdit"
+          :model-value="emoji ?? null"
+          @update:model-value="emit('update:emoji', $event)"
+        />
+        <span v-else-if="emoji" class="text-2xl leading-none">{{ emoji }}</span>
+        <h1
+          v-if="!editingName"
+          class="text-2xl font-semibold truncate"
+          :class="canEdit ? 'cursor-pointer hover:text-primary' : ''"
+          @click="startRename"
+        >
+          {{ name }}
+        </h1>
+        <input
+          v-else
+          v-model="editName"
+          autofocus
+          class="input input-lg w-full"
+          @blur="saveName"
+          @keydown.enter="saveName"
+          @keydown.escape="editingName = false"
+        />
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <slot name="actions" />
+      </div>
     </div>
-    <div class="flex items-center gap-3 shrink-0">
-      <slot name="actions" />
+    <div v-if="slots.subtitle" class="mt-1 text-sm text-base-content/70">
+      <slot name="subtitle" />
     </div>
   </div>
 </template>
