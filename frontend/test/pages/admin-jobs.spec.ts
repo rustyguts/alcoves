@@ -131,14 +131,14 @@ describe("admin/jobs.vue", () => {
   it("renders the page heading", async () => {
     const wrapper = await mountPage();
     expect(wrapper.text()).toContain("Background Jobs");
-    expect(wrapper.text()).toContain("Monitor and manage background job queues");
+    expect(wrapper.text()).toContain("Real-time monitoring of background task queues.");
   });
 
   it("shows connected status when SSE connects", async () => {
     const wrapper = await mountPage();
     await wrapper.vm.$nextTick();
     await wrapper.vm.$nextTick();
-    expect(wrapper.text()).toContain("Connected");
+    expect(wrapper.text()).toContain("Live");
   });
 
   it("renders queue stat cards from SSE data", async () => {
@@ -168,8 +168,12 @@ describe("admin/jobs.vue", () => {
     const text = wrapper.text();
     expect(text).toContain("process-video");
     expect(text).toContain("detect-faces");
-    expect(text).toContain("lib-abc1");
-    expect(text).toContain("lib-def4");
+
+    const jobRow = wrapper.findAll("tbody tr").find((row) => row.text().includes("process-video"));
+    await jobRow?.trigger("click");
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.text()).toContain("lib-abc123");
   });
 
   it("shows progress bar for active jobs", async () => {
@@ -193,6 +197,12 @@ describe("admin/jobs.vue", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
+    const failedJobRow = wrapper
+      .findAll("tbody tr")
+      .find((row) => row.text().includes("failed") && row.text().includes("process-video"));
+    await failedJobRow?.trigger("click");
+    await wrapper.vm.$nextTick();
+
     expect(wrapper.text()).toContain("ffmpeg exited with code 1");
   });
 
@@ -206,10 +216,10 @@ describe("admin/jobs.vue", () => {
     await wrapper.vm.$nextTick();
 
     // Failed job should have action buttons
-    const buttons = wrapper.findAll("button[title='Retry']");
+    const buttons = wrapper.findAll("button[data-tip='Retry']");
     expect(buttons.length).toBe(1);
 
-    const removeButtons = wrapper.findAll("button[title='Remove']");
+    const removeButtons = wrapper.findAll("button[data-tip='Remove']");
     expect(removeButtons.length).toBe(1);
   });
 
@@ -222,7 +232,7 @@ describe("admin/jobs.vue", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    const retryBtn = wrapper.find("button[title='Retry']");
+    const retryBtn = wrapper.find("button[data-tip='Retry']");
     await retryBtn.trigger("click");
 
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
@@ -241,7 +251,7 @@ describe("admin/jobs.vue", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    const removeBtn = wrapper.find("button[title='Remove']");
+    const removeBtn = wrapper.find("button[data-tip='Remove']");
     await removeBtn.trigger("click");
 
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
@@ -272,7 +282,7 @@ describe("admin/jobs.vue", () => {
     es.simulateMessage(getSnapshot({ jobs: [] }));
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.text()).toContain("No jobs matching current filters");
+    expect(wrapper.text()).toContain("No jobs matching current filters.");
   });
 
   it("shows back link to admin page", async () => {

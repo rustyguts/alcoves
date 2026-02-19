@@ -86,7 +86,7 @@ func (h *TagHandler) Create(c echo.Context) error {
 	}
 
 	if err := h.db.Create(&tag).Error; err != nil {
-		return echo.NewHTTPError(http.StatusConflict, "Tag name or color already in use")
+		return echo.NewHTTPError(http.StatusConflict, "Tag name already in use")
 	}
 
 	return c.JSON(http.StatusOK, tagToJSON(&tag))

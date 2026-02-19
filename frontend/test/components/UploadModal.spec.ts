@@ -19,12 +19,19 @@ const stubs = {
  * Helper: simulate selecting files on a native <input type="file">.
  * jsdom lacks DataTransfer, so we define the `files` property directly.
  */
-function setFiles(inputWrapper: ReturnType<typeof mount>["find"] extends (s: string) => infer R ? R : never, files: File[]) {
+function setFiles(
+  inputWrapper: ReturnType<typeof mount>["find"] extends (s: string) => infer R ? R : never,
+  files: File[],
+) {
   const fileList = Object.create(null);
-  files.forEach((f, i) => { fileList[i] = f; });
+  files.forEach((f, i) => {
+    fileList[i] = f;
+  });
   fileList.length = files.length;
   fileList.item = (i: number) => files[i] ?? null;
-  fileList[Symbol.iterator] = function* () { for (const f of files) yield f; };
+  fileList[Symbol.iterator] = function* () {
+    for (const f of files) yield f;
+  };
   Object.defineProperty(inputWrapper.element, "files", { value: fileList, configurable: true });
 }
 
@@ -47,9 +54,7 @@ describe("UploadModal", () => {
 
   it("starts with upload disabled", () => {
     const wrapper = mountComponent();
-    const uploadButton = wrapper
-      .findAll("button.btn")
-      .find((el) => el.text().includes("Upload"));
+    const uploadButton = wrapper.findAll("button.btn").find((el) => el.text().includes("Upload"));
 
     expect(uploadButton?.attributes("disabled")).toBeDefined();
     expect(wrapper.text()).toContain("Uploading to My Library");
@@ -75,9 +80,7 @@ describe("UploadModal", () => {
     await fileInput.trigger("change");
     await wrapper.vm.$nextTick();
 
-    const uploadButton = wrapper
-      .findAll("button.btn")
-      .find((el) => el.text().includes("Upload"));
+    const uploadButton = wrapper.findAll("button.btn").find((el) => el.text().includes("Upload"));
     expect(uploadButton?.attributes("disabled")).toBeUndefined();
 
     await uploadButton?.trigger("click");

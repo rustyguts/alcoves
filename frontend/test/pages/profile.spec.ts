@@ -104,7 +104,7 @@ describe("profile.vue", () => {
 
   it("renders user info", () => {
     const wrapper = mountPage();
-    expect(wrapper.text()).toContain("My Profile");
+    expect(wrapper.text()).toContain("Test User");
     expect(wrapper.text()).toContain("user@example.com");
   });
 
@@ -133,22 +133,26 @@ describe("profile.vue", () => {
     expect(img.attributes("src")).toBe("https://example.com/avatar.jpg");
   });
 
-  it("save with no changes shows neutral toast", async () => {
+  it("save is disabled when there are no profile changes", async () => {
     const wrapper = mountPage();
     const saveButton = wrapper.findAll("button").find((b) => b.text().includes("Save"));
 
     await saveButton?.trigger("click");
     await nextTick();
 
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "No changes to save", color: "neutral" });
+    expect(saveButton?.attributes("disabled")).toBeDefined();
+    expect(mocks.toast.add).not.toHaveBeenCalled();
   });
 
   it("save with display name calls updateProfile", async () => {
     mocks.updateProfile.mockResolvedValueOnce({});
 
     const wrapper = mountPage();
-    // Find the display name input (the one inside the Display Name fieldset)
-    const input = wrapper.find("fieldset .input");
+    const displayNameButton = wrapper.findAll("button").find((b) => b.text().includes("Test User"));
+    await displayNameButton?.trigger("click");
+    await nextTick();
+
+    const input = wrapper.find("input[placeholder='Your display name']");
     await input.setValue("New Name");
 
     const saveButton = wrapper.findAll("button").find((b) => b.text().includes("Save"));

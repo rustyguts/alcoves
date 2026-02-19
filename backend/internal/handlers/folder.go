@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
+	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 )
 
@@ -20,11 +21,32 @@ func NewFolderHandler(db *gorm.DB) *FolderHandler {
 }
 
 func (h *FolderHandler) RegisterRoutes(g *echo.Group) {
+	g.GET("/:id/folders", h.List)
 	g.POST("/:id/folders", h.Create)
 	g.PATCH("/:id/folders/:folderId", h.Update)
 	g.DELETE("/:id/folders/:folderId", h.Delete)
 	g.POST("/:id/folders/:folderId/move", h.Move)
 	g.POST("/:id/folders/restore", h.Restore)
+}
+
+func (h *FolderHandler) List(c echo.Context) error {
+	libraryID := c.Param("id")
+
+	var folders []models.Folder
+	if err := h.db.
+		Preload("Owner").
+		Where("library_id = ? AND trashed_at IS NULL", libraryID).
+		Order("created_at ASC").
+		Find(&folders).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch folders")
+	}
+
+	response := make([]map[string]interface{}, 0, len(folders))
+	for i := range folders {
+		response = append(response, folderToJSON(&folders[i]))
+	}
+
+	return c.JSON(http.StatusOK, response)
 }
 
 type createFolderRequest struct {
@@ -36,6 +58,10 @@ func (h *FolderHandler) Create(c echo.Context) error {
 	libraryID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
+	}
+	userID, err := middleware.RequireUserID(c)
+	if err != nil {
+		return err
 	}
 
 	var req createFolderRequest
@@ -64,11 +90,15 @@ func (h *FolderHandler) Create(c echo.Context) error {
 	folder := models.Folder{
 		LibraryID:      libraryID,
 		ParentFolderID: parentFolderID,
+		OwnerID:        &userID,
 		Name:           req.Name,
 	}
 
 	if err := h.db.Create(&folder).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create folder")
+	}
+	if err := h.db.Preload("Owner").Where("id = ?", folder.ID).First(&folder).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folder")
 	}
 
 	return c.JSON(http.StatusOK, folderToJSON(&folder))
@@ -107,7 +137,7 @@ func (h *FolderHandler) Update(c echo.Context) error {
 	}
 
 	var folder models.Folder
-	h.db.Where("id = ?", folderID).First(&folder)
+	h.db.Preload("Owner").Where("id = ?", folderID).First(&folder)
 
 	return c.JSON(http.StatusOK, folderToJSON(&folder))
 }
@@ -190,7 +220,7 @@ func (h *FolderHandler) Move(c echo.Context) error {
 			"updated_at":       time.Now(),
 		})
 
-	h.db.Where("id = ?", folderID).First(&folder)
+	h.db.Preload("Owner").Where("id = ?", folderID).First(&folder)
 	return c.JSON(http.StatusOK, folderToJSON(&folder))
 }
 
@@ -302,6 +332,15 @@ func (h *FolderHandler) assertMoveParentValid(libraryID, folderID, parentFolderI
 }
 
 func folderToJSON(f *models.Folder) map[string]interface{} {
+	var owner map[string]interface{}
+	if f.Owner != nil {
+		owner = map[string]interface{}{
+			"id":          f.Owner.ID.String(),
+			"displayName": f.Owner.DisplayName,
+			"avatarUrl":   f.Owner.AvatarUrl,
+		}
+	}
+
 	return map[string]interface{}{
 		"id":             f.ID.String(),
 		"libraryId":      f.LibraryID.String(),
@@ -311,6 +350,7 @@ func folderToJSON(f *models.Folder) map[string]interface{} {
 		"trashedAt":      timeStr(f.TrashedAt),
 		"createdAt":      f.CreatedAt.Format(time.RFC3339Nano),
 		"updatedAt":      f.UpdatedAt.Format(time.RFC3339Nano),
+		"owner":          owner,
 		"tags":           []interface{}{},
 	}
 }

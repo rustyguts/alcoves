@@ -7,6 +7,9 @@ import { useToast } from "~/composables/useToast";
 import { apiFetch } from "~/utils/api-fetch";
 import type { Library, LibraryUsersResponse } from "~~/shared/types/api";
 import AppIcon from "~/components/AppIcon.vue";
+import ConfirmModal from "~/components/ConfirmModal.vue";
+import InviteLinkRow from "~/components/library/settings/InviteLinkRow.vue";
+import LibraryMemberRow from "~/components/library/settings/LibraryMemberRow.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -66,9 +69,13 @@ async function fetchFileCounts() {
 }
 
 // Fetch file counts on mount and when libraryId changes
-watch(libraryId, () => {
-  fetchFileCounts();
-}, { immediate: true });
+watch(
+  libraryId,
+  () => {
+    fetchFileCounts();
+  },
+  { immediate: true },
+);
 
 async function refreshFileCounts() {
   await fetchFileCounts();
@@ -115,8 +122,35 @@ const objDetDisableOpen = ref(false);
 const objDetReprocessOpen = ref(false);
 const objDetReprocessing = ref(false);
 
+const videoThumbReprocessOpen = ref(false);
+const videoThumbReprocessing = ref(false);
+const savingLibraryName = ref(false);
 const deleteLibraryOpen = ref(false);
 const deleteLibraryConfirmation = ref("");
+const libraryNameDraft = ref("");
+
+watch(
+  () => library.value?.name,
+  (name) => {
+    libraryNameDraft.value = name ?? "";
+  },
+  { immediate: true },
+);
+
+async function saveLibraryNameFromSettings() {
+  const trimmed = libraryNameDraft.value.trim();
+  if (!trimmed || trimmed === library.value?.name) return;
+
+  savingLibraryName.value = true;
+  try {
+    await saveLibraryName(trimmed);
+    toast.add({ title: "Library name updated", color: "success" });
+  } catch {
+    toast.add({ title: "Failed to update library name", color: "error" });
+  } finally {
+    savingLibraryName.value = false;
+  }
+}
 
 async function toggleFaceRecognition(enabled: boolean) {
   if (!enabled) {
@@ -169,7 +203,8 @@ async function reprocessFaceRecognition() {
       description: `${result.queuedCount} image${result.queuedCount === 1 ? "" : "s"} queued for fresh facial recognition.`,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to queue facial recognition reprocessing";
+    const message =
+      err instanceof Error ? err.message : "Failed to queue facial recognition reprocessing";
     toast.add({ title: message, color: "error" });
   } finally {
     faceRecReprocessing.value = false;
@@ -234,6 +269,30 @@ async function reprocessObjectDetection() {
   }
 }
 
+const isLibraryOwner = computed(() => {
+  return !!library.value?.ownerId && !!user.value?.id && library.value.ownerId === user.value.id;
+});
+
+async function reprocessVideoThumbnails() {
+  videoThumbReprocessing.value = true;
+  videoThumbReprocessOpen.value = false;
+  try {
+    const result = await apiFetch<{ queuedCount: number }>(
+      `/api/libraries/${libraryId.value}/files/video-thumbnails/reprocess`,
+      { method: "POST" },
+    );
+    toast.add({
+      title: "Thumbnail regeneration queued",
+      description: `${result.queuedCount} video${result.queuedCount === 1 ? "" : "s"} queued for thumbnail regeneration.`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to queue thumbnail regeneration";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    videoThumbReprocessing.value = false;
+  }
+}
+
 const canDeleteLibrary = computed(() => {
   if (!library.value || !user.value) return false;
   if (library.value.isDefault) return false;
@@ -263,6 +322,38 @@ async function deleteLibrary() {
 
 <template>
   <div class="space-y-4 overflow-y-auto flex-1 min-h-0">
+    <div class="card bg-base-100">
+      <div class="card-body">
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm font-semibold">Library Name</p>
+            <p class="text-xs text-muted">Rename this library.</p>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input
+              v-model="libraryNameDraft"
+              class="input w-full"
+              placeholder="Library name"
+              @keydown.enter="saveLibraryNameFromSettings"
+            />
+            <button
+              class="btn btn-soft btn-primary"
+              :disabled="
+                savingLibraryName ||
+                !libraryNameDraft.trim() ||
+                libraryNameDraft.trim() === (library?.name ?? '')
+              "
+              @click="saveLibraryNameFromSettings"
+            >
+              <span v-if="savingLibraryName" class="loading loading-spinner loading-xs"></span>
+              <AppIcon v-else name="i-lucide-check" class="size-4" />
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Library Members Card -->
     <div v-if="!library?.isDefault" class="card bg-base-100">
       <div class="px-6 pt-5 pb-0">
@@ -282,7 +373,10 @@ async function deleteLibrary() {
             </p>
             <div class="flex flex-col sm:flex-row gap-2">
               <div class="flex-1 relative">
-                <AppIcon name="i-lucide-mail" class="size-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
+                <AppIcon
+                  name="i-lucide-mail"
+                  class="size-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50"
+                />
                 <input
                   v-model="inviteEmail"
                   type="email"
@@ -291,18 +385,13 @@ async function deleteLibrary() {
                   @keydown.enter="inviteUserByEmail"
                 />
               </div>
-              <select
-                v-model="inviteEmailRole"
-                class="select w-full sm:w-32"
-              >
-                <option
-                  v-for="item in inviteRoleOptions"
-                  :key="item.value"
-                  :value="item.value"
-                >{{ item.label }}</option>
+              <select v-model="inviteEmailRole" class="select w-full sm:w-32">
+                <option v-for="item in inviteRoleOptions" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </option>
               </select>
               <button
-                class="btn btn-primary"
+                class="btn btn-soft btn-primary"
                 :disabled="!inviteEmail.trim() || inviteByEmailLoading"
                 @click="inviteUserByEmail"
               >
@@ -320,44 +409,27 @@ async function deleteLibrary() {
                 <p class="text-xs text-muted">Reusable links for authenticated users.</p>
               </div>
               <button
-                class="btn btn-sm btn-primary"
+                class="btn btn-soft btn-sm btn-primary"
                 :disabled="createInviteLinkLoading"
                 @click="createInviteLink"
               >
-                <span v-if="createInviteLinkLoading" class="loading loading-spinner loading-xs"></span>
+                <span
+                  v-if="createInviteLinkLoading"
+                  class="loading loading-spinner loading-xs"
+                ></span>
                 <AppIcon v-else name="i-lucide-link" class="size-4" />
                 Create Link
               </button>
             </div>
             <div class="divide-y divide-default rounded-lg border border-default">
-              <div
+              <InviteLinkRow
                 v-for="invite in inviteLinks"
                 :key="invite.id"
-                class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-              >
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium truncate">{{ invite.inviteUrl }}</p>
-                  <p class="text-xs text-muted">
-                    Used {{ invite.useCount }} {{ invite.useCount === 1 ? "time" : "times" }}
-                  </p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <button
-                    class="btn btn-sm btn-ghost btn-outline"
-                    @click="copyInviteLink(invite.inviteUrl)"
-                  >
-                    <AppIcon name="i-lucide-copy" class="size-4" />
-                  </button>
-                  <button
-                    class="btn btn-sm btn-error btn-soft"
-                    :disabled="revokingInviteId === invite.id"
-                    @click="revokeInvite(invite.id)"
-                  >
-                    <span v-if="revokingInviteId === invite.id" class="loading loading-spinner loading-xs"></span>
-                    <AppIcon v-else name="i-lucide-x" class="size-4" />
-                  </button>
-                </div>
-              </div>
+                :invite="invite"
+                :revoking="revokingInviteId === invite.id"
+                @copy="copyInviteLink"
+                @revoke="revokeInvite"
+              />
             </div>
           </div>
           <div v-else class="flex items-center justify-between gap-3">
@@ -366,11 +438,14 @@ async function deleteLibrary() {
               <p class="text-xs text-muted">Reusable links for authenticated users.</p>
             </div>
             <button
-              class="btn btn-sm btn-primary"
+              class="btn btn-soft btn-sm btn-primary"
               :disabled="createInviteLinkLoading"
               @click="createInviteLink"
             >
-              <span v-if="createInviteLinkLoading" class="loading loading-spinner loading-xs"></span>
+              <span
+                v-if="createInviteLinkLoading"
+                class="loading loading-spinner loading-xs"
+              ></span>
               <AppIcon v-else name="i-lucide-link" class="size-4" />
               Create Link
             </button>
@@ -379,62 +454,31 @@ async function deleteLibrary() {
           <div v-if="libraryMembers.length">
             <p class="text-sm font-medium mb-3">Members</p>
             <div class="divide-y divide-default rounded-lg border border-default">
-              <div
+              <LibraryMemberRow
                 v-for="member in libraryMembers"
                 :key="member.id"
-                class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-              >
-                <div class="flex items-center gap-3 flex-1 min-w-0">
-                  <div class="avatar">
-                    <div class="w-8 rounded-full">
-                      <img
-                        :src="member.user.avatarUrl ?? undefined"
-                        :alt="member.user.displayName"
-                      />
-                    </div>
-                  </div>
-                  <div class="min-w-0">
-                    <p class="text-sm font-medium truncate">{{ member.user.displayName }}</p>
-                    <p class="text-xs text-muted truncate">{{ member.user.email }}</p>
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <span
-                    v-if="member.role === 'owner'"
-                    class="badge badge-sm badge-primary"
-                  >owner</span>
-                  <template v-else>
-                    <select
-                      v-model="memberRoleDrafts[member.userId]"
-                      class="select w-28"
-                      :disabled="updatingMemberUserId === member.userId"
-                      @change="updateMemberRole(member)"
-                    >
-                      <option
-                        v-for="item in inviteRoleOptions"
-                        :key="item.value"
-                        :value="item.value"
-                      >{{ item.label }}</option>
-                    </select>
-                    <button
-                      class="btn btn-sm btn-error btn-soft"
-                      :disabled="removingMemberUserId === member.userId"
-                      @click="removeMember(member)"
-                    >
-                      <span v-if="removingMemberUserId === member.userId" class="loading loading-spinner loading-xs"></span>
-                      <AppIcon v-else name="i-lucide-user-minus" class="size-4" />
-                    </button>
-                  </template>
-                </div>
-              </div>
+                :member="member"
+                :role-draft="memberRoleDrafts[member.userId]"
+                :updating-role="updatingMemberUserId === member.userId"
+                :removing="removingMemberUserId === member.userId"
+                :role-options="inviteRoleOptions"
+                @update-role="
+                  (_, role) => {
+                    memberRoleDrafts[member.userId] = role;
+                    updateMemberRole(member);
+                  }
+                "
+                @remove="removeMember"
+              />
             </div>
           </div>
 
           <div v-if="emailInvites.length">
             <div class="flex items-center justify-between gap-2 mb-3">
               <p class="text-sm font-medium">Pending Email Invites</p>
-              <span class="badge badge-sm badge-soft badge-neutral">{{ emailInvites.length }} pending</span>
+              <span class="badge badge-sm badge-soft badge-neutral"
+                >{{ emailInvites.length }} pending</span
+              >
             </div>
             <div class="divide-y divide-default rounded-lg border border-default">
               <div
@@ -449,7 +493,7 @@ async function deleteLibrary() {
                 <div class="flex items-center gap-2">
                   <span class="badge badge-sm badge-outline badge-neutral">{{ invite.role }}</span>
                   <button
-                    class="btn btn-sm btn-ghost btn-outline"
+                class="btn btn-soft btn-sm btn-ghost btn-outline"
                     @click="copyInviteLink(invite.inviteUrl)"
                   >
                     <AppIcon name="i-lucide-copy" class="size-4" />
@@ -459,7 +503,10 @@ async function deleteLibrary() {
                     :disabled="revokingInviteId === invite.id"
                     @click="revokeInvite(invite.id)"
                   >
-                    <span v-if="revokingInviteId === invite.id" class="loading loading-spinner loading-xs"></span>
+                    <span
+                      v-if="revokingInviteId === invite.id"
+                      class="loading loading-spinner loading-xs"
+                    ></span>
                     <AppIcon v-else name="i-lucide-x" class="size-4" />
                   </button>
                 </div>
@@ -498,7 +545,7 @@ async function deleteLibrary() {
               </p>
             </div>
             <button
-              class="btn btn-neutral"
+              class="btn btn-soft btn-warning"
               :disabled="!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing"
               @click="faceRecReprocessOpen = true"
             >
@@ -553,14 +600,35 @@ async function deleteLibrary() {
     </div>
 
     <!-- Danger Zone Card -->
+    <div v-if="isLibraryOwner" class="card bg-base-100">
+      <div class="card-body">
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold">Video Thumbnails</p>
+            <p class="text-xs text-muted">
+              Regenerate JPG thumbnails for all source videos in this library.
+            </p>
+          </div>
+          <button
+            class="btn btn-soft btn-warning"
+            :disabled="videoThumbReprocessing"
+            @click="videoThumbReprocessOpen = true"
+          >
+            <span v-if="videoThumbReprocessing" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-image-up" class="size-4" />
+            Regenerate Thumbnails
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danger Zone Card -->
     <div class="card bg-base-100">
       <div class="card-body">
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
             <p class="text-sm font-semibold text-error">Delete Library</p>
-            <p class="text-xs text-muted">
-              Permanently remove this library. Must be empty first.
-            </p>
+            <p class="text-xs text-muted">Permanently remove this library. Must be empty first.</p>
           </div>
           <button
             class="btn btn-error btn-soft"
@@ -574,64 +642,38 @@ async function deleteLibrary() {
       </div>
     </div>
 
-    <!-- Disable Face Recognition Modal -->
-    <dialog class="modal" :class="{ 'modal-open': faceRecDisableOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Disable Facial Recognition</h3>
-        <p class="text-sm text-muted py-4">
-          This will permanently delete all detected faces and people data for this library. This
-          action cannot be undone.
-        </p>
-        <div class="modal-action">
-          <button
-            class="btn"
-            @click="faceRecDisableOpen = false"
-          >Cancel</button>
-          <button
-            class="btn btn-error"
-            :disabled="faceRecToggling"
-            @click="confirmDisableFaceRecognition"
-          >
-            <span v-if="faceRecToggling" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-trash-2" class="size-4" />
-            Disable & Delete Data
-          </button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop" @click="faceRecDisableOpen = false">
-        <button>close</button>
-      </form>
-    </dialog>
+    <ConfirmModal
+      v-model:open="faceRecDisableOpen"
+      title="Disable Facial Recognition"
+      message="This will permanently delete all detected faces and people data for this library. This action cannot be undone."
+      confirm-label="Disable & Delete Data"
+      confirm-class="btn-soft btn-error"
+      confirm-icon="i-lucide-trash-2"
+      :pending="faceRecToggling"
+      @confirm="confirmDisableFaceRecognition"
+    />
 
-    <!-- Reprocess Face Recognition Modal -->
-    <dialog class="modal" :class="{ 'modal-open': faceRecReprocessOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Reprocess Facial Recognition</h3>
-        <p class="text-sm text-muted py-4">
-          This deletes all existing face inference data and queues a full rebuild. Results may
-          change, including how photos are grouped into people.
-        </p>
-        <div class="modal-action">
-          <button
-            class="btn"
-            :disabled="faceRecReprocessing"
-            @click="faceRecReprocessOpen = false"
-          >Cancel</button>
-          <button
-            class="btn btn-warning"
-            :disabled="faceRecReprocessing"
-            @click="reprocessFaceRecognition"
-          >
-            <span v-if="faceRecReprocessing" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
-            Delete Data & Requeue
-          </button>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop" @click="faceRecReprocessOpen = false">
-        <button>close</button>
-      </form>
-    </dialog>
+    <ConfirmModal
+      v-model:open="videoThumbReprocessOpen"
+      title="Regenerate Video Thumbnails"
+      message="This queues thumbnail regeneration for all source videos in this library. Existing generated thumbnails will be replaced as new ones complete."
+      confirm-label="Queue Regeneration"
+      confirm-class="btn-soft btn-warning"
+      confirm-icon="i-lucide-image-up"
+      :pending="videoThumbReprocessing"
+      @confirm="reprocessVideoThumbnails"
+    />
+
+    <ConfirmModal
+      v-model:open="faceRecReprocessOpen"
+      title="Reprocess Facial Recognition"
+      message="This deletes all existing face inference data and queues a full rebuild. Results may change, including how photos are grouped into people."
+      confirm-label="Delete Data & Requeue"
+      confirm-class="btn-soft btn-warning"
+      confirm-icon="i-lucide-refresh-cw"
+      :pending="faceRecReprocessing"
+      @confirm="reprocessFaceRecognition"
+    />
 
     <!-- Disable Object Detection Modal -->
     <dialog class="modal" :class="{ 'modal-open': objDetDisableOpen }">
@@ -708,12 +750,9 @@ async function deleteLibrary() {
           </fieldset>
         </div>
         <div class="modal-action">
+          <button class="btn btn-soft" @click="deleteLibraryOpen = false">Cancel</button>
           <button
-            class="btn"
-            @click="deleteLibraryOpen = false"
-          >Cancel</button>
-          <button
-            class="btn btn-error"
+            class="btn btn-soft btn-error"
             :disabled="deleteLibraryConfirmation !== 'delete'"
             @click="deleteLibrary"
           >

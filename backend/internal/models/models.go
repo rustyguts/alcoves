@@ -71,12 +71,14 @@ type Folder struct {
 	ID             uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	LibraryID      uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:folders_library_trash_parent_name_idx" json:"libraryId"`
 	ParentFolderID *uuid.UUID `gorm:"column:parent_folder_id;type:uuid;index:folders_library_trash_parent_name_idx" json:"parentFolderId"`
+	OwnerID        *uuid.UUID `gorm:"column:owner_id;type:uuid;index:folders_owner_id_idx" json:"ownerId"`
 	Name           string     `gorm:"column:name;type:text;not null;index:folders_library_trash_parent_name_idx" json:"name"`
 	TrashedAt      *time.Time `gorm:"column:trashed_at;index:folders_library_trash_parent_name_idx" json:"trashedAt"`
 	CreatedAt      time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
 	UpdatedAt      time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 
 	Library *Library `gorm:"foreignKey:LibraryID" json:"-"`
+	Owner   *User    `gorm:"foreignKey:OwnerID" json:"-"`
 	Tags    []Tag    `gorm:"many2many:folder_tags;foreignKey:ID;joinForeignKey:folder_id;References:ID;joinReferences:tag_id" json:"tags,omitempty"`
 }
 
@@ -102,6 +104,9 @@ type File struct {
 	Width             *int       `gorm:"column:width;type:integer" json:"width"`
 	Height            *int       `gorm:"column:height;type:integer" json:"height"`
 	ProxyStatus       *string    `gorm:"column:proxy_status;type:text" json:"proxyStatus"`
+	ProxyProgress     *int       `gorm:"column:proxy_progress;type:integer" json:"proxyProgress"`
+	ProxyEtaSeconds   *int       `gorm:"column:proxy_eta_seconds;type:integer" json:"proxyEtaSeconds"`
+	ThumbnailFileID   *uuid.UUID `gorm:"column:thumbnail_file_id;type:uuid" json:"thumbnailFileId"`
 	SourceFileID      *uuid.UUID `gorm:"column:source_file_id;type:uuid" json:"sourceFileId"`
 	OriginalCreatedAt *time.Time `gorm:"column:original_created_at" json:"originalCreatedAt"`
 	TrashedAt         *time.Time `gorm:"column:trashed_at;index:files_library_parent_trash_name_idx" json:"trashedAt"`
@@ -125,9 +130,9 @@ func (f *File) BeforeCreate(tx *gorm.DB) error {
 // Tag maps to the "tags" table.
 type Tag struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	LibraryID uuid.UUID `gorm:"column:library_id;type:uuid;not null;uniqueIndex:tags_library_name_idx;uniqueIndex:tags_library_color_idx" json:"libraryId"`
+	LibraryID uuid.UUID `gorm:"column:library_id;type:uuid;not null;uniqueIndex:tags_library_name_idx;index:tags_library_color_idx" json:"libraryId"`
 	Name      string    `gorm:"column:name;type:text;not null;uniqueIndex:tags_library_name_idx" json:"name"`
-	Color     string    `gorm:"column:color;type:text;not null;uniqueIndex:tags_library_color_idx" json:"color"`
+	Color     string    `gorm:"column:color;type:text;not null;index:tags_library_color_idx" json:"color"`
 	CreatedAt time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 }

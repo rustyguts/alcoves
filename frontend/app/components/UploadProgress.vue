@@ -80,7 +80,9 @@ const expanded = ref(true);
               <span class="text-xs text-error">{{ item.error }}</span>
               <div class="flex gap-1">
                 <button class="btn btn-xs btn-ghost" @click="retryFile(item.id)">Retry</button>
-                <button class="btn btn-xs btn-ghost btn-error" @click="removeFile(item.id)">Remove</button>
+                <button class="btn btn-xs btn-ghost btn-error" @click="removeFile(item.id)">
+                  Remove
+                </button>
               </div>
             </div>
 

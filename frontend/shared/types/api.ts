@@ -30,6 +30,9 @@ export interface LibraryFile {
   width: number | null;
   height: number | null;
   proxyStatus: string | null;
+  proxyProgress?: number | null;
+  proxyEtaSeconds?: number | null;
+  thumbnailFileId?: string | null;
   sourceFileId: string | null;
   originalCreatedAt: string | null;
   trashedAt: string | null;
@@ -49,6 +52,7 @@ export interface LibraryFolder {
   trashFileCount?: number;
   createdAt: string;
   updatedAt: string;
+  owner: LibraryUserSummary | null;
   tags: LibraryTag[];
 }
 

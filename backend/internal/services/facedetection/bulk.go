@@ -40,7 +40,7 @@ func EnqueueExistingLibraryImages(client *asynq.Client, db *gorm.DB, libraryID s
 			log.Printf("failed to create task for file %s: %v", f.ID, err)
 			continue
 		}
-		if _, err := client.Enqueue(task); err != nil {
+		if _, err := client.Enqueue(task, asynq.Retention(completedTaskRetention)); err != nil {
 			log.Printf("failed to enqueue task for file %s: %v", f.ID, err)
 			continue
 		}

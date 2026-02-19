@@ -116,7 +116,10 @@ describe("useAuth", () => {
     expect(result).toEqual(profile);
 
     expect(mockApiFetch).toHaveBeenCalledTimes(2);
-    const [url, options] = mockApiFetch.mock.calls[0] as [string, { method: string; body: FormData }];
+    const [url, options] = mockApiFetch.mock.calls[0] as [
+      string,
+      { method: string; body: FormData },
+    ];
 
     expect(url).toBe("/api/auth/me/avatar");
     expect(options.method).toBe("POST");

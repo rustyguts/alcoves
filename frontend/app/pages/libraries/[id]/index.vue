@@ -7,13 +7,19 @@ import { useLibraryTags } from "~/composables/useLibraryTags";
 import { useDownloadZip } from "~/composables/useDownloadZip";
 import { useLibraryFolderActions } from "~/composables/useLibraryFolderActions";
 import { useUploadQueue } from "~/composables/useUploadQueue";
+import { useFileDrop } from "~/composables/useFileDrop";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
-import LibraryHeader from "~/components/LibraryHeader.vue";
+import ContextMenuItemsRenderer from "~/components/ContextMenuItemsRenderer.vue";
 import UploadModal from "~/components/UploadModal.vue";
 import FilePreview from "~/components/FilePreview.vue";
 import ClipModal from "~/components/ClipModal.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
+import AppContextMenu from "~/components/AppContextMenu.vue";
+import LibraryEntriesGrid from "~/components/library/LibraryEntriesGrid.vue";
+import LibraryEmptyState from "~/components/library/LibraryEmptyState.vue";
+import LibraryEntriesTable from "~/components/library/LibraryEntriesTable.vue";
+import LibraryTabs from "~/components/LibraryTabs.vue";
 
 const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
 const ROOT_MOVE_VALUE = "__root__";
@@ -25,7 +31,6 @@ const {
   libraryId,
   user,
   library,
-  refreshLibrary,
   isTrashRoute,
   viewMode,
   entryViewMode,
@@ -46,8 +51,7 @@ const {
   folders,
   selectedFiles,
   selectedFolders,
-  lastClickedFileIndex,
-  lastClickedFolderIndex,
+  lastClickedIndex,
   clearSelection,
   isEntrySelected,
   fetchPage,
@@ -75,6 +79,7 @@ const renamingEntry = ref<LibraryEntry | null>(null);
 const renameValue = ref("");
 const uploadOpen = ref(false);
 const newDropdown = ref<HTMLDetailsElement | null>(null);
+const createFolderInput = ref<HTMLInputElement | null>(null);
 const clipModalOpen = ref(false);
 const clipSourceFile = ref<LibraryFile | null>(null);
 
@@ -128,29 +133,11 @@ type ContextMenuItem = {
 
 const contextMenuEntry = ref<LibraryEntry | null>(null);
 const contextMenuPosition = ref<{ x: number; y: number } | null>(null);
-const contextMenuPanel = ref<HTMLElement | null>(null);
 
 function showContextMenu(entry: LibraryEntry, event: MouseEvent) {
   event.preventDefault();
   contextMenuEntry.value = entry;
   contextMenuPosition.value = { x: event.clientX, y: event.clientY };
-
-  nextTick(() => {
-    const panel = contextMenuPanel.value;
-    const position = contextMenuPosition.value;
-    if (!panel || !position) return;
-
-    const margin = 8;
-    const panelWidth = panel.offsetWidth;
-    const panelHeight = panel.offsetHeight;
-    const maxX = window.innerWidth - panelWidth - margin;
-    const maxY = window.innerHeight - panelHeight - margin;
-
-    contextMenuPosition.value = {
-      x: Math.max(margin, Math.min(position.x, maxX)),
-      y: Math.max(margin, Math.min(position.y, maxY)),
-    };
-  });
 }
 
 function hideContextMenu() {
@@ -167,10 +154,10 @@ function handleContextMenuSelect(item: ContextMenuItem) {
 // Close context menu on escape or click outside
 onMounted(() => {
   const handleEscape = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') hideContextMenu();
+    if (e.key === "Escape") hideContextMenu();
   };
-  window.addEventListener('keydown', handleEscape);
-  onUnmounted(() => window.removeEventListener('keydown', handleEscape));
+  window.addEventListener("keydown", handleEscape);
+  onUnmounted(() => window.removeEventListener("keydown", handleEscape));
 });
 
 function buildBreadcrumbUrl(folderId: string | null): string {
@@ -179,15 +166,14 @@ function buildBreadcrumbUrl(folderId: string | null): string {
   return `${basePath}?folder=${encodeURIComponent(folderId)}`;
 }
 
-const breadcrumbItems = computed<Array<{
-  id: string;
-  label: string;
-  icon?: string;
-  to: string;
-  isCurrent: boolean;
-}>>(() => {
-  if (showTrashed.value) return [];
-
+const breadcrumbItems = computed<
+  Array<{
+    id: string;
+    label: string;
+    to: string;
+    isCurrent: boolean;
+  }>
+>(() => {
   const folderCrumbs = breadcrumbs.value.map((crumb, index) => ({
     id: crumb.id,
     label: crumb.name,
@@ -199,23 +185,31 @@ const breadcrumbItems = computed<Array<{
     {
       id: "__root__",
       label: library.value?.name ?? "Library",
-      icon: "i-lucide-house",
       to: buildBreadcrumbUrl(null),
-      isCurrent: folderCrumbs.length === 0,
+      isCurrent: folderCrumbs.length === 0 || showTrashed.value,
     },
-    ...folderCrumbs,
+    ...(showTrashed.value ? [] : folderCrumbs),
   ];
 });
 
-const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelect: () => void }>>>(() => [
-  [
-    {
-      label: "New folder",
-      icon: "i-lucide-folder-plus",
-      onSelect: openCreateFolderModal,
-    },
+const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelect: () => void }>>>(
+  () => [
+    [
+      {
+        label: "Upload",
+        icon: "i-lucide-upload",
+        onSelect: () => {
+          uploadOpen.value = true;
+        },
+      },
+      {
+        label: "Folder",
+        icon: "i-lucide-folder-plus",
+        onSelect: openCreateFolderModal,
+      },
+    ],
   ],
-]);
+);
 
 function openPreview(file: LibraryFile) {
   previewFile.value = file;
@@ -534,22 +528,55 @@ const foldersToPurge = ref<string[]>([]);
 const purgeAll = ref(false);
 
 // Upload queue integration
-const { onLibraryUploadComplete, removeOnComplete } = useUploadQueue();
+const { addFiles, onLibraryUploadComplete, removeOnComplete, onLibraryUploadSuccess, removeOnSuccess } =
+  useUploadQueue();
 
-onLibraryUploadComplete(libraryId.value, () => {
-  // Always refresh when uploads complete, regardless of current view mode
-  // since uploads always go to the files view
-  resetAndFetch();
+const UPLOAD_REFRESH_DEBOUNCE_MS = 3_000;
+const lastUploadRefreshAt = ref(0);
+let uploadRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function refreshAfterUploadDebounced() {
+  const now = Date.now();
+  const elapsed = now - lastUploadRefreshAt.value;
+
+  if (elapsed >= UPLOAD_REFRESH_DEBOUNCE_MS && !uploadRefreshTimer) {
+    lastUploadRefreshAt.value = now;
+    void resetAndFetch();
+    return;
+  }
+
+  if (uploadRefreshTimer) return;
+
+  uploadRefreshTimer = setTimeout(() => {
+    uploadRefreshTimer = null;
+    lastUploadRefreshAt.value = Date.now();
+    void resetAndFetch();
+  }, Math.max(UPLOAD_REFRESH_DEBOUNCE_MS - elapsed, 0));
+}
+
+const canDropUpload = computed(() => canManageLibrary.value && !showTrashed.value);
+
+const { isOverDropZone: isFileDragActive, dropZoneProps: fileDropZoneProps } = useFileDrop({
+  enabled: canDropUpload,
+  onDrop(droppedFiles) {
+    addFiles(droppedFiles, libraryId.value, library.value?.name ?? "Library", currentFolderId.value);
+    toast.add({
+      title: `${droppedFiles.length} file${droppedFiles.length === 1 ? "" : "s"} added to upload queue`,
+    });
+  },
 });
+
+onLibraryUploadSuccess(libraryId.value, refreshAfterUploadDebounced);
+onLibraryUploadComplete(libraryId.value, refreshAfterUploadDebounced);
 
 // Sync viewMode when navigating between /libraries/:id and /libraries/:id/trash
 watch(isTrashRoute, (trash) => {
   if (trash && viewMode.value !== "trash") {
     viewMode.value = "trash";
-    resetAndFetch();
+    resetAndFetch({ preserveEntries: true });
   } else if (!trash && viewMode.value === "trash") {
     viewMode.value = "files";
-    resetAndFetch();
+    resetAndFetch({ preserveEntries: true });
   }
 });
 
@@ -572,6 +599,15 @@ function handleClickOutsideNewDropdown(event: MouseEvent) {
 
 onMounted(() => document.addEventListener("click", handleClickOutsideNewDropdown));
 onUnmounted(() => document.removeEventListener("click", handleClickOutsideNewDropdown));
+
+watch(createFolderOpen, async (open) => {
+  if (!open) return;
+  await nextTick();
+  requestAnimationFrame(() => {
+    createFolderInput.value?.focus();
+    createFolderInput.value?.select();
+  });
+});
 
 // Infinite scroll observer
 const sentinel = ref<HTMLElement | null>(null);
@@ -598,88 +634,55 @@ onMounted(() => {
   onUnmounted(() => observer.disconnect());
 });
 
-onUnmounted(() => removeOnComplete(libraryId.value));
-
-async function saveLibraryName(name: string) {
-  await apiFetch(`/api/libraries/${libraryId.value}`, {
-    method: "PATCH",
-    body: { name },
-  });
-  await refreshLibrary();
-}
-
-async function saveLibraryEmoji(emoji: string | null) {
-  await apiFetch(`/api/libraries/${libraryId.value}`, {
-    method: "PATCH",
-    body: { emoji: emoji ?? "" },
-  });
-  await refreshLibrary();
-}
+onUnmounted(() => {
+  removeOnComplete(libraryId.value);
+  removeOnSuccess(libraryId.value);
+  if (uploadRefreshTimer) {
+    clearTimeout(uploadRefreshTimer);
+    uploadRefreshTimer = null;
+  }
+});
 
 function handleRowClick(entry: LibraryEntry, event: MouseEvent) {
   event.preventDefault();
+  const isShift = event.shiftKey;
   const isMultiSelect = event.ctrlKey || event.metaKey;
 
-  if (entry.kind === "folder") {
-    const folderList = folders.value;
-    const clickedIndex = folderList.findIndex((folder) => folder.id === entry.id);
-    if (clickedIndex === -1) return;
-
-    selectedFiles.clear();
-    lastClickedFileIndex.value = null;
-
-    if (event.shiftKey && lastClickedFolderIndex.value !== null) {
-      const start = Math.min(lastClickedFolderIndex.value, clickedIndex);
-      const end = Math.max(lastClickedFolderIndex.value, clickedIndex);
-      if (!isMultiSelect) {
-        selectedFolders.clear();
-      }
-      for (let i = start; i <= end; i++) {
-        selectedFolders.add(folderList[i]!.id);
-      }
-    } else if (isMultiSelect) {
-      if (selectedFolders.has(entry.id)) {
-        selectedFolders.delete(entry.id);
-      } else {
-        selectedFolders.add(entry.id);
-      }
-    } else {
-      clearSelection();
-      selectedFolders.add(entry.id);
-    }
-
-    lastClickedFolderIndex.value = clickedIndex;
-    return;
-  }
-
-  const fileList = files.value;
-  const clickedIndex = fileList.findIndex((file) => file.id === entry.id);
+  const entryList = entries.value;
+  const clickedIndex = entryList.findIndex((e) => e.id === entry.id && e.kind === entry.kind);
   if (clickedIndex === -1) return;
 
-  selectedFolders.clear();
-  lastClickedFolderIndex.value = null;
-
-  if (event.shiftKey && lastClickedFileIndex.value !== null) {
-    const start = Math.min(lastClickedFileIndex.value, clickedIndex);
-    const end = Math.max(lastClickedFileIndex.value, clickedIndex);
+  if (isShift && lastClickedIndex.value !== null) {
+    // Range-select from the fixed anchor to the clicked item across files and folders.
+    // The anchor does NOT move on shift-click so further shift-clicks always extend
+    // from the same origin.
+    const anchor = lastClickedIndex.value;
+    const start = Math.min(anchor, clickedIndex);
+    const end = Math.max(anchor, clickedIndex);
     if (!isMultiSelect) {
       selectedFiles.clear();
+      selectedFolders.clear();
     }
     for (let i = start; i <= end; i++) {
-      selectedFiles.add(fileList[i]!.id);
+      const e = entryList[i]!;
+      if (e.kind === "file") selectedFiles.add(e.id);
+      else selectedFolders.add(e.id);
     }
   } else if (isMultiSelect) {
-    if (selectedFiles.has(entry.id)) {
-      selectedFiles.delete(entry.id);
+    if (entry.kind === "file") {
+      if (selectedFiles.has(entry.id)) selectedFiles.delete(entry.id);
+      else selectedFiles.add(entry.id);
     } else {
-      selectedFiles.add(entry.id);
+      if (selectedFolders.has(entry.id)) selectedFolders.delete(entry.id);
+      else selectedFolders.add(entry.id);
     }
+    lastClickedIndex.value = clickedIndex;
   } else {
     clearSelection();
-    selectedFiles.add(entry.id);
+    if (entry.kind === "file") selectedFiles.add(entry.id);
+    else selectedFolders.add(entry.id);
+    lastClickedIndex.value = clickedIndex;
   }
-
-  lastClickedFileIndex.value = clickedIndex;
 }
 
 function downloadFiles(ids: string[]) {
@@ -689,7 +692,7 @@ function downloadFiles(ids: string[]) {
   }
   for (const fid of ids) {
     const link = document.createElement("a");
-    link.href = `/api/libraries/${libraryId.value}/files/${fid}`;
+    link.href = `/api/libraries/${libraryId.value}/files/${fid}?inline=true`;
     link.download = "";
     link.click();
   }
@@ -769,28 +772,34 @@ function openPurgeAllModal() {
 async function handlePermanentDelete() {
   try {
     if (purgeAll.value) {
-      const result = await apiFetch<{ purged: number }>(`/api/libraries/${libraryId.value}/files/purge`, {
-        method: "POST",
-      });
+      const result = await apiFetch<{ purged: number }>(
+        `/api/libraries/${libraryId.value}/files/purge`,
+        {
+          method: "POST",
+        },
+      );
       entries.value = [];
       nextCursor.value = null;
       totalCount.value = 0;
       trashedCount.value = 0;
       toast.add({
-        title: `${result.purged} ${result.purged === 1 ? 'item' : 'items'} permanently deleted`,
+        title: `${result.purged} ${result.purged === 1 ? "item" : "items"} permanently deleted`,
         color: "success",
       });
     } else {
-      const result = await apiFetch<{ purged: number }>(`/api/libraries/${libraryId.value}/files/purge`, {
-        method: "POST",
-        body: foldersToPurge.value.length
-          ? { folderIds: foldersToPurge.value }
-          : { fileIds: filesToPurge.value },
-      });
+      const result = await apiFetch<{ purged: number }>(
+        `/api/libraries/${libraryId.value}/files/purge`,
+        {
+          method: "POST",
+          body: foldersToPurge.value.length
+            ? { folderIds: foldersToPurge.value }
+            : { fileIds: filesToPurge.value },
+        },
+      );
       await resetAndFetch();
       await refreshTrashedCount();
       toast.add({
-        title: `${result.purged} ${result.purged === 1 ? 'item' : 'items'} permanently deleted`,
+        title: `${result.purged} ${result.purged === 1 ? "item" : "items"} permanently deleted`,
         color: "success",
       });
     }
@@ -810,83 +819,133 @@ async function handlePermanentDelete() {
 }
 
 function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
+  // Determine the full selection. If the right-clicked item is part of the current
+  // selection, act on everything selected; otherwise act only on the clicked item.
+  const isInSelection =
+    entry.kind === "file" ? selectedFiles.has(entry.id) : selectedFolders.has(entry.id);
+
+  const targetFileIds: string[] = isInSelection ? [...selectedFiles] : entry.kind === "file" ? [entry.id] : [];
+  const targetFolderIds: string[] = isInSelection ? [...selectedFolders] : entry.kind === "folder" ? [entry.id] : [];
+  const totalCount = targetFileIds.length + targetFolderIds.length;
+  const isMulti = totalCount > 1;
+
+  // ── Trash view ──────────────────────────────────────────────────────────────
+  if (showTrashed.value) {
+    if (!canManageLibrary.value) return [];
+
+    // Only files support restore/purge from a per-item menu for now; folders
+    // use their own restore path. When multiple items are selected handle both.
+    const restoreItems: ContextMenuItem[] = [];
+    const purgeItems: ContextMenuItem[] = [];
+
+    if (targetFileIds.length) {
+      restoreItems.push({
+        label: targetFileIds.length > 1 ? `Restore ${targetFileIds.length} files` : "Restore",
+        icon: "i-lucide-undo-2",
+        onSelect: () => restoreFiles(targetFileIds),
+      });
+      purgeItems.push({
+        label:
+          targetFileIds.length > 1
+            ? `Permanently delete ${targetFileIds.length} files`
+            : "Permanently delete",
+        icon: "i-lucide-trash-2",
+        color: "error" as const,
+        onSelect: () => openPurgeModal(targetFileIds),
+      });
+    }
+    if (targetFolderIds.length) {
+      restoreItems.push({
+        label:
+          targetFolderIds.length > 1
+            ? `Restore ${targetFolderIds.length} folders`
+            : "Restore folder",
+        icon: "i-lucide-undo-2",
+        onSelect: () => restoreFolders(targetFolderIds),
+      });
+      purgeItems.push({
+        label:
+          targetFolderIds.length > 1
+            ? `Permanently delete ${targetFolderIds.length} folders`
+            : "Permanently delete folder",
+        icon: "i-lucide-trash-2",
+        color: "error" as const,
+        onSelect: () => openPurgeFolderModal(targetFolderIds),
+      });
+    }
+
+    return [...(restoreItems.length ? [restoreItems] : []), ...(purgeItems.length ? [purgeItems] : [])];
+  }
+
+  // ── Read-only viewer ─────────────────────────────────────────────────────────
+  if (!canManageLibrary.value) {
+    return [
+      [
+        ...(entry.kind === "folder" && !isMulti
+          ? [{ label: "Open", icon: "i-lucide-folder-open", onSelect: () => openFolder(entry.id) }]
+          : []),
+        {
+          label: totalCount > 1 ? `Download ${totalCount} items as ZIP` : entry.kind === "folder" ? "Download as ZIP" : "Download",
+          icon: "i-lucide-download",
+          onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
+        },
+      ],
+    ];
+  }
+
+  // ── Multi-selection (files + folders mixed, or multiple of one kind) ─────────
+  if (isMulti) {
+    const multiTagItems = libraryTags.value.length
+      ? libraryTags.value.map((tag) => ({
+          label: tag.name,
+          icon: areAllFilesTagged(targetFileIds, tag.id) ? "i-lucide-check" : "i-lucide-tag",
+          onSelect: () => toggleTagForFiles(targetFileIds, tag.id),
+        }))
+      : [{ label: "No tags yet", disabled: true }];
+
+    return [
+      [
+        {
+          label: `Download ${totalCount} items as ZIP`,
+          icon: "i-lucide-download",
+          onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
+        },
+        ...(targetFileIds.length
+          ? [{
+              label: targetFileIds.length > 1 ? `Move ${targetFileIds.length} files` : "Move",
+              icon: "i-lucide-folder-input",
+              onSelect: () => openMoveFilesModal(targetFileIds),
+            }]
+          : []),
+        {
+          label: `Tags`,
+          icon: "i-lucide-tags",
+          children: multiTagItems,
+        },
+      ],
+      [
+        {
+          label: `Delete ${totalCount} items`,
+          icon: "i-lucide-trash-2",
+          color: "error" as const,
+          onSelect: () => {
+            if (targetFileIds.length) void trashFiles(targetFileIds);
+            if (targetFolderIds.length) void deleteFolders(targetFolderIds);
+          },
+        },
+      ],
+    ];
+  }
+
+  // ── Single folder ────────────────────────────────────────────────────────────
   if (entry.kind === "folder") {
-    const targetFolderIds = selectedFolders.has(entry.id) ? [...selectedFolders] : [entry.id];
-    const folderCount = targetFolderIds.length;
-
-    if (!canManageLibrary.value) {
-      if (showTrashed.value) return [];
-      return [
-        [
-          {
-            label: "Open",
-            icon: "i-lucide-folder-open",
-            onSelect: () => openFolder(entry.id),
-          },
-          {
-            label: folderCount > 1 ? `Download ${folderCount} folders as ZIP` : "Download as ZIP",
-            icon: "i-lucide-download",
-            onSelect: () => downloadFolders(targetFolderIds),
-          },
-        ],
-      ];
-    }
-
-    if (showTrashed.value) {
-      return [
-        [
-          {
-            label: folderCount > 1 ? `Restore ${folderCount} folders` : "Restore folder",
-            icon: "i-lucide-undo-2",
-            onSelect: () => restoreFolders(targetFolderIds),
-          },
-        ],
-        [
-          {
-            label:
-              folderCount > 1
-                ? `Permanently delete ${folderCount} folders`
-                : "Permanently delete folder",
-            icon: "i-lucide-trash-2",
-            color: "error" as const,
-            onSelect: () => openPurgeFolderModal(targetFolderIds),
-          },
-        ],
-      ];
-    }
-
-    if (folderCount > 1) {
-      return [
-        [
-          {
-            label: `Download ${folderCount} folders as ZIP`,
-            icon: "i-lucide-download",
-            onSelect: () => downloadFolders(targetFolderIds),
-          },
-        ],
-        [
-          {
-            label: `Delete ${folderCount} folders`,
-            icon: "i-lucide-trash-2",
-            color: "error" as const,
-            onSelect: () => deleteFolders(targetFolderIds),
-          },
-        ],
-      ];
-    }
-
     const folderTagItems = libraryTags.value.length
       ? libraryTags.value.map((tag) => ({
           label: tag.name,
           icon: isFolderTagAssigned(entry, tag.id) ? "i-lucide-check" : "i-lucide-tag",
           onSelect: () => toggleTagForFolder(entry, tag.id),
         }))
-      : [
-          {
-            label: "No tags yet",
-            disabled: true,
-          },
-        ];
+      : [{ label: "No tags yet", disabled: true }];
 
     return [
       [
@@ -927,79 +986,33 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     ];
   }
 
-  const targetIds = selectedFiles.has(entry.id) ? [...selectedFiles] : [entry.id];
-  const count = targetIds.length;
-
-  if (!canManageLibrary.value) {
-    if (showTrashed.value) return [];
-    return [
-      [
-        {
-          label: count > 1 ? `Download ${count} files as ZIP` : "Download",
-          icon: "i-lucide-download",
-          onSelect: () => downloadFiles(targetIds),
-        },
-      ],
-    ];
-  }
-
-  if (showTrashed.value) {
-    return [
-      [
-        {
-          label: count > 1 ? `Restore ${count} files` : "Restore",
-          icon: "i-lucide-undo-2",
-          onSelect: () => restoreFiles(targetIds),
-        },
-      ],
-      [
-        {
-          label: count > 1 ? `Permanently delete ${count} files` : "Permanently delete",
-          icon: "i-lucide-trash-2",
-          color: "error" as const,
-          onSelect: () => openPurgeModal(targetIds),
-        },
-      ],
-    ];
-  }
-
+  // ── Single file ──────────────────────────────────────────────────────────────
   const tagItems = libraryTags.value.length
     ? libraryTags.value.map((tag) => ({
         label: tag.name,
-        icon: areAllFilesTagged(targetIds, tag.id) ? "i-lucide-check" : "i-lucide-tag",
-        onSelect: () => toggleTagForFiles(targetIds, tag.id),
+        icon: areAllFilesTagged([entry.id], tag.id) ? "i-lucide-check" : "i-lucide-tag",
+        onSelect: () => toggleTagForFiles([entry.id], tag.id),
       }))
-    : [
-        {
-          label: "No tags yet",
-          disabled: true,
-        },
-      ];
+    : [{ label: "No tags yet", disabled: true }];
 
   return [
     [
       {
-        label: count > 1 ? `Download ${count} files as ZIP` : "Download",
+        label: "Download",
         icon: "i-lucide-download",
-        onSelect: () => downloadFiles(targetIds),
+        onSelect: () => downloadFiles([entry.id]),
       },
       {
-        label: count > 1 ? `Move ${count} files` : "Move",
+        label: "Move",
         icon: "i-lucide-folder-input",
-        onSelect: () => openMoveFilesModal(targetIds),
+        onSelect: () => openMoveFilesModal([entry.id]),
       },
-      ...(count === 1
-        ? [
-            {
-              label: "Rename",
-              icon: "i-lucide-pencil",
-              onSelect() {
-                startEntryRename(entry);
-              },
-            },
-          ]
-        : []),
-      ...(count === 1 && entry.kind === "file" && entry.mimeType.startsWith("video/")
+      {
+        label: "Rename",
+        icon: "i-lucide-pencil",
+        onSelect: () => startEntryRename(entry),
+      },
+      ...(entry.kind === "file" && entry.mimeType.startsWith("video/")
         ? [
             {
               label: "Clip",
@@ -1012,21 +1025,25 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           ]
         : []),
       {
-        label: count > 1 ? `Tags (${count} files)` : "Tags",
+        label: "Tags",
         icon: "i-lucide-tags",
         children: tagItems,
       },
     ],
     [
       {
-        label: count > 1 ? `Delete ${count} files` : "Delete",
+        label: "Delete",
         icon: "i-lucide-trash-2",
         color: "error" as const,
-        onSelect: () => trashFiles(targetIds),
+        onSelect: () => trashFiles([entry.id]),
       },
     ],
   ];
 }
+
+const contextMenuGroups = computed(() =>
+  contextMenuEntry.value ? getContextMenuItems(contextMenuEntry.value) : [],
+);
 
 const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
 
@@ -1052,445 +1069,191 @@ const emptyStateDescription = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 flex-1 min-h-0">
-    <!-- Condensed Header: Library name + breadcrumbs + actions in one row -->
-    <div v-if="library" class="flex items-center justify-between gap-3 min-h-12">
-      <!-- Left: Library name/emoji + breadcrumbs -->
-      <div class="flex items-center gap-3 min-w-0 flex-1">
-        <EmojiPicker
-          v-if="canManageLibrary"
-          :model-value="library.emoji ?? null"
-          @update:model-value="saveLibraryEmoji"
-        />
-        <span v-else-if="library.emoji" class="text-2xl leading-none">{{ library.emoji }}</span>
-        <div class="min-w-0 flex-1">
-          <div v-if="!showTrashed" class="breadcrumbs text-sm min-w-0 hidden md:block">
-            <ul class="whitespace-nowrap">
-              <li v-for="item in breadcrumbItems" :key="item.id" class="min-w-0">
-                <RouterLink
-                  v-if="!item.isCurrent"
-                  :to="item.to"
-                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-base-content/70 transition-colors hover:bg-base-200/70 hover:text-primary"
-                >
-                  <AppIcon v-if="item.icon" :name="item.icon" class="size-3.5 shrink-0" />
-                  <span class="truncate max-w-40">{{ item.label }}</span>
-                </RouterLink>
-                <span
-                  v-else
-                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-base-content/90 font-medium"
-                >
-                  <AppIcon v-if="item.icon" :name="item.icon" class="size-3.5 shrink-0" />
-                  <span class="truncate max-w-40">{{ item.label }}</span>
-                </span>
-              </li>
-            </ul>
-          </div>
+  <div
+    class="relative flex h-full flex-1 min-h-0 flex-col gap-4"
+    v-bind="fileDropZoneProps"
+  >
+    <div
+      v-if="isFileDragActive"
+      class="absolute inset-0 z-30 rounded-lg border-2 border-dashed border-primary bg-primary/10 flex items-center justify-center pointer-events-none"
+    >
+      <div class="badge badge-primary badge-lg px-4 py-3 text-sm font-medium">
+        Drop files to upload to this folder
+      </div>
+    </div>
+
+    <LibraryTabs
+      :library-id="libraryId || ''"
+      :face-recognition-enabled="library?.faceRecognitionEnabled"
+      :can-manage-library="canManageLibrary"
+    />
+
+    <div class="flex min-h-10 w-full items-center gap-2 pl-2 sm:pl-3 lg:pl-4">
+      <div v-if="!showTrashed" class="min-w-0 flex-1">
+        <div class="breadcrumbs text-sm leading-tight">
+          <ul class="whitespace-nowrap">
+            <li v-for="(item, index) in breadcrumbItems" :key="item.id" class="min-w-0">
+              <RouterLink
+                v-if="!item.isCurrent"
+                :to="item.to"
+                class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-base-content/70 transition-colors hover:text-primary"
+              >
+                <AppIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
+                {{ item.label }}
+              </RouterLink>
+              <span v-else class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-base-content">
+                <AppIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
+                {{ item.label }}
+              </span>
+            </li>
+          </ul>
         </div>
       </div>
+      <div v-else class="min-w-0 flex-1" />
 
-      <!-- Right: View switcher + action buttons -->
-      <div class="flex items-center gap-2 shrink-0">
-        <!-- View switcher (only for normal view) -->
-        <div v-if="!showTrashed" class="flex items-center gap-1 rounded-md border border-base-300/70 bg-base-100 p-0.5">
+      <div class="flex shrink-0 items-center gap-2">
+        <template v-if="!showTrashed">
           <button
-            class="btn btn-ghost btn-square btn-sm min-h-8 h-8 w-8 p-0"
-            :class="entryViewMode === 'file' ? 'btn-active' : ''"
+            class="btn btn-soft btn-square btn-sm min-h-8 h-8 w-8 p-0"
+            :class="entryViewMode === 'file' ? 'btn-primary' : ''"
             title="List view"
             @click="entryViewMode = 'file'"
           >
             <AppIcon name="i-lucide-list" class="size-4" />
           </button>
           <button
-            class="btn btn-ghost btn-square btn-sm min-h-8 h-8 w-8 p-0"
-            :class="entryViewMode === 'card' ? 'btn-active' : ''"
+            class="btn btn-soft btn-square btn-sm min-h-8 h-8 w-8 p-0"
+            :class="entryViewMode === 'card' ? 'btn-primary' : ''"
             title="Grid view"
             @click="entryViewMode = 'card'"
           >
             <AppIcon name="i-lucide-layout-grid" class="size-4" />
           </button>
-        </div>
-
-        <!-- Trash actions -->
-        <template v-if="showTrashed && !filesPending && totalCount > 0">
-          <button class="btn btn-sm btn-error" @click="openPurgeAllModal()">
-            <AppIcon name="i-lucide-trash-2" class="size-4" />
-            <span class="hidden sm:inline">Delete All</span>
-          </button>
         </template>
 
-        <!-- Normal view actions -->
-        <template v-if="canManageLibrary && !showTrashed">
-          <details ref="newDropdown" class="dropdown dropdown-end">
-            <summary class="btn btn-sm btn-outline">
-              <AppIcon name="i-lucide-plus" class="size-4" />
-              <span class="hidden sm:inline">New</span>
-            </summary>
-            <ul class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow">
-              <li v-for="group in newMenuItems" :key="group.map((i) => i.label).join()">
-                <a
-                  v-for="item in group"
-                  :key="item.label"
-                  href="#"
-                  @click.prevent="
-                    item.onSelect();
-                    newDropdown!.open = false;
-                  "
-                >
-                  <AppIcon :name="item.icon" class="size-4" />
-                  {{ item.label }}
-                </a>
-              </li>
-            </ul>
-          </details>
-          <button class="btn btn-sm btn-primary" @click="uploadOpen = true">
-            <AppIcon name="i-lucide-upload" class="size-4" />
-            <span class="hidden sm:inline">Upload</span>
-          </button>
-        </template>
-      </div>
-    </div>
-
-    <!-- Loading state for header -->
-    <div v-else class="flex items-center justify-between gap-3 min-h-12">
-      <div class="flex items-center gap-2">
-        <div class="skeleton h-8 w-8 rounded" />
-        <div class="skeleton h-6 w-48 rounded" />
-      </div>
-    </div>
-
-    <div class="rounded-lg overflow-y-auto bg-default/20 flex-1 min-h-0">
-      <!-- Skeleton loading state -->
-      <template v-if="filesPending">
-        <table v-if="entryViewMode === 'file'" class="w-full">
-          <thead>
-            <tr class="bg-elevated/50">
-              <th class="w-12 px-4 py-3" />
-              <th class="text-left text-xs font-medium text-muted px-4 py-3">Name</th>
-              <th class="text-left text-xs font-medium text-muted px-4 py-3">Tags</th>
-              <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">Owner</th>
-              <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">{{ showTrashed ? "Trashed" : "Modified" }}</th>
-              <th class="text-right text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">Size</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="i in 8" :key="i">
-              <td class="px-4 py-3"><div class="skeleton h-5 w-5 rounded" /></td>
-              <td class="px-4 py-3"><div class="skeleton h-4 rounded" :style="{ width: `${40 + (i * 17) % 40}%` }" /></td>
-              <td class="px-4 py-3"><div class="skeleton h-3 w-8 rounded-full" /></td>
-              <td class="px-4 py-3 hidden sm:table-cell"><div class="skeleton h-6 w-6 rounded-full" /></td>
-              <td class="px-4 py-3 hidden sm:table-cell"><div class="skeleton h-4 w-20 rounded" /></td>
-              <td class="px-4 py-3 hidden sm:table-cell"><div class="skeleton h-4 w-14 rounded ml-auto" /></td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-else class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          <div v-for="i in 8" :key="i" class="rounded-lg bg-elevated/50 p-3">
-            <div class="skeleton h-40 w-full rounded-md mb-3" />
-            <div class="skeleton h-4 rounded mb-2" :style="{ width: `${50 + (i * 13) % 40}%` }" />
-            <div class="skeleton h-3 w-16 rounded" />
-          </div>
-        </div>
-      </template>
-
-      <table v-else-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0" class="w-full">
-        <thead>
-          <tr class="bg-elevated/50">
-            <th class="w-12 px-4 py-3" />
-            <th class="text-left text-xs font-medium text-muted px-4 py-3">Name</th>
-            <th class="text-left text-xs font-medium text-muted px-4 py-3">Tags</th>
-            <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
-              Owner
-            </th>
-            <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
-              {{ showTrashed ? "Trashed" : "Modified" }}
-            </th>
-            <th class="text-right text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
-              Size
-            </th>
-          </tr>
-        </thead>
-        <tbody class="select-none">
-          <template v-for="entry in entries ?? []" :key="`${entry.kind}-${entry.id}`">
-            <tr
-              class="cursor-pointer transition-colors"
-              :class="[
-                isEntrySelected(entry) ? 'bg-primary/10' : 'hover:bg-base-300/50',
-                dropTargetFolderId === entry.id && entry.kind === 'folder'
-                  ? 'ring-2 ring-primary/60 ring-inset bg-primary/5'
-                  : '',
-                draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
-              ]"
-              :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
-              @click="handleRowClick(entry, $event)"
-              @dblclick="openEntry(entry)"
-              @contextmenu="(e) => showContextMenu(entry, e)"
-              @dragstart="handleFileDragStart(entry, $event)"
-              @dragend="handleFileDragEnd"
-              @dragenter="handleFolderDragEnter(entry)"
-              @dragover="handleFolderDragOver(entry, $event)"
-              @dragleave="handleFolderDragLeave(entry, $event)"
-              @drop="handleFolderDrop(entry, $event)"
-            >
-              <td class="px-4 py-3">
-                <div class="flex items-center justify-center">
-                  <AppIcon
-                    :name="
-                      entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(entry.mimeType)
-                    "
-                    class="size-5 text-muted"
-                    :class="showTrashed && entry.kind === 'file' ? 'opacity-50' : ''"
-                  />
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <div
-                  v-if="isRenaming(entry)"
-                  :data-rename-input-entry-id="entry.id"
-                >
-                  <input
-                    v-model="renameValue"
-                    class="input input-sm w-full"
-                    autofocus
-                    @blur="saveEntryRename(entry)"
-                    @keydown.enter="saveEntryRename(entry)"
-                    @keydown.escape="renamingEntry = null"
-                    @click.stop
-                  />
-                </div>
-                <div v-else class="flex items-center gap-1">
-                  <button
-                    v-if="entry.kind === 'folder'"
-                    type="button"
-                    class="text-sm text-left hover:text-primary transition-colors"
-                    @click.stop="openFolder(entry.id)"
-                  >
-                    {{
-                      showTrashed
-                        ? `${entry.name} (${entry.trashFileCount ?? 0} files)`
-                        : entry.name
-                    }}
-                  </button>
-                  <button
-                    v-else
-                    type="button"
-                    class="text-sm text-left hover:text-primary transition-colors"
-                    :class="showTrashed ? 'opacity-60' : ''"
-                    @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
-                  >
-                    {{ entry.name }}
-                  </button>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex flex-wrap items-center gap-1.5">
-                  <span
-                    v-for="tag in entry.tags"
-                    :key="tag.id"
-                    class="size-2.5 rounded-full border border-default/50"
-                    :title="tag.name"
-                    :style="{ backgroundColor: tag.color }"
-                  />
-                </div>
-              </td>
-              <td class="px-4 py-3 text-sm text-muted hidden sm:table-cell">
-                <div v-if="entry.kind === 'file' && entry.owner" class="flex items-center">
-                  <div class="avatar" :title="entry.owner.displayName">
-                    <div class="w-6 rounded-full">
-                      <img
-                        v-if="entry.owner.avatarUrl"
-                        :src="entry.owner.avatarUrl"
-                        :alt="entry.owner.displayName"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <span v-else>-</span>
-              </td>
-              <td class="px-4 py-3 text-sm text-muted hidden sm:table-cell">
-                {{
-                  showTrashed && entry.trashedAt
-                    ? formatDate(entry.trashedAt)
-                    : formatDate(entry.updatedAt)
-                }}
-              </td>
-              <td class="px-4 py-3 text-sm text-muted text-right hidden sm:table-cell">
-                {{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-
-      <div
-        v-else-if="entryViewMode === 'card' && (entries?.length ?? 0) > 0"
-        class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
-      >
-        <template v-for="entry in entries ?? []" :key="`${entry.kind}-${entry.id}`">
-          <div
-            class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
-            :class="[
-              isEntrySelected(entry)
-                ? 'ring-2 ring-primary/50 bg-primary/5'
-                : 'hover:bg-base-300/50',
-              dropTargetFolderId === entry.id && entry.kind === 'folder'
-                ? 'ring-2 ring-primary/60 bg-primary/10'
-                : '',
-              draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
-            ]"
-            :draggable="dragEnabled && entry.kind === 'file' && !isRenaming(entry)"
-            @click="handleRowClick(entry, $event)"
-            @dblclick="openEntry(entry)"
-            @contextmenu="(e) => showContextMenu(entry, e)"
-            @dragstart="handleFileDragStart(entry, $event)"
-            @dragend="handleFileDragEnd"
-            @dragenter="handleFolderDragEnter(entry)"
-            @dragover="handleFolderDragOver(entry, $event)"
-            @dragleave="handleFolderDragLeave(entry, $event)"
-            @drop="handleFolderDrop(entry, $event)"
-          >
-            <div
-              class="h-40 rounded-md bg-elevated mb-3 flex items-center justify-center overflow-hidden"
-            >
-              <template v-if="entry.kind === 'folder'">
-                <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
-              </template>
-              <template v-else-if="entry.kind === 'file' && entry.mimeType.startsWith('video/')">
-                <div class="relative w-full h-full flex items-center justify-center">
-                  <img
-                    v-if="!failedThumbnails.has(entry.id)"
-                    :src="`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`"
-                    :alt="entry.name"
-                    class="w-full h-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                    @error="failedThumbnails.add(entry.id)"
-                  />
-                  <AppIcon
-                    v-else
-                    name="i-lucide-film"
-                    class="size-10 text-muted"
-                  />
-                  <div
-                    v-if="entry.proxyStatus === 'processing'"
-                    class="absolute inset-0 flex items-center justify-center bg-black/40"
-                  >
-                    <span class="loading loading-spinner loading-sm text-white"></span>
-                  </div>
-                </div>
-              </template>
-              <template v-else-if="isImageFile(entry)">
-                <AlcovesImage
-                  v-if="!failedThumbnails.has(entry.id)"
-                  :library-id="libraryId || ''"
-                  :file-id="entry.id"
-                  :alt="entry.name"
-                  :width="cardThumbWidth(entry)"
-                  :height="cardThumbHeight(entry)"
-                  format="jpeg"
-                  :quality="82"
-                  :class="isSmallImage(entry) ? 'object-contain' : 'w-full h-full object-cover'"
-                  @error="failedThumbnails.add(entry.id)"
-                />
-                <AppIcon
-                  v-else
-                  name="i-lucide-image"
-                  class="size-10 text-muted"
-                />
-              </template>
-              <template v-else>
-                <AppIcon
-                  :name="getMimeIcon(entry.mimeType)"
-                  class="size-10 text-muted"
-                  :class="showTrashed ? 'opacity-50' : ''"
-                />
-              </template>
-            </div>
-
-            <div
-              v-if="isRenaming(entry)"
-              :data-rename-input-entry-id="entry.id"
-            >
-              <input
-                v-model="renameValue"
-                class="input input-sm w-full"
-                autofocus
-                @blur="saveEntryRename(entry)"
-                @keydown.enter="saveEntryRename(entry)"
-                @keydown.escape="renamingEntry = null"
-                @click.stop
-              />
-            </div>
-            <div v-else>
-              <button
-                v-if="entry.kind === 'folder'"
-                type="button"
-                class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
-                @click.stop="openFolder(entry.id)"
-              >
-                {{
-                  showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name
-                }}
-              </button>
-              <button
-                v-else
-                type="button"
-                class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
-                :class="showTrashed ? 'opacity-60' : ''"
-                @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
-              >
-                {{ entry.name }}
-              </button>
-
-              <div class="flex items-center justify-between mt-1 gap-2 text-xs text-muted">
-                <span>{{
-                  showTrashed && entry.trashedAt
-                    ? formatDate(entry.trashedAt)
-                    : formatDate(entry.updatedAt)
-                }}</span>
-                <span>{{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}</span>
-              </div>
-              <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                <span
-                  v-for="tag in entry.tags"
-                  :key="tag.id"
-                  class="size-2.5 rounded-full border border-default/50"
-                  :title="tag.name"
-                  :style="{ backgroundColor: tag.color }"
-                />
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <div
-        v-if="(entries?.length ?? 0) === 0 && !filesPending"
-        class="flex flex-col items-center justify-center py-16 px-4"
-      >
-        <div
-          class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
+        <button
+          v-if="showTrashed && !filesPending && totalCount > 0"
+          class="btn btn-soft btn-sm btn-error"
+          @click="openPurgeAllModal()"
         >
-          <AppIcon
-            :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
-            class="size-8 text-(--ui-text-muted)"
-          />
-        </div>
-        <p class="text-lg font-medium text-foreground mb-1">{{ emptyStateTitle }}</p>
-        <p class="text-sm text-muted mb-4">{{ emptyStateDescription }}</p>
-        <div v-if="canManageLibrary && !showTrashed" class="flex items-center gap-2">
-          <button
-            class="btn btn-outline"
-            @click="openCreateFolderModal"
-          >
-            <AppIcon name="i-lucide-folder-plus" class="size-4" />
-            Create folder
-          </button>
-          <button class="btn btn-primary" @click="uploadOpen = true">
-            <AppIcon name="i-lucide-upload" class="size-4" />
-            Upload files
-          </button>
+          <AppIcon name="i-lucide-trash-2" class="size-4" />
+          <span class="hidden sm:inline">Delete All</span>
+        </button>
+
+        <details
+          v-if="canManageLibrary && !showTrashed"
+          ref="newDropdown"
+          class="dropdown dropdown-end relative z-20"
+        >
+          <summary class="btn btn-soft btn-sm btn-primary">
+            <AppIcon name="i-lucide-plus" class="size-4" />
+            <span class="hidden sm:inline">New</span>
+          </summary>
+          <ul class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow mt-2">
+            <li v-for="group in newMenuItems" :key="group.map((i) => i.label).join()">
+              <a
+                v-for="item in group"
+                :key="item.label"
+                href="#"
+                @click.prevent="
+                  item.onSelect();
+                  newDropdown!.open = false;
+                "
+              >
+                <AppIcon :name="item.icon" class="size-4" />
+                {{ item.label }}
+              </a>
+            </li>
+          </ul>
+        </details>
+      </div>
+    </div>
+
+    <div class="relative overflow-y-auto flex-1 min-h-0">
+      <div
+        v-if="filesPending && (entries?.length ?? 0) === 0"
+        class="flex min-h-64 items-center justify-center"
+      >
+        <div class="inline-flex items-center gap-2 rounded-box border border-base-300/70 bg-base-100 px-3 py-2 text-sm text-base-content/70 shadow-sm">
+          <AppIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+          Loading {{ showTrashed ? "trash" : "files" }}
         </div>
       </div>
+
+      <div
+        v-if="filesPending && (entries?.length ?? 0) > 0"
+        class="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-base-100/35 pt-6"
+      >
+        <div class="badge badge-soft badge-primary gap-2 px-3 py-3">
+          <AppIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+          Loading
+        </div>
+      </div>
+
+      <LibraryEntriesTable
+        v-else-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0"
+        :entries="entries ?? []"
+        :show-trashed="showTrashed"
+        :drag-enabled="dragEnabled"
+        :dragged-file-ids="draggedFileIds"
+        :drop-target-folder-id="dropTargetFolderId"
+        :rename-value="renameValue"
+        :is-entry-selected="isEntrySelected"
+        :is-renaming="isRenaming"
+        @row-click="handleRowClick"
+        @row-double-click="openEntry"
+        @row-context-menu="showContextMenu"
+        @drag-start="handleFileDragStart"
+        @drag-end="handleFileDragEnd"
+        @drag-enter="handleFolderDragEnter"
+        @drag-over="handleFolderDragOver"
+        @drag-leave="handleFolderDragLeave"
+        @drop="handleFolderDrop"
+        @save-rename="saveEntryRename"
+        @cancel-rename="renamingEntry = null"
+        @update-rename-value="renameValue = $event"
+      />
+
+      <LibraryEntriesGrid
+        v-else-if="entryViewMode === 'card' && (entries?.length ?? 0) > 0"
+        :entries="entries ?? []"
+        :library-id="libraryId || ''"
+        :show-trashed="showTrashed"
+        :drag-enabled="dragEnabled"
+        :dragged-file-ids="draggedFileIds"
+        :drop-target-folder-id="dropTargetFolderId"
+        :rename-value="renameValue"
+        :is-entry-selected="isEntrySelected"
+        :is-renaming="isRenaming"
+        :failed-thumbnails="failedThumbnails"
+        :is-image-file="isImageFile"
+        :is-small-image="isSmallImage"
+        :card-thumb-width="cardThumbWidth"
+        :card-thumb-height="cardThumbHeight"
+        @row-click="handleRowClick"
+        @row-double-click="openEntry"
+        @row-context-menu="showContextMenu"
+        @drag-start="handleFileDragStart"
+        @drag-end="handleFileDragEnd"
+        @drag-enter="handleFolderDragEnter"
+        @drag-over="handleFolderDragOver"
+        @drag-leave="handleFolderDragLeave"
+        @drop="handleFolderDrop"
+        @save-rename="saveEntryRename"
+        @cancel-rename="renamingEntry = null"
+        @update-rename-value="renameValue = $event"
+        @thumbnail-error="failedThumbnails.add($event)"
+      />
+
+      <LibraryEmptyState
+        v-if="(entries?.length ?? 0) === 0 && !filesPending"
+        :show-trashed="showTrashed"
+        :title="emptyStateTitle"
+        :description="emptyStateDescription"
+        :can-manage-library="canManageLibrary"
+        @create-folder="openCreateFolderModal"
+        @upload-files="uploadOpen = true"
+      />
 
       <div ref="sentinel" class="h-px" />
       <div v-if="loadingMore" class="flex items-center justify-center py-4">
@@ -1531,8 +1294,8 @@ const emptyStateDescription = computed(() => {
           <fieldset class="fieldset">
             <legend class="fieldset-legend">Folder name</legend>
             <input
+              ref="createFolderInput"
               v-model="createFolderName"
-              autofocus
               placeholder="New folder"
               class="input w-full"
               @keydown.enter="createFolder"
@@ -1540,14 +1303,9 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
+          <button class="btn btn-soft btn-outline" @click="createFolderOpen = false">Cancel</button>
           <button
-            class="btn btn-outline"
-            @click="createFolderOpen = false"
-          >
-            Cancel
-          </button>
-          <button
-            class="btn btn-primary"
+            class="btn btn-soft btn-primary"
             :disabled="!createFolderName.trim() || creatingFolder"
             @click="createFolder"
           >
@@ -1574,30 +1332,17 @@ const emptyStateDescription = computed(() => {
           </p>
           <fieldset class="fieldset">
             <legend class="fieldset-legend">Destination</legend>
-            <select
-              v-model="moveDestinationValue"
-              class="select w-full"
-              :disabled="moveLoading"
-            >
-              <option
-                v-for="item in moveDestinationOptions"
-                :key="item.value"
-                :value="item.value"
-              >
+            <select v-model="moveDestinationValue" class="select w-full" :disabled="moveLoading">
+              <option v-for="item in moveDestinationOptions" :key="item.value" :value="item.value">
                 {{ item.label }}
               </option>
             </select>
           </fieldset>
         </div>
         <div class="modal-action">
+          <button class="btn btn-soft btn-outline" @click="moveFolderOpen = false">Cancel</button>
           <button
-            class="btn btn-outline"
-            @click="moveFolderOpen = false"
-          >
-            Cancel
-          </button>
-          <button
-            class="btn btn-primary"
+            class="btn btn-soft btn-primary"
             :disabled="moveLoading || moveFolderSaving"
             @click="moveFolder"
           >
@@ -1640,11 +1385,9 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button class="btn btn-outline" @click="closeMoveFilesModal">
-            Cancel
-          </button>
+          <button class="btn btn-soft btn-outline" @click="closeMoveFilesModal">Cancel</button>
           <button
-            class="btn btn-primary"
+            class="btn btn-soft btn-primary"
             :disabled="moveFilesLoading || moveFilesSaving"
             @click="moveFiles"
           >
@@ -1675,14 +1418,9 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
+          <button class="btn btn-soft btn-outline" @click="purgeModalOpen = false">Cancel</button>
           <button
-            class="btn btn-outline"
-            @click="purgeModalOpen = false"
-          >
-            Cancel
-          </button>
-          <button
-            class="btn btn-error"
+            class="btn btn-soft btn-error"
             :disabled="purgeConfirmation !== 'delete'"
             @click="handlePermanentDelete"
           >
@@ -1719,14 +1457,8 @@ const emptyStateDescription = computed(() => {
           </div>
         </div>
         <div class="modal-action">
-          <button class="btn btn-outline" @click="cancelLargeDownload">
-            Cancel
-          </button>
-          <button
-            class="btn btn-primary"
-            :disabled="zipDownloading"
-            @click="confirmLargeDownload"
-          >
+          <button class="btn btn-soft btn-outline" @click="cancelLargeDownload">Cancel</button>
+          <button class="btn btn-soft btn-primary" :disabled="zipDownloading" @click="confirmLargeDownload">
             <span v-if="zipDownloading" class="loading loading-spinner loading-xs"></span>
             <AppIcon v-else name="i-lucide-download" class="size-4" />
             Download Anyway
@@ -1738,66 +1470,16 @@ const emptyStateDescription = computed(() => {
       </form>
     </dialog>
 
-    <!-- Floating context menu -->
-    <Teleport to="body">
-      <div
-        v-if="contextMenuEntry && contextMenuPosition"
-        class="fixed inset-0 z-40"
-        @click="hideContextMenu"
-        @contextmenu.prevent="hideContextMenu"
+    <AppContextMenu
+      :open="!!contextMenuEntry && !!contextMenuPosition"
+      :position="contextMenuPosition"
+      @close="hideContextMenu"
+    >
+      <ul
+        class="menu dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl p-2 w-auto max-h-[calc(100vh-1rem)] overflow-y-auto"
       >
-        <div
-          ref="contextMenuPanel"
-          class="dropdown dropdown-open absolute z-50"
-          :style="{
-            left: `${contextMenuPosition.x}px`,
-            top: `${contextMenuPosition.y}px`,
-          }"
-          @click.stop
-        >
-          <ul class="menu menu-sm dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl min-w-60 p-2">
-            <template v-for="(group, groupIndex) in getContextMenuItems(contextMenuEntry)" :key="groupIndex">
-              <li v-if="groupIndex > 0" class="menu-title my-1 p-0">
-                <div class="h-px w-full bg-base-300/80" />
-              </li>
-              <template v-for="(item, itemIndex) in group" :key="`${groupIndex}-${itemIndex}-${item.label}`">
-                <li v-if="item.children?.length">
-                  <details>
-                    <summary :class="[item.color === 'error' ? 'text-error' : '']">
-                      <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-                      <span>{{ item.label }}</span>
-                    </summary>
-                    <ul>
-                      <li v-for="(child, childIndex) in item.children" :key="`${item.label}-${childIndex}-${child.label}`">
-                        <button
-                          type="button"
-                          :class="[child.color === 'error' ? 'text-error' : '']"
-                          :disabled="child.disabled"
-                          @click="handleContextMenuSelect(child)"
-                        >
-                          <AppIcon v-if="child.icon" :name="child.icon" class="size-4 shrink-0" />
-                          <span>{{ child.label }}</span>
-                        </button>
-                      </li>
-                    </ul>
-                  </details>
-                </li>
-                <li v-else>
-                  <button
-                    type="button"
-                    :class="[item.color === 'error' ? 'text-error' : '']"
-                    :disabled="item.disabled"
-                    @click="handleContextMenuSelect(item)"
-                  >
-                    <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-                    <span>{{ item.label }}</span>
-                  </button>
-                </li>
-              </template>
-            </template>
-          </ul>
-        </div>
-      </div>
-    </Teleport>
+        <ContextMenuItemsRenderer :groups="contextMenuGroups" @select="handleContextMenuSelect" />
+      </ul>
+    </AppContextMenu>
   </div>
 </template>

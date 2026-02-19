@@ -2,6 +2,7 @@
 import type { LibraryFile } from "~~/shared/types/api";
 import { apiFetch } from "~/utils/api-fetch";
 import { useToast } from "~/composables/useToast";
+import AppModal from "~/components/AppModal.vue";
 
 const props = defineProps<{
   file: LibraryFile;
@@ -65,66 +66,57 @@ async function createClip() {
 </script>
 
 <template>
-  <dialog class="modal" :class="{ 'modal-open': open }">
-    <div class="modal-box">
-      <h3 class="text-lg font-bold">Create Video Clip</h3>
+  <AppModal v-model:open="open">
+    <h3 class="text-lg font-bold">Create Video Clip</h3>
 
-      <div class="flex flex-col gap-4 py-4">
-        <p class="text-sm text-muted">
-          Select a time range from <strong>{{ file.name }}</strong> to create a new clip.
-        </p>
+    <div class="flex flex-col gap-4 py-4">
+      <p class="text-sm text-muted">
+        Select a time range from <strong>{{ file.name }}</strong> to create a new clip.
+      </p>
 
-        <div class="grid grid-cols-2 gap-3">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Start Time (seconds)</legend>
-            <input
-              v-model.number="startTime"
-              type="number"
-              min="0"
-              :max="endTime"
-              step="0.1"
-              class="input w-full"
-            />
-            <p class="label">{{ formatTime(startTime) }}</p>
-          </fieldset>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">End Time (seconds)</legend>
-            <input
-              v-model.number="endTime"
-              type="number"
-              :min="startTime"
-              :max="file.duration ?? 9999"
-              step="0.1"
-              class="input w-full"
-            />
-            <p class="label">{{ formatTime(endTime) }}</p>
-          </fieldset>
-        </div>
-
+      <div class="grid grid-cols-2 gap-3">
         <fieldset class="fieldset">
-          <legend class="fieldset-legend">Clip Name (optional)</legend>
+          <legend class="fieldset-legend">Start Time (seconds)</legend>
           <input
-            v-model="clipName"
+            v-model.number="startTime"
+            type="number"
+            min="0"
+            :max="endTime"
+            step="0.1"
             class="input w-full"
-            :placeholder="`${file.name.replace(/\.[^.]+$/, '')}_clip`"
           />
+          <p class="label">{{ formatTime(startTime) }}</p>
         </fieldset>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">End Time (seconds)</legend>
+          <input
+            v-model.number="endTime"
+            type="number"
+            :min="startTime"
+            :max="file.duration ?? 9999"
+            step="0.1"
+            class="input w-full"
+          />
+          <p class="label">{{ formatTime(endTime) }}</p>
+        </fieldset>
+      </div>
 
-        <div class="flex justify-end gap-2 pt-2">
-          <button class="btn btn-sm" @click="open = false">Cancel</button>
-          <button
-            class="btn btn-sm btn-primary"
-            :disabled="loading"
-            @click="createClip"
-          >
-            <span v-if="loading" class="loading loading-spinner loading-xs"></span>
-            Create Clip
-          </button>
-        </div>
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">Clip Name (optional)</legend>
+        <input
+          v-model="clipName"
+          class="input w-full"
+          :placeholder="`${file.name.replace(/\.[^.]+$/, '')}_clip`"
+        />
+      </fieldset>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button class="btn btn-soft btn-sm" @click="open = false">Cancel</button>
+        <button class="btn btn-soft btn-sm btn-primary" :disabled="loading" @click="createClip">
+          <span v-if="loading" class="loading loading-spinner loading-xs"></span>
+          Create Clip
+        </button>
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop" @click="open = false">
-      <button>close</button>
-    </form>
-  </dialog>
+  </AppModal>
 </template>

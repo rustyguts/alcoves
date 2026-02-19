@@ -54,6 +54,7 @@ function makeFolder(
     trashedAt: null,
     createdAt: "2025-01-01T00:00:00Z",
     updatedAt: "2025-01-01T00:00:00Z",
+    owner: null,
     tags: [],
     ...overrides,
   };
@@ -125,13 +126,14 @@ describe("useLibraryTags", () => {
     expect(isTagColorUsedByAnotherTag("t1", "#FFFFFF")).toBe(false);
   });
 
-  it("selectTagColor skips when color is used by another tag", () => {
+  it("selectTagColor allows selecting a color used by another tag", () => {
+    mockApiFetch.mockResolvedValueOnce(makeTag({ id: "t1", name: "A", color: "#3B82F6" }));
     const t1 = makeTag({ id: "t1", name: "A", color: "#E11D48" });
     const t2 = makeTag({ id: "t2", name: "B", color: "#3B82F6" });
     const { selectTagColor } = createTags([t1, t2]);
 
     selectTagColor(t1, "#3B82F6");
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(mockApiFetch).toHaveBeenCalled();
   });
 
   it("selectTagColor calls updateTagColor when color is available", () => {
@@ -160,6 +162,23 @@ describe("useLibraryTags", () => {
     });
     expect(tagsRef.value).toContainEqual(newTag);
     expect(result.createTagName.value).toBe("");
+  });
+
+  it("createTag sends selected color when provided", async () => {
+    const newTag = makeTag({ id: "t-new", name: "New Tag", color: "#22C55E" });
+    mockApiFetch.mockResolvedValueOnce(newTag);
+
+    const tagsRef = ref<LibraryTag[]>([]);
+    const result = useLibraryTags(ref("lib-1"), tagsRef, ref([]));
+    result.createTagName.value = "New Tag";
+
+    await result.createTag("#22c55e");
+
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags", {
+      method: "POST",
+      body: { name: "New Tag", color: "#22C55E" },
+    });
+    expect(tagsRef.value).toContainEqual(newTag);
   });
 
   it("createTag does nothing with empty name", async () => {

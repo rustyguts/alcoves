@@ -76,7 +76,7 @@ onMounted(() => {
           Merge Selected
         </button>
         <span class="text-sm text-muted">{{ selectedPeople.size }} selected</span>
-        <button class="btn btn-sm btn-neutral btn-ghost" @click="selectedPeople.clear()">
+        <button class="btn btn-soft btn-sm btn-ghost" @click="selectedPeople.clear()">
           Clear
         </button>
       </div>
@@ -156,7 +156,7 @@ onMounted(() => {
         <p class="mt-2 text-xs text-muted">Leave blank to remove the name</p>
         <div class="modal-action">
           <button
-            class="btn btn-sm btn-neutral btn-outline"
+            class="btn btn-soft btn-sm btn-outline"
             :disabled="!!renamingPersonSavingId"
             @click="closeRenamePersonModal"
           >

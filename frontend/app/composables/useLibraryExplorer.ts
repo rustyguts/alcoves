@@ -80,6 +80,52 @@ export function useLibraryExplorer() {
   const loadingMore = ref(false);
   const filesPending = ref(true);
 
+  interface CachedViewState {
+    entries: LibraryEntry[];
+    breadcrumbs: FolderBreadcrumb[];
+    nextCursor: string | null;
+    totalCount: number;
+    loaded: boolean;
+  }
+
+  const viewCache = reactive<Record<string, CachedViewState>>({});
+
+  function getViewCacheKey(trashed: boolean, folderId: string | null): string {
+    const lib = libraryId.value;
+    if (trashed) return `${lib}:trash`;
+    return `${lib}:files:${folderId ?? "__root__"}`;
+  }
+
+  function upsertViewCache(key: string, state: Omit<CachedViewState, "loaded">) {
+    viewCache[key] = {
+      entries: state.entries,
+      breadcrumbs: state.breadcrumbs,
+      nextCursor: state.nextCursor,
+      totalCount: state.totalCount,
+      loaded: true,
+    };
+  }
+
+  function restoreViewFromCache(key: string): boolean {
+    const cached = viewCache[key];
+    if (!cached?.loaded) return false;
+    entries.value = [...cached.entries];
+    breadcrumbs.value = [...cached.breadcrumbs];
+    nextCursor.value = cached.nextCursor;
+    totalCount.value = cached.totalCount;
+    return true;
+  }
+
+  function cacheCurrentViewState() {
+    const key = getViewCacheKey(showTrashed.value, currentFolderId.value);
+    upsertViewCache(key, {
+      entries: [...entries.value],
+      breadcrumbs: [...breadcrumbs.value],
+      nextCursor: nextCursor.value,
+      totalCount: totalCount.value,
+    });
+  }
+
   const files = computed(() =>
     entries.value.filter((entry): entry is LibraryFile => entry.kind === "file"),
   );
@@ -89,15 +135,14 @@ export function useLibraryExplorer() {
 
   const selectedFiles = reactive(new Set<string>());
   const selectedFolders = reactive(new Set<string>());
-  const lastClickedFileIndex = ref<number | null>(null);
-  const lastClickedFolderIndex = ref<number | null>(null);
+  // Single anchor index into the unified `entries` list, shared across files and folders.
+  const lastClickedIndex = ref<number | null>(null);
 
-  function clearSelection(resetAnchors = false) {
+  function clearSelection(resetAnchor = false) {
     selectedFiles.clear();
     selectedFolders.clear();
-    if (resetAnchors) {
-      lastClickedFileIndex.value = null;
-      lastClickedFolderIndex.value = null;
+    if (resetAnchor) {
+      lastClickedIndex.value = null;
     }
   }
 
@@ -125,22 +170,49 @@ export function useLibraryExplorer() {
       nextCursor.value = result.nextCursor;
       totalCount.value = result.totalCount;
       breadcrumbs.value = result.breadcrumbs;
+      cacheCurrentViewState();
     } finally {
       loadingMore.value = false;
     }
   }
 
-  async function resetAndFetch() {
+  async function resetAndFetch(options?: { preserveEntries?: boolean }) {
+    const preserveEntries = options?.preserveEntries ?? false;
+    const currentViewKey = getViewCacheKey(showTrashed.value, currentFolderId.value);
     filesPending.value = true;
-    entries.value = [];
-    nextCursor.value = null;
     clearSelection(true);
+
+    if (preserveEntries) {
+      const restored = restoreViewFromCache(currentViewKey);
+      if (!restored) {
+        entries.value = [];
+        breadcrumbs.value = [];
+        nextCursor.value = null;
+        totalCount.value = 0;
+      }
+    } else {
+      entries.value = [];
+      breadcrumbs.value = [];
+      nextCursor.value = null;
+      totalCount.value = 0;
+    }
+
+    if (!preserveEntries) {
+      delete viewCache[currentViewKey];
+    }
+
     try {
       const result = await fetchPage();
       entries.value = result.entries;
       breadcrumbs.value = result.breadcrumbs;
       nextCursor.value = result.nextCursor;
       totalCount.value = result.totalCount;
+      upsertViewCache(currentViewKey, {
+        entries: [...result.entries],
+        breadcrumbs: [...result.breadcrumbs],
+        nextCursor: result.nextCursor,
+        totalCount: result.totalCount,
+      });
       if (showTrashed.value) {
         trashedCount.value = result.totalCount;
       }
@@ -190,6 +262,13 @@ export function useLibraryExplorer() {
       breadcrumbs.value = result.breadcrumbs;
       nextCursor.value = result.nextCursor;
       totalCount.value = result.totalCount;
+      const currentViewKey = getViewCacheKey(showTrashed.value, currentFolderId.value);
+      upsertViewCache(currentViewKey, {
+        entries: [...result.entries],
+        breadcrumbs: [...result.breadcrumbs],
+        nextCursor: result.nextCursor,
+        totalCount: result.totalCount,
+      });
       trashedCount.value = trashedResult.totalCount;
       libraryTags.value = tags;
     } catch (error) {
@@ -206,9 +285,13 @@ export function useLibraryExplorer() {
     }
   }
 
-  watch([libraryId, currentFolderId], () => {
-    fetchInitialData();
-  }, { immediate: true });
+  watch(
+    [libraryId, currentFolderId],
+    () => {
+      fetchInitialData();
+    },
+    { immediate: true },
+  );
 
   return {
     route,
@@ -241,8 +324,7 @@ export function useLibraryExplorer() {
     folders,
     selectedFiles,
     selectedFolders,
-    lastClickedFileIndex,
-    lastClickedFolderIndex,
+    lastClickedIndex,
     clearSelection,
     isEntrySelected,
     fetchPage,

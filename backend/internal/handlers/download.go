@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -118,8 +119,9 @@ func (h *DownloadHandler) Download(c echo.Context) error {
 	}
 
 	// Stream as zip
+	filename := fmt.Sprintf("alcoves-download-%s.zip", time.Now().UTC().Format("20060102T150405Z"))
 	c.Response().Header().Set("Content-Type", "application/zip")
-	c.Response().Header().Set("Content-Disposition", "attachment; filename=\"download.zip\"")
+	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	c.Response().WriteHeader(http.StatusOK)
 
 	zipWriter := zip.NewWriter(c.Response())

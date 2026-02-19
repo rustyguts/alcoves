@@ -4,6 +4,7 @@ import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { apiFetch } from "~/utils/api-fetch";
 import AppIcon from "~/components/AppIcon.vue";
+import UserAvatar from "~/components/UserAvatar.vue";
 import { useToast } from "~/composables/useToast";
 
 interface Library {
@@ -37,8 +38,8 @@ const { data: libraries, refresh: refreshLibraries } = useApiFetch<Library[]>("/
 
 const route = useRoute();
 const globalSearchQuery = ref("");
-const collapsed = ref(true); // Start collapsed on mobile, lg:drawer-open handles desktop
 const userMenuOpen = ref(false);
+const userMenuRef = ref<HTMLElement | null>(null);
 
 const routeSearchQuery = computed(() => {
   const raw = route.query.q;
@@ -99,11 +100,6 @@ const bottomItems = computed<NavItem[]>(() => {
       icon: "i-lucide-shield-check",
       to: "/admin",
     },
-    {
-      label: "Jobs",
-      icon: "i-lucide-activity",
-      to: "/admin/jobs",
-    },
   ];
 });
 
@@ -144,24 +140,40 @@ function handleMenuAction(item: MenuAction) {
   }
 }
 
+function handleClickOutsideUserMenu(event: MouseEvent) {
+  const menuEl = userMenuRef.value;
+  if (!menuEl || !userMenuOpen.value) return;
+  if (!menuEl.contains(event.target as Node)) {
+    userMenuOpen.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("click", handleClickOutsideUserMenu);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleClickOutsideUserMenu);
+});
+
 provide("refreshLibraries", refreshLibraries);
 </script>
 
 <template>
   <div class="drawer lg:drawer-open h-full overflow-hidden">
-    <input id="dashboard-drawer" type="checkbox" class="drawer-toggle" :checked="!collapsed" />
+    <input id="dashboard-drawer" type="checkbox" class="drawer-toggle" />
 
     <!-- Main content -->
     <div class="drawer-content flex flex-col h-full overflow-hidden">
       <!-- Navbar -->
-      <div class="navbar bg-base-200 border-b border-base-300 px-4">
+      <div class="navbar bg-base-100 border-b border-base-300 px-4">
         <div class="flex-none lg:hidden mr-2">
-          <button class="btn btn-ghost btn-circle" @click="collapsed = !collapsed">
+          <label for="dashboard-drawer" class="btn btn-ghost btn-circle" aria-label="open sidebar">
             <AppIcon name="i-lucide-menu" />
-          </button>
+          </label>
         </div>
         <div class="flex-1 min-w-0">
-          <form class="min-w-0 w-full max-w-2xl" @submit.prevent="submitGlobalSearch">
+          <form class="min-w-0 w-full max-w-sm" @submit.prevent="submitGlobalSearch">
             <label class="input w-full">
               <AppIcon name="i-lucide-search" class="opacity-50" />
               <input
@@ -175,25 +187,21 @@ provide("refreshLibraries", refreshLibraries);
             </label>
           </form>
         </div>
-        <div class="flex-none">
+        <div class="flex-none pl-4">
           <details ref="userMenuRef" class="dropdown dropdown-end" :open="userMenuOpen">
             <summary
-              class="btn btn-ghost btn-circle avatar"
+              class="btn btn-soft btn-ghost btn-circle avatar"
               @click.prevent="userMenuOpen = !userMenuOpen"
             >
-              <div v-if="user?.avatarUrl" class="w-8 rounded-full overflow-hidden">
-                <img :src="user.avatarUrl" alt="" class="size-full object-cover" />
-              </div>
-              <div
-                v-else
-                class="w-8 h-8 rounded-full bg-primary text-primary-content flex items-center justify-center font-semibold text-sm"
-              >
-                {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
-              </div>
+              <UserAvatar
+                :display-name="user?.displayName ?? 'User'"
+                :avatar-url="user?.avatarUrl ?? null"
+                size-class="w-8"
+                bg-class="bg-primary text-primary-content"
+                text-size-class="text-sm"
+              />
             </summary>
-            <ul
-              class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow mt-2"
-            >
+            <ul class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow mt-4">
               <template v-for="(group, gi) in userMenuItems" :key="gi">
                 <div v-if="gi > 0" class="divider my-1" />
                 <li v-for="item in group" :key="item.label">
@@ -219,11 +227,12 @@ provide("refreshLibraries", refreshLibraries);
     </div>
 
     <!-- Sidebar -->
-    <div class="drawer-side z-40">
-      <label for="dashboard-drawer" class="drawer-overlay" @click="collapsed = true" />
-      <aside class="bg-base-200 h-full w-64 flex flex-col overflow-hidden">
+    <div class="drawer-side">
+      <label for="dashboard-drawer" aria-label="close sidebar" class="drawer-overlay" />
+      <aside class="bg-base-100 h-full w-64 flex flex-col overflow-hidden">
         <!-- Sidebar header -->
         <div class="px-4 py-4 flex items-center gap-2">
+          <img src="/logo.webp" alt="Alcoves" width="28" height="28" />
           <span class="text-lg font-bold truncate">Alcoves</span>
         </div>
 
@@ -244,7 +253,7 @@ provide("refreshLibraries", refreshLibraries);
           <span class="text-xs font-semibold text-base-content/60 uppercase tracking-wide"
             >Libraries</span
           >
-          <button class="btn btn-sm btn-ghost btn-square" @click="createLibrary">
+          <button class="btn btn-soft btn-sm btn-ghost btn-square" @click="createLibrary">
             <AppIcon name="i-lucide-plus" />
           </button>
         </div>

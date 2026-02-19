@@ -59,7 +59,9 @@ type TusHandler struct {
 
 func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service) *TusHandler {
 	tusDir := filepath.Join(dataDir, ".tus-uploads")
-	os.MkdirAll(tusDir, 0o755)
+	if err := os.MkdirAll(tusDir, 0o755); err != nil {
+		log.Printf("Failed to create tus staging directory %s: %v", tusDir, err)
+	}
 
 	return &TusHandler{
 		db:         db,
@@ -186,8 +188,13 @@ func (h *TusHandler) Create(c echo.Context) error {
 
 	// Create the staging file
 	stagingPath := h.stagingPath(uploadID)
+	if err := os.MkdirAll(h.dataDir, 0o755); err != nil {
+		log.Printf("Failed to ensure tus staging directory %s: %v", h.dataDir, err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to prepare upload directory")
+	}
 	f, err := os.Create(stagingPath)
 	if err != nil {
+		log.Printf("Failed to create tus upload file %s: %v", stagingPath, err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create upload file")
 	}
 
@@ -396,8 +403,28 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 
 	// Trigger video proxy generation for video files
 	if h.videoSvc != nil && strings.HasPrefix(upload.MimeType, "video/") {
-		if err := h.videoSvc.EnqueueVideoProxy(upload.LibraryID, fileID.String()); err != nil {
-			log.Printf("failed to enqueue video proxy for tus upload %s: %v", fileID, err)
+		if err := h.videoSvc.EnqueueVideoThumbnail(upload.LibraryID, fileID.String()); err != nil {
+			log.Printf("failed to enqueue video thumbnail for tus upload %s: %v", fileID, err)
+		}
+
+		if videoproxy.ShouldCreateProxyByDefault(upload.MimeType) {
+			queued := "queued"
+			zero := 0
+			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+				"proxy_status":      queued,
+				"proxy_progress":    zero,
+				"proxy_eta_seconds": nil,
+			})
+			if err := h.videoSvc.EnqueueVideoProxy(upload.LibraryID, fileID.String(), false); err != nil {
+				log.Printf("failed to enqueue video proxy for tus upload %s: %v", fileID, err)
+			}
+		} else {
+			notNeeded := "not_needed"
+			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+				"proxy_status":      notNeeded,
+				"proxy_progress":    nil,
+				"proxy_eta_seconds": nil,
+			})
 		}
 	}
 

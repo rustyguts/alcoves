@@ -5,7 +5,15 @@ import { useLibraryTags } from "~/composables/useLibraryTags";
 import { useToast } from "~/composables/useToast";
 import { apiFetch } from "~/utils/api-fetch";
 import AppIcon from "~/components/AppIcon.vue";
-import type { Library, LibraryEntry, LibraryFile, LibraryTag, PaginatedFiles } from "~~/shared/types/api";
+import TagColorPickerDropdown from "~/components/library/TagColorPickerDropdown.vue";
+import { TAG_COLOR_PALETTE } from "~~/shared/tag-colors";
+import type {
+  Library,
+  LibraryEntry,
+  LibraryFile,
+  LibraryTag,
+  PaginatedFiles,
+} from "~~/shared/types/api";
 
 const route = useRoute();
 const libraryId = computed(() => route.params.id as string);
@@ -29,29 +37,27 @@ const {
   creatingTag,
   tagDraftNames,
   createTag,
-  getTagColorChoices,
-  isTagColorUsedByAnotherTag,
-  selectTagColor,
+  updateTagColor,
   saveDraftTagName,
   deleteTag,
 } = useLibraryTags(libraryId, libraryTags, files);
 
-const sortedTags = computed(() => [...libraryTags.value].sort((a, b) => a.name.localeCompare(b.name)));
-
-const tagCountLabel = computed(
-  () => `${libraryTags.value.length} ${libraryTags.value.length === 1 ? "tag" : "tags"}`,
+const sortedTags = computed(() =>
+  [...libraryTags.value].sort((a, b) => a.name.localeCompare(b.name)),
 );
+const createTagColor = ref<string>(TAG_COLOR_PALETTE[0] ?? "#3B82F6");
+const createTagColorDraft = ref<string>(createTagColor.value);
+const tagColorDrafts = reactive<Record<string, string>>({});
+const openColorDropdown = ref<string | null>(null);
 
-const uniqueColorCount = computed(
-  () => new Set(libraryTags.value.map((tag) => tag.color.toUpperCase())).size,
-);
+function closeColorDropdown(event: Event) {
+  const trigger = event.target as HTMLElement | null;
+  if (trigger?.closest("[data-color-dropdown]")) return;
+  openColorDropdown.value = null;
+}
 
-function closeColorDropdown(target: EventTarget | null) {
-  const trigger = target as HTMLElement | null;
-  const details = trigger?.closest("details");
-  if (details) {
-    details.open = false;
-  }
+function toggleColorDropdown(key: string) {
+  openColorDropdown.value = openColorDropdown.value === key ? null : key;
 }
 
 function setUsageCount(tagId: string, count: number) {
@@ -60,11 +66,6 @@ function setUsageCount(tagId: string, count: number) {
 
 function usageCountFor(tagId: string): number {
   return tagUsageCounts[tagId] ?? 0;
-}
-
-function usageLabelFor(tagId: string): string {
-  const count = usageCountFor(tagId);
-  return `${count} ${count === 1 ? "item" : "items"}`;
 }
 
 async function fetchAllEntriesInFolder(folderId: string | null): Promise<LibraryEntry[]> {
@@ -80,7 +81,9 @@ async function fetchAllEntriesInFolder(folderId: string | null): Promise<Library
       query.cursor = cursor;
     }
 
-    const page = await apiFetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, { query });
+    const page = await apiFetch<PaginatedFiles>(`/api/libraries/${libraryId.value}/files`, {
+      query,
+    });
     collected.push(...(page.entries ?? []));
     cursor = page.nextCursor;
   } while (cursor);
@@ -131,9 +134,49 @@ async function refreshTagUsageCounts() {
   }
 }
 
+function selectCreateTagColor(color: string) {
+  createTagColor.value = color.toUpperCase();
+  createTagColorDraft.value = createTagColor.value;
+}
+
+function normalizeHexColor(value: string): string | null {
+  const trimmed = value.trim().toUpperCase();
+  if (!trimmed) return null;
+  const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+  if (/^#[0-9A-F]{6}$/.test(withHash)) return withHash;
+  if (/^#[0-9A-F]{3}$/.test(withHash)) {
+    const chars = withHash.slice(1).split("");
+    return `#${chars[0]}${chars[0]}${chars[1]}${chars[1]}${chars[2]}${chars[2]}`;
+  }
+  return null;
+}
+
+function applyCreateColorDraft() {
+  const normalized = normalizeHexColor(createTagColorDraft.value);
+  if (!normalized) {
+    toast.add({ title: "Color must be a valid hex code", color: "error" });
+    createTagColorDraft.value = createTagColor.value;
+    return;
+  }
+  createTagColor.value = normalized;
+  createTagColorDraft.value = normalized;
+}
+
+async function applyTagColorDraft(tag: LibraryTag) {
+  const draft = tagColorDrafts[tag.id] ?? tag.color;
+  const normalized = normalizeHexColor(draft);
+  if (!normalized) {
+    toast.add({ title: "Color must be a valid hex code", color: "error" });
+    tagColorDrafts[tag.id] = tag.color.toUpperCase();
+    return;
+  }
+  tagColorDrafts[tag.id] = normalized;
+  await updateTagColor(tag, normalized);
+}
+
 async function createTagAndRefresh() {
   const before = new Set(libraryTags.value.map((tag) => tag.id));
-  await createTag();
+  await createTag(createTagColor.value);
   for (const tag of libraryTags.value) {
     if (!before.has(tag.id)) {
       setUsageCount(tag.id, 0);
@@ -151,6 +194,7 @@ async function refreshTags() {
 }
 
 onMounted(async () => {
+  document.addEventListener("click", closeColorDropdown);
   try {
     await Promise.all([refreshTags(), refreshTagUsageCounts()]);
   } catch {
@@ -173,157 +217,139 @@ watch(
     }
   },
 );
+
+watch(sortedTags, () => {
+  createTagColorDraft.value = createTagColor.value;
+  for (const tag of sortedTags.value) {
+    tagColorDrafts[tag.id] = tag.color.toUpperCase();
+  }
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", closeColorDropdown);
+});
 </script>
 
 <template>
   <div class="flex w-full flex-1 flex-col gap-4 overflow-y-auto pb-6">
     <section class="card border border-base-300/70 bg-base-100 shadow-sm">
-      <div class="card-body gap-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 class="text-xl font-semibold">Tag Manager</h1>
-            <p class="text-sm text-base-content/70">Add labels to organize files and folders.</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="badge badge-primary badge-outline">{{ tagCountLabel }}</span>
-            <span class="badge badge-ghost badge-outline">
-              {{ uniqueColorCount }} {{ uniqueColorCount === 1 ? "color" : "colors" }}
-            </span>
-            <button
-              class="btn btn-ghost btn-sm"
-              :disabled="loadingUsage"
-              title="Refresh usage counts"
-              @click="refreshTagUsageCounts"
-            >
-              <span v-if="loadingUsage" class="loading loading-spinner loading-xs"></span>
-              <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
-            </button>
-          </div>
-        </div>
-
-        <div class="rounded-box border border-base-300/70 bg-base-200/30 p-3">
-          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-            <div class="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:max-w-md">
-              <label class="input input-sm w-full">
-                <AppIcon name="i-lucide-tag" class="size-4 text-base-content/60" />
-                <input
-                  v-model="createTagName"
-                  placeholder="Design docs"
-                  @keydown.enter="createTagAndRefresh"
-                />
-              </label>
-              <button
-                class="btn btn-primary btn-sm"
-                :disabled="!createTagName.trim() || creatingTag"
-                @click="createTagAndRefresh"
-              >
-                <span v-if="creatingTag" class="loading loading-spinner loading-xs"></span>
-                <AppIcon v-else name="i-lucide-plus" class="size-4" />
-                Create
-              </button>
-            </div>
-
-            <div class="flex flex-1 flex-wrap gap-2">
-              <span
-                v-for="tag in sortedTags"
-                :key="`chip-${tag.id}`"
-                class="badge badge-sm border-base-300 bg-base-100 px-3 py-3"
-              >
-                <span class="mr-2 size-2 rounded-full" :style="{ backgroundColor: tag.color }" />
-                {{ tag.name }}
-                <span class="ml-2 text-xs text-base-content/60">{{ usageCountFor(tag.id) }}</span>
-              </span>
-              <span v-if="!sortedTags.length" class="text-xs text-base-content/60">
-                No tags yet
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card border border-base-300/70 bg-base-100 shadow-sm">
       <div class="card-body gap-3">
-        <h2 class="card-title text-base">Manage Tags</h2>
-
-        <div v-if="loading" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div v-for="i in 6" :key="i" class="rounded-box border border-base-300/70 bg-base-200/50 p-3">
-            <div class="mb-2 flex items-center justify-between">
-              <div class="skeleton size-7 rounded-full"></div>
-              <div class="skeleton h-4 w-16"></div>
-            </div>
-            <div class="skeleton h-9 w-full"></div>
-          </div>
+        <div class="flex items-center justify-between gap-3">
+          <h1 class="text-xl font-semibold">Manage Tags</h1>
+          <button
+            class="btn btn-soft btn-ghost btn-sm"
+            :disabled="loadingUsage"
+            title="Refresh usage counts"
+            @click="refreshTagUsageCounts"
+          >
+            <span v-if="loadingUsage" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
+          </button>
         </div>
 
-        <div v-else-if="sortedTags.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <article
-            v-for="tag in sortedTags"
-            :key="tag.id"
-            class="rounded-box border border-base-300/70 bg-base-200/40 p-3"
-          >
-            <div class="mb-2 flex items-center justify-between gap-2">
-              <details class="dropdown">
-                <summary class="btn btn-sm btn-circle btn-ghost p-0">
-                  <span
-                    class="size-7 rounded-full border-2 border-base-300 shadow-sm"
-                    :style="{ backgroundColor: tag.color }"
-                    :title="`Tag color: ${tag.color}`"
+        <div class="relative rounded-box border border-base-300/70">
+          <table class="table table-zebra w-full sm:table-fixed">
+            <thead>
+              <tr>
+                <th class="w-14 sm:w-20">Color</th>
+                <th>Name</th>
+                <th class="hidden w-16 text-right sm:table-cell sm:w-24">Items</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <TagColorPickerDropdown
+                    key-id="create"
+                    :open="openColorDropdown === 'create'"
+                    :color="createTagColor"
+                    :draft="createTagColorDraft"
+                    :palette="TAG_COLOR_PALETTE"
+                    title="Select new tag color"
+                    @toggle="toggleColorDropdown('create')"
+                    @pick="selectCreateTagColor"
+                    @update-draft="createTagColorDraft = $event"
+                    @commit-draft="applyCreateColorDraft"
                   />
-                </summary>
-                <div class="dropdown-content rounded-box z-20 mt-2 w-64 border border-base-300/80 bg-base-100 p-3 shadow-xl">
-                  <div class="mb-2 text-xs font-medium text-base-content/70">Choose color</div>
-                  <div class="grid grid-cols-4 gap-2">
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input
+                      v-model="createTagName"
+                      class="input input-sm min-w-0 flex-1"
+                      placeholder="New tag"
+                      @keydown.enter="createTagAndRefresh"
+                    />
                     <button
-                      v-for="color in getTagColorChoices(tag)"
-                      :key="`${tag.id}-${color}`"
-                      type="button"
-                      class="relative size-10 rounded-full border border-base-300 transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-                      :class="color === tag.color.toUpperCase() ? 'ring-2 ring-primary/40' : ''"
-                      :style="{ backgroundColor: color }"
-                      :title="isTagColorUsedByAnotherTag(tag.id, color) ? `${color} (used)` : color"
-                      :disabled="isTagColorUsedByAnotherTag(tag.id, color)"
-                      @click="selectTagColor(tag, color); closeColorDropdown($event.currentTarget)"
+                      class="btn btn-soft btn-primary btn-sm btn-square shrink-0"
+                      :disabled="!createTagName.trim() || creatingTag"
+                      @click="createTagAndRefresh"
                     >
-                      <AppIcon
-                        v-if="color === tag.color.toUpperCase()"
-                        name="i-lucide-check"
-                        class="absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow"
-                      />
+                      <span v-if="creatingTag" class="loading loading-spinner loading-xs"></span>
+                      <AppIcon v-else name="i-lucide-plus" class="size-4" />
                     </button>
                   </div>
-                </div>
-              </details>
-              <div class="flex items-center gap-2">
-                <span class="badge badge-ghost badge-outline">{{ tag.color.toUpperCase() }}</span>
-                <span class="badge badge-neutral badge-outline">
-                  {{ loadingUsage ? "..." : usageLabelFor(tag.id) }}
-                </span>
-              </div>
-            </div>
+                </td>
+                <td class="hidden text-right text-sm text-base-content/60 sm:table-cell">-</td>
+              </tr>
 
-            <input
-              v-model="tagDraftNames[tag.id]"
-              class="input input-sm w-full"
-              @blur="saveDraftTagName(tag)"
-              @keydown.enter="saveDraftTagName(tag)"
-            />
+              <tr v-if="loading">
+                <td colspan="3">
+                  <div class="flex items-center gap-2 py-2 text-sm text-base-content/70">
+                    <span class="loading loading-spinner loading-sm"></span>
+                    Loading tags
+                  </div>
+                </td>
+              </tr>
 
-            <div class="mt-2 flex justify-end">
-              <button class="btn btn-error btn-soft btn-xs" @click="deleteTagAndRefresh(tag.id)">
-                <AppIcon name="i-lucide-trash-2" class="size-3.5" />
-                Delete
-              </button>
-            </div>
-          </article>
-        </div>
+              <tr v-for="tag in sortedTags" :key="tag.id">
+                <td>
+                  <TagColorPickerDropdown
+                    :key-id="tag.id"
+                    :open="openColorDropdown === tag.id"
+                    :color="tag.color"
+                    :draft="tagColorDrafts[tag.id]"
+                    :palette="TAG_COLOR_PALETTE"
+                    @toggle="toggleColorDropdown(tag.id)"
+                    @pick="
+                      (color) => {
+                        updateTagColor(tag, color);
+                        tagColorDrafts[tag.id] = color;
+                      }
+                    "
+                    @update-draft="tagColorDrafts[tag.id] = $event"
+                    @commit-draft="applyTagColorDraft(tag)"
+                  />
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input
+                      v-model="tagDraftNames[tag.id]"
+                      class="input input-sm w-full"
+                      @blur="saveDraftTagName(tag)"
+                      @keydown.enter="saveDraftTagName(tag)"
+                    />
+                    <button
+                      class="btn btn-soft btn-error btn-sm btn-square"
+                      @click="deleteTagAndRefresh(tag.id)"
+                    >
+                      <AppIcon name="i-lucide-trash-2" class="size-4" />
+                    </button>
+                  </div>
+                </td>
+                <td class="hidden text-right text-sm sm:table-cell">
+                  <span v-if="loadingUsage" class="text-base-content/60">...</span>
+                  <span v-else class="font-semibold">{{ usageCountFor(tag.id) }}</span>
+                </td>
+              </tr>
 
-        <div v-else class="rounded-box border border-dashed border-base-300 p-10 text-center">
-          <AppIcon name="i-lucide-tags" class="mx-auto mb-3 size-9 text-base-content/50" />
-          <p class="text-sm font-medium">No tags yet</p>
-          <p class="mt-1 text-xs text-base-content/60">
-            Create your first tag to start organizing content.
-          </p>
+              <tr v-if="!loading && !sortedTags.length">
+                <td colspan="3" class="py-8 text-center text-sm text-base-content/60">
+                  No tags yet
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>

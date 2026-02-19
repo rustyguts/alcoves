@@ -26,6 +26,7 @@ function makeFolder(
     trashedAt: null,
     createdAt: "2025-01-01T00:00:00Z",
     updatedAt: "2025-01-01T00:00:00Z",
+    owner: null,
     tags: [],
     ...overrides,
   };

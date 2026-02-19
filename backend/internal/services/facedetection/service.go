@@ -3,6 +3,7 @@ package facedetection
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -29,13 +30,15 @@ func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Cli
 	}
 }
 
+const completedTaskRetention = 24 * time.Hour
+
 // EnqueueFaceDetection enqueues a face detection task for a single file.
 func (s *Service) EnqueueFaceDetection(libraryID, fileID string) error {
 	task, err := NewFaceDetectTask(libraryID, fileID)
 	if err != nil {
 		return fmt.Errorf("failed to create face detect task: %w", err)
 	}
-	_, err = s.asynqClient.Enqueue(task)
+	_, err = s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention))
 	if err != nil {
 		return fmt.Errorf("failed to enqueue face detect task: %w", err)
 	}

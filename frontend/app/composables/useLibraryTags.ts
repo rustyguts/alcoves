@@ -109,14 +109,15 @@ export function useLibraryTags(
     }
   }
 
-  async function createTag() {
+  async function createTag(color?: string) {
     const name = createTagName.value.trim();
     if (!name) return;
     creatingTag.value = true;
     try {
+      const normalizedColor = color?.trim().toUpperCase();
       const tag = await apiFetch<LibraryTag>(`/api/libraries/${libraryId.value}/tags`, {
         method: "POST",
-        body: { name },
+        body: normalizedColor ? { name, color: normalizedColor } : { name },
       });
       libraryTags.value = [...libraryTags.value, tag].sort((a, b) => a.name.localeCompare(b.name));
       createTagName.value = "";
@@ -132,10 +133,13 @@ export function useLibraryTags(
     if (normalized === tag.color.toUpperCase()) return;
 
     try {
-      const updated = await apiFetch<LibraryTag>(`/api/libraries/${libraryId.value}/tags/${tag.id}`, {
-        method: "PATCH",
-        body: { color: normalized },
-      });
+      const updated = await apiFetch<LibraryTag>(
+        `/api/libraries/${libraryId.value}/tags/${tag.id}`,
+        {
+          method: "PATCH",
+          body: { color: normalized },
+        },
+      );
       replaceTag(updated);
     } catch {
       toast.add({ title: "Failed to update tag color", color: "error" });
@@ -156,7 +160,6 @@ export function useLibraryTags(
   }
 
   function selectTagColor(tag: LibraryTag, color: string) {
-    if (isTagColorUsedByAnotherTag(tag.id, color)) return;
     updateTagColor(tag, color);
   }
 
@@ -164,10 +167,13 @@ export function useLibraryTags(
     const name = nextName.trim();
     if (!name || name === tag.name) return;
     try {
-      const updated = await apiFetch<LibraryTag>(`/api/libraries/${libraryId.value}/tags/${tag.id}`, {
-        method: "PATCH",
-        body: { name },
-      });
+      const updated = await apiFetch<LibraryTag>(
+        `/api/libraries/${libraryId.value}/tags/${tag.id}`,
+        {
+          method: "PATCH",
+          body: { name },
+        },
+      );
       replaceTag(updated);
     } catch {
       toast.add({ title: "Failed to rename tag", color: "error" });

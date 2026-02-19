@@ -10,6 +10,9 @@ jobs:
   unit-and-coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
 
     steps:
       - name: Checkout repository
@@ -39,12 +42,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage/
+          path: frontend/coverage/
           if-no-files-found: error
 
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
 
     services:
       postgres:

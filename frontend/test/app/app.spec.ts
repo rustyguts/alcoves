@@ -18,6 +18,13 @@ vi.mock("~/composables/useUploadQueue", () => ({
   }),
 }));
 
+vi.mock("~/composables/useTheme", () => ({
+  useTheme: () => ({
+    theme: { value: "light" },
+    preference: { value: "auto" },
+  }),
+}));
+
 vi.mock("vue-router", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {

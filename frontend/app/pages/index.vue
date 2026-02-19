@@ -12,13 +12,17 @@ const router = useRouter();
 
 const { data: libraries } = useApiFetch<Library[]>("/api/libraries");
 
-watch(libraries, (libs) => {
-  if (!libs) return;
-  const defaultLibrary = libs.find((l) => l.isDefault);
-  if (defaultLibrary) {
-    router.replace(`/libraries/${defaultLibrary.id}`);
-  }
-}, { immediate: true });
+watch(
+  libraries,
+  (libs) => {
+    if (!libs) return;
+    const defaultLibrary = libs.find((l) => l.isDefault);
+    if (defaultLibrary) {
+      router.replace(`/libraries/${defaultLibrary.id}`);
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>

@@ -43,6 +43,9 @@ func (h *FileHandler) RegisterRoutes(g *echo.Group) {
 	g.GET("/:id/files/:fileId", h.Get)
 	g.PATCH("/:id/files/:fileId", h.Update)
 	g.DELETE("/:id/files/:fileId", h.Delete)
+	g.GET("/:id/files/:fileId/playback-sources", h.PlaybackSources)
+	g.POST("/:id/files/:fileId/proxy", h.GenerateProxy)
+	g.POST("/:id/files/video-thumbnails/reprocess", h.ReprocessVideoThumbnails)
 	g.GET("/:id/files/:fileId/proxy", h.Proxy)
 	g.GET("/:id/files/:fileId/thumbnail", h.Thumbnail)
 	g.POST("/:id/files/purge", h.Purge)
@@ -121,6 +124,7 @@ func (h *FileHandler) Upload(c echo.Context) error {
 
 	// Trigger video proxy generation for video files
 	h.maybeEnqueueVideoProxy(libraryID, fileID, mimeType)
+	h.maybeEnqueueVideoThumbnail(libraryID, fileID, mimeType)
 
 	return c.JSON(http.StatusOK, fileToJSON(&file))
 }
@@ -340,18 +344,40 @@ func (h *FileHandler) Purge(c echo.Context) error {
 		}
 	}
 
-	// Delete original files from disk first, before touching the DB.
-	// If any storage delete fails we stop early and leave the DB intact.
-	for _, f := range filesToPurge {
-		if err := h.storageSvc.DeleteFileBlob(f.LibraryID.String(), f.ID.String()); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete file from disk")
-		}
-	}
-
-	// Collect IDs for the DB cleanup.
+	// Collect IDs for the source files being purged.
 	fileIDs := make([]string, 0, len(filesToPurge))
 	for _, f := range filesToPurge {
 		fileIDs = append(fileIDs, f.ID.String())
+	}
+
+	// Load all derived files (proxies, thumbnails) whose source is being purged.
+	// These are stored in the files table with source_file_id pointing at a source file.
+	var derivedFiles []models.File
+	if len(fileIDs) > 0 {
+		if err := h.db.Where("source_file_id IN ?", fileIDs).Find(&derivedFiles).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load derived files for purge")
+		}
+	}
+
+	// Delete blobs for all source files and their derived files (proxies, thumbnails) from disk
+	// first, before touching the DB. If any storage delete fails we stop early and leave the DB intact.
+	for _, f := range filesToPurge {
+		// Delete the source blob and legacy cache artifacts (proxy.mp4, thumbnail.webp).
+		if err := h.storageSvc.DeleteFile(f.LibraryID.String(), f.ID.String()); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete file from disk")
+		}
+	}
+	for _, f := range derivedFiles {
+		// Delete the derived file blob (proxy or thumbnail stored under its own file ID).
+		if err := h.storageSvc.DeleteFileBlob(f.LibraryID.String(), f.ID.String()); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete derived file from disk")
+		}
+	}
+
+	// Collect derived file IDs for DB cleanup.
+	derivedFileIDs := make([]string, 0, len(derivedFiles))
+	for _, f := range derivedFiles {
+		derivedFileIDs = append(derivedFileIDs, f.ID.String())
 	}
 
 	purgedCount := 0
@@ -359,18 +385,20 @@ func (h *FileHandler) Purge(c echo.Context) error {
 	// All DB mutations inside a transaction.
 	err := h.db.Transaction(func(tx *gorm.DB) error {
 		if len(fileIDs) > 0 {
-			// Remove file-tag associations
+			// Remove file-tag associations for source files.
 			if err := tx.Where("file_id IN ?", fileIDs).Delete(&models.FileTag{}).Error; err != nil {
 				return fmt.Errorf("failed to delete file tags: %w", err)
 			}
 
-			// Clear source_file_id references so proxy rows don't have dangling FKs
-			if err := tx.Model(&models.File{}).Where("source_file_id IN ?", fileIDs).
-				Update("source_file_id", nil).Error; err != nil {
-				return fmt.Errorf("failed to clear source file references: %w", err)
+			// Delete derived file rows (proxies and thumbnails) that reference the source files.
+			// These are never user-visible but must be cleaned up when the source is purged.
+			if len(derivedFileIDs) > 0 {
+				if err := tx.Where("id IN ?", derivedFileIDs).Delete(&models.File{}).Error; err != nil {
+					return fmt.Errorf("failed to delete derived files: %w", err)
+				}
 			}
 
-			// Delete the file records
+			// Delete the source file records.
 			result := tx.Where("id IN ? AND library_id = ?", fileIDs, libraryID).Delete(&models.File{})
 			if result.Error != nil {
 				return fmt.Errorf("failed to delete files: %w", result.Error)
@@ -466,14 +494,185 @@ func (h *FileHandler) Restore(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]int64{"restored": result.RowsAffected})
 }
 
+func (h *FileHandler) ReprocessVideoThumbnails(c echo.Context) error {
+	if h.videoSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Video service unavailable")
+	}
+
+	la := middleware.GetLibraryAccess(c)
+	if la == nil || !la.IsOwner {
+		return echo.NewHTTPError(http.StatusForbidden, "Only the library owner can regenerate video thumbnails")
+	}
+
+	libraryID := c.Param("id")
+	queuedCount, err := h.videoSvc.EnqueueExistingVideoThumbnails(libraryID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue video thumbnails")
+	}
+
+	return c.JSON(http.StatusOK, map[string]int{"queuedCount": queuedCount})
+}
+
+type playbackSourceResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	MimeType  string `json:"mimeType"`
+	Kind      string `json:"kind"`
+	StreamURL string `json:"streamUrl"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type playbackSourcesResponse struct {
+	DefaultSourceID string                   `json:"defaultSourceId"`
+	Sources         []playbackSourceResponse `json:"sources"`
+}
+
+func (h *FileHandler) PlaybackSources(c echo.Context) error {
+	libraryID := c.Param("id")
+	fileID := c.Param("fileId")
+
+	var selected models.File
+	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&selected).Error; err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+
+	if !strings.HasPrefix(selected.MimeType, "video/") {
+		return echo.NewHTTPError(http.StatusBadRequest, "Playback sources are only available for video files")
+	}
+
+	sourceID := selected.ID
+	if selected.SourceFileID != nil {
+		sourceID = *selected.SourceFileID
+	}
+
+	var source models.File
+	if err := h.db.Where("id = ? AND library_id = ?", sourceID, libraryID).First(&source).Error; err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Source file not found")
+	}
+
+	var proxies []models.File
+	if err := h.db.
+		Where("source_file_id = ? AND library_id = ? AND trashed_at IS NULL AND mime_type LIKE ?", sourceID, libraryID, "video/%").
+		Order("created_at DESC").
+		Find(&proxies).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load playback sources")
+	}
+
+	defaultSourceID := source.ID.String()
+	if source.ProxyStatus != nil && *source.ProxyStatus == "ready" && len(proxies) > 0 {
+		defaultSourceID = proxies[0].ID.String()
+	}
+
+	sources := make([]playbackSourceResponse, 0, len(proxies)+1)
+	sources = append(sources, playbackSourceResponse{
+		ID:        source.ID.String(),
+		Name:      source.Name,
+		MimeType:  source.MimeType,
+		Kind:      "source",
+		StreamURL: fmt.Sprintf("/api/libraries/%s/files/%s?inline=true", libraryID, source.ID.String()),
+		CreatedAt: source.CreatedAt.Format(time.RFC3339Nano),
+	})
+	for _, proxy := range proxies {
+		sources = append(sources, playbackSourceResponse{
+			ID:        proxy.ID.String(),
+			Name:      proxy.Name,
+			MimeType:  proxy.MimeType,
+			Kind:      "proxy",
+			StreamURL: fmt.Sprintf("/api/libraries/%s/files/%s?inline=true", libraryID, proxy.ID.String()),
+			CreatedAt: proxy.CreatedAt.Format(time.RFC3339Nano),
+		})
+	}
+
+	if len(proxies) == 0 && source.ProxyStatus != nil && *source.ProxyStatus == "ready" {
+		cacheKey := fmt.Sprintf("%s/%s/proxy.mp4", libraryID, source.ID.String())
+		if exists, _ := h.storageSvc.CacheExists(cacheKey); exists {
+			defaultSourceID = source.ID.String() + "::legacy-proxy"
+			sources = append(sources, playbackSourceResponse{
+				ID:        defaultSourceID,
+				Name:      "Legacy Proxy",
+				MimeType:  "video/mp4",
+				Kind:      "proxy",
+				StreamURL: fmt.Sprintf("/api/libraries/%s/files/%s/proxy", libraryID, source.ID.String()),
+				CreatedAt: source.UpdatedAt.Format(time.RFC3339Nano),
+			})
+		}
+	}
+
+	return c.JSON(http.StatusOK, playbackSourcesResponse{DefaultSourceID: defaultSourceID, Sources: sources})
+}
+
+func (h *FileHandler) GenerateProxy(c echo.Context) error {
+	if h.videoSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Video proxy service unavailable")
+	}
+
+	libraryID := c.Param("id")
+	fileID := c.Param("fileId")
+
+	var file models.File
+	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+
+	if !strings.HasPrefix(file.MimeType, "video/") {
+		return echo.NewHTTPError(http.StatusBadRequest, "File is not a video")
+	}
+	if file.SourceFileID != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Cannot generate proxy for proxy file")
+	}
+
+	now := time.Now()
+	if err := h.db.Model(&models.File{}).
+		Where("source_file_id = ? AND library_id = ? AND trashed_at IS NULL", file.ID, libraryID).
+		Updates(map[string]interface{}{"trashed_at": now, "updated_at": now}).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to expire previous proxies")
+	}
+
+	queued := "queued"
+	zero := 0
+	if err := h.db.Model(&models.File{}).
+		Where("id = ?", file.ID).
+		Updates(map[string]interface{}{
+			"proxy_status":      queued,
+			"proxy_progress":    zero,
+			"proxy_eta_seconds": nil,
+			"updated_at":        now,
+		}).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update file proxy status")
+	}
+
+	if err := h.videoSvc.EnqueueVideoProxy(libraryID, fileID, true); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue video proxy generation")
+	}
+
+	file.ProxyStatus = &queued
+	file.ProxyProgress = &zero
+	file.ProxyEtaSeconds = nil
+
+	return c.JSON(http.StatusOK, fileToJSON(&file))
+}
+
 func (h *FileHandler) Proxy(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
 
 	var file models.File
-	if err := h.db.Select("id, mime_type, proxy_status, name").
+	if err := h.db.Select("id, mime_type, proxy_status, name, source_file_id").
 		Where("id = ? AND library_id = ?", fileID, libraryID).First(&file).Error; err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+
+	if file.SourceFileID != nil {
+		return c.Redirect(http.StatusFound, fmt.Sprintf("/api/libraries/%s/files/%s?inline=true", libraryID, file.ID.String()))
+	}
+
+	var proxyFile models.File
+	err := h.db.Select("id, mime_type").
+		Where("source_file_id = ? AND library_id = ? AND trashed_at IS NULL", file.ID, libraryID).
+		Order("created_at DESC").
+		First(&proxyFile).Error
+	if err == nil {
+		return c.Redirect(http.StatusFound, fmt.Sprintf("/api/libraries/%s/files/%s?inline=true", libraryID, proxyFile.ID.String()))
 	}
 
 	if file.ProxyStatus != nil && *file.ProxyStatus == "not_needed" {
@@ -482,7 +681,7 @@ func (h *FileHandler) Proxy(c echo.Context) error {
 
 	if file.ProxyStatus == nil || *file.ProxyStatus != "ready" {
 		msg := "No proxy available"
-		if file.ProxyStatus != nil && *file.ProxyStatus == "processing" {
+		if file.ProxyStatus != nil && (*file.ProxyStatus == "processing" || *file.ProxyStatus == "queued") {
 			msg = "Proxy is still processing"
 		}
 		return echo.NewHTTPError(http.StatusNotFound, msg)
@@ -540,8 +739,12 @@ func (h *FileHandler) Thumbnail(c echo.Context) error {
 
 	// Check file exists
 	var file models.File
-	if err := h.db.Select("id").Where("id = ? AND library_id = ?", fileID, libraryID).First(&file).Error; err != nil {
+	if err := h.db.Select("id, thumbnail_file_id").Where("id = ? AND library_id = ?", fileID, libraryID).First(&file).Error; err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+
+	if file.ThumbnailFileID != nil {
+		return c.Redirect(http.StatusFound, fmt.Sprintf("/api/libraries/%s/files/%s?inline=true", libraryID, file.ThumbnailFileID.String()))
 	}
 
 	cacheKey := fmt.Sprintf("%s/%s/thumbnail.webp", libraryID, fileID)
@@ -561,21 +764,24 @@ func (h *FileHandler) Thumbnail(c echo.Context) error {
 
 func fileToJSON(f *models.File) map[string]interface{} {
 	result := map[string]interface{}{
-		"id":             f.ID.String(),
-		"libraryId":      f.LibraryID.String(),
-		"parentFolderId": uuidPtr(f.ParentFolderID),
-		"name":           f.Name,
-		"kind":           "file",
-		"mimeType":       f.MimeType,
-		"size":           f.Size,
-		"duration":       f.Duration,
-		"width":          f.Width,
-		"height":         f.Height,
-		"proxyStatus":    f.ProxyStatus,
-		"sourceFileId":   uuidPtr(f.SourceFileID),
-		"trashedAt":      timeStr(f.TrashedAt),
-		"createdAt":      f.CreatedAt.Format(time.RFC3339Nano),
-		"updatedAt":      f.UpdatedAt.Format(time.RFC3339Nano),
+		"id":              f.ID.String(),
+		"libraryId":       f.LibraryID.String(),
+		"parentFolderId":  uuidPtr(f.ParentFolderID),
+		"name":            f.Name,
+		"kind":            "file",
+		"mimeType":        f.MimeType,
+		"size":            f.Size,
+		"duration":        f.Duration,
+		"width":           f.Width,
+		"height":          f.Height,
+		"proxyStatus":     f.ProxyStatus,
+		"proxyProgress":   f.ProxyProgress,
+		"proxyEtaSeconds": f.ProxyEtaSeconds,
+		"thumbnailFileId": uuidPtr(f.ThumbnailFileID),
+		"sourceFileId":    uuidPtr(f.SourceFileID),
+		"trashedAt":       timeStr(f.TrashedAt),
+		"createdAt":       f.CreatedAt.Format(time.RFC3339Nano),
+		"updatedAt":       f.UpdatedAt.Format(time.RFC3339Nano),
 	}
 	if f.OriginalCreatedAt != nil {
 		result["originalCreatedAt"] = f.OriginalCreatedAt.Format(time.RFC3339Nano)
@@ -644,8 +850,36 @@ func (h *FileHandler) maybeEnqueueVideoProxy(libraryID, fileID uuid.UUID, mimeTy
 	if h.videoSvc == nil || !strings.HasPrefix(mimeType, "video/") {
 		return
 	}
-	if err := h.videoSvc.EnqueueVideoProxy(libraryID.String(), fileID.String()); err != nil {
+	if !videoproxy.ShouldCreateProxyByDefault(mimeType) {
+		notNeeded := "not_needed"
+		h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+			"proxy_status":      notNeeded,
+			"proxy_progress":    nil,
+			"proxy_eta_seconds": nil,
+		})
+		return
+	}
+
+	queued := "queued"
+	zero := 0
+	h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+		"proxy_status":      queued,
+		"proxy_progress":    zero,
+		"proxy_eta_seconds": nil,
+	})
+
+	if err := h.videoSvc.EnqueueVideoProxy(libraryID.String(), fileID.String(), false); err != nil {
 		log.Printf("failed to enqueue video proxy for file %s: %v", fileID, err)
+	}
+}
+
+func (h *FileHandler) maybeEnqueueVideoThumbnail(libraryID, fileID uuid.UUID, mimeType string) {
+	if h.videoSvc == nil || !strings.HasPrefix(mimeType, "video/") {
+		return
+	}
+
+	if err := h.videoSvc.EnqueueVideoThumbnail(libraryID.String(), fileID.String()); err != nil {
+		log.Printf("failed to enqueue video thumbnail for file %s: %v", fileID, err)
 	}
 }
 

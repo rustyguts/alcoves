@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from "vue-router";
 import AppIcon from "~/components/AppIcon.vue";
+import AppContextMenu from "~/components/AppContextMenu.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
 import FilePreview from "~/components/FilePreview.vue";
 import { useToast } from "~/composables/useToast";
@@ -24,7 +25,6 @@ const fileCache = ref<Record<string, LibraryFile>>({});
 
 const contextMenuFace = ref<PersonFace | null>(null);
 const contextMenuPosition = ref<{ x: number; y: number } | null>(null);
-const contextMenuPanel = ref<HTMLElement | null>(null);
 
 const personLabel = computed(() => person.value?.name?.trim() || "Unnamed person");
 const previewFiles = computed<LibraryFile[]>(() => {
@@ -82,23 +82,6 @@ function showFaceContextMenu(face: PersonFace, event: MouseEvent) {
   event.preventDefault();
   contextMenuFace.value = face;
   contextMenuPosition.value = { x: event.clientX, y: event.clientY };
-
-  nextTick(() => {
-    const panel = contextMenuPanel.value;
-    const position = contextMenuPosition.value;
-    if (!panel || !position) return;
-
-    const margin = 8;
-    const panelWidth = panel.offsetWidth;
-    const panelHeight = panel.offsetHeight;
-    const maxX = window.innerWidth - panelWidth - margin;
-    const maxY = window.innerHeight - panelHeight - margin;
-
-    contextMenuPosition.value = {
-      x: Math.max(margin, Math.min(position.x, maxX)),
-      y: Math.max(margin, Math.min(position.y, maxY)),
-    };
-  });
 }
 
 function hideFaceContextMenu() {
@@ -232,41 +215,28 @@ onMounted(() => {
       <p class="text-sm text-muted">No faces available for this person</p>
     </div>
 
-    <Teleport to="body">
-      <div
-        v-if="contextMenuFace && contextMenuPosition"
-        class="fixed inset-0 z-40"
-        @click="hideFaceContextMenu"
-        @contextmenu.prevent="hideFaceContextMenu"
+    <AppContextMenu
+      :open="!!contextMenuFace && !!contextMenuPosition"
+      :position="contextMenuPosition"
+      @close="hideFaceContextMenu"
+    >
+      <ul
+        class="menu menu-sm dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl min-w-56 p-2"
       >
-        <div
-          ref="contextMenuPanel"
-          class="dropdown dropdown-open absolute z-50"
-          :style="{
-            left: `${contextMenuPosition.x}px`,
-            top: `${contextMenuPosition.y}px`,
-          }"
-          @click.stop
-        >
-          <ul
-            class="menu menu-sm dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl min-w-56 p-2"
-          >
-            <li>
-              <button type="button" @click="handleFaceAction('update-cover')">
-                <AppIcon name="i-lucide-image-up" class="size-4 shrink-0" />
-                <span>Update cover photo</span>
-              </button>
-            </li>
-            <li>
-              <button type="button" @click="handleFaceAction('new-person')">
-                <AppIcon name="i-lucide-user-round-plus" class="size-4 shrink-0" />
-                <span>New person</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </Teleport>
+        <li>
+          <button type="button" @click="handleFaceAction('update-cover')">
+            <AppIcon name="i-lucide-image-up" class="size-4 shrink-0" />
+            <span>Update cover photo</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" @click="handleFaceAction('new-person')">
+            <AppIcon name="i-lucide-user-round-plus" class="size-4 shrink-0" />
+            <span>New person</span>
+          </button>
+        </li>
+      </ul>
+    </AppContextMenu>
 
     <FilePreview
       v-if="previewFile"

@@ -5,6 +5,14 @@ import { useToast } from "~/composables/useToast";
 
 const MAX_ZIP_SIZE_BYTES = 4 * 1024 * 1024 * 1024; // 4 GB - must match server
 
+function buildZipDownloadName() {
+  const utc = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
+  return `alcoves-download-${utc}.zip`;
+}
+
 interface DownloadEstimate {
   totalSize: number;
   fileCount: number;
@@ -67,7 +75,7 @@ export function useDownloadZip(libraryId: Ref<string> | ComputedRef<string>) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "download.zip";
+      link.download = buildZipDownloadName();
       link.click();
       URL.revokeObjectURL(url);
 

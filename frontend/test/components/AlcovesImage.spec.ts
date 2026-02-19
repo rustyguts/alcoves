@@ -31,9 +31,7 @@ describe("AlcovesImage", () => {
     });
 
     const img = wrapper.get("img");
-    expect(img.attributes("src")).toBe(
-      "/api/files/proxy/lib-2/file-2?format=jpeg&quality=80",
-    );
+    expect(img.attributes("src")).toBe("/api/files/proxy/lib-2/file-2?format=jpeg&quality=80");
     expect(img.attributes("loading")).toBe("lazy");
     expect(img.attributes("decoding")).toBe("async");
   });
