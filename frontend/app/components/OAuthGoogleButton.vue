@@ -13,7 +13,7 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <a :href="href" class="btn" :class="block ? 'btn-block' : ''">
+  <a :href="href" class="btn bg-base-300" :class="block ? 'btn-block' : ''">
     <svg class="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="#4285F4"

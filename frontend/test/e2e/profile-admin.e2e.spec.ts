@@ -1,4 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page, type Route } from "@playwright/test";
+
+const snapshotsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "snapshots");
 
 type MockState = {
   loggedIn: boolean;
@@ -176,6 +180,7 @@ test.describe("Profile page", () => {
     await expect(page.getByText("admin@example.com")).toBeVisible();
     await page.getByRole("button", { name: "Admin User" }).click();
     await expect(page.locator("input[placeholder='Your display name']")).toHaveValue("Admin User");
+    await page.screenshot({ path: path.join(snapshotsDir, "profile-form.png") });
   });
 
   test("shows active sessions", async ({ page }) => {
@@ -186,6 +191,7 @@ test.describe("Profile page", () => {
     await expect(page.getByRole("heading", { name: "Active Sessions" })).toBeVisible();
     // Should show at least one session
     await expect(page.getByText(/Chrome/)).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "profile-sessions.png") });
   });
 });
 
@@ -199,6 +205,7 @@ test.describe("Admin page", () => {
     await expect(page.getByText("Files")).toBeVisible();
     await expect(page.getByText("42")).toBeVisible();
     await expect(page.getByText("Storage")).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "admin-dashboard.png") });
   });
 
   test("shows user management table", async ({ page }) => {
@@ -210,6 +217,7 @@ test.describe("Admin page", () => {
     await expect(page.getByText("Admin User")).toBeVisible();
     await expect(page.getByText("Regular User")).toBeVisible();
     await expect(page.locator(".badge").filter({ hasText: "2" }).first()).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "admin-users.png") });
   });
 
   test("shows role controls in the users table", async ({ page }) => {
@@ -221,5 +229,6 @@ test.describe("Admin page", () => {
     await expect(roleSelects).toHaveCount(2);
     await expect(roleSelects.nth(0)).toHaveValue("owner");
     await expect(roleSelects.nth(1)).toHaveValue("member");
+    await page.screenshot({ path: path.join(snapshotsDir, "admin-role-controls.png") });
   });
 });

@@ -1,4 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page, type Route } from "@playwright/test";
+
+const snapshotsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "snapshots");
 
 type MockState = {
   loggedIn: boolean;
@@ -243,6 +247,7 @@ test.describe("Library management flows", () => {
     await page.goto("/");
     // The home page should show libraries or redirect
     await expect(page).toHaveURL(/\/(libraries\/lib-personal)?$/);
+    await page.screenshot({ path: path.join(snapshotsDir, "library-home.png") });
   });
 
   test("shows library with folders in file listing", async ({ page }) => {
@@ -279,6 +284,7 @@ test.describe("Library management flows", () => {
 
     await page.goto("/libraries/lib-1");
     await expect(page.getByText("Vacation 2025")).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "library-files.png") });
   });
 
   test("shows library tags page with existing tags", async ({ page }) => {
@@ -320,6 +326,7 @@ test.describe("Library management flows", () => {
     await page.goto("/libraries/lib-1/tags");
     await expect(page.getByRole("heading", { name: "Manage Tags" })).toBeVisible();
     await expect(page.locator("button.btn-error.btn-sm.btn-square")).toHaveCount(2);
+    await page.screenshot({ path: path.join(snapshotsDir, "library-tags.png") });
   });
 
   test("navigates between library settings sections", async ({ page }) => {
@@ -343,6 +350,7 @@ test.describe("Library management flows", () => {
 
     await page.goto("/libraries/lib-1/settings");
     await expect(page.getByRole("heading", { name: "Shared Library" })).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "library-settings.png") });
   });
 
   test("navigation tab buttons meet minimum height", async ({ page }) => {
@@ -417,6 +425,7 @@ test.describe("Library management flows", () => {
     const box = await thumbnail.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.height).toBeGreaterThanOrEqual(140);
+    await page.screenshot({ path: path.join(snapshotsDir, "library-card-view.png") });
   });
 
   test("redirects unauthenticated users away from library pages", async ({ page }) => {

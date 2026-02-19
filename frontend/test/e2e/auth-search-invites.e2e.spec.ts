@@ -1,4 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page, type Route } from "@playwright/test";
+
+const snapshotsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "snapshots");
 
 type Role = "owner" | "viewer";
 
@@ -266,6 +270,7 @@ test.describe("Auth and core app flows", () => {
     await page.goto("/search?q=plan", { waitUntil: "networkidle" });
 
     await expect(page).toHaveURL(/\/login\?redirect=\/search\?q=plan/);
+    await page.screenshot({ path: path.join(snapshotsDir, "login-redirect.png") });
   });
 
   test("shows google auth failure message from query", async ({ page }) => {
@@ -275,6 +280,7 @@ test.describe("Auth and core app flows", () => {
     await page.goto("/login?error=google");
 
     await expect(page.getByText("Google sign-in failed. Please try again.")).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "login-google-error.png") });
   });
 
   test("preserves redirect target in login/register cross links", async ({ page }) => {
@@ -292,6 +298,7 @@ test.describe("Auth and core app flows", () => {
       "href",
       "/login?redirect=/search",
     );
+    await page.screenshot({ path: path.join(snapshotsDir, "register-cross-links.png") });
   });
 
   test("shows API error when login fails", async ({ page }) => {
@@ -304,6 +311,7 @@ test.describe("Auth and core app flows", () => {
     await page.getByRole("button", { name: /sign in/i }).click();
 
     await expect(page.getByText("Invalid email or password")).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "login-api-error.png") });
   });
 
   test("logs in and redirects to requested search route", async ({ page }) => {
@@ -317,6 +325,7 @@ test.describe("Auth and core app flows", () => {
 
     await expect(page).toHaveURL(/\/search\?q=plan/);
     await expect(page.getByText("Quarterly Plan.txt")).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "search-results.png") });
   });
 
   test("registers and redirects to requested route", async ({ page }) => {
@@ -332,6 +341,7 @@ test.describe("Auth and core app flows", () => {
 
     await expect(page).toHaveURL(/\/search\?q=folder/);
     await expect(page.getByText("Project Folder")).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "register-page.png") });
   });
 
   test("shows search minimum-length state before query is entered", async ({ page }) => {
@@ -341,6 +351,7 @@ test.describe("Auth and core app flows", () => {
     await page.goto("/search");
 
     await expect(page.getByText("Enter at least 2 characters to start searching.")).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "search-empty.png") });
   });
 
   test("renders invite pending and revoked states", async ({ page }) => {
@@ -352,10 +363,12 @@ test.describe("Auth and core app flows", () => {
       page.getByText("Accept this invitation to get access to the library."),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Accept Invite" })).toBeVisible();
+    await page.screenshot({ path: path.join(snapshotsDir, "invite-pending.png") });
 
     await page.goto("/invites/revoked-token");
     await expect(page.getByText("This invitation was revoked by a library admin.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Accept Invite" })).toHaveCount(0);
+    await page.screenshot({ path: path.join(snapshotsDir, "invite-revoked.png") });
   });
 
   test("accepts invite and navigates to target library", async ({ page }) => {
@@ -366,5 +379,6 @@ test.describe("Auth and core app flows", () => {
     await page.getByRole("button", { name: "Accept Invite" }).click();
 
     await expect(page).toHaveURL(/\/libraries\/lib-default/);
+    await page.screenshot({ path: path.join(snapshotsDir, "invite-accepted.png") });
   });
 });
