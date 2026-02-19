@@ -239,7 +239,7 @@ provide("refreshLibraries", refreshLibraries);
         <!-- Default library nav -->
         <nav class="menu w-full px-2 pt-2">
           <li v-for="item in defaultLibraryItems" :key="item.to">
-            <RouterLink :to="item.to" active-class="active">
+            <RouterLink :to="item.to" active-class="active" class="font-semibold">
               <span v-if="item.emoji" class="text-lg leading-none">{{ item.emoji }}</span>
               {{ item.label }}
             </RouterLink>
@@ -261,7 +261,7 @@ provide("refreshLibraries", refreshLibraries);
         <!-- Library items -->
         <nav class="menu w-full px-2 flex-1 overflow-y-auto">
           <li v-for="item in libraryItems" :key="item.to">
-            <RouterLink :to="item.to" active-class="active">
+            <RouterLink :to="item.to" active-class="active" class="font-semibold">
               <span v-if="item.emoji" class="text-lg leading-none">{{ item.emoji }}</span>
               {{ item.label }}
             </RouterLink>

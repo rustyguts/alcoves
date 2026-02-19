@@ -74,8 +74,20 @@ provide("canManageLibrary", canManageLibrary);
       />
     </template>
 
-    <RouterView v-slot="{ Component }">
-      <component :is="Component" />
-    </RouterView>
+    <div class="relative flex-1 min-h-0">
+      <RouterView v-slot="{ Component, route: tabRoute }">
+        <Transition
+          mode="out-in"
+          enter-active-class="transition-opacity duration-120 ease-out"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition-opacity duration-90 ease-in"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <component :is="Component" :key="tabRoute.path" />
+        </Transition>
+      </RouterView>
+    </div>
   </div>
 </template>

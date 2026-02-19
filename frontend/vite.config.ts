@@ -7,6 +7,9 @@ import { vite as vidstack } from "vidstack/plugins";
 export default defineConfig({
   plugins: [
     vue({
+      features: {
+        prodDevtools: true,
+      },
       template: {
         compilerOptions: {
           isCustomElement: (tag: string) => tag.startsWith("media-"),

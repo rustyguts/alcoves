@@ -64,17 +64,22 @@ const tabs = computed(() => {
 </script>
 
 <template>
-  <div role="tablist" class="tabs tabs-border">
-    <RouterLink
-      v-for="tab in tabs"
-      :key="tab.key"
-      role="tab"
-      :to="tab.to"
-      class="tab gap-1.5"
-      :class="currentTab === tab.key ? 'tab-active' : ''"
-    >
-      <AppIcon :name="tab.icon" class="size-4" />
-      <span class="hidden sm:inline">{{ tab.label }}</span>
-    </RouterLink>
+  <div class="flex flex-wrap items-center gap-2">
+    <div role="tablist" class="tabs tabs-border flex-1 min-w-0 overflow-x-auto whitespace-nowrap">
+      <RouterLink
+        v-for="tab in tabs"
+        :key="tab.key"
+        role="tab"
+        :to="tab.to"
+        class="tab gap-1.5"
+        :class="currentTab === tab.key ? 'tab-active' : ''"
+      >
+        <AppIcon :name="tab.icon" class="size-4" />
+        <span class="hidden sm:inline">{{ tab.label }}</span>
+      </RouterLink>
+    </div>
+    <div class="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto">
+      <slot name="actions" />
+    </div>
   </div>
 </template>

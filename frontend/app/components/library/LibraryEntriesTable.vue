@@ -98,7 +98,7 @@ const emit = defineEmits<{
               />
             </div>
           </td>
-          <td class="px-4 py-3">
+          <td class="px-4 py-3 min-w-0">
             <div v-if="props.isRenaming(entry)" :data-rename-input-entry-id="entry.id">
               <input
                 :value="renameValue"
@@ -111,13 +111,22 @@ const emit = defineEmits<{
                 @click.stop
               />
             </div>
-            <div v-else class="flex items-center gap-1">
-              <span v-if="entry.kind === 'folder'" class="text-sm text-left">
+            <div v-else class="flex items-center gap-1 min-w-0">
+              <span
+                v-if="entry.kind === 'folder'"
+                class="text-sm text-left truncate whitespace-nowrap block"
+                :title="showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name"
+              >
                 {{
                   showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name
                 }}
               </span>
-              <span v-else class="text-sm text-left" :class="showTrashed ? 'opacity-60' : ''">
+              <span
+                v-else
+                class="text-sm text-left truncate whitespace-nowrap block"
+                :class="showTrashed ? 'opacity-60' : ''"
+                :title="entry.name"
+              >
                 {{ entry.name }}
               </span>
             </div>
@@ -147,14 +156,14 @@ const emit = defineEmits<{
             </div>
             <span v-else>-</span>
           </td>
-          <td class="px-4 py-3 text-sm text-muted hidden sm:table-cell">
+          <td class="px-4 py-3 text-sm text-muted whitespace-nowrap hidden sm:table-cell">
             {{
               showTrashed && entry.trashedAt
                 ? formatDate(entry.trashedAt)
                 : formatDate(entry.updatedAt)
             }}
           </td>
-          <td class="px-4 py-3 text-sm text-muted text-right hidden sm:table-cell">
+          <td class="px-4 py-3 text-sm text-muted text-right whitespace-nowrap hidden sm:table-cell">
             {{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}
           </td>
         </tr>

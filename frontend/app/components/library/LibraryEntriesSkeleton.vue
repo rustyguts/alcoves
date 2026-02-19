@@ -9,23 +9,37 @@ defineProps<Props>();
 
 <template>
   <table v-if="entryViewMode === 'file'" class="w-full">
-    <thead class="sticky top-0 z-10">
+    <thead class="sticky top-0 z-10 shadow-[0_1px_0_0] shadow-base-300/70">
       <tr>
-        <th class="w-12 px-4 py-3" />
-        <th class="text-left text-xs font-medium text-muted px-4 py-3">Name</th>
-        <th class="text-left text-xs font-medium text-muted px-4 py-3">Tags</th>
-        <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
+        <th class="w-12 px-4 py-3 bg-base-100/90 backdrop-blur-sm rounded-tl-lg" />
+        <th
+          class="text-left text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm"
+        >
+          Name
+        </th>
+        <th
+          class="text-left text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm"
+        >
+          Tags
+        </th>
+        <th
+          class="text-left text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm hidden sm:table-cell"
+        >
           Owner
         </th>
-        <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
+        <th
+          class="text-left text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm hidden sm:table-cell"
+        >
           {{ showTrashed ? "Trashed" : "Modified" }}
         </th>
-        <th class="text-right text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
+        <th
+          class="text-right text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm hidden sm:table-cell rounded-tr-lg"
+        >
           Size
         </th>
       </tr>
     </thead>
-    <tbody>
+    <tbody class="select-none">
       <tr v-for="i in 8" :key="i">
         <td class="px-4 py-3">
           <div class="skeleton h-5 w-5 rounded" />

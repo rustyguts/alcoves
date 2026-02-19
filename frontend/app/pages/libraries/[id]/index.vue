@@ -1113,6 +1113,7 @@ const emptyStateDescription = computed(() => {
         Drop files to upload to this folder
       </div>
     </div>
+
     <div v-if="library" class="min-h-12 flex items-center gap-2">
       <EmojiPicker
         v-if="canManageLibrary"
