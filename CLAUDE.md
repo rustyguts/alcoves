@@ -1,93 +1,140 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Summary
 
-Alcoves is a self-hosted collaborative file library built with Nuxt 4 + Vue 3.
+Alcoves is a self-hosted collaborative file library with a Vue 3 + Vite frontend and a Go backend.
 It has:
 
-- Nuxt UI v4 frontend (`app/`)
-- Nitro/H3 API backend (`server/api/`)
-- Drizzle ORM with PostgreSQL (`server/database/`)
-- Session auth with optional Google OAuth (`nuxt-auth-utils`)
+- **Frontend** (`frontend/`): Vue 3 + Vite SPA with Nuxt UI v4 (standalone mode)
+- **Backend** (`backend/`): Go API server with Echo framework, GORM, and PostgreSQL
+- Session auth with AES-GCM encrypted cookies
 - Local or S3-backed file/avatar/cache storage
+- Async job queue (Asynq + Dragonfly/Redis) for face/object detection and video transcoding
 
 ## Core Commands
 
-Use Bun for all tasks:
+### Frontend (run from `frontend/` directory)
 
 - `bun install`
-- `bun run dev`
-- `bun run build`
-- `bun run preview`
-- `bun run typecheck`
-- `bun run lint`
-- `bun run lint:fix`
-- `bun run fmt`
-- `bun run fmt:check`
-- `bun run test`
-- `bun run test:unit`
-- `bun run test:unit:coverage`
-- `bun run test:e2e`
-- `bun run coverage:summary`
-- `bun run db:generate`
-- `bun run db:migrate`
-- `bun run db:push`
-- `bun run db:studio`
+- `bun run dev` - Start Vite dev server (proxies `/api/*` to Go backend)
+- `bun run build` - Build production SPA
+- `bun run typecheck` - TypeScript type checking
+- `bun run lint` / `bun run lint:fix` - Run OXlint
+- `bun run fmt` / `bun run fmt:check` - Format with OXfmt
+- `bun run test:unit` - Run unit tests (Vitest)
+- `bun run test:unit:coverage` - Unit tests with coverage
+- `bun run test:e2e` - Run end-to-end tests (Playwright)
+- `bun run coverage:summary` - Display coverage summary
+
+Run a single unit test file or pattern:
+```bash
+bun run test:unit test/composables/useApiFetch.spec.ts
+bun run test:unit -- --reporter=verbose -t "pattern"
+```
+
+### Backend (run from `backend/` directory)
+
+- `go run cmd/server/main.go` - Start Go API server
+- `go test ./...` - Run all tests
+- `go test ./internal/handlers/... -v` - Run handler tests verbosely
+- `go test ./internal/handlers/... -run TestFunctionName` - Run a specific test
+- `go build -o bin/alcoves cmd/server/main.go` - Build binary
+
+### Docker (local development)
+
+```bash
+# Start infrastructure (Postgres + Dragonfly job queue)
+docker compose up -d postgres dragonfly
+
+# Start all services including backend with hot reload (Air)
+docker compose up
+
+# Include the frontend Vite dev server
+docker compose --profile frontend up
+```
 
 ## Architecture Notes
 
-### Frontend
+### Backend (`backend/`)
 
-- `app/pages/` defines routes.
-- `app/layouts/dashboard.vue` is the primary authenticated shell.
-- `app/middleware/auth.global.ts` enforces auth redirects.
-- Shared UI behavior lives in `app/composables/`.
-- Shared types/constants also exist in `shared/`.
+- Entry point: `backend/cmd/server/main.go`
+- `backend/internal/` contains all application code
+- `backend/internal/handlers/` — HTTP request handlers (one file per resource)
+- `backend/internal/middleware/` — Auth + library-access-control middleware
+- `backend/internal/models/` — GORM entity definitions
+- `backend/internal/services/` — Business logic: auth, storage, facedetection, objectdetection, imageproxy, videoproxy
+- `backend/internal/spa/` — Embeds the compiled frontend (`//go:embed dist/*`)
+- Database migrations use [Goose](https://github.com/pressly/goose) format, located in `migrations/`
+- Async processing uses [Asynq](https://github.com/hibiken/asynq) backed by Dragonfly (Redis-compatible); workers run when `ALCOVES_MODE=all` or `ALCOVES_MODE=worker`
+- Image processing: `govips` (libvips wrapper); object/face detection: ONNX Runtime via `onnxruntime_go`
 
-### Backend
+Route groups registered in `main.go`:
+```
+/api/auth            → Auth (login, register, OAuth, session)
+/api/libraries       → Library CRUD
+/api/libraries/:id/* → Files, folders, tags, members, invites, people
+/api/invites         → Invite acceptance
+/api/search          → Global search
+/api/admin           → Admin + job queue dashboard
+/api/tus             → TUS resumable uploads
+/api/files           → File proxy (image transform, video)
+/api/_auth/session   → Session validation (used by frontend auth guard)
+/api/health          → Health check
+```
 
-- API routes are in `server/api/**` using Nitro file routing.
-- Domain logic is split into `server/domain/` and `server/services/`.
-- Authentication and request checks are in `server/middleware/` and `server/utils/auth.ts`.
-- Storage behavior is configured in `server/utils/storage.ts` and initialized in `server/plugins/storage.ts`.
+### Frontend (`frontend/`)
 
-### Data Layer
+- **Not using Nuxt SSR** — Pure Vue 3 + Vite SPA
+- Uses Nuxt UI v4 in standalone mode via `@nuxt/ui/vite` plugin
+- `app/pages/` defines routes; `app/router.ts` wires them up
+- `app/router/auth-guard.ts` — vue-router `beforeEach` hook that redirects unauthenticated users
+- `app/layouts/dashboard.vue` — Primary authenticated shell
+- `app/composables/` — Shared composition hooks (useAuth, useApiFetch, useLibraryExplorer, useUploadQueue, etc.)
+- `app/utils/api-fetch.ts` — Custom fetch wrapper (replaces Nuxt's `$fetch`)
+- `shared/types/api.ts` — API response type definitions shared across the app
+- Vite dev server proxies `/api/*` to Go backend (controlled by `ALCOVES_API_URL`)
 
-- Drizzle schema: `server/database/schema.ts`
-- DB entrypoint: `server/database/index.ts`
-- Migrations: `server/database/migrations/`
-- Drizzle config: `drizzle.config.ts`
+### Testing Conventions
+
+**Frontend unit tests** (Vitest + jsdom, files in `test/`):
+- Mock `useRouter`/`useRoute` via `vi.mock("vue-router")`
+- Mock `useToast` via `vi.mock("@nuxt/ui/composables/useToast")`
+- Nuxt UI component stubs use **unprefixed** names (e.g., `Modal`, not `UModal`)
+- `vi.mock("#imports")` does not work — mock the actual module paths
+
+**Frontend E2E tests** (Playwright, files in `test/e2e/`):
+- All API calls are mocked via `page.route()` — no real backend needed
+- Playwright starts Vite preview server at `http://127.0.0.1:4173` automatically
+
+**Backend tests** (standard `testing` package):
+- Test files live alongside the packages they test (`*_test.go`)
+- Use `-run TestName` to target a single test function
 
 ## Environment
 
-Primary env vars:
+Backend env vars (Go):
 
-- `ALCOVES_DATABASE_URL`
-- `ALCOVES_SESSION_SECRET`
-- `ALCOVES_STORAGE_DRIVER` (`local` or `s3`)
-- `ALCOVES_STORAGE_PATH`
-- `ALCOVES_AVATAR_STORAGE_PATH`
-- `ALCOVES_CACHE_STORAGE_PATH`
-- `ALCOVES_S3_BUCKET`
-- `ALCOVES_S3_REGION`
-- `ALCOVES_S3_ENDPOINT`
-- `ALCOVES_S3_ACCESS_KEY_ID`
-- `ALCOVES_S3_SECRET_ACCESS_KEY`
-- `ALCOVES_S3_FORCE_PATH_STYLE`
-- `ALCOVES_S3_FILES_PREFIX`
-- `ALCOVES_S3_AVATARS_PREFIX`
-- `ALCOVES_S3_CACHE_PREFIX`
-- `NUXT_OAUTH_GOOGLE_CLIENT_ID`
-- `NUXT_OAUTH_GOOGLE_CLIENT_SECRET`
+- `ALCOVES_MODE` — `all` (default), `api`, or `worker`
+- `ALCOVES_DATABASE_URL` — PostgreSQL connection string
+- `ALCOVES_SESSION_SECRET` — AES-GCM key (minimum 32 bytes)
+- `ALCOVES_STORAGE_DRIVER` — `local` (default) or `s3`
+- `ALCOVES_STORAGE_PATH` / `ALCOVES_AVATAR_STORAGE_PATH` / `ALCOVES_CACHE_STORAGE_PATH`
+- `ALCOVES_QUEUE_HOST` / `ALCOVES_QUEUE_PORT` — Dragonfly/Redis connection
+- `ALCOVES_OAUTH_GOOGLE_CLIENT_ID` / `ALCOVES_OAUTH_GOOGLE_CLIENT_SECRET`
+- `ALCOVES_BASE_URL` — Public-facing URL (used for OAuth redirects)
+- S3 vars: `ALCOVES_S3_BUCKET`, `ALCOVES_S3_REGION`, `ALCOVES_S3_ENDPOINT`, etc.
 
-See `.env.example` for full details and defaults.
+Frontend env vars (Vite):
+
+- `ALCOVES_API_URL` — Go backend URL for dev proxy (default: `http://localhost:3001`)
+
+See `.env.example` for full list and defaults.
 
 ## Engineering Guardrails
 
-- Keep changes scoped and consistent with existing Nuxt/Nitro patterns.
-- Do not switch package manager or lint/format stack.
-- Prefer adding/adjusting tests when behavior changes.
-- Run targeted tests first, then broader suites when needed.
-- Avoid destructive git commands and do not revert unrelated local changes.
+- Do not switch package manager (Bun) or lint/format stack (OXlint/OXfmt)
+- Prefer adding/adjusting tests when behavior changes
+- Run targeted tests first, then broader suites when needed
+- Avoid destructive git commands and do not revert unrelated local changes

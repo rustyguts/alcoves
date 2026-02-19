@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "@fontsource-variable/ibm-plex-sans";
+@plugin "daisyui" {
+  themes: all;
+}
+
+@theme {
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+}

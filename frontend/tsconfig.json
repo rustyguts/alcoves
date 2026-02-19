@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "~/*": ["./app/*"],
+      "~~/*": ["./*"],
+      "@/*": ["./app/*"]
+    },
+    "types": ["vidstack/vue", "vite/client"]
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.vue",
+    "shared/**/*.ts",
+    "env.d.ts",
+    "auto-imports.d.ts",
+    "components.d.ts"
+  ]
+}

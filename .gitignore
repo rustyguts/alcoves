@@ -1,33 +1,62 @@
-# Nuxt dev/build outputs
-.output
-.data
-.nuxt
-.nitro
-.cache
-dist
-
-# Node dependencies
-node_modules
-
-# Logs
-logs
-*.log
-
-# Misc
+# ==============================================================================
+# General
+# ==============================================================================
 .DS_Store
-.fleet
-.idea
-
-# File storage
-data/
-
-# Local env files
 .env
 .env.*
 !.env.example
+*.log
+logs
 
-# Test files
-coverage
-test-results
-playwright-report
+# Editor / IDE
+.fleet
+.idea
+.vscode
+
+# Runtime data
+data/
+
+# Legacy Nuxt artifacts (root-level, safe to delete)
+.nuxt/
+.output/
+.data/
+.nitro/
+.cache/
 .nuxtrc
+coverage/
+playwright-report/
+
+# ==============================================================================
+# Backend (Go)
+# ==============================================================================
+
+# Compiled binaries
+backend/server
+backend/tmp/
+
+# Embedded SPA build output (only .gitkeep is tracked)
+backend/internal/spa/dist/*
+!backend/internal/spa/dist/.gitkeep
+
+# Test artifacts
+backend/coverage.out
+backend/test-output.txt
+
+# ==============================================================================
+# Frontend (Vue / Vite)
+# ==============================================================================
+
+# Dependencies
+node_modules
+
+# Build output
+frontend/dist
+
+# Test artifacts
+frontend/coverage
+frontend/test-results
+frontend/playwright-report
+
+# Auto-generated type declarations (committed for vue-tsc)
+# frontend/auto-imports.d.ts
+# frontend/components.d.ts

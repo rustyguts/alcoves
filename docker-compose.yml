@@ -1,32 +1,10 @@
 services:
-  # app:
-  #   build:
-  #     context: .
-  #     target: development
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     - ALCOVES_QUEUE_HOST=dragonfly
-  #     - ALCOVES_QUEUE_PORT=6379
-  #     - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
-  #   volumes:
-  #     - .:/app
-  #     - node_modules:/app/node_modules
-  #     - nuxt_cache:/app/.nuxt
-  #     - ./data:/app/data
-  #   ports:
-  #     - 3000:3000
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
   postgres:
     image: pgvector/pgvector:pg18
     environment:
       - POSTGRES_DB=alcoves
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-    ports:
-      - "5455:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
@@ -37,14 +15,55 @@ services:
 
   dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
-    command: dragonfly --default_lua_flags=allow-undeclared-keys
+    command: ["dragonfly", "--default_lua_flags=allow-undeclared-keys"]
     ports:
       - "6389:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      - PORT=3001
+      - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves?sslmode=disable
+      - ALCOVES_QUEUE_HOST=dragonfly
+      - ALCOVES_QUEUE_PORT=6379
+      - LD_LIBRARY_PATH=/usr/local/lib
+    env_file:
+      - .env
     volumes:
-      - dragonfly_data:/var/lib/dragonfly
+      - ./backend:/app
+      - go_mod_cache:/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
+      - ./data:/app/data
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dragonfly:
+        condition: service_healthy
+
+  frontend:
+    profiles: [frontend]
+    build:
+      context: ./frontend
+    environment:
+      - ALCOVES_API_URL=http://backend:3001
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "3000:5173"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
-  dragonfly_data:
-  node_modules:
-  nuxt_cache:
+  go_mod_cache:
+  go_build_cache:
+  frontend_node_modules:

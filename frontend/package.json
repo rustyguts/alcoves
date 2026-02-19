@@ -1,0 +1,49 @@
+{
+  "name": "alcoves",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "bun run test:unit:coverage && bun run test:e2e",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:unit:coverage": "vitest run --config vitest.config.ts --coverage",
+    "test:e2e": "playwright test",
+    "coverage:summary": "node test/scripts/coverage-summary.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/ibm-plex-sans": "^5.2.8",
+    "@iconify/vue": "^5.0.0",
+    "daisyui": "^5.5.18",
+    "tailwindcss": "^4.2.0",
+    "tus-js-client": "^4.3.1",
+    "vidstack": "^1.12.13",
+    "vue": "^3.5.28",
+    "vue-router": "^5.0.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@tailwindcss/vite": "^4.2.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/vue": "^8.1.0",
+    "@types/node": "^25.3.0",
+    "@vitejs/plugin-vue": "^6.0.4",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^28.1.0",
+    "oxfmt": "^0.33.0",
+    "oxlint": "^1.48.0",
+    "oxlint-tsgolint": "^0.14.0",
+    "typescript": "^5.9.3",
+    "unplugin-auto-import": "^21.0.0",
+    "vitest": "^4.0.18",
+    "vue-tsc": "^3.2.4"
+  }
+}
