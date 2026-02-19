@@ -355,7 +355,7 @@ func TestPurge_IgnoresFilesFromOtherLibrary(t *testing.T) {
 	assertRecordCount(t, db, &models.File{}, "id = ?", []interface{}{fileInLib2.String()}, 1, "file records in other library")
 }
 
-func TestPurge_DeletesBlobLeavesCache(t *testing.T) {
+func TestPurge_DeletesBlobAndLegacyCache(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
 	handler := NewFileHandler(db, nil, svc, nil, nil)
@@ -371,13 +371,13 @@ func TestPurge_DeletesBlobLeavesCache(t *testing.T) {
 		t.Fatalf("Purge returned error: %v", err)
 	}
 
-	// Blob gone
+	// Source blob gone
 	exists, _ := svc.FileExists(fix.LibraryID.String(), fid.String())
 	if exists {
 		t.Fatal("Expected blob to be deleted")
 	}
 
-	// Cache artifacts still present
+	// Legacy cache artifacts also deleted on permanent purge
 	for _, key := range []string{
 		fmt.Sprintf("%s/%s/proxy.mp4", fix.LibraryID, fid),
 		fmt.Sprintf("%s/%s/thumbnail.webp", fix.LibraryID, fid),
@@ -386,8 +386,8 @@ func TestPurge_DeletesBlobLeavesCache(t *testing.T) {
 		if err != nil {
 			t.Fatalf("CacheExists(%s): %v", key, err)
 		}
-		if !cacheExists {
-			t.Fatalf("Expected cache key %s to remain after purge", key)
+		if cacheExists {
+			t.Fatalf("Expected legacy cache key %s to be deleted on purge", key)
 		}
 	}
 }
@@ -417,7 +417,7 @@ func TestPurge_RemovesFileTags(t *testing.T) {
 	assertRecordCount(t, db, &models.Tag{}, "id IN ?", []interface{}{[]string{tag1.String(), tag2.String()}}, 2, "tag records")
 }
 
-func TestPurge_ClearsSourceFileIDReferences(t *testing.T) {
+func TestPurge_DeletesDerivedFilesWithSource(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
 	handler := NewFileHandler(db, nil, svc, nil, nil)
@@ -426,7 +426,8 @@ func TestPurge_ClearsSourceFileIDReferences(t *testing.T) {
 	original := createFile(t, db, fix.LibraryID, fix.UserID, "original.mp4", true, nil)
 	storeBlob(t, svc, fix.LibraryID.String(), original.String())
 
-	// Create a proxy file that references the original via source_file_id
+	// Create a proxy file and a thumbnail file that reference the original via source_file_id.
+	// These are never user-visible but must be fully deleted when the source is purged.
 	proxyID := uuid.New()
 	proxy := models.File{
 		ID:           proxyID,
@@ -440,6 +441,22 @@ func TestPurge_ClearsSourceFileIDReferences(t *testing.T) {
 	if err := db.Create(&proxy).Error; err != nil {
 		t.Fatalf("Failed to create proxy file: %v", err)
 	}
+	storeBlob(t, svc, fix.LibraryID.String(), proxyID.String())
+
+	thumbID := uuid.New()
+	thumb := models.File{
+		ID:           thumbID,
+		LibraryID:    fix.LibraryID,
+		Name:         "original_thumb.jpg",
+		MimeType:     "image/jpeg",
+		Size:         10,
+		OwnerID:      &fix.UserID,
+		SourceFileID: &original,
+	}
+	if err := db.Create(&thumb).Error; err != nil {
+		t.Fatalf("Failed to create thumbnail file: %v", err)
+	}
+	storeBlob(t, svc, fix.LibraryID.String(), thumbID.String())
 
 	body := map[string][]string{"fileIds": {original.String()}}
 	_, err := callPurge(t, handler, fix.LibraryID.String(), body)
@@ -447,16 +464,21 @@ func TestPurge_ClearsSourceFileIDReferences(t *testing.T) {
 		t.Fatalf("Purge returned error: %v", err)
 	}
 
-	// Original deleted
+	// Source file deleted from DB
 	assertRecordCount(t, db, &models.File{}, "id = ?", []interface{}{original.String()}, 0, "original file records")
 
-	// Proxy still exists but source_file_id is nil
-	var proxyRecord models.File
-	if err := db.Where("id = ?", proxyID).First(&proxyRecord).Error; err != nil {
-		t.Fatalf("Failed to load proxy file: %v", err)
+	// Derived file rows (proxy and thumbnail) also deleted from DB
+	assertRecordCount(t, db, &models.File{}, "id = ?", []interface{}{proxyID.String()}, 0, "proxy file records")
+	assertRecordCount(t, db, &models.File{}, "id = ?", []interface{}{thumbID.String()}, 0, "thumbnail file records")
+
+	// Derived blobs deleted from disk
+	proxyExists, _ := svc.FileExists(fix.LibraryID.String(), proxyID.String())
+	if proxyExists {
+		t.Fatal("Expected proxy blob to be deleted")
 	}
-	if proxyRecord.SourceFileID != nil {
-		t.Fatalf("Expected proxy source_file_id to be nil, got %v", proxyRecord.SourceFileID)
+	thumbExists, _ := svc.FileExists(fix.LibraryID.String(), thumbID.String())
+	if thumbExists {
+		t.Fatal("Expected thumbnail blob to be deleted")
 	}
 }
 

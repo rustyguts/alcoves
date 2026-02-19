@@ -339,18 +339,40 @@ func (h *FileHandler) Purge(c echo.Context) error {
 		}
 	}
 
-	// Delete original files from disk first, before touching the DB.
-	// If any storage delete fails we stop early and leave the DB intact.
-	for _, f := range filesToPurge {
-		if err := h.storageSvc.DeleteFileBlob(f.LibraryID.String(), f.ID.String()); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete file from disk")
-		}
-	}
-
-	// Collect IDs for the DB cleanup.
+	// Collect IDs for the source files being purged.
 	fileIDs := make([]string, 0, len(filesToPurge))
 	for _, f := range filesToPurge {
 		fileIDs = append(fileIDs, f.ID.String())
+	}
+
+	// Load all derived files (proxies, thumbnails) whose source is being purged.
+	// These are stored in the files table with source_file_id pointing at a source file.
+	var derivedFiles []models.File
+	if len(fileIDs) > 0 {
+		if err := h.db.Where("source_file_id IN ?", fileIDs).Find(&derivedFiles).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load derived files for purge")
+		}
+	}
+
+	// Delete blobs for all source files and their derived files (proxies, thumbnails) from disk
+	// first, before touching the DB. If any storage delete fails we stop early and leave the DB intact.
+	for _, f := range filesToPurge {
+		// Delete the source blob and legacy cache artifacts (proxy.mp4, thumbnail.webp).
+		if err := h.storageSvc.DeleteFile(f.LibraryID.String(), f.ID.String()); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete file from disk")
+		}
+	}
+	for _, f := range derivedFiles {
+		// Delete the derived file blob (proxy or thumbnail stored under its own file ID).
+		if err := h.storageSvc.DeleteFileBlob(f.LibraryID.String(), f.ID.String()); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete derived file from disk")
+		}
+	}
+
+	// Collect derived file IDs for DB cleanup.
+	derivedFileIDs := make([]string, 0, len(derivedFiles))
+	for _, f := range derivedFiles {
+		derivedFileIDs = append(derivedFileIDs, f.ID.String())
 	}
 
 	purgedCount := 0
@@ -358,18 +380,20 @@ func (h *FileHandler) Purge(c echo.Context) error {
 	// All DB mutations inside a transaction.
 	err := h.db.Transaction(func(tx *gorm.DB) error {
 		if len(fileIDs) > 0 {
-			// Remove file-tag associations
+			// Remove file-tag associations for source files.
 			if err := tx.Where("file_id IN ?", fileIDs).Delete(&models.FileTag{}).Error; err != nil {
 				return fmt.Errorf("failed to delete file tags: %w", err)
 			}
 
-			// Clear source_file_id references so proxy rows don't have dangling FKs
-			if err := tx.Model(&models.File{}).Where("source_file_id IN ?", fileIDs).
-				Update("source_file_id", nil).Error; err != nil {
-				return fmt.Errorf("failed to clear source file references: %w", err)
+			// Delete derived file rows (proxies and thumbnails) that reference the source files.
+			// These are never user-visible but must be cleaned up when the source is purged.
+			if len(derivedFileIDs) > 0 {
+				if err := tx.Where("id IN ?", derivedFileIDs).Delete(&models.File{}).Error; err != nil {
+					return fmt.Errorf("failed to delete derived files: %w", err)
+				}
 			}
 
-			// Delete the file records
+			// Delete the source file records.
 			result := tx.Where("id IN ? AND library_id = ?", fileIDs, libraryID).Delete(&models.File{})
 			if result.Error != nil {
 				return fmt.Errorf("failed to delete files: %w", result.Error)

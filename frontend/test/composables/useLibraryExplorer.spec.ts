@@ -246,25 +246,22 @@ describe("useLibraryExplorer", () => {
     const {
       selectedFiles,
       selectedFolders,
-      lastClickedFileIndex,
-      lastClickedFolderIndex,
+      lastClickedIndex,
       clearSelection,
     } = useLibraryExplorer();
 
     selectedFiles.add("f1");
     selectedFolders.add("fo1");
-    lastClickedFileIndex.value = 5;
-    lastClickedFolderIndex.value = 3;
+    lastClickedIndex.value = 5;
 
     clearSelection();
     expect(selectedFiles.size).toBe(0);
     expect(selectedFolders.size).toBe(0);
-    expect(lastClickedFileIndex.value).toBe(5);
+    expect(lastClickedIndex.value).toBe(5); // anchor preserved without resetAnchor flag
 
     selectedFiles.add("f2");
     clearSelection(true);
-    expect(lastClickedFileIndex.value).toBeNull();
-    expect(lastClickedFolderIndex.value).toBeNull();
+    expect(lastClickedIndex.value).toBeNull();
   });
 
   it("isEntrySelected checks files and folders", () => {

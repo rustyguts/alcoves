@@ -93,8 +93,7 @@ const mocks = vi.hoisted(() => ({
   libraryTags: [] as LibraryTag[],
   selectedFiles: new Set<string>(),
   selectedFolders: new Set<string>(),
-  lastClickedFileIndex: null as number | null,
-  lastClickedFolderIndex: null as number | null,
+  lastClickedIndex: null as number | null,
   clearSelection: vi.fn(),
   isEntrySelected: vi.fn(() => false),
   fetchPage: vi.fn(),
@@ -230,13 +229,9 @@ vi.mock("~/composables/useLibraryExplorer", () => ({
     folders: mockRef(() => mocks.entries.filter((e): e is LibraryFolder => e.kind === "folder")),
     selectedFiles: mocks.selectedFiles,
     selectedFolders: mocks.selectedFolders,
-    lastClickedFileIndex: mockRef(
-      () => mocks.lastClickedFileIndex,
-      (v: number | null) => { mocks.lastClickedFileIndex = v; },
-    ),
-    lastClickedFolderIndex: mockRef(
-      () => mocks.lastClickedFolderIndex,
-      (v: number | null) => { mocks.lastClickedFolderIndex = v; },
+    lastClickedIndex: mockRef(
+      () => mocks.lastClickedIndex,
+      (v: number | null) => { mocks.lastClickedIndex = v; },
     ),
     clearSelection: mocks.clearSelection,
     isEntrySelected: mocks.isEntrySelected,
@@ -410,10 +405,12 @@ describe("library index page", () => {
     expect(wrapper.text()).toContain("Test Library");
   });
 
-  it("shows skeleton when files are pending", () => {
+  it("shows loading indicator when files are pending and no entries loaded", () => {
     mocks.filesPending = true;
+    mocks.entries = [];
     const wrapper = mountPage();
-    expect(wrapper.find("[data-stub='skeleton']").exists()).toBe(true);
+    // Loading spinner text is present (not skeleton stub which was removed)
+    expect(wrapper.text()).toContain("Loading");
   });
 
   it("shows empty state when no entries and not pending", () => {
@@ -481,28 +478,6 @@ describe("library index page", () => {
     expect(wrapper.text()).not.toContain("Delete All");
   });
 
-  it("shows EmojiPicker when user can manage library", () => {
-    mocks.canManageLibrary = true;
-    const wrapper = mountPage();
-    expect(wrapper.find("[data-stub='emoji']").exists()).toBe(true);
-  });
-
-  it("shows static emoji when user cannot manage but emoji is set", () => {
-    mocks.canManageLibrary = false;
-    mocks.library.emoji = "\u{1F680}";
-    const wrapper = mountPage();
-    expect(wrapper.text()).toContain("\u{1F680}");
-    mocks.library.emoji = null;
-  });
-
-  it("shows skeleton placeholder before library loads", () => {
-    // Override library to null (simulate loading state)
-    // @ts-expect-error - testing null state
-    mocks.library = null;
-    const wrapper = mountPage();
-    expect(wrapper.find(".skeleton").exists()).toBe(true);
-  });
-
   it("shows drop zone overlay when dragging files over", () => {
     mocks.isOverDropZone = true;
     const wrapper = mountPage();
@@ -518,11 +493,6 @@ describe("library index page", () => {
     expect(wrapper.text()).toContain("Test Library");
     expect(wrapper.text()).toContain("Documents");
     expect(wrapper.text()).toContain("Photos");
-  });
-
-  it("renders LibraryTabs component", () => {
-    const wrapper = mountPage();
-    expect(wrapper.find("[data-stub='tabs']").exists()).toBe(true);
   });
 
   it("highlights list view button when in file mode", () => {
