@@ -27,6 +27,11 @@ type MockState = {
     trashedAt: string | null;
     createdAt: string;
     updatedAt: string;
+    owner: {
+      id: string;
+      displayName: string;
+      avatarUrl: string | null;
+    } | null;
     tags: Array<unknown>;
   }>;
 };
@@ -189,6 +194,7 @@ async function mockApi(page: Page, state: MockState) {
         trashedAt: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        owner: null,
         tags: [],
       };
       state.folders.push(newFolder);
@@ -260,6 +266,7 @@ test.describe("Library management flows", () => {
           trashedAt: null,
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
+          owner: null,
           tags: [],
         },
       ],
@@ -389,6 +396,7 @@ test.describe("Library management flows", () => {
           trashedAt: null,
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
+          owner: null,
           tags: [],
         },
       ],

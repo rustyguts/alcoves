@@ -4,6 +4,7 @@ import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { apiFetch } from "~/utils/api-fetch";
 import AppIcon from "~/components/AppIcon.vue";
+import UserAvatar from "~/components/UserAvatar.vue";
 import { useToast } from "~/composables/useToast";
 
 interface Library {
@@ -176,15 +177,13 @@ provide("refreshLibraries", refreshLibraries);
               class="btn btn-ghost btn-circle avatar"
               @click.prevent="userMenuOpen = !userMenuOpen"
             >
-              <div v-if="user?.avatarUrl" class="w-8 rounded-full overflow-hidden">
-                <img :src="user.avatarUrl" alt="" class="size-full object-cover" />
-              </div>
-              <div
-                v-else
-                class="w-8 h-8 rounded-full bg-primary text-primary-content flex items-center justify-center font-semibold text-sm"
-              >
-                {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
-              </div>
+              <UserAvatar
+                :display-name="user?.displayName ?? 'User'"
+                :avatar-url="user?.avatarUrl ?? null"
+                size-class="w-8"
+                bg-class="bg-primary text-primary-content"
+                text-size-class="text-sm"
+              />
             </summary>
             <ul class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow mt-2">
               <template v-for="(group, gi) in userMenuItems" :key="gi">

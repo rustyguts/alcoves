@@ -78,6 +78,7 @@ type FolderResponse struct {
 	TrashFileCount *int          `json:"trashFileCount,omitempty"`
 	CreatedAt      string        `json:"createdAt"`
 	UpdatedAt      string        `json:"updatedAt"`
+	Owner          *OwnerSummary `json:"owner"`
 	Tags           []TagResponse `json:"tags"`
 }
 
@@ -194,11 +195,11 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 	for _, row := range combined {
 		if row.Kind == "file" {
 			fileIDs = append(fileIDs, row.ID)
-			if row.OwnerID != nil {
-				ownerIDSet[*row.OwnerID] = true
-			}
 		} else {
 			folderIDs = append(folderIDs, row.ID)
+		}
+		if row.OwnerID != nil {
+			ownerIDSet[*row.OwnerID] = true
 		}
 	}
 
@@ -229,6 +230,13 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 			}
 			sortTags(tags)
 
+			var owner *OwnerSummary
+			if row.OwnerID != nil {
+				if o, ok := ownersByID[*row.OwnerID]; ok {
+					owner = &o
+				}
+			}
+
 			resp := FolderResponse{
 				ID:             row.ID,
 				LibraryID:      row.LibraryID,
@@ -238,6 +246,7 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 				TrashedAt:      timePtr(row.TrashedAt),
 				CreatedAt:      row.CreatedAt.Format(time.RFC3339Nano),
 				UpdatedAt:      row.UpdatedAt.Format(time.RFC3339Nano),
+				Owner:          owner,
 				Tags:           tags,
 			}
 			if showTrashed {
@@ -344,7 +353,7 @@ func (s *Service) buildFolderQueries(libraryID string, showTrashed bool, current
 	}
 
 	query := fmt.Sprintf(
-		`SELECT id, library_id, parent_folder_id, NULL as owner_id, name,
+		`SELECT id, library_id, parent_folder_id, owner_id, name,
 		'folder' as kind, 0 as kind_rank, lower(name) as sort_name,
 		NULL as mime_type, NULL as size, NULL as duration, NULL as width, NULL as height,
 		NULL as proxy_status, NULL as source_file_id, NULL as original_created_at,

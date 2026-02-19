@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useUploadQueue } from "~/composables/useUploadQueue";
+import AppModal from "~/components/AppModal.vue";
 import AppIcon from "~/components/AppIcon.vue";
 
 const props = defineProps<{
@@ -38,32 +39,27 @@ watch(open, (val) => {
 </script>
 
 <template>
-  <dialog class="modal" :class="{ 'modal-open': open }">
-    <div class="modal-box">
-      <h3 class="text-lg font-bold">Upload Files</h3>
+  <AppModal v-model:open="open">
+    <h3 class="text-lg font-bold">Upload Files</h3>
 
-      <div class="py-4">
-        <p class="text-sm text-muted mb-3">
-          Uploading to <strong>{{ libraryName }}</strong>
-        </p>
+    <div class="py-4">
+      <p class="text-sm text-muted mb-3">
+        Uploading to <strong>{{ libraryName }}</strong>
+      </p>
 
-        <input type="file" class="file-input w-full" multiple @change="onFileChange" />
+      <input type="file" class="file-input w-full" multiple @change="onFileChange" />
 
-        <p v-if="selectedFileCount" class="mt-3 text-sm text-muted">
-          {{ selectedFileCount }} file{{ selectedFileCount === 1 ? "" : "s" }} selected
-        </p>
-      </div>
-
-      <div class="flex justify-end gap-2">
-        <button class="btn btn-sm" @click="open = false">Cancel</button>
-        <button class="btn btn-sm btn-primary" :disabled="!selectedFileCount" @click="handleUpload">
-          <AppIcon name="i-lucide-upload" class="size-4" />
-          Upload
-        </button>
-      </div>
+      <p v-if="selectedFileCount" class="mt-3 text-sm text-muted">
+        {{ selectedFileCount }} file{{ selectedFileCount === 1 ? "" : "s" }} selected
+      </p>
     </div>
-    <form method="dialog" class="modal-backdrop" @click="open = false">
-      <button>close</button>
-    </form>
-  </dialog>
+
+    <div class="flex justify-end gap-2">
+      <button class="btn btn-sm" @click="open = false">Cancel</button>
+      <button class="btn btn-sm btn-primary" :disabled="!selectedFileCount" @click="handleUpload">
+        <AppIcon name="i-lucide-upload" class="size-4" />
+        Upload
+      </button>
+    </div>
+  </AppModal>
 </template>

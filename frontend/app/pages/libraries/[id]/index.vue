@@ -14,6 +14,8 @@ import UploadModal from "~/components/UploadModal.vue";
 import FilePreview from "~/components/FilePreview.vue";
 import ClipModal from "~/components/ClipModal.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
+import AppContextMenu from "~/components/AppContextMenu.vue";
+import UserAvatar from "~/components/UserAvatar.vue";
 
 const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
 const ROOT_MOVE_VALUE = "__root__";
@@ -129,29 +131,11 @@ type ContextMenuItem = {
 
 const contextMenuEntry = ref<LibraryEntry | null>(null);
 const contextMenuPosition = ref<{ x: number; y: number } | null>(null);
-const contextMenuPanel = ref<HTMLElement | null>(null);
 
 function showContextMenu(entry: LibraryEntry, event: MouseEvent) {
   event.preventDefault();
   contextMenuEntry.value = entry;
   contextMenuPosition.value = { x: event.clientX, y: event.clientY };
-
-  nextTick(() => {
-    const panel = contextMenuPanel.value;
-    const position = contextMenuPosition.value;
-    if (!panel || !position) return;
-
-    const margin = 8;
-    const panelWidth = panel.offsetWidth;
-    const panelHeight = panel.offsetHeight;
-    const maxX = window.innerWidth - panelWidth - margin;
-    const maxY = window.innerHeight - panelHeight - margin;
-
-    contextMenuPosition.value = {
-      x: Math.max(margin, Math.min(position.x, maxX)),
-      y: Math.max(margin, Math.min(position.y, maxY)),
-    };
-  });
 }
 
 function hideContextMenu() {
@@ -622,14 +606,6 @@ async function saveLibraryName(name: string) {
   await refreshLibrary();
 }
 
-async function saveLibraryEmoji(emoji: string | null) {
-  await apiFetch(`/api/libraries/${libraryId.value}`, {
-    method: "PATCH",
-    body: { emoji: emoji ?? "" },
-  });
-  await refreshLibrary();
-}
-
 function handleRowClick(entry: LibraryEntry, event: MouseEvent) {
   event.preventDefault();
   const isMultiSelect = event.ctrlKey || event.metaKey;
@@ -703,7 +679,7 @@ function downloadFiles(ids: string[]) {
   }
   for (const fid of ids) {
     const link = document.createElement("a");
-    link.href = `/api/libraries/${libraryId.value}/files/${fid}`;
+    link.href = `/api/libraries/${libraryId.value}/files/${fid}?inline=true`;
     link.download = "";
     link.click();
   }
@@ -1048,6 +1024,10 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
   ];
 }
 
+const contextMenuGroups = computed(() =>
+  contextMenuEntry.value ? getContextMenuItems(contextMenuEntry.value) : [],
+);
+
 const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
 
 watch(library, () => {
@@ -1077,12 +1057,7 @@ const emptyStateDescription = computed(() => {
     <div v-if="library" class="flex items-center justify-between gap-3 min-h-12">
       <!-- Left: Library name/emoji + breadcrumbs -->
       <div class="flex items-center gap-3 min-w-0 flex-1">
-        <EmojiPicker
-          v-if="canManageLibrary"
-          :model-value="library.emoji ?? null"
-          @update:model-value="saveLibraryEmoji"
-        />
-        <span v-else-if="library.emoji" class="text-2xl leading-none">{{ library.emoji }}</span>
+        <span v-if="library.emoji" class="text-2xl leading-none">{{ library.emoji }}</span>
         <div class="min-w-0 flex-1">
           <div v-if="!showTrashed" class="breadcrumbs text-sm min-w-0 hidden md:block">
             <ul class="whitespace-nowrap">
@@ -1178,12 +1153,12 @@ const emptyStateDescription = computed(() => {
       </div>
     </div>
 
-    <div class="rounded-lg overflow-y-auto bg-default/20 flex-1 min-h-0">
+    <div class="rounded-lg overflow-y-auto flex-1 min-h-0">
       <!-- Skeleton loading state -->
       <template v-if="filesPending">
         <table v-if="entryViewMode === 'file'" class="w-full">
-          <thead>
-            <tr class="bg-elevated/50">
+          <thead class="sticky top-0 z-10">
+            <tr>
               <th class="w-12 px-4 py-3" />
               <th class="text-left text-xs font-medium text-muted px-4 py-3">Name</th>
               <th class="text-left text-xs font-medium text-muted px-4 py-3">Tags</th>
@@ -1200,11 +1175,15 @@ const emptyStateDescription = computed(() => {
           </thead>
           <tbody>
             <tr v-for="i in 8" :key="i">
-              <td class="px-4 py-3"><div class="skeleton h-5 w-5 rounded" /></td>
+              <td class="px-4 py-3">
+                <div class="skeleton h-5 w-5 rounded" />
+              </td>
               <td class="px-4 py-3">
                 <div class="skeleton h-4 rounded" :style="{ width: `${40 + ((i * 17) % 40)}%` }" />
               </td>
-              <td class="px-4 py-3"><div class="skeleton h-3 w-8 rounded-full" /></td>
+              <td class="px-4 py-3">
+                <div class="skeleton h-3 w-8 rounded-full" />
+              </td>
               <td class="px-4 py-3 hidden sm:table-cell">
                 <div class="skeleton h-6 w-6 rounded-full" />
               </td>
@@ -1227,8 +1206,8 @@ const emptyStateDescription = computed(() => {
       </template>
 
       <table v-else-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0" class="w-full">
-        <thead>
-          <tr class="bg-elevated/50">
+        <thead class="sticky top-0 z-10 bg-base-300">
+          <tr class="bg-base-300">
             <th class="w-12 px-4 py-3" />
             <th class="text-left text-xs font-medium text-muted px-4 py-3">Name</th>
             <th class="text-left text-xs font-medium text-muted px-4 py-3">Tags</th>
@@ -1320,21 +1299,16 @@ const emptyStateDescription = computed(() => {
                 </div>
               </td>
               <td class="px-4 py-3 text-sm text-muted hidden sm:table-cell">
-                <div v-if="entry.kind === 'file' && entry.owner" class="flex items-center">
-                  <div
-                    class="avatar placeholder tooltip tooltip-right"
-                    :data-tip="entry.owner.displayName"
-                  >
-                    <div v-if="entry.owner.avatarUrl" class="w-6 rounded-full">
-                      <img :src="entry.owner.avatarUrl" :alt="entry.owner.displayName" />
-                    </div>
-                    <div
-                      v-else
-                      class="w-6 rounded-full bg-primary/20 text-primary text-[10px] font-semibold flex items-center justify-center"
-                    >
-                      {{ entry.owner.displayName.charAt(0).toUpperCase() || "U" }}
-                    </div>
-                  </div>
+                <div v-if="entry.owner" class="flex items-center">
+                  <UserAvatar
+                    :display-name="entry.owner.displayName"
+                    :avatar-url="entry.owner.avatarUrl"
+                    size-class="w-6"
+                    text-size-class="text-[10px]"
+                    bg-class="bg-primary/20 text-primary"
+                    tooltip
+                    tooltip-position="right"
+                  />
                 </div>
                 <span v-else>-</span>
               </td>
@@ -1721,88 +1695,71 @@ const emptyStateDescription = computed(() => {
       </form>
     </dialog>
 
-    <!-- Floating context menu -->
-    <Teleport to="body">
-      <div
-        v-if="contextMenuEntry && contextMenuPosition"
-        class="fixed inset-0 z-40"
-        @click="hideContextMenu"
-        @contextmenu.prevent="hideContextMenu"
+    <AppContextMenu
+      :open="!!contextMenuEntry && !!contextMenuPosition"
+      :position="contextMenuPosition"
+      @close="hideContextMenu"
+    >
+      <ul
+        class="menu dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl p-2 w-auto max-h-[calc(100vh-1rem)] overflow-y-auto"
       >
-        <div
-          ref="contextMenuPanel"
-          class="dropdown dropdown-open absolute z-50"
-          :style="{
-            left: `${contextMenuPosition.x}px`,
-            top: `${contextMenuPosition.y}px`,
-          }"
-          @click.stop
-        >
-          <ul
-            class="menu dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl p-2 w-auto max-h-[calc(100vh-1rem)] overflow-y-auto"
+        <template v-for="(group, groupIndex) in contextMenuGroups" :key="groupIndex">
+          <li v-if="groupIndex > 0" class="menu-title my-1 p-0">
+            <div class="h-px w-full bg-base-300/80" />
+          </li>
+          <template
+            v-for="(item, itemIndex) in group"
+            :key="`${groupIndex}-${itemIndex}-${item.label}`"
           >
-            <template
-              v-for="(group, groupIndex) in getContextMenuItems(contextMenuEntry)"
-              :key="groupIndex"
-            >
-              <li v-if="groupIndex > 0" class="menu-title my-1 p-0">
-                <div class="h-px w-full bg-base-300/80" />
-              </li>
-              <template
-                v-for="(item, itemIndex) in group"
-                :key="`${groupIndex}-${itemIndex}-${item.label}`"
-              >
-                <li v-if="item.children?.length">
-                  <details>
-                    <summary
+            <li v-if="item.children?.length">
+              <details>
+                <summary
+                  :class="[
+                    item.color === 'error' ? 'text-error' : '',
+                    'px-2 py-1.5 gap-2 whitespace-nowrap',
+                  ]"
+                >
+                  <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
+                  <span>{{ item.label }}</span>
+                </summary>
+                <ul>
+                  <li
+                    v-for="(child, childIndex) in item.children"
+                    :key="`${item.label}-${childIndex}-${child.label}`"
+                  >
+                    <button
+                      type="button"
                       :class="[
-                        item.color === 'error' ? 'text-error' : '',
+                        child.color === 'error' ? 'text-error' : '',
                         'px-2 py-1.5 gap-2 whitespace-nowrap',
                       ]"
+                      :disabled="child.disabled"
+                      @click="handleContextMenuSelect(child)"
                     >
-                      <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-                      <span>{{ item.label }}</span>
-                    </summary>
-                    <ul>
-                      <li
-                        v-for="(child, childIndex) in item.children"
-                        :key="`${item.label}-${childIndex}-${child.label}`"
-                      >
-                        <button
-                          type="button"
-                          :class="[
-                            child.color === 'error' ? 'text-error' : '',
-                            'px-2 py-1.5 gap-2 whitespace-nowrap',
-                          ]"
-                          :disabled="child.disabled"
-                          @click="handleContextMenuSelect(child)"
-                        >
-                          <AppIcon v-if="child.icon" :name="child.icon" class="size-4 shrink-0" />
-                          <span>{{ child.label }}</span>
-                        </button>
-                      </li>
-                    </ul>
-                  </details>
-                </li>
-                <li v-else>
-                  <button
-                    type="button"
-                    :class="[
-                      item.color === 'error' ? 'text-error' : '',
-                      'px-2 py-1.5 gap-2 whitespace-nowrap',
-                    ]"
-                    :disabled="item.disabled"
-                    @click="handleContextMenuSelect(item)"
-                  >
-                    <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-                    <span>{{ item.label }}</span>
-                  </button>
-                </li>
-              </template>
-            </template>
-          </ul>
-        </div>
-      </div>
-    </Teleport>
+                      <AppIcon v-if="child.icon" :name="child.icon" class="size-4 shrink-0" />
+                      <span>{{ child.label }}</span>
+                    </button>
+                  </li>
+                </ul>
+              </details>
+            </li>
+            <li v-else>
+              <button
+                type="button"
+                :class="[
+                  item.color === 'error' ? 'text-error' : '',
+                  'px-2 py-1.5 gap-2 whitespace-nowrap',
+                ]"
+                :disabled="item.disabled"
+                @click="handleContextMenuSelect(item)"
+              >
+                <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
+                <span>{{ item.label }}</span>
+              </button>
+            </li>
+          </template>
+        </template>
+      </ul>
+    </AppContextMenu>
   </div>
 </template>

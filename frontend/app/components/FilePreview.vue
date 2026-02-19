@@ -105,7 +105,7 @@ watch(
 
 function downloadFile() {
   const link = document.createElement("a");
-  link.href = `/api/libraries/${props.libraryId}/files/${props.file.id}`;
+  link.href = `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`;
   link.download = "";
   link.click();
 }

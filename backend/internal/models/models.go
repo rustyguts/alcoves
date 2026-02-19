@@ -9,9 +9,9 @@ import (
 
 // BeforeCreate hook to auto-generate UUIDs for all models with ID field.
 type BaseModel struct {
-	ID        uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	CreatedAt time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
+	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	CreatedAt time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 }
 
 func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
@@ -23,14 +23,14 @@ func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
 
 // User maps to the "users" table.
 type User struct {
-	ID           uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Email        string     `gorm:"column:email;type:text;not null;uniqueIndex" json:"email"`
-	PasswordHash *string    `gorm:"column:password_hash;type:text" json:"-"`
-	DisplayName  string     `gorm:"column:display_name;type:text;not null" json:"displayName"`
-	AvatarUrl    *string    `gorm:"column:avatar_url;type:text" json:"avatarUrl"`
-	Role         string     `gorm:"column:role;type:text;not null;default:member" json:"role"`
-	CreatedAt    time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt    time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
+	ID           uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Email        string    `gorm:"column:email;type:text;not null;uniqueIndex" json:"email"`
+	PasswordHash *string   `gorm:"column:password_hash;type:text" json:"-"`
+	DisplayName  string    `gorm:"column:display_name;type:text;not null" json:"displayName"`
+	AvatarUrl    *string   `gorm:"column:avatar_url;type:text" json:"avatarUrl"`
+	Role         string    `gorm:"column:role;type:text;not null;default:member" json:"role"`
+	CreatedAt    time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+	UpdatedAt    time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 }
 
 func (User) TableName() string { return "users" }
@@ -44,14 +44,14 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 
 // Library maps to the "libraries" table.
 type Library struct {
-	ID                      uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Name                    string    `gorm:"column:name;type:text;not null" json:"name"`
-	Emoji                   *string   `gorm:"column:emoji;type:text" json:"emoji"`
-	IsDefault               bool      `gorm:"column:is_default;not null;default:false" json:"isDefault"`
-	FaceRecognitionEnabled  bool      `gorm:"column:face_recognition_enabled;not null;default:false" json:"faceRecognitionEnabled"`
-	OwnerID                 uuid.UUID `gorm:"column:owner_id;type:uuid;not null" json:"ownerId"`
-	CreatedAt               time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt               time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
+	ID                     uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Name                   string    `gorm:"column:name;type:text;not null" json:"name"`
+	Emoji                  *string   `gorm:"column:emoji;type:text" json:"emoji"`
+	IsDefault              bool      `gorm:"column:is_default;not null;default:false" json:"isDefault"`
+	FaceRecognitionEnabled bool      `gorm:"column:face_recognition_enabled;not null;default:false" json:"faceRecognitionEnabled"`
+	OwnerID                uuid.UUID `gorm:"column:owner_id;type:uuid;not null" json:"ownerId"`
+	CreatedAt              time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+	UpdatedAt              time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 
 	Owner *User `gorm:"foreignKey:OwnerID" json:"-"`
 }
@@ -70,12 +70,14 @@ type Folder struct {
 	ID             uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	LibraryID      uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:folders_library_trash_parent_name_idx" json:"libraryId"`
 	ParentFolderID *uuid.UUID `gorm:"column:parent_folder_id;type:uuid;index:folders_library_trash_parent_name_idx" json:"parentFolderId"`
+	OwnerID        *uuid.UUID `gorm:"column:owner_id;type:uuid;index:folders_owner_id_idx" json:"ownerId"`
 	Name           string     `gorm:"column:name;type:text;not null;index:folders_library_trash_parent_name_idx" json:"name"`
 	TrashedAt      *time.Time `gorm:"column:trashed_at;index:folders_library_trash_parent_name_idx" json:"trashedAt"`
 	CreatedAt      time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
 	UpdatedAt      time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 
 	Library *Library `gorm:"foreignKey:LibraryID" json:"-"`
+	Owner   *User    `gorm:"foreignKey:OwnerID" json:"-"`
 	Tags    []Tag    `gorm:"many2many:folder_tags;foreignKey:ID;joinForeignKey:folder_id;References:ID;joinReferences:tag_id" json:"tags,omitempty"`
 }
 
@@ -177,19 +179,19 @@ func (LibraryMember) TableName() string { return "library_members" }
 
 // LibraryInvite maps to the "library_invites" table.
 type LibraryInvite struct {
-	ID              uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	LibraryID       uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:library_invites_library_idx" json:"libraryId"`
-	InvitedByUserID uuid.UUID  `gorm:"column:invited_by_user_id;type:uuid;not null;index:library_invites_inviter_idx" json:"invitedByUserId"`
-	InvitedEmail    *string    `gorm:"column:invited_email;type:text;index:library_invites_email_idx" json:"invitedEmail"`
-	Role            string     `gorm:"column:role;type:text;not null;default:viewer" json:"role"`
-	Token           string     `gorm:"column:token;type:text;not null;uniqueIndex" json:"token"`
-	UseCount        int        `gorm:"column:use_count;not null;default:0" json:"useCount"`
+	ID               uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	LibraryID        uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:library_invites_library_idx" json:"libraryId"`
+	InvitedByUserID  uuid.UUID  `gorm:"column:invited_by_user_id;type:uuid;not null;index:library_invites_inviter_idx" json:"invitedByUserId"`
+	InvitedEmail     *string    `gorm:"column:invited_email;type:text;index:library_invites_email_idx" json:"invitedEmail"`
+	Role             string     `gorm:"column:role;type:text;not null;default:viewer" json:"role"`
+	Token            string     `gorm:"column:token;type:text;not null;uniqueIndex" json:"token"`
+	UseCount         int        `gorm:"column:use_count;not null;default:0" json:"useCount"`
 	AcceptedByUserID *uuid.UUID `gorm:"column:accepted_by_user_id;type:uuid" json:"acceptedByUserId"`
-	AcceptedAt      *time.Time `gorm:"column:accepted_at" json:"acceptedAt"`
-	ExpiresAt       *time.Time `gorm:"column:expires_at" json:"expiresAt"`
-	RevokedAt       *time.Time `gorm:"column:revoked_at" json:"revokedAt"`
-	CreatedAt       time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt       time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
+	AcceptedAt       *time.Time `gorm:"column:accepted_at" json:"acceptedAt"`
+	ExpiresAt        *time.Time `gorm:"column:expires_at" json:"expiresAt"`
+	RevokedAt        *time.Time `gorm:"column:revoked_at" json:"revokedAt"`
+	CreatedAt        time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 
 	Library   *Library `gorm:"foreignKey:LibraryID" json:"-"`
 	InvitedBy *User    `gorm:"foreignKey:InvitedByUserID" json:"-"`
@@ -249,18 +251,18 @@ func (Person) TableName() string { return "people" }
 
 // FaceDetection maps to the "face_detections" table.
 type FaceDetection struct {
-	ID          uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	FileID      uuid.UUID  `gorm:"column:file_id;type:uuid;not null;index:face_detections_file_id_idx" json:"fileId"`
-	LibraryID   uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:face_detections_library_id_idx" json:"libraryId"`
-	PersonID    *uuid.UUID `gorm:"column:person_id;type:uuid;index:face_detections_person_id_idx" json:"personId"`
-	BoxX        int        `gorm:"column:box_x;not null" json:"boxX"`
-	BoxY        int        `gorm:"column:box_y;not null" json:"boxY"`
-	BoxWidth    int        `gorm:"column:box_width;not null" json:"boxWidth"`
-	BoxHeight   int        `gorm:"column:box_height;not null" json:"boxHeight"`
-	ImageWidth  int        `gorm:"column:image_width;not null" json:"imageWidth"`
-	ImageHeight int        `gorm:"column:image_height;not null" json:"imageHeight"`
-	Confidence  int        `gorm:"column:confidence;not null" json:"confidence"`
-	QualityScore *int      `gorm:"column:quality_score" json:"qualityScore"`
+	ID           uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	FileID       uuid.UUID  `gorm:"column:file_id;type:uuid;not null;index:face_detections_file_id_idx" json:"fileId"`
+	LibraryID    uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:face_detections_library_id_idx" json:"libraryId"`
+	PersonID     *uuid.UUID `gorm:"column:person_id;type:uuid;index:face_detections_person_id_idx" json:"personId"`
+	BoxX         int        `gorm:"column:box_x;not null" json:"boxX"`
+	BoxY         int        `gorm:"column:box_y;not null" json:"boxY"`
+	BoxWidth     int        `gorm:"column:box_width;not null" json:"boxWidth"`
+	BoxHeight    int        `gorm:"column:box_height;not null" json:"boxHeight"`
+	ImageWidth   int        `gorm:"column:image_width;not null" json:"imageWidth"`
+	ImageHeight  int        `gorm:"column:image_height;not null" json:"imageHeight"`
+	Confidence   int        `gorm:"column:confidence;not null" json:"confidence"`
+	QualityScore *int       `gorm:"column:quality_score" json:"qualityScore"`
 	// Embedding stored as pgvector vector(512) — handled via raw SQL when needed
 	CreatedAt time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
 

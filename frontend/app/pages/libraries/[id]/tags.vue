@@ -44,8 +44,8 @@ const {
 const sortedTags = computed(() =>
   [...libraryTags.value].sort((a, b) => a.name.localeCompare(b.name)),
 );
-const createTagColor = ref(TAG_COLOR_PALETTE[0] ?? "#3B82F6");
-const createTagColorDraft = ref(createTagColor.value);
+const createTagColor = ref<string>(TAG_COLOR_PALETTE[0] ?? "#3B82F6");
+const createTagColorDraft = ref<string>(createTagColor.value);
 const tagColorDrafts = reactive<Record<string, string>>({});
 const openColorDropdown = ref<string | null>(null);
 

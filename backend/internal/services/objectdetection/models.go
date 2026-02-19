@@ -8,9 +8,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	ort "github.com/yalue/onnxruntime_go"
 )
+
+var (
+	ortInitOnce sync.Once
+	ortInitErr  error
+)
+
+func initONNXRuntime() error {
+	ortInitOnce.Do(func() {
+		ortInitErr = ort.InitializeEnvironment()
+		if ortInitErr != nil {
+			log.Printf("Failed to initialize ONNX Runtime: %v", ortInitErr)
+		}
+	})
+	return ortInitErr
+}
 
 const (
 	objectModelFile = "yolov8s.onnx"

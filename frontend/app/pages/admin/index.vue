@@ -6,6 +6,7 @@ import { formatFileSize } from "~/utils/mime-icons";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 import AdminJobsPanel from "~/components/admin/AdminJobsPanel.vue";
+import UserAvatar from "~/components/UserAvatar.vue";
 
 interface AdminStats {
   users: number;
@@ -180,19 +181,11 @@ async function refreshAll() {
               <tr v-for="u in users" :key="u.id" class="hover">
                 <td>
                   <div class="flex items-center gap-3">
-                    <div class="avatar placeholder">
-                      <div v-if="u.avatarUrl" class="w-8 rounded-full">
-                        <img :src="u.avatarUrl" :alt="u.displayName" />
-                      </div>
-                      <div
-                        v-else
-                        class="bg-neutral text-neutral-content w-8 rounded-full flex items-center justify-center"
-                      >
-                        <span class="text-xs font-bold">{{
-                          u.displayName.charAt(0).toUpperCase()
-                        }}</span>
-                      </div>
-                    </div>
+                    <UserAvatar
+                      :display-name="u.displayName"
+                      :avatar-url="u.avatarUrl"
+                      size-class="w-8"
+                    />
                     <div class="min-w-0">
                       <p class="font-medium text-sm truncate">{{ u.displayName }}</p>
                       <p class="text-xs text-base-content/50 truncate">{{ u.email }}</p>

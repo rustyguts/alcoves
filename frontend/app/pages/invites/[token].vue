@@ -4,6 +4,7 @@ import { useApiFetch } from "~/composables/useApiFetch";
 import { apiFetch } from "~/utils/api-fetch";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
+import UserAvatar from "~/components/UserAvatar.vue";
 import type { InviteLookupResponse } from "~~/shared/types/api";
 
 const router = useRouter();
@@ -75,15 +76,14 @@ async function acceptInvite() {
   <div class="mx-auto max-w-2xl py-6 overflow-y-auto flex-1 min-h-0">
     <div class="card bg-base-100 shadow-sm">
       <div class="flex items-center gap-3 px-6 pt-5 pb-2">
-        <div v-if="invite" class="avatar">
-          <div class="w-10 rounded-full">
-            <img
-              v-if="invite.invitedBy.avatarUrl"
-              :src="invite.invitedBy.avatarUrl"
-              :alt="invite.invitedBy.displayName"
-            />
-          </div>
-        </div>
+        <UserAvatar
+          v-if="invite"
+          :display-name="invite.invitedBy.displayName"
+          :avatar-url="invite.invitedBy.avatarUrl"
+          size-class="w-10"
+          bg-class="bg-primary text-primary-content"
+          text-size-class="text-sm"
+        />
         <div>
           <h1 class="text-lg font-semibold">{{ inviteTitle }}</h1>
           <p class="text-sm text-muted">

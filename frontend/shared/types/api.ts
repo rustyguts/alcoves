@@ -48,6 +48,7 @@ export interface LibraryFolder {
   trashFileCount?: number;
   createdAt: string;
   updatedAt: string;
+  owner: LibraryUserSummary | null;
   tags: LibraryTag[];
 }
 
