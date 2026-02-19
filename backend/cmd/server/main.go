@@ -100,28 +100,39 @@ func main() {
 
 	// Download ONNX models at startup (non-blocking — runs in background).
 	// Models are also lazily downloaded on first worker use, but pre-fetching
-	// avoids blocking task processing.
-	go func() {
-		if err := faceSvc.EnsureModels(); err != nil {
-			log.Printf("Warning: failed to pre-download face detection models: %v", err)
-		}
-		if err := objSvc.EnsureModels(); err != nil {
-			log.Printf("Warning: failed to pre-download object detection model: %v", err)
-		}
-	}()
+	// avoids blocking task processing. Only needed on worker/all nodes.
+	if cfg.Mode == "all" || cfg.Mode == "worker" {
+		go func() {
+			if err := faceSvc.EnsureModels(); err != nil {
+				log.Printf("Warning: failed to pre-download face detection models: %v", err)
+			}
+			if err := objSvc.EnsureModels(); err != nil {
+				log.Printf("Warning: failed to pre-download object detection model: %v", err)
+			}
+		}()
+	}
 
 	// Video proxy service
 	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient)
+
+	// Image proxy service — handles cache lookup, job enqueueing, and polling.
+	imgSvc := imageproxy.NewService(storageSvc, asynqClient, imageproxy.NewVipsProcessor())
 
 	// Start asynq worker if mode is "all" or "worker"
 	var asynqServer *asynq.Server
 	if cfg.Mode == "all" || cfg.Mode == "worker" {
 		asynqServer = asynq.NewServer(asynqRedisOpt, asynq.Config{
-			Concurrency: 2,
-			Queues:      map[string]int{"default": 1},
+			Concurrency: 8,
+			// imageproxy gets highest priority so API handlers aren't kept waiting;
+			// default queue handles face/object detection and video transcoding.
+			Queues: map[string]int{
+				imageproxy.ImageProxyQueue: 10,
+				"default":                 1,
+			},
 		})
 
 		mux := asynq.NewServeMux()
+		mux.HandleFunc(imageproxy.TaskTypeImageProxy, imgSvc.NewTaskHandler().ProcessTask)
 		mux.HandleFunc(facedetection.TaskTypeFaceDetect, faceSvc.NewTaskHandler().ProcessTask)
 		mux.HandleFunc(objectdetection.TaskTypeObjectDetect, objSvc.NewTaskHandler().ProcessTask)
 		videoTaskHandler := videoSvc.NewTaskHandler()
@@ -169,83 +180,85 @@ func main() {
 	// Routes
 	api := e.Group("/api")
 
-	// Auth routes (public - skipped by auth middleware)
-	authHandler := handlers.NewAuthHandler(db, authSvc, cfg.GoogleAuthEnabled)
-	authHandler.RegisterRoutes(api.Group("/auth"))
-	authHandler.RegisterSessionRoute(api)
-
-	// Library routes
-	libraryHandler := handlers.NewLibraryHandler(db, accessSvc, faceSvc, objSvc)
-	libraryHandler.RegisterRoutes(api.Group("/libraries"))
-
-	// File routes (under /api/libraries)
-	fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc)
-	fileHandler.RegisterRoutes(api.Group("/libraries"))
-
-	// Folder routes (under /api/libraries)
-	folderHandler := handlers.NewFolderHandler(db)
-	folderHandler.RegisterRoutes(api.Group("/libraries"))
-
-	// Tag routes (under /api/libraries)
-	tagHandler := handlers.NewTagHandler(db)
-	tagHandler.RegisterRoutes(api.Group("/libraries"))
-
-	// Member routes (under /api/libraries)
-	memberHandler := handlers.NewMemberHandler(db, accessSvc)
-	memberHandler.RegisterRoutes(api.Group("/libraries"))
-
-	// Invite routes
-	inviteHandler := handlers.NewInviteHandler(db)
-	inviteHandler.RegisterRoutes(api.Group("/invites"))
-
-	// Search
-	searchHandler := handlers.NewSearchHandler(db)
-	searchHandler.RegisterRoutes(api)
-
-	// Admin routes
-	adminHandler := handlers.NewAdminHandler(db)
-	adminHandler.RegisterRoutes(api.Group("/admin"))
-
-	// Admin job queue routes
-	adminJobsHandler := handlers.NewAdminJobsHandler(asynqInspector)
-	adminJobsHandler.RegisterRoutes(api.Group("/admin"))
-
-	// People routes (under /api/libraries)
-	peopleHandler := handlers.NewPeopleHandler(db, storageSvc, faceSvc)
-	peopleHandler.RegisterRoutes(api.Group("/libraries"))
-
-	// Object detection routes (under /api/libraries)
-	objectsHandler := handlers.NewObjectsHandler(db, objSvc)
-	objectsHandler.RegisterRoutes(api.Group("/libraries"))
-
-	// Download routes (under /api/libraries)
-	downloadHandler := handlers.NewDownloadHandler(db, storageSvc)
-	downloadHandler.RegisterRoutes(api.Group("/libraries"))
-
-	// Tus resumable upload routes (under /api/tus)
-	tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc)
-	tusHandler.RegisterRoutes(api)
-
-	// Avatar routes (under /api/auth)
-	avatarHandler := handlers.NewAvatarHandler(db, storageSvc)
-	avatarHandler.RegisterRoutes(api.Group("/auth"))
-
-	// OAuth routes (under /api/auth)
-	oauthHandler := handlers.NewOAuthHandler(db, authSvc, cfg.OAuthGoogleClientID, cfg.OAuthGoogleClientSecret, cfg.BaseURL)
-	oauthHandler.RegisterRoutes(api.Group("/auth"))
-
-	// Public file proxy (skipped by auth middleware)
-	imgProcessor := imageproxy.NewVipsProcessor()
-	fileProxyHandler := handlers.NewFileProxyHandler(db, storageSvc, imgProcessor)
-	fileProxyHandler.RegisterRoutes(api.Group("/files"))
-
-	// Health check
+	// Health check — always registered regardless of mode
 	api.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok", "mode": cfg.Mode})
 	})
 
-	// SPA frontend (no-op in dev mode, serves embedded dist/ in production)
-	spa.RegisterRoutes(e)
+	// API routes — skipped in worker-only mode
+	if cfg.Mode != "worker" {
+		// Auth routes (public - skipped by auth middleware)
+		authHandler := handlers.NewAuthHandler(db, authSvc, cfg.GoogleAuthEnabled)
+		authHandler.RegisterRoutes(api.Group("/auth"))
+		authHandler.RegisterSessionRoute(api)
+
+		// Library routes
+		libraryHandler := handlers.NewLibraryHandler(db, accessSvc, faceSvc, objSvc)
+		libraryHandler.RegisterRoutes(api.Group("/libraries"))
+
+		// File routes (under /api/libraries)
+		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc)
+		fileHandler.RegisterRoutes(api.Group("/libraries"))
+
+		// Folder routes (under /api/libraries)
+		folderHandler := handlers.NewFolderHandler(db)
+		folderHandler.RegisterRoutes(api.Group("/libraries"))
+
+		// Tag routes (under /api/libraries)
+		tagHandler := handlers.NewTagHandler(db)
+		tagHandler.RegisterRoutes(api.Group("/libraries"))
+
+		// Member routes (under /api/libraries)
+		memberHandler := handlers.NewMemberHandler(db, accessSvc)
+		memberHandler.RegisterRoutes(api.Group("/libraries"))
+
+		// Invite routes
+		inviteHandler := handlers.NewInviteHandler(db)
+		inviteHandler.RegisterRoutes(api.Group("/invites"))
+
+		// Search
+		searchHandler := handlers.NewSearchHandler(db)
+		searchHandler.RegisterRoutes(api)
+
+		// Admin routes
+		adminHandler := handlers.NewAdminHandler(db)
+		adminHandler.RegisterRoutes(api.Group("/admin"))
+
+		// Admin job queue routes
+		adminJobsHandler := handlers.NewAdminJobsHandler(asynqInspector)
+		adminJobsHandler.RegisterRoutes(api.Group("/admin"))
+
+		// People routes (under /api/libraries)
+		peopleHandler := handlers.NewPeopleHandler(db, storageSvc, faceSvc)
+		peopleHandler.RegisterRoutes(api.Group("/libraries"))
+
+		// Object detection routes (under /api/libraries)
+		objectsHandler := handlers.NewObjectsHandler(db, objSvc)
+		objectsHandler.RegisterRoutes(api.Group("/libraries"))
+
+		// Download routes (under /api/libraries)
+		downloadHandler := handlers.NewDownloadHandler(db, storageSvc)
+		downloadHandler.RegisterRoutes(api.Group("/libraries"))
+
+		// Tus resumable upload routes (under /api/tus)
+		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc)
+		tusHandler.RegisterRoutes(api)
+
+		// Avatar routes (under /api/auth)
+		avatarHandler := handlers.NewAvatarHandler(db, storageSvc)
+		avatarHandler.RegisterRoutes(api.Group("/auth"))
+
+		// OAuth routes (under /api/auth)
+		oauthHandler := handlers.NewOAuthHandler(db, authSvc, cfg.OAuthGoogleClientID, cfg.OAuthGoogleClientSecret, cfg.BaseURL)
+		oauthHandler.RegisterRoutes(api.Group("/auth"))
+
+		// Public file proxy (skipped by auth middleware)
+		fileProxyHandler := handlers.NewFileProxyHandler(db, storageSvc, imgSvc)
+		fileProxyHandler.RegisterRoutes(api.Group("/files"))
+
+		// SPA frontend (no-op in dev mode, serves embedded dist/ in production)
+		spa.RegisterRoutes(e)
+	}
 
 	// Graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
