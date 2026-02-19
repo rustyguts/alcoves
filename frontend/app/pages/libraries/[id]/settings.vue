@@ -109,6 +109,12 @@ const faceRecToggling = ref(false);
 const faceRecDisableOpen = ref(false);
 const faceRecReprocessOpen = ref(false);
 const faceRecReprocessing = ref(false);
+
+const objDetToggling = ref(false);
+const objDetDisableOpen = ref(false);
+const objDetReprocessOpen = ref(false);
+const objDetReprocessing = ref(false);
+
 const deleteLibraryOpen = ref(false);
 const deleteLibraryConfirmation = ref("");
 
@@ -167,6 +173,64 @@ async function reprocessFaceRecognition() {
     toast.add({ title: message, color: "error" });
   } finally {
     faceRecReprocessing.value = false;
+  }
+}
+
+async function toggleObjectDetection(enabled: boolean) {
+  if (!enabled) {
+    objDetDisableOpen.value = true;
+    return;
+  }
+
+  objDetToggling.value = true;
+  try {
+    await apiFetch(`/api/libraries/${libraryId.value}`, {
+      method: "PATCH",
+      body: { objectDetectionEnabled: true },
+    });
+    await refreshLibrary();
+    toast.add({ title: "Object detection enabled. Processing will begin shortly." });
+  } catch {
+    toast.add({ title: "Failed to enable object detection", color: "error" });
+  } finally {
+    objDetToggling.value = false;
+  }
+}
+
+async function confirmDisableObjectDetection() {
+  objDetToggling.value = true;
+  objDetDisableOpen.value = false;
+  try {
+    await apiFetch(`/api/libraries/${libraryId.value}`, {
+      method: "PATCH",
+      body: { objectDetectionEnabled: false },
+    });
+    await refreshLibrary();
+    toast.add({ title: "Object detection disabled. All detection data has been deleted." });
+  } catch {
+    toast.add({ title: "Failed to disable object detection", color: "error" });
+  } finally {
+    objDetToggling.value = false;
+  }
+}
+
+async function reprocessObjectDetection() {
+  objDetReprocessing.value = true;
+  objDetReprocessOpen.value = false;
+  try {
+    const result = await apiFetch<{ queuedCount: number }>(
+      `/api/libraries/${libraryId.value}/object-detection/reprocess`,
+      { method: "POST" },
+    );
+    toast.add({
+      title: "Reprocessing queued",
+      description: `${result.queuedCount} image${result.queuedCount === 1 ? "" : "s"} queued for fresh object detection.`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to queue object detection reprocessing";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    objDetReprocessing.value = false;
   }
 }
 
@@ -447,6 +511,47 @@ async function deleteLibrary() {
       </div>
     </div>
 
+    <!-- Object Detection Card -->
+    <div class="card bg-base-100">
+      <div class="card-body">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold">Object Detection</p>
+              <p class="text-xs text-muted">
+                Detect objects in image uploads using YOLOv8. Disabling removes all detection data.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              class="toggle"
+              :checked="library?.objectDetectionEnabled ?? false"
+              :disabled="objDetToggling"
+              @change="toggleObjectDetection(($event.target as HTMLInputElement).checked)"
+            />
+          </div>
+
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">Queue full reprocessing</p>
+              <p class="text-xs text-muted">
+                Deletes current object detection data, then re-runs detection on all images.
+              </p>
+            </div>
+            <button
+              class="btn btn-neutral"
+              :disabled="!library?.objectDetectionEnabled || objDetToggling || objDetReprocessing"
+              @click="objDetReprocessOpen = true"
+            >
+              <span v-if="objDetReprocessing" class="loading loading-spinner loading-xs"></span>
+              <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
+              Reprocess Objects
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Danger Zone Card -->
     <div class="card bg-base-100">
       <div class="card-body">
@@ -524,6 +629,65 @@ async function deleteLibrary() {
         </div>
       </div>
       <form method="dialog" class="modal-backdrop" @click="faceRecReprocessOpen = false">
+        <button>close</button>
+      </form>
+    </dialog>
+
+    <!-- Disable Object Detection Modal -->
+    <dialog class="modal" :class="{ 'modal-open': objDetDisableOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Disable Object Detection</h3>
+        <p class="text-sm text-muted py-4">
+          This will permanently delete all detected object data for this library. This action
+          cannot be undone.
+        </p>
+        <div class="modal-action">
+          <button
+            class="btn"
+            @click="objDetDisableOpen = false"
+          >Cancel</button>
+          <button
+            class="btn btn-error"
+            :disabled="objDetToggling"
+            @click="confirmDisableObjectDetection"
+          >
+            <span v-if="objDetToggling" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-trash-2" class="size-4" />
+            Disable & Delete Data
+          </button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop" @click="objDetDisableOpen = false">
+        <button>close</button>
+      </form>
+    </dialog>
+
+    <!-- Reprocess Object Detection Modal -->
+    <dialog class="modal" :class="{ 'modal-open': objDetReprocessOpen }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">Reprocess Object Detection</h3>
+        <p class="text-sm text-muted py-4">
+          This deletes all existing object detection data and queues a full rebuild. Detected
+          objects may change if the model or settings have been updated.
+        </p>
+        <div class="modal-action">
+          <button
+            class="btn"
+            :disabled="objDetReprocessing"
+            @click="objDetReprocessOpen = false"
+          >Cancel</button>
+          <button
+            class="btn btn-warning"
+            :disabled="objDetReprocessing"
+            @click="reprocessObjectDetection"
+          >
+            <span v-if="objDetReprocessing" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
+            Delete Data & Requeue
+          </button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop" @click="objDetReprocessOpen = false">
         <button>close</button>
       </form>
     </dialog>

@@ -4,6 +4,7 @@ export interface Library {
   emoji: string | null;
   isDefault: boolean;
   faceRecognitionEnabled: boolean;
+  objectDetectionEnabled: boolean;
   ownerId: string;
   currentUserRole?: "owner" | "admin" | "viewer";
   canManageUsers?: boolean;
@@ -156,6 +157,8 @@ export interface GlobalSearchResult {
   mimeType?: string;
   size?: number;
   updatedAt: string;
+  matchReason?: "name" | "object" | "name+object";
+  matchedLabels?: string[];
 }
 
 export interface GlobalSearchResponse {

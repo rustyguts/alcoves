@@ -23,6 +23,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
+	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 	"github.com/alcoves/alcoves-backend/internal/spa"
@@ -81,6 +82,27 @@ func main() {
 	)
 	faceSvc := facedetection.NewService(db, storageSvc, asynqClient, faceConfig)
 
+	// Object detection service
+	objConfig := objectdetection.NewObjectConfig(
+		cfg.ObjectDetectionMinScore,
+		cfg.ObjectDetectionNMSThresh,
+		cfg.ObjectDetectionMaxDets,
+		cfg.ModelsPath,
+	)
+	objSvc := objectdetection.NewService(db, storageSvc, asynqClient, objConfig)
+
+	// Download ONNX models at startup (non-blocking — runs in background).
+	// Models are also lazily downloaded on first worker use, but pre-fetching
+	// avoids blocking task processing.
+	go func() {
+		if err := faceSvc.EnsureModels(); err != nil {
+			log.Printf("Warning: failed to pre-download face detection models: %v", err)
+		}
+		if err := objSvc.EnsureModels(); err != nil {
+			log.Printf("Warning: failed to pre-download object detection model: %v", err)
+		}
+	}()
+
 	// Video proxy service
 	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient)
 
@@ -94,6 +116,7 @@ func main() {
 
 		mux := asynq.NewServeMux()
 		mux.HandleFunc(facedetection.TaskTypeFaceDetect, faceSvc.NewTaskHandler().ProcessTask)
+		mux.HandleFunc(objectdetection.TaskTypeObjectDetect, objSvc.NewTaskHandler().ProcessTask)
 		mux.HandleFunc(videoproxy.TaskTypeVideoProxy, videoSvc.NewTaskHandler().ProcessTask)
 
 		go func() {
@@ -143,11 +166,11 @@ func main() {
 	authHandler.RegisterSessionRoute(api)
 
 	// Library routes
-	libraryHandler := handlers.NewLibraryHandler(db, accessSvc)
+	libraryHandler := handlers.NewLibraryHandler(db, accessSvc, faceSvc, objSvc)
 	libraryHandler.RegisterRoutes(api.Group("/libraries"))
 
 	// File routes (under /api/libraries)
-	fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, videoSvc)
+	fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc)
 	fileHandler.RegisterRoutes(api.Group("/libraries"))
 
 	// Folder routes (under /api/libraries)
@@ -182,12 +205,16 @@ func main() {
 	peopleHandler := handlers.NewPeopleHandler(db, storageSvc, faceSvc)
 	peopleHandler.RegisterRoutes(api.Group("/libraries"))
 
+	// Object detection routes (under /api/libraries)
+	objectsHandler := handlers.NewObjectsHandler(db, objSvc)
+	objectsHandler.RegisterRoutes(api.Group("/libraries"))
+
 	// Download routes (under /api/libraries)
 	downloadHandler := handlers.NewDownloadHandler(db, storageSvc)
 	downloadHandler.RegisterRoutes(api.Group("/libraries"))
 
 	// Tus resumable upload routes (under /api/tus)
-	tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, videoSvc)
+	tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc)
 	tusHandler.RegisterRoutes(api)
 
 	// Avatar routes (under /api/auth)

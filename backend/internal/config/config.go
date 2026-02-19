@@ -51,6 +51,11 @@ type Config struct {
 	FaceRecognitionNeighborLookup int
 	FaceRecognitionMinFaces       int
 	ModelsPath                    string
+
+	// Object detection tuning
+	ObjectDetectionMinScore  float64
+	ObjectDetectionMaxDets   int
+	ObjectDetectionNMSThresh float64
 }
 
 func Load() (*Config, error) {
@@ -61,6 +66,10 @@ func Load() (*Config, error) {
 	faceMaxDist, _ := strconv.ParseFloat(getEnv("ALCOVES_FACE_RECOGNITION_MAX_DISTANCE", "0.6"), 64)
 	faceNeighborLookup, _ := strconv.Atoi(getEnv("ALCOVES_FACE_RECOGNITION_NEIGHBOR_LOOKUP", "80"))
 	faceMinFaces, _ := strconv.Atoi(getEnv("ALCOVES_FACE_RECOGNITION_MIN_FACES", "2"))
+
+	objMinScore, _ := strconv.ParseFloat(getEnv("ALCOVES_OBJECT_DETECTION_MIN_SCORE", "0.25"), 64)
+	objMaxDets, _ := strconv.Atoi(getEnv("ALCOVES_OBJECT_DETECTION_MAX_DETECTIONS", "100"))
+	objNMSThresh, _ := strconv.ParseFloat(getEnv("ALCOVES_OBJECT_DETECTION_NMS_THRESHOLD", "0.45"), 64)
 
 	dataDir := getEnv("ALCOVES_STORAGE_PATH", "./data")
 	storagePath := filepath.Join(dataDir, "files")
@@ -112,6 +121,10 @@ func Load() (*Config, error) {
 		FaceRecognitionNeighborLookup: faceNeighborLookup,
 		FaceRecognitionMinFaces:       faceMinFaces,
 		ModelsPath:                    getEnv("ALCOVES_MODELS_PATH", filepath.Join(dataDir, ".models")),
+
+		ObjectDetectionMinScore:  objMinScore,
+		ObjectDetectionMaxDets:   objMaxDets,
+		ObjectDetectionNMSThresh: objNMSThresh,
 	}
 
 	return cfg, nil

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	ort "github.com/yalue/onnxruntime_go"
 )
@@ -42,7 +43,8 @@ func downloadIfNeeded(dest, url string) error {
 
 	log.Printf("Downloading model to %s ...", dest)
 
-	resp, err := http.Get(url)
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Get(url)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -57,18 +59,22 @@ func downloadIfNeeded(dest, url string) error {
 		return fmt.Errorf("got HTML response (LFS pointer?) for %s", url)
 	}
 
+	totalSize := resp.ContentLength
+
 	tmpFile := dest + ".tmp"
 	f, err := os.Create(tmpFile)
 	if err != nil {
 		return err
 	}
 
-	written, err := io.Copy(f, resp.Body)
+	written, err := io.Copy(f, &progressReader{r: resp.Body, total: totalSize, label: filepath.Base(dest)})
 	f.Close()
 	if err != nil {
 		os.Remove(tmpFile)
 		return err
 	}
+
+	log.Printf("Download complete: %s (%d bytes)", filepath.Base(dest), written)
 
 	if written < minModelSize {
 		os.Remove(tmpFile)
@@ -78,9 +84,38 @@ func downloadIfNeeded(dest, url string) error {
 	return os.Rename(tmpFile, dest)
 }
 
+// progressReader wraps an io.Reader and logs download progress periodically.
+type progressReader struct {
+	r          io.Reader
+	total      int64
+	read       int64
+	label      string
+	lastReport time.Time
+}
+
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.r.Read(p)
+	pr.read += int64(n)
+	if time.Since(pr.lastReport) > 5*time.Second {
+		pr.lastReport = time.Now()
+		if pr.total > 0 {
+			pct := float64(pr.read) / float64(pr.total) * 100
+			log.Printf("Downloading %s: %.1f%% (%d / %d bytes)", pr.label, pct, pr.read, pr.total)
+		} else {
+			log.Printf("Downloading %s: %d bytes", pr.label, pr.read)
+		}
+	}
+	return n, err
+}
+
 // LoadDetectionSession creates an ONNX Runtime session for the YOLOv8 model.
 // YOLOv8 has a single input "images" and a single output "output0".
+// Downloads the model on first use if not already present.
 func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error) {
+	if err := EnsureModelsDownloaded(modelsPath); err != nil {
+		return nil, fmt.Errorf("failed to ensure object detection model: %w", err)
+	}
+
 	if err := initONNXRuntime(); err != nil {
 		return nil, err
 	}

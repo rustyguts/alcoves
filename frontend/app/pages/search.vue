@@ -219,9 +219,21 @@ function getResultIcon(result: GlobalSearchResult): string {
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">{{ result.name }}</p>
               <p class="truncate font-mono text-[11px] text-muted">{{ result.locationPath }}</p>
+              <p
+                v-if="result.matchedLabels?.length"
+                class="truncate text-[11px] text-primary md:hidden"
+              >
+                contains: {{ result.matchedLabels.join(", ") }}
+              </p>
             </div>
 
             <div class="hidden shrink-0 items-center gap-2 md:flex">
+              <span
+                v-if="result.matchedLabels?.length"
+                class="badge badge-soft badge-primary badge-sm"
+              >
+                contains: {{ result.matchedLabels.join(", ") }}
+              </span>
               <span class="text-xs text-muted">{{ formatDate(result.updatedAt) }}</span>
               <span class="badge badge-soft badge-neutral badge-sm">{{ result.kind }}</span>
               <span

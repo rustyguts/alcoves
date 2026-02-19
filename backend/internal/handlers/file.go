@@ -19,6 +19,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
+	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 )
@@ -28,11 +29,12 @@ type FileHandler struct {
 	fileSvc    *files.Service
 	storageSvc *storage.Service
 	faceSvc    *facedetection.Service
+	objSvc     *objectdetection.Service
 	videoSvc   *videoproxy.Service
 }
 
-func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, videoSvc *videoproxy.Service) *FileHandler {
-	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, videoSvc: videoSvc}
+func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service) *FileHandler {
+	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc}
 }
 
 func (h *FileHandler) RegisterRoutes(g *echo.Group) {
@@ -113,6 +115,9 @@ func (h *FileHandler) Upload(c echo.Context) error {
 
 	// Trigger face detection if library has it enabled and file is an image
 	h.maybeEnqueueFaceDetection(libraryID, fileID, mimeType)
+
+	// Trigger object detection if library has it enabled and file is an image
+	h.maybeEnqueueObjectDetection(libraryID, fileID, mimeType)
 
 	// Trigger video proxy generation for video files
 	h.maybeEnqueueVideoProxy(libraryID, fileID, mimeType)
@@ -399,6 +404,13 @@ func (h *FileHandler) Purge(c echo.Context) error {
 		}
 	}
 
+	// Clean up object detection data for purged files (best-effort, outside transaction).
+	if len(fileIDs) > 0 && h.objSvc != nil {
+		if err := h.objSvc.DeleteObjectDataForFiles(libraryID, fileIDs); err != nil {
+			log.Printf("failed to clean object detection data for purged files: %v", err)
+		}
+	}
+
 	return c.JSON(http.StatusOK, map[string]int{"purged": purgedCount})
 }
 
@@ -604,6 +616,25 @@ func (h *FileHandler) maybeEnqueueFaceDetection(libraryID, fileID uuid.UUID, mim
 	if library.FaceRecognitionEnabled {
 		if err := h.faceSvc.EnqueueFaceDetection(libraryID.String(), fileID.String()); err != nil {
 			log.Printf("failed to enqueue face detection for file %s: %v", fileID, err)
+		}
+	}
+}
+
+// maybeEnqueueObjectDetection triggers object detection if the library has it enabled
+// and the file is an image.
+func (h *FileHandler) maybeEnqueueObjectDetection(libraryID, fileID uuid.UUID, mimeType string) {
+	if h.objSvc == nil || !strings.HasPrefix(mimeType, "image/") {
+		return
+	}
+
+	var library models.Library
+	if err := h.db.Select("object_detection_enabled").Where("id = ?", libraryID).First(&library).Error; err != nil {
+		return
+	}
+
+	if library.ObjectDetectionEnabled {
+		if err := h.objSvc.EnqueueObjectDetection(libraryID.String(), fileID.String()); err != nil {
+			log.Printf("failed to enqueue object detection for file %s: %v", fileID, err)
 		}
 	}
 }

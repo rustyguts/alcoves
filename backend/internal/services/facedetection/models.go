@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	ort "github.com/yalue/onnxruntime_go"
 )
@@ -75,7 +76,8 @@ func downloadIfNeeded(dest, url string) error {
 
 	log.Printf("Downloading model to %s ...", dest)
 
-	resp, err := http.Get(url)
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Get(url)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -91,18 +93,22 @@ func downloadIfNeeded(dest, url string) error {
 		return fmt.Errorf("got HTML response (LFS pointer?) for %s", url)
 	}
 
+	totalSize := resp.ContentLength
+
 	tmpFile := dest + ".tmp"
 	f, err := os.Create(tmpFile)
 	if err != nil {
 		return err
 	}
 
-	written, err := io.Copy(f, resp.Body)
+	written, err := io.Copy(f, &progressReader{r: resp.Body, total: totalSize, label: filepath.Base(dest)})
 	f.Close()
 	if err != nil {
 		os.Remove(tmpFile)
 		return err
 	}
+
+	log.Printf("Download complete: %s (%d bytes)", filepath.Base(dest), written)
 
 	if written < minModelSize {
 		os.Remove(tmpFile)
@@ -112,8 +118,37 @@ func downloadIfNeeded(dest, url string) error {
 	return os.Rename(tmpFile, dest)
 }
 
+// progressReader wraps an io.Reader and logs download progress periodically.
+type progressReader struct {
+	r          io.Reader
+	total      int64
+	read       int64
+	label      string
+	lastReport time.Time
+}
+
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.r.Read(p)
+	pr.read += int64(n)
+	if time.Since(pr.lastReport) > 5*time.Second {
+		pr.lastReport = time.Now()
+		if pr.total > 0 {
+			pct := float64(pr.read) / float64(pr.total) * 100
+			log.Printf("Downloading %s: %.1f%% (%d / %d bytes)", pr.label, pct, pr.read, pr.total)
+		} else {
+			log.Printf("Downloading %s: %d bytes", pr.label, pr.read)
+		}
+	}
+	return n, err
+}
+
 // LoadDetectionSession creates an ONNX Runtime session for the SCRFD detection model.
+// Downloads models on first use if not already present.
 func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error) {
+	if err := EnsureModelsDownloaded(modelsPath); err != nil {
+		return nil, fmt.Errorf("failed to ensure face detection models: %w", err)
+	}
+
 	if err := initONNXRuntime(); err != nil {
 		return nil, err
 	}
@@ -147,15 +182,15 @@ func LoadRecognitionSession(modelsPath string) (*ort.DynamicAdvancedSession, err
 		input  string
 		output string
 	}{
-		{"input.1", "683"},                 // InsightFace buffalo_l (official ONNX export)
-		{"input.1", "267"},                 // Alternative ONNX numbered outputs
-		{"input.1", "fc1"},                 // ONNX with standard output
-		{"data", "fc1"},                    // Original InsightFace Python API
-		{"input", "fc1"},                   // Alternative variant
-		{"input.1", "output"},              // ONNX generic output
-		{"data", "output"},                 // Alternative combinations
-		{"input", "output"},                // Common generic names
-		{"input", "embedding"},             // Alternative embedding output
+		{"input.1", "683"},     // InsightFace buffalo_l (official ONNX export)
+		{"input.1", "267"},     // Alternative ONNX numbered outputs
+		{"input.1", "fc1"},     // ONNX with standard output
+		{"data", "fc1"},        // Original InsightFace Python API
+		{"input", "fc1"},       // Alternative variant
+		{"input.1", "output"},  // ONNX generic output
+		{"data", "output"},     // Alternative combinations
+		{"input", "output"},    // Common generic names
+		{"input", "embedding"}, // Alternative embedding output
 	}
 
 	// We'll store the first working session we find

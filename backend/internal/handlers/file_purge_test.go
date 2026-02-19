@@ -258,7 +258,7 @@ func assertRecordCount(t *testing.T, db *gorm.DB, model interface{}, where strin
 func TestPurge_SpecificTrashedFiles(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	f1 := createFile(t, db, fix.LibraryID, fix.UserID, "photo1.jpg", true, nil)
@@ -296,7 +296,7 @@ func TestPurge_SpecificTrashedFiles(t *testing.T) {
 func TestPurge_IgnoresNonTrashedFiles(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	active := createFile(t, db, fix.LibraryID, fix.UserID, "active.jpg", false, nil)
@@ -330,7 +330,7 @@ func TestPurge_IgnoresNonTrashedFiles(t *testing.T) {
 func TestPurge_IgnoresFilesFromOtherLibrary(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix1 := seedLibrary(t, db)
 	fix2 := seedLibrary(t, db)
@@ -358,7 +358,7 @@ func TestPurge_IgnoresFilesFromOtherLibrary(t *testing.T) {
 func TestPurge_DeletesBlobLeavesCache(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fid := createFile(t, db, fix.LibraryID, fix.UserID, "cached.jpg", true, nil)
@@ -395,7 +395,7 @@ func TestPurge_DeletesBlobLeavesCache(t *testing.T) {
 func TestPurge_RemovesFileTags(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fid := createFile(t, db, fix.LibraryID, fix.UserID, "tagged.jpg", true, nil)
@@ -420,7 +420,7 @@ func TestPurge_RemovesFileTags(t *testing.T) {
 func TestPurge_ClearsSourceFileIDReferences(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	original := createFile(t, db, fix.LibraryID, fix.UserID, "original.mp4", true, nil)
@@ -467,7 +467,7 @@ func TestPurge_ClearsSourceFileIDReferences(t *testing.T) {
 func TestPurge_AllTrashedItems(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 
@@ -517,7 +517,7 @@ func TestPurge_AllTrashedItems(t *testing.T) {
 func TestPurge_AllTrashedWithEmptyJSONBody(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fid := createFile(t, db, fix.LibraryID, fix.UserID, "trash.jpg", true, nil)
@@ -539,7 +539,7 @@ func TestPurge_AllTrashedWithEmptyJSONBody(t *testing.T) {
 func TestPurge_AllTrashedNothingToPurge(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	// Only active items
@@ -564,7 +564,7 @@ func TestPurge_AllTrashedNothingToPurge(t *testing.T) {
 func TestPurge_SpecificFolder(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	folderID := createFolder(t, db, fix.LibraryID, "photos", true, nil)
@@ -591,7 +591,7 @@ func TestPurge_SpecificFolder(t *testing.T) {
 func TestPurge_FolderWithDescendants(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 
@@ -638,7 +638,7 @@ func TestPurge_FolderWithDescendants(t *testing.T) {
 func TestPurge_FolderRemovesFolderTags(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	folderID := createFolder(t, db, fix.LibraryID, "tagged-folder", true, nil)
@@ -660,7 +660,7 @@ func TestPurge_FolderRemovesFolderTags(t *testing.T) {
 func TestPurge_FolderPurgesFilesAndTheirTags(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	folderID := createFolder(t, db, fix.LibraryID, "folder", true, nil)
@@ -707,7 +707,7 @@ func (d *failingDeleteDriver) DeletePrefix(scope storage.Scope, _ string) error 
 func TestPurge_StorageDeleteFailsReturns500(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	storageSvc := storage.NewService(&failingDeleteDriver{})
-	handler := NewFileHandler(db, nil, storageSvc, nil, nil)
+	handler := NewFileHandler(db, nil, storageSvc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fid := createFile(t, db, fix.LibraryID, fix.UserID, "fail.jpg", true, nil)
@@ -730,7 +730,7 @@ func TestPurge_StorageDeleteFailsReturns500(t *testing.T) {
 func TestPurge_StorageDeleteFailsPreservesDBRecords(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	storageSvc := storage.NewService(&failingDeleteDriver{})
-	handler := NewFileHandler(db, nil, storageSvc, nil, nil)
+	handler := NewFileHandler(db, nil, storageSvc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fid := createFile(t, db, fix.LibraryID, fix.UserID, "fail.jpg", true, nil)
@@ -748,7 +748,7 @@ func TestPurge_StorageDeleteFailsPreservesDBRecords(t *testing.T) {
 func TestPurge_InvalidBodyReturnsBadRequest(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 
@@ -781,7 +781,7 @@ func TestPurge_InvalidBodyReturnsBadRequest(t *testing.T) {
 func TestPurge_EmptyFileIDsListPurgesAllTrashed(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fid := createFile(t, db, fix.LibraryID, fix.UserID, "only-trashed.jpg", true, nil)
@@ -804,7 +804,7 @@ func TestPurge_EmptyFileIDsListPurgesAllTrashed(t *testing.T) {
 func TestPurge_NonexistentFileIDs(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fakeID := uuid.New().String()
@@ -825,7 +825,7 @@ func TestPurge_NonexistentFileIDs(t *testing.T) {
 func TestPurge_MixedTrashedAndActiveInBulk(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	trashed1 := createFile(t, db, fix.LibraryID, fix.UserID, "t1.jpg", true, nil)
@@ -865,7 +865,7 @@ func TestPurge_MixedTrashedAndActiveInBulk(t *testing.T) {
 func TestPurge_MultipleFilesWithTags(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	sharedTag := createTag(t, db, fix.LibraryID, "shared")
@@ -897,7 +897,7 @@ func TestPurge_MultipleFilesWithTags(t *testing.T) {
 func TestPurge_FolderOnlyNoFilesInside(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	folderID := createFolder(t, db, fix.LibraryID, "empty-folder", true, nil)
@@ -920,7 +920,7 @@ func TestPurge_FolderOnlyNoFilesInside(t *testing.T) {
 func TestPurge_ResponseFormat(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fid := createFile(t, db, fix.LibraryID, fix.UserID, "format.jpg", true, nil)

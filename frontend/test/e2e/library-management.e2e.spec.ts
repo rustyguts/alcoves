@@ -9,6 +9,7 @@ type MockState = {
     isDefault: boolean;
     ownerId: string;
     faceRecognitionEnabled: boolean;
+    objectDetectionEnabled: boolean;
   }>;
   tags: Array<{
     id: string;
@@ -93,6 +94,7 @@ async function mockApi(page: Page, state: MockState) {
         isDefault: false,
         ownerId: "user-1",
         faceRecognitionEnabled: false,
+        objectDetectionEnabled: false,
       };
       state.libraries.push(newLib);
       await fulfillJson(route, 200, {
@@ -224,6 +226,7 @@ test.describe("Library management flows", () => {
           isDefault: true,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
+          objectDetectionEnabled: false,
         },
       ],
       tags: [],
@@ -247,6 +250,7 @@ test.describe("Library management flows", () => {
           isDefault: false,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
+          objectDetectionEnabled: false,
         },
       ],
       tags: [],
@@ -281,6 +285,7 @@ test.describe("Library management flows", () => {
           isDefault: false,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
+          objectDetectionEnabled: false,
         },
       ],
       tags: [
@@ -325,6 +330,7 @@ test.describe("Library management flows", () => {
           isDefault: false,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
+          objectDetectionEnabled: false,
         },
       ],
       tags: [],
@@ -347,6 +353,7 @@ test.describe("Library management flows", () => {
           isDefault: false,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
+          objectDetectionEnabled: false,
         },
       ],
       tags: [],
@@ -374,6 +381,7 @@ test.describe("Library management flows", () => {
           isDefault: false,
           ownerId: "user-1",
           faceRecognitionEnabled: false,
+          objectDetectionEnabled: false,
         },
       ],
       tags: [],

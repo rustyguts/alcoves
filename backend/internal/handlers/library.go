@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -11,15 +12,19 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/access"
+	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
+	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 )
 
 type LibraryHandler struct {
 	db        *gorm.DB
 	accessSvc *access.Service
+	faceSvc   *facedetection.Service
+	objSvc    *objectdetection.Service
 }
 
-func NewLibraryHandler(db *gorm.DB, accessSvc *access.Service) *LibraryHandler {
-	return &LibraryHandler{db: db, accessSvc: accessSvc}
+func NewLibraryHandler(db *gorm.DB, accessSvc *access.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service) *LibraryHandler {
+	return &LibraryHandler{db: db, accessSvc: accessSvc, faceSvc: faceSvc, objSvc: objSvc}
 }
 
 func (h *LibraryHandler) RegisterRoutes(g *echo.Group) {
@@ -36,6 +41,7 @@ type libraryResponse struct {
 	Emoji                  *string `json:"emoji"`
 	IsDefault              bool    `json:"isDefault"`
 	FaceRecognitionEnabled bool    `json:"faceRecognitionEnabled"`
+	ObjectDetectionEnabled bool    `json:"objectDetectionEnabled"`
 	OwnerID                string  `json:"ownerId"`
 	CurrentUserRole        *string `json:"currentUserRole,omitempty"`
 	CanManageUsers         *bool   `json:"canManageUsers,omitempty"`
@@ -50,6 +56,7 @@ func toLibraryResponse(lib *models.Library, la *access.LibraryAccess) libraryRes
 		Emoji:                  lib.Emoji,
 		IsDefault:              lib.IsDefault,
 		FaceRecognitionEnabled: lib.FaceRecognitionEnabled,
+		ObjectDetectionEnabled: lib.ObjectDetectionEnabled,
 		OwnerID:                lib.OwnerID.String(),
 		CreatedAt:              lib.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
 		UpdatedAt:              lib.UpdatedAt.Format("2006-01-02T15:04:05.000Z"),
@@ -180,6 +187,7 @@ type updateLibraryRequest struct {
 	Name                   *string `json:"name"`
 	Emoji                  *string `json:"emoji"`
 	FaceRecognitionEnabled *bool   `json:"faceRecognitionEnabled"`
+	ObjectDetectionEnabled *bool   `json:"objectDetectionEnabled"`
 }
 
 func (h *LibraryHandler) Update(c echo.Context) error {
@@ -209,6 +217,9 @@ func (h *LibraryHandler) Update(c echo.Context) error {
 	if req.FaceRecognitionEnabled != nil {
 		updates["face_recognition_enabled"] = *req.FaceRecognitionEnabled
 	}
+	if req.ObjectDetectionEnabled != nil {
+		updates["object_detection_enabled"] = *req.ObjectDetectionEnabled
+	}
 
 	if len(updates) == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "No fields to update")
@@ -216,6 +227,29 @@ func (h *LibraryHandler) Update(c echo.Context) error {
 
 	if err := h.db.Model(&models.Library{}).Where("id = ?", libraryID).Updates(updates).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update library")
+	}
+
+	// When a detection feature is enabled, enqueue all existing images
+	if req.FaceRecognitionEnabled != nil && *req.FaceRecognitionEnabled && h.faceSvc != nil {
+		go func() {
+			enqueued, err := h.faceSvc.EnqueueExistingImages(libraryID.String())
+			if err != nil {
+				log.Printf("failed to enqueue existing images for face detection in library %s: %v", libraryID, err)
+			} else if enqueued > 0 {
+				log.Printf("enqueued %d existing images for face detection in library %s", enqueued, libraryID)
+			}
+		}()
+	}
+
+	if req.ObjectDetectionEnabled != nil && *req.ObjectDetectionEnabled && h.objSvc != nil {
+		go func() {
+			enqueued, err := h.objSvc.EnqueueExistingImages(libraryID.String())
+			if err != nil {
+				log.Printf("failed to enqueue existing images for object detection in library %s: %v", libraryID, err)
+			} else if enqueued > 0 {
+				log.Printf("enqueued %d existing images for object detection in library %s", enqueued, libraryID)
+			}
+		}()
 	}
 
 	var library models.Library

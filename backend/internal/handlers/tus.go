@@ -20,6 +20,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
+	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 )
@@ -48,6 +49,7 @@ type TusHandler struct {
 	db         *gorm.DB
 	storageSvc *storage.Service
 	faceSvc    *facedetection.Service
+	objSvc     *objectdetection.Service
 	videoSvc   *videoproxy.Service
 	dataDir    string // staging directory for incomplete uploads
 
@@ -55,7 +57,7 @@ type TusHandler struct {
 	uploads map[string]*tusUpload
 }
 
-func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, videoSvc *videoproxy.Service) *TusHandler {
+func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service) *TusHandler {
 	tusDir := filepath.Join(dataDir, ".tus-uploads")
 	os.MkdirAll(tusDir, 0o755)
 
@@ -63,6 +65,7 @@ func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, fac
 		db:         db,
 		storageSvc: storageSvc,
 		faceSvc:    faceSvc,
+		objSvc:     objSvc,
 		videoSvc:   videoSvc,
 		dataDir:    tusDir,
 		uploads:    make(map[string]*tusUpload),
@@ -374,6 +377,18 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 			if library.FaceRecognitionEnabled {
 				if err := h.faceSvc.EnqueueFaceDetection(upload.LibraryID, fileID.String()); err != nil {
 					log.Printf("failed to enqueue face detection for tus upload %s: %v", fileID, err)
+				}
+			}
+		}
+	}
+
+	// Trigger object detection if applicable
+	if h.objSvc != nil && strings.HasPrefix(upload.MimeType, "image/") {
+		var objLibrary models.Library
+		if err := h.db.Select("object_detection_enabled").Where("id = ?", libUUID).First(&objLibrary).Error; err == nil {
+			if objLibrary.ObjectDetectionEnabled {
+				if err := h.objSvc.EnqueueObjectDetection(upload.LibraryID, fileID.String()); err != nil {
+					log.Printf("failed to enqueue object detection for tus upload %s: %v", fileID, err)
 				}
 			}
 		}
