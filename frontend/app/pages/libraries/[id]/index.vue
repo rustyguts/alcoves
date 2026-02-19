@@ -528,7 +528,7 @@ function refreshAfterUploadDebounced() {
 
   if (elapsed >= UPLOAD_REFRESH_DEBOUNCE_MS && !uploadRefreshTimer) {
     lastUploadRefreshAt.value = now;
-    void resetAndFetch();
+    void resetAndFetch({ silent: true });
     return;
   }
 
@@ -537,7 +537,7 @@ function refreshAfterUploadDebounced() {
   uploadRefreshTimer = setTimeout(() => {
     uploadRefreshTimer = null;
     lastUploadRefreshAt.value = Date.now();
-    void resetAndFetch();
+    void resetAndFetch({ silent: true });
   }, Math.max(UPLOAD_REFRESH_DEBOUNCE_MS - elapsed, 0));
 }
 
@@ -1152,7 +1152,7 @@ const emptyStateDescription = computed(() => {
       </div>
 
       <LibraryEntriesTable
-        v-else-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0"
+        v-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0"
         :entries="entries ?? []"
         :show-trashed="showTrashed"
         :drag-enabled="dragEnabled"

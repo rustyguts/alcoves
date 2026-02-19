@@ -176,29 +176,36 @@ export function useLibraryExplorer() {
     }
   }
 
-  async function resetAndFetch(options?: { preserveEntries?: boolean }) {
+  async function resetAndFetch(options?: { preserveEntries?: boolean; silent?: boolean }) {
     const preserveEntries = options?.preserveEntries ?? false;
+    // silent: keep existing entries visible, skip loading state — new items just pop in
+    const silent = options?.silent ?? false;
     const currentViewKey = getViewCacheKey(showTrashed.value, currentFolderId.value);
-    filesPending.value = true;
+
+    if (!silent) {
+      filesPending.value = true;
+    }
     clearSelection(true);
 
-    if (preserveEntries) {
-      const restored = restoreViewFromCache(currentViewKey);
-      if (!restored) {
+    if (!silent) {
+      if (preserveEntries) {
+        const restored = restoreViewFromCache(currentViewKey);
+        if (!restored) {
+          entries.value = [];
+          breadcrumbs.value = [];
+          nextCursor.value = null;
+          totalCount.value = 0;
+        }
+      } else {
         entries.value = [];
         breadcrumbs.value = [];
         nextCursor.value = null;
         totalCount.value = 0;
       }
-    } else {
-      entries.value = [];
-      breadcrumbs.value = [];
-      nextCursor.value = null;
-      totalCount.value = 0;
-    }
 
-    if (!preserveEntries) {
-      delete viewCache[currentViewKey];
+      if (!preserveEntries) {
+        delete viewCache[currentViewKey];
+      }
     }
 
     try {
@@ -218,9 +225,10 @@ export function useLibraryExplorer() {
       }
     } catch (error) {
       console.error("Failed to fetch library files:", error);
-      // State is already reset above, just ensure pending is cleared
     } finally {
-      filesPending.value = false;
+      if (!silent) {
+        filesPending.value = false;
+      }
     }
   }
 
