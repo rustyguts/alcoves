@@ -81,5 +81,15 @@ export function useAuth() {
     return data;
   }
 
-  return { user, loggedIn, login, register, logout, updateProfile, uploadAvatar, fetchSession, clearSession };
+  return {
+    user,
+    loggedIn,
+    login,
+    register,
+    logout,
+    updateProfile,
+    uploadAvatar,
+    fetchSession,
+    clearSession,
+  };
 }

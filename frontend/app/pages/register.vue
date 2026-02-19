@@ -3,7 +3,6 @@ import * as z from "zod";
 import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "~/composables/useAuth";
 import { apiFetch } from "~/utils/api-fetch";
-import AppIcon from "~/components/AppIcon.vue";
 
 const { register } = useAuth();
 const route = useRoute();
@@ -91,7 +90,7 @@ async function onSubmit() {
   <div class="flex min-h-svh items-center justify-center p-4">
     <div class="w-full max-w-md space-y-6">
       <div class="flex flex-col items-center gap-2">
-        <AppIcon name="i-lucide-user-plus" class="text-3xl" />
+        <img src="/logo.webp" alt="Alcoves" width="96" height="96" />
         <h2 class="text-2xl font-bold">Create an account</h2>
         <p class="text-sm text-base-content/60">Get started with Alcoves.</p>
         <p v-if="error" class="text-sm text-error mt-1">{{ error }}</p>

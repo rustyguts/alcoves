@@ -47,12 +47,7 @@ watch(open, (val) => {
           Uploading to <strong>{{ libraryName }}</strong>
         </p>
 
-        <input
-          type="file"
-          class="file-input w-full"
-          multiple
-          @change="onFileChange"
-        />
+        <input type="file" class="file-input w-full" multiple @change="onFileChange" />
 
         <p v-if="selectedFileCount" class="mt-3 text-sm text-muted">
           {{ selectedFileCount }} file{{ selectedFileCount === 1 ? "" : "s" }} selected
@@ -61,11 +56,7 @@ watch(open, (val) => {
 
       <div class="flex justify-end gap-2">
         <button class="btn btn-sm" @click="open = false">Cancel</button>
-        <button
-          class="btn btn-sm btn-primary"
-          :disabled="!selectedFileCount"
-          @click="handleUpload"
-        >
+        <button class="btn btn-sm btn-primary" :disabled="!selectedFileCount" @click="handleUpload">
           <AppIcon name="i-lucide-upload" class="size-4" />
           Upload
         </button>

@@ -112,11 +112,7 @@ async function createClip() {
 
         <div class="flex justify-end gap-2 pt-2">
           <button class="btn btn-sm" @click="open = false">Cancel</button>
-          <button
-            class="btn btn-sm btn-primary"
-            :disabled="loading"
-            @click="createClip"
-          >
+          <button class="btn btn-sm btn-primary" :disabled="loading" @click="createClip">
             <span v-if="loading" class="loading loading-spinner loading-xs"></span>
             Create Clip
           </button>

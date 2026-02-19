@@ -3,7 +3,10 @@ export class ApiError extends Error {
   data: Record<string, unknown> | null;
 
   constructor(status: number, data: Record<string, unknown> | null) {
-    const message = (data?.message as string) ?? (data?.statusMessage as string) ?? `Request failed with status ${status}`;
+    const message =
+      (data?.message as string) ??
+      (data?.statusMessage as string) ??
+      `Request failed with status ${status}`;
     super(message);
     this.name = "ApiError";
     this.status = status;
@@ -19,7 +22,10 @@ export interface ApiFetchOptions {
   headers?: Record<string, string>;
 }
 
-export async function apiFetch<T = unknown>(url: string, options: ApiFetchOptions = {}): Promise<T> {
+export async function apiFetch<T = unknown>(
+  url: string,
+  options: ApiFetchOptions = {},
+): Promise<T> {
   const { method = "GET", body, query, responseType = "json", headers = {} } = options;
 
   let fullUrl = url;

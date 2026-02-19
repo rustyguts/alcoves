@@ -156,14 +156,14 @@ function getStatusMessage(error: unknown): string | null {
 
 <template>
   <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 overflow-y-auto pb-6">
-    <section class="hero rounded-box bg-gradient-to-br from-primary/20 via-base-200 to-secondary/20">
+    <section
+      class="hero rounded-box bg-gradient-to-br from-primary/20 via-base-200 to-secondary/20"
+    >
       <div class="hero-content w-full justify-between gap-6 px-6 py-8">
         <div class="space-y-2">
           <h1 class="text-3xl font-bold tracking-tight">Profile</h1>
           <p class="text-base-content/70">My Profile</p>
-          <p class="text-sm text-base-content/60">
-            Keep your account details current and secure.
-          </p>
+          <p class="text-sm text-base-content/60">Keep your account details current and secure.</p>
         </div>
         <div class="hidden items-center gap-3 md:flex">
           <span class="badge badge-outline">{{ user?.email }}</span>
@@ -242,7 +242,11 @@ function getStatusMessage(error: unknown): string | null {
               <select
                 :value="themePreference"
                 class="select w-full capitalize"
-                @change="themePreference = ($event.target as HTMLSelectElement).value as DaisyTheme | 'auto'"
+                @change="
+                  themePreference = ($event.target as HTMLSelectElement).value as
+                    | DaisyTheme
+                    | 'auto'
+                "
               >
                 <option value="auto">System</option>
                 <option v-for="t in daisyThemes" :key="t" :value="t" class="capitalize">
@@ -298,7 +302,10 @@ function getStatusMessage(error: unknown): string | null {
               :disabled="revokingId === session.id"
               @click="revokeSession(session.id)"
             >
-              <span v-if="revokingId === session.id" class="loading loading-spinner loading-xs"></span>
+              <span
+                v-if="revokingId === session.id"
+                class="loading loading-spinner loading-xs"
+              ></span>
               Revoke
             </button>
           </div>

@@ -108,7 +108,10 @@ describe("apiFetch", () => {
       query: { q: "test" },
     });
 
-    expect(global.fetch).toHaveBeenCalledWith("/api/search?existing=param&q=test", expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/search?existing=param&q=test",
+      expect.any(Object),
+    );
   });
 
   it("includes custom headers", async () => {

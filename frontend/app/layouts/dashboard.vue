@@ -99,11 +99,6 @@ const bottomItems = computed<NavItem[]>(() => {
       icon: "i-lucide-shield-check",
       to: "/admin",
     },
-    {
-      label: "Jobs",
-      icon: "i-lucide-activity",
-      to: "/admin/jobs",
-    },
   ];
 });
 
@@ -161,7 +156,7 @@ provide("refreshLibraries", refreshLibraries);
           </button>
         </div>
         <div class="flex-1 min-w-0">
-          <form class="min-w-0 w-full max-w-2xl" @submit.prevent="submitGlobalSearch">
+          <form class="min-w-0 w-full max-w-sm" @submit.prevent="submitGlobalSearch">
             <label class="input w-full">
               <AppIcon name="i-lucide-search" class="opacity-50" />
               <input
@@ -175,7 +170,7 @@ provide("refreshLibraries", refreshLibraries);
             </label>
           </form>
         </div>
-        <div class="flex-none">
+        <div class="flex-none pl-4">
           <details ref="userMenuRef" class="dropdown dropdown-end" :open="userMenuOpen">
             <summary
               class="btn btn-ghost btn-circle avatar"
@@ -191,9 +186,7 @@ provide("refreshLibraries", refreshLibraries);
                 {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
               </div>
             </summary>
-            <ul
-              class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow mt-2"
-            >
+            <ul class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow mt-2">
               <template v-for="(group, gi) in userMenuItems" :key="gi">
                 <div v-if="gi > 0" class="divider my-1" />
                 <li v-for="item in group" :key="item.label">
@@ -224,6 +217,7 @@ provide("refreshLibraries", refreshLibraries);
       <aside class="bg-base-200 h-full w-64 flex flex-col overflow-hidden">
         <!-- Sidebar header -->
         <div class="px-4 py-4 flex items-center gap-2">
+          <img src="/logo.webp" alt="Alcoves" width="28" height="28" />
           <span class="text-lg font-bold truncate">Alcoves</span>
         </div>
 

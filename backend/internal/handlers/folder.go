@@ -20,11 +20,31 @@ func NewFolderHandler(db *gorm.DB) *FolderHandler {
 }
 
 func (h *FolderHandler) RegisterRoutes(g *echo.Group) {
+	g.GET("/:id/folders", h.List)
 	g.POST("/:id/folders", h.Create)
 	g.PATCH("/:id/folders/:folderId", h.Update)
 	g.DELETE("/:id/folders/:folderId", h.Delete)
 	g.POST("/:id/folders/:folderId/move", h.Move)
 	g.POST("/:id/folders/restore", h.Restore)
+}
+
+func (h *FolderHandler) List(c echo.Context) error {
+	libraryID := c.Param("id")
+
+	var folders []models.Folder
+	if err := h.db.
+		Where("library_id = ? AND trashed_at IS NULL", libraryID).
+		Order("created_at ASC").
+		Find(&folders).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch folders")
+	}
+
+	response := make([]map[string]interface{}, 0, len(folders))
+	for i := range folders {
+		response = append(response, folderToJSON(&folders[i]))
+	}
+
+	return c.JSON(http.StatusOK, response)
 }
 
 type createFolderRequest struct {

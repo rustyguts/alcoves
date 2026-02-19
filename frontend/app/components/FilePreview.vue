@@ -7,7 +7,6 @@ import type { LibraryFile } from "~~/shared/types/api";
 import { getMimeIcon } from "~/utils/mime-icons";
 import { apiFetch } from "~/utils/api-fetch";
 import AppIcon from "~/components/AppIcon.vue";
-import AlcovesImage from "~/components/AlcovesImage.vue";
 
 const props = defineProps<{
   file: LibraryFile;
@@ -32,10 +31,13 @@ const videoSrc = computed(() => {
   return fileUrl.value;
 });
 
-const mediaSrc = computed(() => ({
-  src: videoSrc.value,
-  type: props.file.proxyStatus === "ready" ? "video/mp4" : props.file.mimeType,
-}) as unknown as import("vidstack").PlayerSrc);
+const mediaSrc = computed(
+  () =>
+    ({
+      src: videoSrc.value,
+      type: props.file.proxyStatus === "ready" ? "video/mp4" : props.file.mimeType,
+    }) as unknown as import("vidstack").PlayerSrc,
+);
 
 const previewType = computed(() => {
   const mime = props.file.mimeType;
@@ -47,26 +49,33 @@ const previewType = computed(() => {
   return "unsupported";
 });
 
-// For the image proxy, request up to 1080p but cap at the image's actual dimensions
-// so the backend doesn't upscale small images.
-const previewHeight = computed(() => {
-  const actual = props.file.height;
-  if (actual && actual < 1080) return actual;
-  return 1080;
-});
+const loadedImageWidth = ref<number | null>(null);
+const loadedImageHeight = ref<number | null>(null);
 
-const previewWidth = computed(() => {
-  const actual = props.file.width;
-  if (actual && actual < 1920) return actual;
-  return 1920;
-});
+const imageWidth = computed(() => props.file.width ?? loadedImageWidth.value);
+const imageHeight = computed(() => props.file.height ?? loadedImageHeight.value);
 
-// Small images should not stretch to fill the viewport
-const isSmallImage = computed(() => {
-  const w = props.file.width;
-  const h = props.file.height;
+// Keep low-resolution images near their natural display size in the preview.
+const shouldConstrainImageSize = computed(() => {
+  const w = imageWidth.value;
+  const h = imageHeight.value;
   if (!w || !h) return false;
-  return w < 640 && h < 640;
+
+  const megapixels = (w * h) / 1_000_000;
+  const longestEdge = Math.max(w, h);
+
+  return megapixels < 1 || longestEdge < 1280;
+});
+
+const imageSizeStyle = computed(() => {
+  const w = imageWidth.value;
+  const h = imageHeight.value;
+  if (!shouldConstrainImageSize.value || !w || !h) return undefined;
+
+  return {
+    maxHeight: `${h}px`,
+    maxWidth: `${w}px`,
+  };
 });
 
 // Register vidstack custom elements client-side only
@@ -112,9 +121,7 @@ const hasNext = computed(
 const previousFile = computed(() =>
   hasPrevious.value ? props.files[currentIndex.value - 1]! : null,
 );
-const nextFile = computed(() =>
-  hasNext.value ? props.files[currentIndex.value + 1]! : null,
-);
+const nextFile = computed(() => (hasNext.value ? props.files[currentIndex.value + 1]! : null));
 
 function goToPrevious() {
   if (hasPrevious.value) {
@@ -133,14 +140,25 @@ function goToNext() {
 // Image fade-in state
 const imageLoaded = ref(false);
 
-function onImageLoad() {
+function onImageLoad(event: Event) {
+  const target = event.target;
+  if (target instanceof HTMLImageElement) {
+    loadedImageWidth.value = target.naturalWidth;
+    loadedImageHeight.value = target.naturalHeight;
+  }
+
   imageLoaded.value = true;
 }
 
 // Reset loaded state when file changes
-watch(() => props.file.id, () => {
-  imageLoaded.value = false;
-});
+watch(
+  () => props.file.id,
+  () => {
+    imageLoaded.value = false;
+    loadedImageWidth.value = null;
+    loadedImageHeight.value = null;
+  },
+);
 
 // Preload adjacent images
 function buildPreviewUrl(file: LibraryFile): string {
@@ -154,6 +172,8 @@ function buildPreviewUrl(file: LibraryFile): string {
   ]);
   return `/api/files/proxy/${props.libraryId}/${file.id}?${params}`;
 }
+
+const previewImageUrl = computed(() => buildPreviewUrl(props.file));
 
 watch(
   [() => props.file.id, open],
@@ -196,9 +216,14 @@ onUnmounted(() => {
 
 <template>
   <dialog class="modal" :class="{ 'modal-open': open }">
-    <div class="modal-box max-w-none w-screen h-screen rounded-none bg-black/95 backdrop-blur-sm p-0 flex items-center justify-center">
+    <div
+      class="modal-box max-w-none w-screen h-screen rounded-none bg-black/95 backdrop-blur-sm p-0 flex items-center justify-center"
+    >
       <!-- Media content: fills the entire viewport -->
-      <div v-if="previewType === 'video'" class="w-full h-full flex items-center justify-center px-16">
+      <div
+        v-if="previewType === 'video'"
+        class="w-full h-full flex items-center justify-center px-16"
+      >
         <media-player
           v-if="playerReady"
           class="player w-full max-w-5xl"
@@ -216,7 +241,10 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-else-if="previewType === 'audio'" class="w-full h-full flex items-center justify-center px-16">
+      <div
+        v-else-if="previewType === 'audio'"
+        class="w-full h-full flex items-center justify-center px-16"
+      >
         <media-player
           v-if="playerReady"
           class="player w-full max-w-2xl"
@@ -237,19 +265,16 @@ onUnmounted(() => {
         v-else-if="previewType === 'image'"
         class="w-full h-full flex items-center justify-center"
       >
-        <AlcovesImage
-          :library-id="libraryId"
-          :file-id="file.id"
+        <img
+          :src="previewImageUrl"
           :alt="file.name"
-          :width="previewWidth"
-          :height="previewHeight"
-          :quality="90"
+          decoding="async"
           class="block transition-opacity duration-100"
           :class="[
-            isSmallImage ? '' : 'max-h-full max-w-full object-contain',
+            'max-h-full max-w-full object-contain',
             imageLoaded ? 'opacity-100' : 'opacity-0',
           ]"
-          :style="isSmallImage ? { maxWidth: `${file.width}px`, maxHeight: `${file.height}px` } : undefined"
+          :style="imageSizeStyle"
           @load="onImageLoad"
         />
       </div>
@@ -280,7 +305,9 @@ onUnmounted(() => {
       </div>
 
       <!-- Overlay: top bar with close, filename, download -->
-      <div class="absolute inset-x-0 top-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-20">
+      <div
+        class="absolute inset-x-0 top-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-20"
+      >
         <div class="flex items-center gap-3 min-w-0 pointer-events-auto">
           <button
             class="btn btn-circle btn-ghost text-white hover:bg-white/20"

@@ -66,9 +66,13 @@ async function fetchFileCounts() {
 }
 
 // Fetch file counts on mount and when libraryId changes
-watch(libraryId, () => {
-  fetchFileCounts();
-}, { immediate: true });
+watch(
+  libraryId,
+  () => {
+    fetchFileCounts();
+  },
+  { immediate: true },
+);
 
 async function refreshFileCounts() {
   await fetchFileCounts();
@@ -163,7 +167,8 @@ async function reprocessFaceRecognition() {
       description: `${result.queuedCount} image${result.queuedCount === 1 ? "" : "s"} queued for fresh facial recognition.`,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to queue facial recognition reprocessing";
+    const message =
+      err instanceof Error ? err.message : "Failed to queue facial recognition reprocessing";
     toast.add({ title: message, color: "error" });
   } finally {
     faceRecReprocessing.value = false;
@@ -218,7 +223,10 @@ async function deleteLibrary() {
             </p>
             <div class="flex flex-col sm:flex-row gap-2">
               <div class="flex-1 relative">
-                <AppIcon name="i-lucide-mail" class="size-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
+                <AppIcon
+                  name="i-lucide-mail"
+                  class="size-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50"
+                />
                 <input
                   v-model="inviteEmail"
                   type="email"
@@ -227,15 +235,10 @@ async function deleteLibrary() {
                   @keydown.enter="inviteUserByEmail"
                 />
               </div>
-              <select
-                v-model="inviteEmailRole"
-                class="select w-full sm:w-32"
-              >
-                <option
-                  v-for="item in inviteRoleOptions"
-                  :key="item.value"
-                  :value="item.value"
-                >{{ item.label }}</option>
+              <select v-model="inviteEmailRole" class="select w-full sm:w-32">
+                <option v-for="item in inviteRoleOptions" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </option>
               </select>
               <button
                 class="btn btn-primary"
@@ -260,7 +263,10 @@ async function deleteLibrary() {
                 :disabled="createInviteLinkLoading"
                 @click="createInviteLink"
               >
-                <span v-if="createInviteLinkLoading" class="loading loading-spinner loading-xs"></span>
+                <span
+                  v-if="createInviteLinkLoading"
+                  class="loading loading-spinner loading-xs"
+                ></span>
                 <AppIcon v-else name="i-lucide-link" class="size-4" />
                 Create Link
               </button>
@@ -289,7 +295,10 @@ async function deleteLibrary() {
                     :disabled="revokingInviteId === invite.id"
                     @click="revokeInvite(invite.id)"
                   >
-                    <span v-if="revokingInviteId === invite.id" class="loading loading-spinner loading-xs"></span>
+                    <span
+                      v-if="revokingInviteId === invite.id"
+                      class="loading loading-spinner loading-xs"
+                    ></span>
                     <AppIcon v-else name="i-lucide-x" class="size-4" />
                   </button>
                 </div>
@@ -306,7 +315,10 @@ async function deleteLibrary() {
               :disabled="createInviteLinkLoading"
               @click="createInviteLink"
             >
-              <span v-if="createInviteLinkLoading" class="loading loading-spinner loading-xs"></span>
+              <span
+                v-if="createInviteLinkLoading"
+                class="loading loading-spinner loading-xs"
+              ></span>
               <AppIcon v-else name="i-lucide-link" class="size-4" />
               Create Link
             </button>
@@ -336,10 +348,9 @@ async function deleteLibrary() {
                 </div>
 
                 <div class="flex items-center gap-2">
-                  <span
-                    v-if="member.role === 'owner'"
-                    class="badge badge-sm badge-primary"
-                  >owner</span>
+                  <span v-if="member.role === 'owner'" class="badge badge-sm badge-primary"
+                    >owner</span
+                  >
                   <template v-else>
                     <select
                       v-model="memberRoleDrafts[member.userId]"
@@ -351,14 +362,19 @@ async function deleteLibrary() {
                         v-for="item in inviteRoleOptions"
                         :key="item.value"
                         :value="item.value"
-                      >{{ item.label }}</option>
+                      >
+                        {{ item.label }}
+                      </option>
                     </select>
                     <button
                       class="btn btn-sm btn-error btn-soft"
                       :disabled="removingMemberUserId === member.userId"
                       @click="removeMember(member)"
                     >
-                      <span v-if="removingMemberUserId === member.userId" class="loading loading-spinner loading-xs"></span>
+                      <span
+                        v-if="removingMemberUserId === member.userId"
+                        class="loading loading-spinner loading-xs"
+                      ></span>
                       <AppIcon v-else name="i-lucide-user-minus" class="size-4" />
                     </button>
                   </template>
@@ -370,7 +386,9 @@ async function deleteLibrary() {
           <div v-if="emailInvites.length">
             <div class="flex items-center justify-between gap-2 mb-3">
               <p class="text-sm font-medium">Pending Email Invites</p>
-              <span class="badge badge-sm badge-soft badge-neutral">{{ emailInvites.length }} pending</span>
+              <span class="badge badge-sm badge-soft badge-neutral"
+                >{{ emailInvites.length }} pending</span
+              >
             </div>
             <div class="divide-y divide-default rounded-lg border border-default">
               <div
@@ -395,7 +413,10 @@ async function deleteLibrary() {
                     :disabled="revokingInviteId === invite.id"
                     @click="revokeInvite(invite.id)"
                   >
-                    <span v-if="revokingInviteId === invite.id" class="loading loading-spinner loading-xs"></span>
+                    <span
+                      v-if="revokingInviteId === invite.id"
+                      class="loading loading-spinner loading-xs"
+                    ></span>
                     <AppIcon v-else name="i-lucide-x" class="size-4" />
                   </button>
                 </div>
@@ -453,9 +474,7 @@ async function deleteLibrary() {
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
             <p class="text-sm font-semibold text-error">Delete Library</p>
-            <p class="text-xs text-muted">
-              Permanently remove this library. Must be empty first.
-            </p>
+            <p class="text-xs text-muted">Permanently remove this library. Must be empty first.</p>
           </div>
           <button
             class="btn btn-error btn-soft"
@@ -478,10 +497,7 @@ async function deleteLibrary() {
           action cannot be undone.
         </p>
         <div class="modal-action">
-          <button
-            class="btn"
-            @click="faceRecDisableOpen = false"
-          >Cancel</button>
+          <button class="btn" @click="faceRecDisableOpen = false">Cancel</button>
           <button
             class="btn btn-error"
             :disabled="faceRecToggling"
@@ -507,11 +523,9 @@ async function deleteLibrary() {
           change, including how photos are grouped into people.
         </p>
         <div class="modal-action">
-          <button
-            class="btn"
-            :disabled="faceRecReprocessing"
-            @click="faceRecReprocessOpen = false"
-          >Cancel</button>
+          <button class="btn" :disabled="faceRecReprocessing" @click="faceRecReprocessOpen = false">
+            Cancel
+          </button>
           <button
             class="btn btn-warning"
             :disabled="faceRecReprocessing"
@@ -544,10 +558,7 @@ async function deleteLibrary() {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button
-            class="btn"
-            @click="deleteLibraryOpen = false"
-          >Cancel</button>
+          <button class="btn" @click="deleteLibraryOpen = false">Cancel</button>
           <button
             class="btn btn-error"
             :disabled="deleteLibraryConfirmation !== 'delete'"

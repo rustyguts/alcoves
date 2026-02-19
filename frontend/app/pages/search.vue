@@ -121,7 +121,9 @@ function getResultIcon(result: GlobalSearchResult): string {
 
 <template>
   <div class="mx-auto w-full max-w-6xl space-y-6 overflow-y-auto flex-1 min-h-0">
-    <div class="card bg-gradient-to-br from-primary/10 via-elevated to-base-100 shadow-sm overflow-hidden">
+    <div
+      class="card bg-gradient-to-br from-primary/10 via-elevated to-base-100 shadow-sm overflow-hidden"
+    >
       <div class="card-body space-y-4">
         <div class="space-y-1">
           <h1 class="text-2xl font-semibold">Global Search</h1>
@@ -130,9 +132,15 @@ function getResultIcon(result: GlobalSearchResult): string {
           </p>
         </div>
 
-        <form class="flex flex-col gap-3 md:flex-row md:items-center" @submit.prevent="submitSearch">
+        <form
+          class="flex flex-col gap-3 md:flex-row md:items-center"
+          @submit.prevent="submitSearch"
+        >
           <div class="relative w-full">
-            <AppIcon name="i-lucide-search" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted pointer-events-none" />
+            <AppIcon
+              name="i-lucide-search"
+              class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted pointer-events-none"
+            />
             <input
               v-model="searchInput"
               type="search"
@@ -149,7 +157,9 @@ function getResultIcon(result: GlobalSearchResult): string {
         </form>
 
         <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
-          <span class="badge badge-ghost badge-sm">{{ searchData?.totalCount ?? 0 }} total matches</span>
+          <span class="badge badge-ghost badge-sm"
+            >{{ searchData?.totalCount ?? 0 }} total matches</span
+          >
           <span class="badge badge-ghost badge-sm">{{ results.length }} shown</span>
           <span v-if="(searchData?.totalCount ?? 0) > results.length">
             Showing the top {{ results.length }} most relevant results.
@@ -190,11 +200,7 @@ function getResultIcon(result: GlobalSearchResult): string {
     </div>
 
     <div v-else class="space-y-4">
-      <div
-        v-for="group in groupedResults"
-        :key="group.libraryId"
-        class="card bg-base-100"
-      >
+      <div v-for="group in groupedResults" :key="group.libraryId" class="card bg-base-100">
         <div class="flex items-center justify-between px-6 pt-5 pb-2">
           <div class="flex items-center gap-2">
             <AppIcon name="i-lucide-library" class="size-4 text-primary" />

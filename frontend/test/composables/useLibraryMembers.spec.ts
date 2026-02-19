@@ -309,7 +309,9 @@ describe("useLibraryMembers", () => {
 
     await removeMember(member);
 
-    expect(mockApiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/users/u1", { method: "DELETE" });
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/users/u1", {
+      method: "DELETE",
+    });
     expect(refreshLibraryUsers).toHaveBeenCalled();
   });
 

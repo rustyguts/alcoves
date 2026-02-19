@@ -206,9 +206,13 @@ export function useLibraryExplorer() {
     }
   }
 
-  watch([libraryId, currentFolderId], () => {
-    fetchInitialData();
-  }, { immediate: true });
+  watch(
+    [libraryId, currentFolderId],
+    () => {
+      fetchInitialData();
+    },
+    { immediate: true },
+  );
 
   return {
     route,

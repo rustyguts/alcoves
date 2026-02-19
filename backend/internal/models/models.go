@@ -124,9 +124,9 @@ func (f *File) BeforeCreate(tx *gorm.DB) error {
 // Tag maps to the "tags" table.
 type Tag struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	LibraryID uuid.UUID `gorm:"column:library_id;type:uuid;not null;uniqueIndex:tags_library_name_idx;uniqueIndex:tags_library_color_idx" json:"libraryId"`
+	LibraryID uuid.UUID `gorm:"column:library_id;type:uuid;not null;uniqueIndex:tags_library_name_idx;index:tags_library_color_idx" json:"libraryId"`
 	Name      string    `gorm:"column:name;type:text;not null;uniqueIndex:tags_library_name_idx" json:"name"`
-	Color     string    `gorm:"column:color;type:text;not null;uniqueIndex:tags_library_color_idx" json:"color"`
+	Color     string    `gorm:"column:color;type:text;not null;index:tags_library_color_idx" json:"color"`
 	CreatedAt time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 }

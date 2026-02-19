@@ -1,0 +1,148 @@
+import { mount } from "@vue/test-utils";
+import { nextTick } from "vue";
+import TagsPage from "~/pages/libraries/[id]/tags.vue";
+
+function mockRef<T>(get: () => T, set?: (value: T) => void) {
+  return {
+    __v_isRef: true as const,
+    get value() {
+      return get();
+    },
+    set value(v: T) {
+      set?.(v);
+    },
+  };
+}
+
+interface MockTag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+const mocks = vi.hoisted(() => ({
+  routeId: "lib-1",
+  toast: { add: vi.fn() },
+  tags: [{ id: "t1", name: "Alpha", color: "#E11D48" }] as MockTag[],
+  apiFetch: vi.fn(),
+}));
+
+vi.mock("vue-router", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    useRoute: () => ({
+      params: { id: mocks.routeId },
+    }),
+  };
+});
+
+vi.mock("~/composables/useToast", () => ({
+  useToast: () => mocks.toast,
+}));
+
+vi.mock("~/composables/useApiFetch", () => ({
+  useApiFetch: () => ({
+    data: mockRef(() => ({ id: mocks.routeId })),
+  }),
+}));
+
+vi.mock("~/utils/api-fetch", () => ({
+  apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+}));
+
+describe("libraries/[id]/tags.vue", () => {
+  beforeEach(() => {
+    mocks.toast.add.mockReset();
+    mocks.tags = [{ id: "t1", name: "Alpha", color: "#E11D48" }];
+    mocks.apiFetch
+      .mockReset()
+      .mockImplementation((url: string, options?: Record<string, unknown>) => {
+        if (url === "/api/libraries/lib-1/tags" && !options?.method) {
+          return Promise.resolve([...mocks.tags]);
+        }
+        if (url === "/api/libraries/lib-1/files") {
+          return Promise.resolve({
+            entries: [
+              { id: "f1", kind: "file", tags: [mocks.tags[0]] },
+              { id: "f2", kind: "file", tags: [mocks.tags[0]] },
+            ],
+            nextCursor: null,
+          });
+        }
+        if (url === "/api/libraries/lib-1/tags" && options?.method === "POST") {
+          const body = options.body as { name?: string; color?: string };
+          const created = {
+            id: "t2",
+            name: body.name ?? "New",
+            color: body.color ?? "#3B82F6",
+          };
+          mocks.tags = [...mocks.tags, created];
+          return Promise.resolve(created);
+        }
+        return Promise.resolve({});
+      });
+  });
+
+  function mountPage() {
+    return mount(TagsPage, {
+      global: {
+        provide: {
+          refreshLibraries: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+    });
+  }
+
+  it("renders a single table-based tag manager", async () => {
+    const wrapper = mountPage();
+
+    await vi.waitFor(() => {
+      expect(mocks.apiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags");
+    });
+
+    expect(wrapper.text()).toContain("Manage Tags");
+    expect(wrapper.text()).toContain("Color");
+    expect(wrapper.text()).toContain("Items");
+    expect(wrapper.text()).not.toContain("Tag Manager");
+  });
+
+  it("creates a tag from the first table row", async () => {
+    const wrapper = mountPage();
+
+    await vi.waitFor(() => {
+      expect(mocks.apiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags");
+    });
+
+    const createInput = wrapper.find("tbody tr:first-child input[placeholder='New tag']");
+    await createInput.setValue("New Tag");
+    const createButton = wrapper.find("tbody tr:first-child .btn-primary");
+    await createButton.trigger("click");
+
+    await vi.waitFor(() => {
+      expect(mocks.apiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags", {
+        method: "POST",
+        body: { name: "New Tag", color: "#E11D48" },
+      });
+    });
+  });
+
+  it("allows only one color dropdown open at a time and closes on outside click", async () => {
+    const wrapper = mountPage();
+
+    await vi.waitFor(() => {
+      expect(mocks.apiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags");
+    });
+
+    const summaries = wrapper.findAll("summary");
+    await summaries[0]?.trigger("click");
+    expect(wrapper.findAll("details[open]")).toHaveLength(1);
+
+    await summaries[1]?.trigger("click");
+    expect(wrapper.findAll("details[open]")).toHaveLength(1);
+
+    document.body.click();
+    await nextTick();
+    expect(wrapper.findAll("details[open]")).toHaveLength(0);
+  });
+});

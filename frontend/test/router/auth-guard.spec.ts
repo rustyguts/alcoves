@@ -8,8 +8,16 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("~/composables/useAuth", () => ({
   useAuth: () => ({
-    loggedIn: { get value() { return mocks.loggedIn; } },
-    user: { get value() { return mocks.user; } },
+    loggedIn: {
+      get value() {
+        return mocks.loggedIn;
+      },
+    },
+    user: {
+      get value() {
+        return mocks.user;
+      },
+    },
     fetchSession: mocks.fetchSession,
   }),
 }));

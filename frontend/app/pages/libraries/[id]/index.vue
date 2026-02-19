@@ -75,6 +75,7 @@ const renamingEntry = ref<LibraryEntry | null>(null);
 const renameValue = ref("");
 const uploadOpen = ref(false);
 const newDropdown = ref<HTMLDetailsElement | null>(null);
+const createFolderInput = ref<HTMLInputElement | null>(null);
 const clipModalOpen = ref(false);
 const clipSourceFile = ref<LibraryFile | null>(null);
 
@@ -167,10 +168,10 @@ function handleContextMenuSelect(item: ContextMenuItem) {
 // Close context menu on escape or click outside
 onMounted(() => {
   const handleEscape = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') hideContextMenu();
+    if (e.key === "Escape") hideContextMenu();
   };
-  window.addEventListener('keydown', handleEscape);
-  onUnmounted(() => window.removeEventListener('keydown', handleEscape));
+  window.addEventListener("keydown", handleEscape);
+  onUnmounted(() => window.removeEventListener("keydown", handleEscape));
 });
 
 function buildBreadcrumbUrl(folderId: string | null): string {
@@ -179,13 +180,15 @@ function buildBreadcrumbUrl(folderId: string | null): string {
   return `${basePath}?folder=${encodeURIComponent(folderId)}`;
 }
 
-const breadcrumbItems = computed<Array<{
-  id: string;
-  label: string;
-  icon?: string;
-  to: string;
-  isCurrent: boolean;
-}>>(() => {
+const breadcrumbItems = computed<
+  Array<{
+    id: string;
+    label: string;
+    icon?: string;
+    to: string;
+    isCurrent: boolean;
+  }>
+>(() => {
   if (showTrashed.value) return [];
 
   const folderCrumbs = breadcrumbs.value.map((crumb, index) => ({
@@ -207,15 +210,17 @@ const breadcrumbItems = computed<Array<{
   ];
 });
 
-const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelect: () => void }>>>(() => [
-  [
-    {
-      label: "New folder",
-      icon: "i-lucide-folder-plus",
-      onSelect: openCreateFolderModal,
-    },
+const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelect: () => void }>>>(
+  () => [
+    [
+      {
+        label: "New folder",
+        icon: "i-lucide-folder-plus",
+        onSelect: openCreateFolderModal,
+      },
+    ],
   ],
-]);
+);
 
 function openPreview(file: LibraryFile) {
   previewFile.value = file;
@@ -573,6 +578,15 @@ function handleClickOutsideNewDropdown(event: MouseEvent) {
 onMounted(() => document.addEventListener("click", handleClickOutsideNewDropdown));
 onUnmounted(() => document.removeEventListener("click", handleClickOutsideNewDropdown));
 
+watch(createFolderOpen, async (open) => {
+  if (!open) return;
+  await nextTick();
+  requestAnimationFrame(() => {
+    createFolderInput.value?.focus();
+    createFolderInput.value?.select();
+  });
+});
+
 // Infinite scroll observer
 const sentinel = ref<HTMLElement | null>(null);
 
@@ -769,28 +783,34 @@ function openPurgeAllModal() {
 async function handlePermanentDelete() {
   try {
     if (purgeAll.value) {
-      const result = await apiFetch<{ purged: number }>(`/api/libraries/${libraryId.value}/files/purge`, {
-        method: "POST",
-      });
+      const result = await apiFetch<{ purged: number }>(
+        `/api/libraries/${libraryId.value}/files/purge`,
+        {
+          method: "POST",
+        },
+      );
       entries.value = [];
       nextCursor.value = null;
       totalCount.value = 0;
       trashedCount.value = 0;
       toast.add({
-        title: `${result.purged} ${result.purged === 1 ? 'item' : 'items'} permanently deleted`,
+        title: `${result.purged} ${result.purged === 1 ? "item" : "items"} permanently deleted`,
         color: "success",
       });
     } else {
-      const result = await apiFetch<{ purged: number }>(`/api/libraries/${libraryId.value}/files/purge`, {
-        method: "POST",
-        body: foldersToPurge.value.length
-          ? { folderIds: foldersToPurge.value }
-          : { fileIds: filesToPurge.value },
-      });
+      const result = await apiFetch<{ purged: number }>(
+        `/api/libraries/${libraryId.value}/files/purge`,
+        {
+          method: "POST",
+          body: foldersToPurge.value.length
+            ? { folderIds: foldersToPurge.value }
+            : { fileIds: filesToPurge.value },
+        },
+      );
       await resetAndFetch();
       await refreshTrashedCount();
       toast.add({
-        title: `${result.purged} ${result.purged === 1 ? 'item' : 'items'} permanently deleted`,
+        title: `${result.purged} ${result.purged === 1 ? "item" : "items"} permanently deleted`,
         color: "success",
       });
     }
@@ -1091,7 +1111,7 @@ const emptyStateDescription = computed(() => {
       <!-- Right: View switcher + action buttons -->
       <div class="flex items-center gap-2 shrink-0">
         <!-- View switcher (only for normal view) -->
-        <div v-if="!showTrashed" class="flex items-center gap-1 rounded-md border border-base-300/70 bg-base-100 p-0.5">
+        <template v-if="!showTrashed">
           <button
             class="btn btn-ghost btn-square btn-sm min-h-8 h-8 w-8 p-0"
             :class="entryViewMode === 'file' ? 'btn-active' : ''"
@@ -1108,7 +1128,7 @@ const emptyStateDescription = computed(() => {
           >
             <AppIcon name="i-lucide-layout-grid" class="size-4" />
           </button>
-        </div>
+        </template>
 
         <!-- Trash actions -->
         <template v-if="showTrashed && !filesPending && totalCount > 0">
@@ -1167,26 +1187,40 @@ const emptyStateDescription = computed(() => {
               <th class="w-12 px-4 py-3" />
               <th class="text-left text-xs font-medium text-muted px-4 py-3">Name</th>
               <th class="text-left text-xs font-medium text-muted px-4 py-3">Tags</th>
-              <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">Owner</th>
-              <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">{{ showTrashed ? "Trashed" : "Modified" }}</th>
-              <th class="text-right text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">Size</th>
+              <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
+                Owner
+              </th>
+              <th class="text-left text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
+                {{ showTrashed ? "Trashed" : "Modified" }}
+              </th>
+              <th class="text-right text-xs font-medium text-muted px-4 py-3 hidden sm:table-cell">
+                Size
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="i in 8" :key="i">
               <td class="px-4 py-3"><div class="skeleton h-5 w-5 rounded" /></td>
-              <td class="px-4 py-3"><div class="skeleton h-4 rounded" :style="{ width: `${40 + (i * 17) % 40}%` }" /></td>
+              <td class="px-4 py-3">
+                <div class="skeleton h-4 rounded" :style="{ width: `${40 + ((i * 17) % 40)}%` }" />
+              </td>
               <td class="px-4 py-3"><div class="skeleton h-3 w-8 rounded-full" /></td>
-              <td class="px-4 py-3 hidden sm:table-cell"><div class="skeleton h-6 w-6 rounded-full" /></td>
-              <td class="px-4 py-3 hidden sm:table-cell"><div class="skeleton h-4 w-20 rounded" /></td>
-              <td class="px-4 py-3 hidden sm:table-cell"><div class="skeleton h-4 w-14 rounded ml-auto" /></td>
+              <td class="px-4 py-3 hidden sm:table-cell">
+                <div class="skeleton h-6 w-6 rounded-full" />
+              </td>
+              <td class="px-4 py-3 hidden sm:table-cell">
+                <div class="skeleton h-4 w-20 rounded" />
+              </td>
+              <td class="px-4 py-3 hidden sm:table-cell">
+                <div class="skeleton h-4 w-14 rounded ml-auto" />
+              </td>
             </tr>
           </tbody>
         </table>
         <div v-else class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           <div v-for="i in 8" :key="i" class="rounded-lg bg-elevated/50 p-3">
             <div class="skeleton h-40 w-full rounded-md mb-3" />
-            <div class="skeleton h-4 rounded mb-2" :style="{ width: `${50 + (i * 13) % 40}%` }" />
+            <div class="skeleton h-4 rounded mb-2" :style="{ width: `${50 + ((i * 13) % 40)}%` }" />
             <div class="skeleton h-3 w-16 rounded" />
           </div>
         </div>
@@ -1214,7 +1248,9 @@ const emptyStateDescription = computed(() => {
             <tr
               class="cursor-pointer transition-colors"
               :class="[
-                isEntrySelected(entry) ? 'bg-primary/10' : 'hover:bg-base-300/50',
+                isEntrySelected(entry)
+                  ? 'bg-primary/20 hover:bg-primary/28'
+                  : 'hover:bg-primary/10',
                 dropTargetFolderId === entry.id && entry.kind === 'folder'
                   ? 'ring-2 ring-primary/60 ring-inset bg-primary/5'
                   : '',
@@ -1243,10 +1279,7 @@ const emptyStateDescription = computed(() => {
                 </div>
               </td>
               <td class="px-4 py-3">
-                <div
-                  v-if="isRenaming(entry)"
-                  :data-rename-input-entry-id="entry.id"
-                >
+                <div v-if="isRenaming(entry)" :data-rename-input-entry-id="entry.id">
                   <input
                     v-model="renameValue"
                     class="input input-sm w-full"
@@ -1261,7 +1294,7 @@ const emptyStateDescription = computed(() => {
                   <button
                     v-if="entry.kind === 'folder'"
                     type="button"
-                    class="text-sm text-left hover:text-primary transition-colors"
+                    class="text-sm text-left"
                     @click.stop="openFolder(entry.id)"
                   >
                     {{
@@ -1270,15 +1303,9 @@ const emptyStateDescription = computed(() => {
                         : entry.name
                     }}
                   </button>
-                  <button
-                    v-else
-                    type="button"
-                    class="text-sm text-left hover:text-primary transition-colors"
-                    :class="showTrashed ? 'opacity-60' : ''"
-                    @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
-                  >
+                  <span v-else class="text-sm text-left" :class="showTrashed ? 'opacity-60' : ''">
                     {{ entry.name }}
-                  </button>
+                  </span>
                 </div>
               </td>
               <td class="px-4 py-3">
@@ -1294,13 +1321,18 @@ const emptyStateDescription = computed(() => {
               </td>
               <td class="px-4 py-3 text-sm text-muted hidden sm:table-cell">
                 <div v-if="entry.kind === 'file' && entry.owner" class="flex items-center">
-                  <div class="avatar" :title="entry.owner.displayName">
-                    <div class="w-6 rounded-full">
-                      <img
-                        v-if="entry.owner.avatarUrl"
-                        :src="entry.owner.avatarUrl"
-                        :alt="entry.owner.displayName"
-                      />
+                  <div
+                    class="avatar placeholder tooltip tooltip-right"
+                    :data-tip="entry.owner.displayName"
+                  >
+                    <div v-if="entry.owner.avatarUrl" class="w-6 rounded-full">
+                      <img :src="entry.owner.avatarUrl" :alt="entry.owner.displayName" />
+                    </div>
+                    <div
+                      v-else
+                      class="w-6 rounded-full bg-primary/20 text-primary text-[10px] font-semibold flex items-center justify-center"
+                    >
+                      {{ entry.owner.displayName.charAt(0).toUpperCase() || "U" }}
                     </div>
                   </div>
                 </div>
@@ -1329,9 +1361,7 @@ const emptyStateDescription = computed(() => {
           <div
             class="rounded-lg bg-elevated/50 p-3 cursor-pointer transition-colors select-none"
             :class="[
-              isEntrySelected(entry)
-                ? 'ring-2 ring-primary/50 bg-primary/5'
-                : 'hover:bg-base-300/50',
+              isEntrySelected(entry) ? 'bg-primary/20 hover:bg-primary/28' : 'hover:bg-primary/10',
               dropTargetFolderId === entry.id && entry.kind === 'folder'
                 ? 'ring-2 ring-primary/60 bg-primary/10'
                 : '',
@@ -1365,11 +1395,7 @@ const emptyStateDescription = computed(() => {
                     decoding="async"
                     @error="failedThumbnails.add(entry.id)"
                   />
-                  <AppIcon
-                    v-else
-                    name="i-lucide-film"
-                    class="size-10 text-muted"
-                  />
+                  <AppIcon v-else name="i-lucide-film" class="size-10 text-muted" />
                   <div
                     v-if="entry.proxyStatus === 'processing'"
                     class="absolute inset-0 flex items-center justify-center bg-black/40"
@@ -1391,11 +1417,7 @@ const emptyStateDescription = computed(() => {
                   :class="isSmallImage(entry) ? 'object-contain' : 'w-full h-full object-cover'"
                   @error="failedThumbnails.add(entry.id)"
                 />
-                <AppIcon
-                  v-else
-                  name="i-lucide-image"
-                  class="size-10 text-muted"
-                />
+                <AppIcon v-else name="i-lucide-image" class="size-10 text-muted" />
               </template>
               <template v-else>
                 <AppIcon
@@ -1406,10 +1428,7 @@ const emptyStateDescription = computed(() => {
               </template>
             </div>
 
-            <div
-              v-if="isRenaming(entry)"
-              :data-rename-input-entry-id="entry.id"
-            >
+            <div v-if="isRenaming(entry)" :data-rename-input-entry-id="entry.id">
               <input
                 v-model="renameValue"
                 class="input input-sm w-full"
@@ -1424,22 +1443,20 @@ const emptyStateDescription = computed(() => {
               <button
                 v-if="entry.kind === 'folder'"
                 type="button"
-                class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
+                class="text-sm font-medium text-left truncate w-full"
                 @click.stop="openFolder(entry.id)"
               >
                 {{
                   showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name
                 }}
               </button>
-              <button
+              <span
                 v-else
-                type="button"
-                class="text-sm font-medium text-left truncate w-full hover:text-primary transition-colors"
+                class="text-sm font-medium text-left truncate w-full"
                 :class="showTrashed ? 'opacity-60' : ''"
-                @click.stop="canManageLibrary ? startEntryRename(entry) : openPreview(entry)"
               >
                 {{ entry.name }}
-              </button>
+              </span>
 
               <div class="flex items-center justify-between mt-1 gap-2 text-xs text-muted">
                 <span>{{
@@ -1478,10 +1495,7 @@ const emptyStateDescription = computed(() => {
         <p class="text-lg font-medium text-foreground mb-1">{{ emptyStateTitle }}</p>
         <p class="text-sm text-muted mb-4">{{ emptyStateDescription }}</p>
         <div v-if="canManageLibrary && !showTrashed" class="flex items-center gap-2">
-          <button
-            class="btn btn-outline"
-            @click="openCreateFolderModal"
-          >
+          <button class="btn btn-outline" @click="openCreateFolderModal">
             <AppIcon name="i-lucide-folder-plus" class="size-4" />
             Create folder
           </button>
@@ -1531,8 +1545,8 @@ const emptyStateDescription = computed(() => {
           <fieldset class="fieldset">
             <legend class="fieldset-legend">Folder name</legend>
             <input
+              ref="createFolderInput"
               v-model="createFolderName"
-              autofocus
               placeholder="New folder"
               class="input w-full"
               @keydown.enter="createFolder"
@@ -1540,12 +1554,7 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button
-            class="btn btn-outline"
-            @click="createFolderOpen = false"
-          >
-            Cancel
-          </button>
+          <button class="btn btn-outline" @click="createFolderOpen = false">Cancel</button>
           <button
             class="btn btn-primary"
             :disabled="!createFolderName.trim() || creatingFolder"
@@ -1574,28 +1583,15 @@ const emptyStateDescription = computed(() => {
           </p>
           <fieldset class="fieldset">
             <legend class="fieldset-legend">Destination</legend>
-            <select
-              v-model="moveDestinationValue"
-              class="select w-full"
-              :disabled="moveLoading"
-            >
-              <option
-                v-for="item in moveDestinationOptions"
-                :key="item.value"
-                :value="item.value"
-              >
+            <select v-model="moveDestinationValue" class="select w-full" :disabled="moveLoading">
+              <option v-for="item in moveDestinationOptions" :key="item.value" :value="item.value">
                 {{ item.label }}
               </option>
             </select>
           </fieldset>
         </div>
         <div class="modal-action">
-          <button
-            class="btn btn-outline"
-            @click="moveFolderOpen = false"
-          >
-            Cancel
-          </button>
+          <button class="btn btn-outline" @click="moveFolderOpen = false">Cancel</button>
           <button
             class="btn btn-primary"
             :disabled="moveLoading || moveFolderSaving"
@@ -1640,9 +1636,7 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button class="btn btn-outline" @click="closeMoveFilesModal">
-            Cancel
-          </button>
+          <button class="btn btn-outline" @click="closeMoveFilesModal">Cancel</button>
           <button
             class="btn btn-primary"
             :disabled="moveFilesLoading || moveFilesSaving"
@@ -1675,12 +1669,7 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button
-            class="btn btn-outline"
-            @click="purgeModalOpen = false"
-          >
-            Cancel
-          </button>
+          <button class="btn btn-outline" @click="purgeModalOpen = false">Cancel</button>
           <button
             class="btn btn-error"
             :disabled="purgeConfirmation !== 'delete'"
@@ -1719,14 +1708,8 @@ const emptyStateDescription = computed(() => {
           </div>
         </div>
         <div class="modal-action">
-          <button class="btn btn-outline" @click="cancelLargeDownload">
-            Cancel
-          </button>
-          <button
-            class="btn btn-primary"
-            :disabled="zipDownloading"
-            @click="confirmLargeDownload"
-          >
+          <button class="btn btn-outline" @click="cancelLargeDownload">Cancel</button>
+          <button class="btn btn-primary" :disabled="zipDownloading" @click="confirmLargeDownload">
             <span v-if="zipDownloading" class="loading loading-spinner loading-xs"></span>
             <AppIcon v-else name="i-lucide-download" class="size-4" />
             Download Anyway
@@ -1755,23 +1738,42 @@ const emptyStateDescription = computed(() => {
           }"
           @click.stop
         >
-          <ul class="menu menu-sm dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl min-w-60 p-2">
-            <template v-for="(group, groupIndex) in getContextMenuItems(contextMenuEntry)" :key="groupIndex">
+          <ul
+            class="menu dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl p-2 w-auto max-h-[calc(100vh-1rem)] overflow-y-auto"
+          >
+            <template
+              v-for="(group, groupIndex) in getContextMenuItems(contextMenuEntry)"
+              :key="groupIndex"
+            >
               <li v-if="groupIndex > 0" class="menu-title my-1 p-0">
                 <div class="h-px w-full bg-base-300/80" />
               </li>
-              <template v-for="(item, itemIndex) in group" :key="`${groupIndex}-${itemIndex}-${item.label}`">
+              <template
+                v-for="(item, itemIndex) in group"
+                :key="`${groupIndex}-${itemIndex}-${item.label}`"
+              >
                 <li v-if="item.children?.length">
                   <details>
-                    <summary :class="[item.color === 'error' ? 'text-error' : '']">
+                    <summary
+                      :class="[
+                        item.color === 'error' ? 'text-error' : '',
+                        'px-2 py-1.5 gap-2 whitespace-nowrap',
+                      ]"
+                    >
                       <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
                       <span>{{ item.label }}</span>
                     </summary>
                     <ul>
-                      <li v-for="(child, childIndex) in item.children" :key="`${item.label}-${childIndex}-${child.label}`">
+                      <li
+                        v-for="(child, childIndex) in item.children"
+                        :key="`${item.label}-${childIndex}-${child.label}`"
+                      >
                         <button
                           type="button"
-                          :class="[child.color === 'error' ? 'text-error' : '']"
+                          :class="[
+                            child.color === 'error' ? 'text-error' : '',
+                            'px-2 py-1.5 gap-2 whitespace-nowrap',
+                          ]"
                           :disabled="child.disabled"
                           @click="handleContextMenuSelect(child)"
                         >
@@ -1785,7 +1787,10 @@ const emptyStateDescription = computed(() => {
                 <li v-else>
                   <button
                     type="button"
-                    :class="[item.color === 'error' ? 'text-error' : '']"
+                    :class="[
+                      item.color === 'error' ? 'text-error' : '',
+                      'px-2 py-1.5 gap-2 whitespace-nowrap',
+                    ]"
                     :disabled="item.disabled"
                     @click="handleContextMenuSelect(item)"
                   >
