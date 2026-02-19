@@ -77,7 +77,7 @@ function formatDateTime(dateString: string | null): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6 overflow-y-auto flex-1 min-h-0">
+  <div class="flex flex-col gap-6 h-full">
     <!-- Header -->
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <div>
@@ -89,46 +89,66 @@ function formatDateTime(dateString: string | null): string {
     </div>
 
     <!-- Stat cards -->
-    <div class="stats stats-vertical sm:stats-horizontal shadow w-full bg-base-100">
-      <div class="stat">
-        <div class="stat-figure text-primary"><AppIcon name="i-lucide-files" class="size-6" /></div>
-        <div class="stat-title">Files</div>
-        <div class="stat-value text-primary">
-          {{ stats?.files?.toLocaleString("en-US") ?? "—" }}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs text-base-content/60">Files</p>
+              <p class="text-3xl font-semibold text-primary">{{ stats?.files?.toLocaleString("en-US") ?? "—" }}</p>
+              <p class="text-xs text-base-content/50 mt-1">Active across all libraries</p>
+            </div>
+            <AppIcon name="i-lucide-files" class="size-5 text-primary" />
+          </div>
         </div>
-        <div class="stat-desc">Active across all libraries</div>
       </div>
-      <div class="stat">
-        <div class="stat-figure text-secondary">
-          <AppIcon name="i-lucide-hard-drive" class="size-6" />
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs text-base-content/60">Storage</p>
+              <p class="text-3xl font-semibold text-secondary">{{ stats ? formatFileSize(stats.totalSize) : "—" }}</p>
+              <p class="text-xs text-base-content/50 mt-1">Total disk usage</p>
+            </div>
+            <AppIcon name="i-lucide-hard-drive" class="size-5 text-secondary" />
+          </div>
         </div>
-        <div class="stat-title">Storage</div>
-        <div class="stat-value text-secondary">
-          {{ stats ? formatFileSize(stats.totalSize) : "—" }}
-        </div>
-        <div class="stat-desc">Total disk usage</div>
       </div>
-      <div class="stat">
-        <div class="stat-figure text-accent">
-          <AppIcon name="i-lucide-library" class="size-6" />
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs text-base-content/60">Libraries</p>
+              <p class="text-3xl font-semibold">{{ stats?.libraries?.toLocaleString("en-US") ?? "—" }}</p>
+              <p class="text-xs text-base-content/50 mt-1">Including personal defaults</p>
+            </div>
+            <AppIcon name="i-lucide-library" class="size-5 text-accent" />
+          </div>
         </div>
-        <div class="stat-title">Libraries</div>
-        <div class="stat-value">{{ stats?.libraries?.toLocaleString("en-US") ?? "—" }}</div>
-        <div class="stat-desc">Including personal defaults</div>
       </div>
-      <div class="stat">
-        <div class="stat-figure text-info"><AppIcon name="i-lucide-users" class="size-6" /></div>
-        <div class="stat-title">Users</div>
-        <div class="stat-value">{{ stats?.users?.toLocaleString("en-US") ?? "—" }}</div>
-        <div class="stat-desc">Registered accounts</div>
-      </div>
-      <div class="stat">
-        <div class="stat-figure text-warning">
-          <AppIcon name="i-lucide-folder-tree" class="size-6" />
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs text-base-content/60">Users</p>
+              <p class="text-3xl font-semibold">{{ stats?.users?.toLocaleString("en-US") ?? "—" }}</p>
+              <p class="text-xs text-base-content/50 mt-1">Registered accounts</p>
+            </div>
+            <AppIcon name="i-lucide-users" class="size-5 text-info" />
+          </div>
         </div>
-        <div class="stat-title">Folders</div>
-        <div class="stat-value">{{ stats?.folders?.toLocaleString("en-US") ?? "—" }}</div>
-        <div class="stat-desc">Active folder hierarchy</div>
+      </div>
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs text-base-content/60">Folders</p>
+              <p class="text-3xl font-semibold">{{ stats?.folders?.toLocaleString("en-US") ?? "—" }}</p>
+              <p class="text-xs text-base-content/50 mt-1">Active folder hierarchy</p>
+            </div>
+            <AppIcon name="i-lucide-folder-tree" class="size-5 text-warning" />
+          </div>
+        </div>
       </div>
     </div>
 

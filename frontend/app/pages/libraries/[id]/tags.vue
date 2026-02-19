@@ -237,7 +237,7 @@ onBeforeUnmount(() => {
         <div class="flex items-center justify-between gap-3">
           <h1 class="text-xl font-semibold">Manage Tags</h1>
           <button
-            class="btn btn-ghost btn-sm"
+            class="btn btn-soft btn-ghost btn-sm"
             :disabled="loadingUsage"
             title="Refresh usage counts"
             @click="refreshTagUsageCounts"
@@ -281,7 +281,7 @@ onBeforeUnmount(() => {
                       @keydown.enter="createTagAndRefresh"
                     />
                     <button
-                      class="btn btn-primary btn-sm btn-square shrink-0"
+                      class="btn btn-soft btn-primary btn-sm btn-square shrink-0"
                       :disabled="!createTagName.trim() || creatingTag"
                       @click="createTagAndRefresh"
                     >
@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
                       @keydown.enter="saveDraftTagName(tag)"
                     />
                     <button
-                      class="btn btn-error btn-sm btn-square"
+                      class="btn btn-soft btn-error btn-sm btn-square"
                       @click="deleteTagAndRefresh(tag.id)"
                     >
                       <AppIcon name="i-lucide-trash-2" class="size-4" />

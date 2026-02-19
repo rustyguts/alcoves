@@ -110,7 +110,7 @@ async function onSubmit() {
         </p>
       </fieldset>
 
-      <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+      <button type="submit" class="btn btn-soft btn-primary btn-block">Sign in</button>
     </form>
 
     <div class="space-y-4">

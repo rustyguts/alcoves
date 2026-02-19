@@ -23,10 +23,13 @@ const toast = useToast();
 const { preference: themePreference } = useTheme();
 
 const displayName = ref(user.value?.displayName ?? "");
+const displayNameInput = ref<HTMLInputElement | null>(null);
 const avatarInput = ref<HTMLInputElement | null>(null);
 const selectedAvatar = ref<File | null>(null);
 const avatarPreviewUrl = ref<string | null>(null);
 const saving = ref(false);
+const editingDisplayName = ref(false);
+const highlightSave = ref(false);
 
 watch(user, (u) => {
   if (u) {
@@ -35,6 +38,20 @@ watch(user, (u) => {
 });
 
 const currentAvatarSrc = computed(() => avatarPreviewUrl.value ?? user.value?.avatarUrl ?? null);
+const hasProfileChanges = computed(() => {
+  const nextDisplayName = displayName.value.trim();
+  const hasDisplayNameUpdate = !!(nextDisplayName && nextDisplayName !== user.value?.displayName);
+  return hasDisplayNameUpdate || !!selectedAvatar.value;
+});
+
+function startEditingDisplayName() {
+  editingDisplayName.value = true;
+  highlightSave.value = true;
+  nextTick(() => {
+    displayNameInput.value?.focus();
+    displayNameInput.value?.select();
+  });
+}
 
 function openAvatarPicker() {
   avatarInput.value?.click();
@@ -97,6 +114,8 @@ async function save() {
       URL.revokeObjectURL(avatarPreviewUrl.value);
       avatarPreviewUrl.value = null;
     }
+    editingDisplayName.value = false;
+    highlightSave.value = false;
     toast.add({ title: "Profile updated", color: "success" });
   } catch (error) {
     const message = getStatusMessage(error) ?? "Failed to update profile";
@@ -159,112 +178,82 @@ function getStatusMessage(error: unknown): string | null {
     <section
       class="hero rounded-box bg-gradient-to-br from-primary/20 via-base-200 to-secondary/20"
     >
-      <div class="hero-content w-full justify-between gap-6 px-6 py-8">
-        <div class="space-y-2">
-          <h1 class="text-3xl font-bold tracking-tight">Profile</h1>
-          <p class="text-base-content/70">My Profile</p>
-          <p class="text-sm text-base-content/60">Keep your account details current and secure.</p>
+      <div class="hero-content w-full flex-col items-center gap-3 px-4 py-6 text-center sm:px-6 sm:py-8">
+        <button type="button" class="avatar" @click="openAvatarPicker">
+          <div
+            v-if="currentAvatarSrc"
+            class="size-20 rounded-full ring ring-primary/20 ring-offset-2 ring-offset-base-100"
+          >
+            <img :src="currentAvatarSrc" alt="" class="size-full object-cover" />
+          </div>
+          <div
+            v-else
+            class="size-20 rounded-full bg-primary text-primary-content flex items-center justify-center text-3xl font-bold ring ring-primary/20 ring-offset-2 ring-offset-base-100"
+          >
+            {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
+          </div>
+        </button>
+        <div class="min-w-0 w-full space-y-1">
+          <button
+            v-if="!editingDisplayName"
+            type="button"
+            class="truncate text-3xl font-bold tracking-tight transition-colors hover:text-primary"
+            @click="startEditingDisplayName"
+          >
+            {{ user?.displayName || "User" }}
+          </button>
+          <input
+            v-else
+            ref="displayNameInput"
+            v-model="displayName"
+            class="input input-md sm:input-lg mx-auto w-full max-w-xs sm:max-w-sm"
+            placeholder="Your display name"
+            @keydown.enter="save"
+          />
+          <p class="truncate text-sm text-base-content/70">{{ user?.email }}</p>
         </div>
-        <div class="hidden items-center gap-3 md:flex">
-          <span class="badge badge-outline">{{ user?.email }}</span>
-          <span class="badge badge-primary badge-outline">Account</span>
+        <div class="flex items-center">
+          <button
+            class="btn btn-soft btn-primary"
+            :class="highlightSave || hasProfileChanges ? 'ring ring-primary/30' : ''"
+            :disabled="saving || !hasProfileChanges"
+            @click="save"
+          >
+            <span v-if="saving" class="loading loading-spinner loading-xs"></span>
+            Save
+          </button>
         </div>
       </div>
+      <input
+        ref="avatarInput"
+        type="file"
+        accept="image/*"
+        class="hidden"
+        @change="onAvatarSelected"
+      />
     </section>
 
-    <section class="grid gap-6 lg:grid-cols-[2fr_1fr]">
-      <article class="card bg-base-100">
-        <div class="card-body gap-5">
-          <div class="flex items-center gap-4">
-            <div class="avatar">
-              <div
-                v-if="currentAvatarSrc"
-                class="size-20 rounded-full ring ring-primary/20 ring-offset-2 ring-offset-base-100"
-              >
-                <img :src="currentAvatarSrc" alt="" class="size-full object-cover" />
-              </div>
-              <div
-                v-else
-                class="size-20 rounded-full bg-primary text-primary-content flex items-center justify-center text-3xl font-bold ring ring-primary/20 ring-offset-2 ring-offset-base-100"
-              >
-                {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
-              </div>
-            </div>
-            <div class="space-y-1">
-              <p class="text-lg font-semibold">{{ user?.displayName || "User" }}</p>
-              <p class="text-sm text-base-content/60">{{ user?.email }}</p>
-            </div>
-          </div>
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Display Name</legend>
-            <input v-model="displayName" placeholder="Your display name" class="input w-full" />
-          </fieldset>
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Avatar Photo</legend>
-            <p class="text-xs text-base-content/60">
-              Upload an image. It will be center-cropped to 128x128.
-            </p>
-            <div class="mt-2 flex items-center gap-3">
-              <button class="btn btn-outline btn-sm" @click="openAvatarPicker">
-                <AppIcon name="i-lucide-image-plus" class="size-4" />
-                Choose photo
-              </button>
-              <span v-if="selectedAvatar" class="max-w-xs truncate text-sm text-base-content/60">
-                {{ selectedAvatar.name }}
-              </span>
-            </div>
-            <input
-              ref="avatarInput"
-              type="file"
-              accept="image/*"
-              class="hidden"
-              @change="onAvatarSelected"
-            />
-          </fieldset>
-
-          <div class="card-actions justify-end border-t border-base-300/60 pt-4">
-            <button class="btn btn-primary" :disabled="saving" @click="save">
-              <span v-if="saving" class="loading loading-spinner loading-xs"></span>
-              Save
-            </button>
-          </div>
-        </div>
-      </article>
-
-      <aside class="space-y-6">
-        <article class="card bg-base-100">
-          <div class="card-body gap-4">
-            <h2 class="card-title text-base">Appearance</h2>
-            <fieldset class="fieldset">
-              <legend class="fieldset-legend">Theme</legend>
-              <select
-                :value="themePreference"
-                class="select w-full capitalize"
-                @change="
-                  themePreference = ($event.target as HTMLSelectElement).value as
-                    | DaisyTheme
-                    | 'auto'
-                "
-              >
-                <option value="auto">System</option>
-                <option v-for="t in daisyThemes" :key="t" :value="t" class="capitalize">
-                  {{ t }}
-                </option>
-              </select>
-            </fieldset>
-          </div>
-        </article>
-
-        <article class="stats stats-vertical bg-base-100">
-          <div class="stat py-4">
-            <div class="stat-title">Active Sessions</div>
-            <div class="stat-value text-3xl">{{ sessions?.length ?? 0 }}</div>
-            <div class="stat-desc">Devices signed into this account</div>
-          </div>
-        </article>
-      </aside>
+    <section class="card bg-base-100">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Appearance</h2>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">Theme</legend>
+          <select
+            :value="themePreference"
+            class="select w-full capitalize"
+            @change="
+              themePreference = ($event.target as HTMLSelectElement).value as
+                | DaisyTheme
+                | 'auto'
+            "
+          >
+            <option value="auto">System</option>
+            <option v-for="t in daisyThemes" :key="t" :value="t" class="capitalize">
+              {{ t }}
+            </option>
+          </select>
+        </fieldset>
+      </div>
     </section>
 
     <section class="card bg-base-100">
@@ -298,7 +287,7 @@ function getStatusMessage(error: unknown): string | null {
             </div>
             <button
               v-if="!session.isCurrent"
-              class="btn btn-error btn-outline btn-xs"
+              class="btn btn-soft btn-error btn-outline btn-xs"
               :disabled="revokingId === session.id"
               @click="revokeSession(session.id)"
             >

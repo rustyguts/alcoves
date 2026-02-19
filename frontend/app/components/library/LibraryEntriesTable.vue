@@ -27,7 +27,6 @@ const emit = defineEmits<{
   dragOver: [entry: LibraryEntry, event: DragEvent];
   dragLeave: [entry: LibraryEntry, event: DragEvent];
   drop: [entry: LibraryEntry, event: DragEvent];
-  openFolder: [folderId: string];
   saveRename: [entry: LibraryEntry];
   cancelRename: [];
   updateRenameValue: [value: string];
@@ -113,16 +112,11 @@ const emit = defineEmits<{
               />
             </div>
             <div v-else class="flex items-center gap-1">
-              <button
-                v-if="entry.kind === 'folder'"
-                type="button"
-                class="text-sm text-left"
-                @click.stop="emit('openFolder', entry.id)"
-              >
+              <span v-if="entry.kind === 'folder'" class="text-sm text-left">
                 {{
                   showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name
                 }}
-              </button>
+              </span>
               <span v-else class="text-sm text-left" :class="showTrashed ? 'opacity-60' : ''">
                 {{ entry.name }}
               </span>

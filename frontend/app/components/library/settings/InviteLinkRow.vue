@@ -24,7 +24,7 @@ const emit = defineEmits<{
       </p>
     </div>
     <div class="flex items-center gap-2">
-      <button class="btn btn-sm btn-ghost btn-outline" @click="emit('copy', invite.inviteUrl)">
+      <button class="btn btn-soft btn-sm btn-ghost btn-outline" @click="emit('copy', invite.inviteUrl)">
         <AppIcon name="i-lucide-copy" class="size-4" />
       </button>
       <button

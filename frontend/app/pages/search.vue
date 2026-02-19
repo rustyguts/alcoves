@@ -150,7 +150,7 @@ function getResultIcon(result: GlobalSearchResult): string {
               class="input w-full pl-10 rounded-xl"
             />
           </div>
-          <button type="submit" class="btn btn-primary">
+          <button type="submit" class="btn btn-soft btn-primary">
             <AppIcon name="i-lucide-search" class="size-4" />
             Search
           </button>

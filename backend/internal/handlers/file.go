@@ -43,6 +43,7 @@ func (h *FileHandler) RegisterRoutes(g *echo.Group) {
 	g.DELETE("/:id/files/:fileId", h.Delete)
 	g.GET("/:id/files/:fileId/playback-sources", h.PlaybackSources)
 	g.POST("/:id/files/:fileId/proxy", h.GenerateProxy)
+	g.POST("/:id/files/video-thumbnails/reprocess", h.ReprocessVideoThumbnails)
 	g.GET("/:id/files/:fileId/proxy", h.Proxy)
 	g.GET("/:id/files/:fileId/thumbnail", h.Thumbnail)
 	g.POST("/:id/files/purge", h.Purge)
@@ -457,6 +458,25 @@ func (h *FileHandler) Restore(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]int64{"restored": result.RowsAffected})
 }
 
+func (h *FileHandler) ReprocessVideoThumbnails(c echo.Context) error {
+	if h.videoSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Video service unavailable")
+	}
+
+	la := middleware.GetLibraryAccess(c)
+	if la == nil || !la.IsOwner {
+		return echo.NewHTTPError(http.StatusForbidden, "Only the library owner can regenerate video thumbnails")
+	}
+
+	libraryID := c.Param("id")
+	queuedCount, err := h.videoSvc.EnqueueExistingVideoThumbnails(libraryID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue video thumbnails")
+	}
+
+	return c.JSON(http.StatusOK, map[string]int{"queuedCount": queuedCount})
+}
+
 type playbackSourceResponse struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -496,7 +516,7 @@ func (h *FileHandler) PlaybackSources(c echo.Context) error {
 
 	var proxies []models.File
 	if err := h.db.
-		Where("source_file_id = ? AND library_id = ? AND trashed_at IS NULL", sourceID, libraryID).
+		Where("source_file_id = ? AND library_id = ? AND trashed_at IS NULL AND mime_type LIKE ?", sourceID, libraryID, "video/%").
 		Order("created_at DESC").
 		Find(&proxies).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load playback sources")

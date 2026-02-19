@@ -23,6 +23,7 @@ const DONE_CLEANUP_MS = 2_000;
 const TUS_ENDPOINT = "/api/tus";
 
 const onCompleteCallbacks = new Map<string, () => void>();
+const onSuccessCallbacks = new Map<string, () => void>();
 
 const queue = ref<QueuedFile[]>([]);
 const isProcessing = ref(false);
@@ -111,6 +112,11 @@ export function useUploadQueue() {
     if (cb) cb();
   }
 
+  function notifyLibraryUploadSuccess(libraryId: string) {
+    const cb = onSuccessCallbacks.get(libraryId);
+    if (cb) cb();
+  }
+
   function uploadFile(item: QueuedFile): void {
     const mimeType = getMimeTypeFromFilename(item.file.name);
 
@@ -146,6 +152,8 @@ export function useUploadQueue() {
         item.status = "done";
         item.progress = 100;
         tusUploads.delete(item.id);
+
+        notifyLibraryUploadSuccess(item.libraryId);
 
         setTimeout(() => {
           queue.value = queue.value.filter((f) => f.id !== item.id);
@@ -219,6 +227,14 @@ export function useUploadQueue() {
     onCompleteCallbacks.delete(libraryId);
   }
 
+  function onLibraryUploadSuccess(libraryId: string, callback: () => void) {
+    onSuccessCallbacks.set(libraryId, callback);
+  }
+
+  function removeOnSuccess(libraryId: string) {
+    onSuccessCallbacks.delete(libraryId);
+  }
+
   const activeUploads = computed(() => queue.value.filter((f) => f.status !== "done"));
   const hasActiveUploads = computed(() => activeUploads.value.length > 0);
   const hasInFlightUploads = computed(() =>
@@ -244,5 +260,7 @@ export function useUploadQueue() {
     clearErrors,
     onLibraryUploadComplete,
     removeOnComplete,
+    onLibraryUploadSuccess,
+    removeOnSuccess,
   };
 }

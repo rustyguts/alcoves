@@ -116,6 +116,8 @@ const faceRecToggling = ref(false);
 const faceRecDisableOpen = ref(false);
 const faceRecReprocessOpen = ref(false);
 const faceRecReprocessing = ref(false);
+const videoThumbReprocessOpen = ref(false);
+const videoThumbReprocessing = ref(false);
 const savingLibraryName = ref(false);
 const deleteLibraryOpen = ref(false);
 const deleteLibraryConfirmation = ref("");
@@ -203,6 +205,30 @@ async function reprocessFaceRecognition() {
   }
 }
 
+const isLibraryOwner = computed(() => {
+  return !!library.value?.ownerId && !!user.value?.id && library.value.ownerId === user.value.id;
+});
+
+async function reprocessVideoThumbnails() {
+  videoThumbReprocessing.value = true;
+  videoThumbReprocessOpen.value = false;
+  try {
+    const result = await apiFetch<{ queuedCount: number }>(
+      `/api/libraries/${libraryId.value}/files/video-thumbnails/reprocess`,
+      { method: "POST" },
+    );
+    toast.add({
+      title: "Thumbnail regeneration queued",
+      description: `${result.queuedCount} video${result.queuedCount === 1 ? "" : "s"} queued for thumbnail regeneration.`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to queue thumbnail regeneration";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    videoThumbReprocessing.value = false;
+  }
+}
+
 const canDeleteLibrary = computed(() => {
   if (!library.value || !user.value) return false;
   if (library.value.isDefault) return false;
@@ -247,7 +273,7 @@ async function deleteLibrary() {
               @keydown.enter="saveLibraryNameFromSettings"
             />
             <button
-              class="btn btn-primary"
+              class="btn btn-soft btn-primary"
               :disabled="
                 savingLibraryName ||
                 !libraryNameDraft.trim() ||
@@ -301,7 +327,7 @@ async function deleteLibrary() {
                 </option>
               </select>
               <button
-                class="btn btn-primary"
+                class="btn btn-soft btn-primary"
                 :disabled="!inviteEmail.trim() || inviteByEmailLoading"
                 @click="inviteUserByEmail"
               >
@@ -319,7 +345,7 @@ async function deleteLibrary() {
                 <p class="text-xs text-muted">Reusable links for authenticated users.</p>
               </div>
               <button
-                class="btn btn-sm btn-primary"
+                class="btn btn-soft btn-sm btn-primary"
                 :disabled="createInviteLinkLoading"
                 @click="createInviteLink"
               >
@@ -348,7 +374,7 @@ async function deleteLibrary() {
               <p class="text-xs text-muted">Reusable links for authenticated users.</p>
             </div>
             <button
-              class="btn btn-sm btn-primary"
+              class="btn btn-soft btn-sm btn-primary"
               :disabled="createInviteLinkLoading"
               @click="createInviteLink"
             >
@@ -403,7 +429,7 @@ async function deleteLibrary() {
                 <div class="flex items-center gap-2">
                   <span class="badge badge-sm badge-outline badge-neutral">{{ invite.role }}</span>
                   <button
-                    class="btn btn-sm btn-ghost btn-outline"
+                class="btn btn-soft btn-sm btn-ghost btn-outline"
                     @click="copyInviteLink(invite.inviteUrl)"
                   >
                     <AppIcon name="i-lucide-copy" class="size-4" />
@@ -455,7 +481,7 @@ async function deleteLibrary() {
               </p>
             </div>
             <button
-              class="btn btn-neutral"
+              class="btn btn-soft btn-warning"
               :disabled="!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing"
               @click="faceRecReprocessOpen = true"
             >
@@ -464,6 +490,29 @@ async function deleteLibrary() {
               Reprocess Faces
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danger Zone Card -->
+    <div v-if="isLibraryOwner" class="card bg-base-100">
+      <div class="card-body">
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold">Video Thumbnails</p>
+            <p class="text-xs text-muted">
+              Regenerate JPG thumbnails for all source videos in this library.
+            </p>
+          </div>
+          <button
+            class="btn btn-soft btn-warning"
+            :disabled="videoThumbReprocessing"
+            @click="videoThumbReprocessOpen = true"
+          >
+            <span v-if="videoThumbReprocessing" class="loading loading-spinner loading-xs"></span>
+            <AppIcon v-else name="i-lucide-image-up" class="size-4" />
+            Regenerate Thumbnails
+          </button>
         </div>
       </div>
     </div>
@@ -493,10 +542,21 @@ async function deleteLibrary() {
       title="Disable Facial Recognition"
       message="This will permanently delete all detected faces and people data for this library. This action cannot be undone."
       confirm-label="Disable & Delete Data"
-      confirm-class="btn-error"
+      confirm-class="btn-soft btn-error"
       confirm-icon="i-lucide-trash-2"
       :pending="faceRecToggling"
       @confirm="confirmDisableFaceRecognition"
+    />
+
+    <ConfirmModal
+      v-model:open="videoThumbReprocessOpen"
+      title="Regenerate Video Thumbnails"
+      message="This queues thumbnail regeneration for all source videos in this library. Existing generated thumbnails will be replaced as new ones complete."
+      confirm-label="Queue Regeneration"
+      confirm-class="btn-soft btn-warning"
+      confirm-icon="i-lucide-image-up"
+      :pending="videoThumbReprocessing"
+      @confirm="reprocessVideoThumbnails"
     />
 
     <ConfirmModal
@@ -504,7 +564,7 @@ async function deleteLibrary() {
       title="Reprocess Facial Recognition"
       message="This deletes all existing face inference data and queues a full rebuild. Results may change, including how photos are grouped into people."
       confirm-label="Delete Data & Requeue"
-      confirm-class="btn-warning"
+      confirm-class="btn-soft btn-warning"
       confirm-icon="i-lucide-refresh-cw"
       :pending="faceRecReprocessing"
       @confirm="reprocessFaceRecognition"
@@ -526,9 +586,9 @@ async function deleteLibrary() {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button class="btn" @click="deleteLibraryOpen = false">Cancel</button>
+          <button class="btn btn-soft" @click="deleteLibraryOpen = false">Cancel</button>
           <button
-            class="btn btn-error"
+            class="btn btn-soft btn-error"
             :disabled="deleteLibraryConfirmation !== 'delete'"
             @click="deleteLibrary"
           >

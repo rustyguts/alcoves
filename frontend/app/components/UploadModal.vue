@@ -55,8 +55,8 @@ watch(open, (val) => {
     </div>
 
     <div class="flex justify-end gap-2">
-      <button class="btn btn-sm" @click="open = false">Cancel</button>
-      <button class="btn btn-sm btn-primary" :disabled="!selectedFileCount" @click="handleUpload">
+      <button class="btn btn-soft btn-sm" @click="open = false">Cancel</button>
+      <button class="btn btn-soft btn-sm btn-primary" :disabled="!selectedFileCount" @click="handleUpload">
         <AppIcon name="i-lucide-upload" class="size-4" />
         Upload
       </button>

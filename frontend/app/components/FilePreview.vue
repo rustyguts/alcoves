@@ -464,7 +464,7 @@ onUnmounted(() => {
       >
         <div class="flex items-center gap-3 min-w-0 pointer-events-auto">
           <button
-            class="btn btn-circle btn-ghost text-white hover:bg-white/20"
+            class="btn btn-soft btn-circle btn-ghost text-white hover:bg-white/20"
             @click="open = false"
           >
             <AppIcon name="i-lucide-x" class="size-5" />
@@ -472,7 +472,7 @@ onUnmounted(() => {
           <span class="text-white text-sm font-medium truncate">{{ file.name }}</span>
           <div v-if="previewType === 'video'" class="flex items-center gap-2">
             <button
-              class="btn btn-xs btn-primary"
+              class="btn btn-soft btn-xs btn-primary"
               :disabled="generatingProxy"
               @click="generateProxy"
             >
@@ -492,7 +492,7 @@ onUnmounted(() => {
           </div>
         </div>
         <button
-          class="btn btn-circle btn-ghost text-white hover:bg-white/20 shrink-0 pointer-events-auto"
+          class="btn btn-soft btn-circle btn-ghost text-white hover:bg-white/20 shrink-0 pointer-events-auto"
           @click="downloadFile"
         >
           <AppIcon name="i-lucide-download" class="size-5" />
@@ -520,7 +520,7 @@ onUnmounted(() => {
       <!-- Overlay: previous button -->
       <button
         v-if="hasPrevious"
-        class="btn btn-circle btn-ghost absolute left-4 top-1/2 -translate-y-1/2 z-20 text-white bg-black/40 hover:bg-black/70"
+        class="btn btn-soft btn-circle btn-ghost absolute left-4 top-1/2 -translate-y-1/2 z-20 text-white bg-black/40 hover:bg-black/70"
         @click="goToPrevious"
       >
         <AppIcon name="i-lucide-chevron-left" class="size-5" />
@@ -529,7 +529,7 @@ onUnmounted(() => {
       <!-- Overlay: next button -->
       <button
         v-if="hasNext"
-        class="btn btn-circle btn-ghost absolute right-4 top-1/2 -translate-y-1/2 z-20 text-white bg-black/40 hover:bg-black/70"
+        class="btn btn-soft btn-circle btn-ghost absolute right-4 top-1/2 -translate-y-1/2 z-20 text-white bg-black/40 hover:bg-black/70"
         @click="goToNext"
       >
         <AppIcon name="i-lucide-chevron-right" class="size-5" />

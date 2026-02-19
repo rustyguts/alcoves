@@ -25,7 +25,7 @@ const emit = defineEmits<{
 <template>
   <details class="dropdown" data-color-dropdown :open="open">
     <summary
-      class="btn btn-sm btn-circle btn-ghost p-0"
+      class="btn btn-soft btn-sm btn-circle btn-ghost p-0"
       :title="title"
       @click.prevent="emit('toggle')"
     >

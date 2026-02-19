@@ -104,7 +104,7 @@ async function acceptInvite() {
           <div class="flex items-center gap-2">
             <button
               v-if="invite?.canAccept"
-              class="btn btn-primary"
+              class="btn btn-soft btn-primary"
               :disabled="accepting"
               @click="acceptInvite"
             >
@@ -115,7 +115,7 @@ async function acceptInvite() {
             <RouterLink
               v-if="invite?.library.id"
               :to="`/libraries/${invite.library.id}`"
-              class="btn btn-outline"
+              class="btn btn-soft btn-outline"
             >
               <AppIcon name="i-lucide-arrow-right" class="size-4" />
               Go to library

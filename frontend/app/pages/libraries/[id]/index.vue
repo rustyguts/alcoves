@@ -7,6 +7,7 @@ import { useLibraryTags } from "~/composables/useLibraryTags";
 import { useDownloadZip } from "~/composables/useDownloadZip";
 import { useLibraryFolderActions } from "~/composables/useLibraryFolderActions";
 import { useUploadQueue } from "~/composables/useUploadQueue";
+import { useFileDrop } from "~/composables/useFileDrop";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
 import ContextMenuItemsRenderer from "~/components/ContextMenuItemsRenderer.vue";
@@ -123,8 +124,6 @@ const moveFilesDestinationValue = ref<string>(ROOT_MOVE_VALUE);
 const moveFileFolders = ref<LibraryFolder[]>([]);
 const dragEnabled = computed(() => canManageLibrary.value && !showTrashed.value);
 const failedThumbnails = reactive(new Set<string>());
-const isFileDragActive = ref(false);
-const dragDepth = ref(0);
 
 // Context menu state
 type ContextMenuItem = {
@@ -533,58 +532,46 @@ const foldersToPurge = ref<string[]>([]);
 const purgeAll = ref(false);
 
 // Upload queue integration
-const { addFiles, onLibraryUploadComplete, removeOnComplete } = useUploadQueue();
+const { addFiles, onLibraryUploadComplete, removeOnComplete, onLibraryUploadSuccess, removeOnSuccess } =
+  useUploadQueue();
+
+const UPLOAD_REFRESH_DEBOUNCE_MS = 3_000;
+const lastUploadRefreshAt = ref(0);
+let uploadRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function refreshAfterUploadDebounced() {
+  const now = Date.now();
+  const elapsed = now - lastUploadRefreshAt.value;
+
+  if (elapsed >= UPLOAD_REFRESH_DEBOUNCE_MS && !uploadRefreshTimer) {
+    lastUploadRefreshAt.value = now;
+    void resetAndFetch();
+    return;
+  }
+
+  if (uploadRefreshTimer) return;
+
+  uploadRefreshTimer = setTimeout(() => {
+    uploadRefreshTimer = null;
+    lastUploadRefreshAt.value = Date.now();
+    void resetAndFetch();
+  }, Math.max(UPLOAD_REFRESH_DEBOUNCE_MS - elapsed, 0));
+}
 
 const canDropUpload = computed(() => canManageLibrary.value && !showTrashed.value);
 
-function hasFilePayload(event: DragEvent): boolean {
-  return Array.from(event.dataTransfer?.types ?? []).includes("Files");
-}
-
-function handlePageDragEnter(event: DragEvent) {
-  if (!canDropUpload.value || !hasFilePayload(event)) return;
-  event.preventDefault();
-  dragDepth.value += 1;
-  isFileDragActive.value = true;
-}
-
-function handlePageDragOver(event: DragEvent) {
-  if (!canDropUpload.value || !hasFilePayload(event)) return;
-  event.preventDefault();
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = "copy";
-  }
-}
-
-function handlePageDragLeave(event: DragEvent) {
-  if (!canDropUpload.value || !hasFilePayload(event)) return;
-  event.preventDefault();
-  dragDepth.value = Math.max(0, dragDepth.value - 1);
-  if (dragDepth.value === 0) {
-    isFileDragActive.value = false;
-  }
-}
-
-function handlePageDrop(event: DragEvent) {
-  if (!canDropUpload.value || !hasFilePayload(event)) return;
-  event.preventDefault();
-  dragDepth.value = 0;
-  isFileDragActive.value = false;
-
-  const droppedFiles = Array.from(event.dataTransfer?.files ?? []);
-  if (!droppedFiles.length) return;
-
-  addFiles(droppedFiles, libraryId.value, library.value?.name ?? "Library", currentFolderId.value);
-  toast.add({
-    title: `${droppedFiles.length} file${droppedFiles.length === 1 ? "" : "s"} added to upload queue`,
-  });
-}
-
-onLibraryUploadComplete(libraryId.value, () => {
-  // Always refresh when uploads complete, regardless of current view mode
-  // since uploads always go to the files view
-  resetAndFetch();
+const { isOverDropZone: isFileDragActive, dropZoneProps: fileDropZoneProps } = useFileDrop({
+  enabled: canDropUpload,
+  onDrop(droppedFiles) {
+    addFiles(droppedFiles, libraryId.value, library.value?.name ?? "Library", currentFolderId.value);
+    toast.add({
+      title: `${droppedFiles.length} file${droppedFiles.length === 1 ? "" : "s"} added to upload queue`,
+    });
+  },
 });
+
+onLibraryUploadSuccess(libraryId.value, refreshAfterUploadDebounced);
+onLibraryUploadComplete(libraryId.value, refreshAfterUploadDebounced);
 
 // Sync viewMode when navigating between /libraries/:id and /libraries/:id/trash
 watch(isTrashRoute, (trash) => {
@@ -651,7 +638,14 @@ onMounted(() => {
   onUnmounted(() => observer.disconnect());
 });
 
-onUnmounted(() => removeOnComplete(libraryId.value));
+onUnmounted(() => {
+  removeOnComplete(libraryId.value);
+  removeOnSuccess(libraryId.value);
+  if (uploadRefreshTimer) {
+    clearTimeout(uploadRefreshTimer);
+    uploadRefreshTimer = null;
+  }
+});
 
 async function saveLibraryEmoji(emoji: string | null) {
   await apiFetch(`/api/libraries/${libraryId.value}`, {
@@ -1109,10 +1103,7 @@ const emptyStateDescription = computed(() => {
 <template>
   <div
     class="relative flex flex-col gap-4 flex-1 min-h-0"
-    @dragenter="handlePageDragEnter"
-    @dragover="handlePageDragOver"
-    @dragleave="handlePageDragLeave"
-    @drop="handlePageDrop"
+    v-bind="fileDropZoneProps"
   >
     <div
       v-if="isFileDragActive"
@@ -1160,16 +1151,16 @@ const emptyStateDescription = computed(() => {
       <div class="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto">
         <template v-if="!showTrashed">
           <button
-            class="btn btn-ghost btn-square btn-sm min-h-8 h-8 w-8 p-0"
-            :class="entryViewMode === 'file' ? 'btn-active' : ''"
+            class="btn btn-soft btn-square btn-sm min-h-8 h-8 w-8 p-0"
+            :class="entryViewMode === 'file' ? 'btn-primary' : ''"
             title="List view"
             @click="entryViewMode = 'file'"
           >
             <AppIcon name="i-lucide-list" class="size-4" />
           </button>
           <button
-            class="btn btn-ghost btn-square btn-sm min-h-8 h-8 w-8 p-0"
-            :class="entryViewMode === 'card' ? 'btn-active' : ''"
+            class="btn btn-soft btn-square btn-sm min-h-8 h-8 w-8 p-0"
+            :class="entryViewMode === 'card' ? 'btn-primary' : ''"
             title="Grid view"
             @click="entryViewMode = 'card'"
           >
@@ -1179,7 +1170,7 @@ const emptyStateDescription = computed(() => {
 
         <button
           v-if="showTrashed && !filesPending && totalCount > 0"
-          class="btn btn-sm btn-error"
+          class="btn btn-soft btn-sm btn-error"
           @click="openPurgeAllModal()"
         >
           <AppIcon name="i-lucide-trash-2" class="size-4" />
@@ -1191,7 +1182,7 @@ const emptyStateDescription = computed(() => {
           ref="newDropdown"
           class="dropdown dropdown-end relative z-20"
         >
-          <summary class="btn btn-sm btn-primary">
+          <summary class="btn btn-soft btn-sm btn-primary">
             <AppIcon name="i-lucide-plus" class="size-4" />
             <span>New</span>
           </summary>
@@ -1242,7 +1233,6 @@ const emptyStateDescription = computed(() => {
         @drag-over="handleFolderDragOver"
         @drag-leave="handleFolderDragLeave"
         @drop="handleFolderDrop"
-        @open-folder="openFolder"
         @save-rename="saveEntryRename"
         @cancel-rename="renamingEntry = null"
         @update-rename-value="renameValue = $event"
@@ -1273,7 +1263,6 @@ const emptyStateDescription = computed(() => {
         @drag-over="handleFolderDragOver"
         @drag-leave="handleFolderDragLeave"
         @drop="handleFolderDrop"
-        @open-folder="openFolder"
         @save-rename="saveEntryRename"
         @cancel-rename="renamingEntry = null"
         @update-rename-value="renameValue = $event"
@@ -1338,9 +1327,9 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button class="btn btn-outline" @click="createFolderOpen = false">Cancel</button>
+          <button class="btn btn-soft btn-outline" @click="createFolderOpen = false">Cancel</button>
           <button
-            class="btn btn-primary"
+            class="btn btn-soft btn-primary"
             :disabled="!createFolderName.trim() || creatingFolder"
             @click="createFolder"
           >
@@ -1375,9 +1364,9 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button class="btn btn-outline" @click="moveFolderOpen = false">Cancel</button>
+          <button class="btn btn-soft btn-outline" @click="moveFolderOpen = false">Cancel</button>
           <button
-            class="btn btn-primary"
+            class="btn btn-soft btn-primary"
             :disabled="moveLoading || moveFolderSaving"
             @click="moveFolder"
           >
@@ -1420,9 +1409,9 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button class="btn btn-outline" @click="closeMoveFilesModal">Cancel</button>
+          <button class="btn btn-soft btn-outline" @click="closeMoveFilesModal">Cancel</button>
           <button
-            class="btn btn-primary"
+            class="btn btn-soft btn-primary"
             :disabled="moveFilesLoading || moveFilesSaving"
             @click="moveFiles"
           >
@@ -1453,9 +1442,9 @@ const emptyStateDescription = computed(() => {
           </fieldset>
         </div>
         <div class="modal-action">
-          <button class="btn btn-outline" @click="purgeModalOpen = false">Cancel</button>
+          <button class="btn btn-soft btn-outline" @click="purgeModalOpen = false">Cancel</button>
           <button
-            class="btn btn-error"
+            class="btn btn-soft btn-error"
             :disabled="purgeConfirmation !== 'delete'"
             @click="handlePermanentDelete"
           >
@@ -1492,8 +1481,8 @@ const emptyStateDescription = computed(() => {
           </div>
         </div>
         <div class="modal-action">
-          <button class="btn btn-outline" @click="cancelLargeDownload">Cancel</button>
-          <button class="btn btn-primary" :disabled="zipDownloading" @click="confirmLargeDownload">
+          <button class="btn btn-soft btn-outline" @click="cancelLargeDownload">Cancel</button>
+          <button class="btn btn-soft btn-primary" :disabled="zipDownloading" @click="confirmLargeDownload">
             <span v-if="zipDownloading" class="loading loading-spinner loading-xs"></span>
             <AppIcon v-else name="i-lucide-download" class="size-4" />
             Download Anyway

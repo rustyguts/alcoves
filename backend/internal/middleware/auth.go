@@ -12,8 +12,8 @@ import (
 
 // Context keys for storing auth data.
 const (
-	ContextKeyUserID = "userId"
-	ContextKeyUser   = "user"
+	ContextKeyUserID       = "userId"
+	ContextKeyUser         = "user"
 	ContextKeySessionToken = "sessionToken"
 )
 
@@ -46,9 +46,20 @@ func needsAuth(path string) bool {
 	if !strings.HasPrefix(path, "/api/") {
 		return false
 	}
-	// Public auth routes
 	if strings.HasPrefix(path, "/api/auth/") {
-		return false
+		publicAuthPaths := []string{
+			"/api/auth/login",
+			"/api/auth/register",
+			"/api/auth/providers",
+			"/api/auth/logout",
+			"/api/auth/google",
+			"/api/auth/google/callback",
+		}
+		for _, publicPath := range publicAuthPaths {
+			if path == publicPath || strings.HasPrefix(path, publicPath+"/") {
+				return false
+			}
+		}
 	}
 	// Session check endpoint (used by frontend)
 	if path == "/api/_auth/session" {

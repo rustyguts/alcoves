@@ -27,11 +27,11 @@ const emit = defineEmits<{
     <p class="text-lg font-medium text-foreground mb-1">{{ title }}</p>
     <p class="text-sm text-muted mb-4">{{ description }}</p>
     <div v-if="canManageLibrary && !showTrashed" class="flex items-center gap-2">
-      <button class="btn btn-outline" @click="emit('createFolder')">
+      <button class="btn btn-soft btn-outline" @click="emit('createFolder')">
         <AppIcon name="i-lucide-folder-plus" class="size-4" />
         Create folder
       </button>
-      <button class="btn btn-primary" @click="emit('uploadFiles')">
+      <button class="btn btn-soft btn-primary" @click="emit('uploadFiles')">
         <AppIcon name="i-lucide-upload" class="size-4" />
         Upload files
       </button>

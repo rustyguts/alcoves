@@ -9,6 +9,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -70,6 +71,33 @@ func ShouldCreateProxyByDefault(mimeType string) bool {
 	default:
 		return true
 	}
+}
+
+// EnqueueExistingVideoThumbnails enqueues thumbnail generation for all active source videos in a library.
+func (s *Service) EnqueueExistingVideoThumbnails(libraryID string) (int, error) {
+	type fileRow struct {
+		ID string `gorm:"column:id"`
+	}
+
+	var files []fileRow
+	err := s.db.Model(&models.File{}).
+		Select("id").
+		Where("library_id = ? AND trashed_at IS NULL AND source_file_id IS NULL AND mime_type LIKE ?", libraryID, "video/%").
+		Find(&files).Error
+	if err != nil {
+		return 0, fmt.Errorf("failed to query videos: %w", err)
+	}
+
+	queued := 0
+	for _, f := range files {
+		if err := s.EnqueueVideoThumbnail(libraryID, f.ID); err != nil {
+			log.Printf("failed to enqueue video thumbnail for file %s: %v", f.ID, err)
+			continue
+		}
+		queued++
+	}
+
+	return queued, nil
 }
 
 // NewTaskHandler creates the asynq task handler for processing video proxy tasks.

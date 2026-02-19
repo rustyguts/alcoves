@@ -320,7 +320,7 @@ onUnmounted(() => {
                 <td class="text-right text-success font-medium">{{ q.completed }}</td>
                 <td class="text-right" @click.stop>
                   <button
-                    class="btn btn-xs btn-outline btn-error"
+                    class="btn btn-soft btn-xs btn-outline btn-error"
                     :disabled="actionQueueName === q.name"
                     @click="purgeQueue(q.name)"
                   >
@@ -407,7 +407,7 @@ onUnmounted(() => {
                   <td class="text-right" @click.stop>
                     <div v-if="job.state === 'failed'" class="flex items-center justify-end gap-1">
                       <button
-                        class="btn btn-xs btn-ghost btn-square tooltip tooltip-left"
+                        class="btn btn-soft btn-xs btn-ghost btn-square tooltip tooltip-left"
                         data-tip="Retry"
                         :disabled="actionJobId === job.id"
                         @click="retryJob(job.queueName, job.id)"
@@ -419,7 +419,7 @@ onUnmounted(() => {
                         <AppIcon v-else name="i-lucide-rotate-cw" class="size-3.5" />
                       </button>
                       <button
-                        class="btn btn-xs btn-ghost btn-square text-error tooltip tooltip-left"
+                        class="btn btn-soft btn-xs btn-ghost btn-square text-error tooltip tooltip-left"
                         data-tip="Remove"
                         :disabled="actionJobId === job.id"
                         @click="removeJob(job.queueName, job.id)"
