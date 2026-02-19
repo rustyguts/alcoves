@@ -4,7 +4,6 @@ import { useApiFetch } from "~/composables/useApiFetch";
 import { useAuth } from "~/composables/useAuth";
 import { apiFetch } from "~/utils/api-fetch";
 import LibraryHeader from "~/components/LibraryHeader.vue";
-import LibraryTabs from "~/components/LibraryTabs.vue";
 import type { Library } from "~~/shared/types/api";
 
 const route = useRoute();

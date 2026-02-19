@@ -19,6 +19,7 @@ import AppContextMenu from "~/components/AppContextMenu.vue";
 import LibraryEntriesGrid from "~/components/library/LibraryEntriesGrid.vue";
 import LibraryEmptyState from "~/components/library/LibraryEmptyState.vue";
 import LibraryEntriesTable from "~/components/library/LibraryEntriesTable.vue";
+import LibraryTabs from "~/components/LibraryTabs.vue";
 
 const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
 const ROOT_MOVE_VALUE = "__root__";
@@ -1080,6 +1081,12 @@ const emptyStateDescription = computed(() => {
         Drop files to upload to this folder
       </div>
     </div>
+
+    <LibraryTabs
+      :library-id="libraryId || ''"
+      :face-recognition-enabled="library?.faceRecognitionEnabled"
+      :can-manage-library="canManageLibrary"
+    />
 
     <div class="flex min-h-10 w-full items-center gap-2 pl-2 sm:pl-3 lg:pl-4">
       <div v-if="!showTrashed" class="min-w-0 flex-1">
