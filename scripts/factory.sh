@@ -18,6 +18,10 @@ POLL_INTERVAL="${POLL_INTERVAL:-30}"
 # Absolute path to this repo (so claude is always invoked in the right dir)
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Work from the repo root for the entire session so claude inherits the right
+# working directory without needing a subshell (which would add buffering).
+cd "$REPO_DIR"
+
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
@@ -59,12 +63,11 @@ while true; do
   log "Found Ready issue #${issue_number}: ${issue_title}"
   log "Dispatching to Claude Code..."
 
-  (
-    cd "$REPO_DIR"
-    claude --dangerously-skip-permissions \
-      --print \
-      "/turn-off-the-lights"
-  )
+  # Run claude directly (no subshell) so its stdout/stderr are wired straight
+  # to the terminal file descriptors — output streams in real time.
+  claude --dangerously-skip-permissions \
+    --print \
+    "/turn-off-the-lights"
 
   log "Claude Code session complete. Resuming poll loop..."
   sleep "$POLL_INTERVAL"
