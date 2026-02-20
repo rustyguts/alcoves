@@ -132,16 +132,32 @@ export function useUploadQueue() {
 
     const upload = new tus.Upload(item.file, {
       endpoint: TUS_ENDPOINT,
-      retryDelays: null,
+      retryDelays: [0, 1000, 3000, 5000, 10000],
       chunkSize: 50 * 1024 * 1024,
       metadata,
 
-      onProgress(bytesUploaded, bytesTotal) {
-        const prevLoaded = item.loaded;
-        item.loaded = bytesUploaded;
-        item.total = bytesTotal;
-        item.progress = Math.round((bytesUploaded / bytesTotal) * 100);
+      onShouldRetry(err, _retryAttempt, _options) {
+        const status = (err as tus.DetailedError).originalResponse?.getStatus();
+        if (status === 401 || status === 403 || status === 404 || status === 413) {
+          return false;
+        }
+        return true;
+      },
 
+      onChunkComplete(_chunkSize, bytesAccepted, bytesTotal) {
+        item.loaded = bytesAccepted;
+        item.total = bytesTotal;
+        item.progress = Math.round((bytesAccepted / bytesTotal) * 100);
+      },
+
+      onProgress(bytesUploaded, bytesTotal) {
+        const optimistic = Math.round((bytesUploaded / bytesTotal) * 100);
+        if (optimistic > item.progress) {
+          item.progress = optimistic;
+        }
+        item.total = bytesTotal;
+
+        const prevLoaded = item.loaded;
         const delta = bytesUploaded - prevLoaded;
         if (delta > 0) {
           speedBytes += delta;

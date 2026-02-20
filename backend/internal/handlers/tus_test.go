@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -656,4 +657,100 @@ func TestTusCreationWithUpload(t *testing.T) {
 	if file.Size != 10 {
 		t.Errorf("Expected file size 10, got %d", file.Size)
 	}
+}
+
+func TestTusCleanOrphanedStagingFiles(t *testing.T) {
+	handler, _, tempDir := setupTusTestHandler(t)
+	defer handler.Stop()
+
+	tusDir := filepath.Join(tempDir, ".tus-uploads")
+
+	// Create orphaned staging files (no corresponding in-memory upload)
+	orphan1 := filepath.Join(tusDir, "orphan-1")
+	orphan2 := filepath.Join(tusDir, "orphan-2")
+	if err := os.WriteFile(orphan1, []byte("data"), 0644); err != nil {
+		t.Fatalf("Failed to create orphan1: %v", err)
+	}
+	if err := os.WriteFile(orphan2, []byte("data"), 0644); err != nil {
+		t.Fatalf("Failed to create orphan2: %v", err)
+	}
+
+	// Verify files exist
+	if _, err := os.Stat(orphan1); err != nil {
+		t.Fatalf("Expected orphan1 to exist: %v", err)
+	}
+
+	handler.cleanOrphanedStagingFiles()
+
+	// Verify orphaned files are removed
+	if _, err := os.Stat(orphan1); !os.IsNotExist(err) {
+		t.Error("Expected orphan1 to be removed")
+	}
+	if _, err := os.Stat(orphan2); !os.IsNotExist(err) {
+		t.Error("Expected orphan2 to be removed")
+	}
+}
+
+func TestTusCleanStaleUploads(t *testing.T) {
+	handler, _, _ := setupTusTestHandler(t)
+	defer handler.Stop()
+
+	// Add a "stale" upload with CreatedAt 25 hours ago
+	staleID := "stale-upload-1"
+	handler.mu.Lock()
+	handler.uploads[staleID] = &tusUpload{
+		ID:        staleID,
+		CreatedAt: time.Now().Add(-25 * time.Hour),
+		Size:      100,
+	}
+	handler.mu.Unlock()
+
+	// Create corresponding staging file
+	stagingPath := handler.stagingPath(staleID)
+	if err := os.WriteFile(stagingPath, []byte("data"), 0644); err != nil {
+		t.Fatalf("Failed to create stale staging file: %v", err)
+	}
+
+	// Add a "fresh" upload
+	freshID := "fresh-upload-1"
+	handler.mu.Lock()
+	handler.uploads[freshID] = &tusUpload{
+		ID:        freshID,
+		CreatedAt: time.Now(),
+		Size:      100,
+	}
+	handler.mu.Unlock()
+
+	freshStaging := handler.stagingPath(freshID)
+	if err := os.WriteFile(freshStaging, []byte("data"), 0644); err != nil {
+		t.Fatalf("Failed to create fresh staging file: %v", err)
+	}
+
+	handler.cleanStaleUploads()
+
+	// Stale upload should be removed from map and disk
+	handler.mu.RLock()
+	_, staleExists := handler.uploads[staleID]
+	_, freshExists := handler.uploads[freshID]
+	handler.mu.RUnlock()
+
+	if staleExists {
+		t.Error("Expected stale upload to be removed from map")
+	}
+	if !freshExists {
+		t.Error("Expected fresh upload to remain in map")
+	}
+
+	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
+		t.Error("Expected stale staging file to be removed")
+	}
+	if _, err := os.Stat(freshStaging); err != nil {
+		t.Error("Expected fresh staging file to remain")
+	}
+}
+
+func TestTusStop(t *testing.T) {
+	handler, _, _ := setupTusTestHandler(t)
+	// Verify Stop doesn't panic and can be called
+	handler.Stop()
 }

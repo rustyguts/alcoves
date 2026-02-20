@@ -27,6 +27,11 @@ import (
 
 const tusResumableVersion = "1.0.0"
 
+const (
+	tusCleanupInterval = 1 * time.Hour
+	tusUploadMaxAge    = 24 * time.Hour
+)
+
 // tusUpload tracks an in-progress tus upload.
 type tusUpload struct {
 	ID           string
@@ -55,6 +60,8 @@ type TusHandler struct {
 
 	mu      sync.RWMutex
 	uploads map[string]*tusUpload
+
+	stopCleanup chan struct{}
 }
 
 func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service) *TusHandler {
@@ -63,15 +70,24 @@ func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, fac
 		log.Printf("Failed to create tus staging directory %s: %v", tusDir, err)
 	}
 
-	return &TusHandler{
-		db:         db,
-		storageSvc: storageSvc,
-		faceSvc:    faceSvc,
-		objSvc:     objSvc,
-		videoSvc:   videoSvc,
-		dataDir:    tusDir,
-		uploads:    make(map[string]*tusUpload),
+	h := &TusHandler{
+		db:          db,
+		storageSvc:  storageSvc,
+		faceSvc:     faceSvc,
+		objSvc:      objSvc,
+		videoSvc:    videoSvc,
+		dataDir:     tusDir,
+		uploads:     make(map[string]*tusUpload),
+		stopCleanup: make(chan struct{}),
 	}
+
+	// Clean orphaned staging files from previous runs
+	h.cleanOrphanedStagingFiles()
+
+	// Start periodic cleanup
+	go h.cleanupLoop()
+
+	return h
 }
 
 // RegisterRoutes mounts tus endpoints at /api/tus.
@@ -477,6 +493,88 @@ func (h *TusHandler) checkLibraryAdmin(userID, libraryID uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// Stop stops the cleanup goroutine.
+func (h *TusHandler) Stop() {
+	close(h.stopCleanup)
+}
+
+// cleanupLoop periodically removes stale uploads.
+func (h *TusHandler) cleanupLoop() {
+	ticker := time.NewTicker(tusCleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			h.cleanStaleUploads()
+		case <-h.stopCleanup:
+			return
+		}
+	}
+}
+
+// cleanStaleUploads removes in-memory upload entries older than tusUploadMaxAge
+// and their corresponding staging files.
+func (h *TusHandler) cleanStaleUploads() {
+	h.mu.Lock()
+	var staleIDs []string
+	for id, upload := range h.uploads {
+		if time.Since(upload.CreatedAt) > tusUploadMaxAge {
+			staleIDs = append(staleIDs, id)
+		}
+	}
+	for _, id := range staleIDs {
+		delete(h.uploads, id)
+	}
+	h.mu.Unlock()
+
+	for _, id := range staleIDs {
+		stagingPath := h.stagingPath(id)
+		if err := os.Remove(stagingPath); err != nil && !os.IsNotExist(err) {
+			log.Printf("Failed to remove stale tus staging file %s: %v", stagingPath, err)
+		}
+	}
+
+	if len(staleIDs) > 0 {
+		log.Printf("Cleaned up %d stale tus uploads", len(staleIDs))
+	}
+
+	h.cleanOrphanedStagingFiles()
+}
+
+// cleanOrphanedStagingFiles removes staging files that have no corresponding
+// in-memory upload entry (e.g. left behind after server restart).
+func (h *TusHandler) cleanOrphanedStagingFiles() {
+	entries, err := os.ReadDir(h.dataDir)
+	if err != nil {
+		log.Printf("Failed to read tus staging directory %s: %v", h.dataDir, err)
+		return
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	removed := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		id := entry.Name()
+		if _, exists := h.uploads[id]; !exists {
+			stagingPath := filepath.Join(h.dataDir, id)
+			if err := os.Remove(stagingPath); err != nil && !os.IsNotExist(err) {
+				log.Printf("Failed to remove orphaned tus staging file %s: %v", stagingPath, err)
+			} else {
+				removed++
+			}
+		}
+	}
+
+	if removed > 0 {
+		log.Printf("Cleaned up %d orphaned tus staging files", removed)
+	}
 }
 
 // parseTusMetadata parses the Upload-Metadata header.

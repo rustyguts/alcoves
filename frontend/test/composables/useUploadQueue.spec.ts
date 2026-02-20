@@ -51,6 +51,10 @@ const MockTusUpload = vi.hoisted(() => {
       this.options.onProgress?.(loaded, total);
     }
 
+    triggerChunkComplete(chunkSize: number, bytesAccepted: number, bytesTotal: number) {
+      this.options.onChunkComplete?.(chunkSize, bytesAccepted, bytesTotal);
+    }
+
     triggerSuccess() {
       this.options.onSuccess?.({ lastResponse: null } as unknown as OnSuccessPayload);
     }
@@ -320,5 +324,71 @@ describe("useUploadQueue", () => {
     queue.clearErrors();
     expect(queue.queue.value.length).toBeLessThan(totalBefore);
     expect(queue.queue.value.filter((f) => f.status === "error")).toHaveLength(0);
+  });
+
+  it("configures tus-js-client with retry delays", async () => {
+    const queue = useUploadQueue();
+    const file = new File(["data"], "test.txt");
+
+    queue.addFiles([file], "lib-1", "Library One");
+    await flushPromises();
+
+    const tusUpload = MockTusUpload.instances[0]!;
+    expect(tusUpload.options.retryDelays).toEqual([0, 1000, 3000, 5000, 10000]);
+  });
+
+  it("configures onShouldRetry to reject permanent HTTP errors", async () => {
+    const queue = useUploadQueue();
+    const file = new File(["data"], "test.txt");
+
+    queue.addFiles([file], "lib-1", "Library One");
+    await flushPromises();
+
+    const tusUpload = MockTusUpload.instances[0]!;
+    const onShouldRetry = tusUpload.options.onShouldRetry!;
+
+    // Permanent errors should not retry
+    const make401 = { originalResponse: { getStatus: () => 401 } } as any;
+    expect(onShouldRetry(make401, 1, tusUpload.options)).toBe(false);
+
+    const make403 = { originalResponse: { getStatus: () => 403 } } as any;
+    expect(onShouldRetry(make403, 1, tusUpload.options)).toBe(false);
+
+    const make404 = { originalResponse: { getStatus: () => 404 } } as any;
+    expect(onShouldRetry(make404, 1, tusUpload.options)).toBe(false);
+
+    const make413 = { originalResponse: { getStatus: () => 413 } } as any;
+    expect(onShouldRetry(make413, 1, tusUpload.options)).toBe(false);
+
+    // Transient errors should retry
+    const make500 = { originalResponse: { getStatus: () => 500 } } as any;
+    expect(onShouldRetry(make500, 1, tusUpload.options)).toBe(true);
+
+    // Network error (no response) should retry
+    const networkErr = { originalResponse: null } as any;
+    expect(onShouldRetry(networkErr, 1, tusUpload.options)).toBe(true);
+  });
+
+  it("updates progress from onChunkComplete for server-confirmed progress", async () => {
+    const queue = useUploadQueue();
+    const file = new File(["x".repeat(100)], "large.bin");
+
+    queue.addFiles([file], "lib-1", "Library One");
+    await flushPromises();
+
+    const tusUpload = MockTusUpload.instances[0]!;
+
+    // Simulate server confirming first chunk
+    tusUpload.triggerChunkComplete(50, 50, 100);
+    expect(queue.currentUpload.value?.progress).toBe(50);
+    expect(queue.currentUpload.value?.loaded).toBe(50);
+
+    // onProgress with higher value should update progress optimistically
+    tusUpload.triggerProgress(75, 100);
+    expect(queue.currentUpload.value?.progress).toBe(75);
+
+    // onProgress with lower value (e.g. after retry) should NOT regress
+    tusUpload.triggerProgress(50, 100);
+    expect(queue.currentUpload.value?.progress).toBe(75);
   });
 });
