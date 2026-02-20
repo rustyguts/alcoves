@@ -103,7 +103,10 @@ export function useLibraryTags(
     creatingTag.value = true;
     try {
       const normalizedColor = color?.trim().toUpperCase();
-      const tag = await api.tags.create(libraryId.value, normalizedColor ? { name, color: normalizedColor } : { name });
+      const tag = await api.tags.create(
+        libraryId.value,
+        normalizedColor ? { name, color: normalizedColor } : { name },
+      );
       libraryTags.value = [...libraryTags.value, tag].sort((a, b) => a.name.localeCompare(b.name));
       createTagName.value = "";
     } catch {

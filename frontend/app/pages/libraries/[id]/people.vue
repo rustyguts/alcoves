@@ -76,9 +76,7 @@ onMounted(() => {
           Merge Selected
         </button>
         <span class="text-sm text-muted">{{ selectedPeople.size }} selected</span>
-        <button class="btn btn-soft btn-sm btn-ghost" @click="selectedPeople.clear()">
-          Clear
-        </button>
+        <button class="btn btn-soft btn-sm btn-ghost" @click="selectedPeople.clear()">Clear</button>
       </div>
 
       <div v-if="peopleLoading" class="flex items-center justify-center py-16">

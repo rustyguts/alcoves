@@ -171,7 +171,9 @@ function getStatusMessage(error: unknown): string | null {
     <section
       class="hero rounded-box bg-gradient-to-br from-primary/20 via-base-200 to-secondary/20"
     >
-      <div class="hero-content w-full flex-col items-center gap-3 px-4 py-6 text-center sm:px-6 sm:py-8">
+      <div
+        class="hero-content w-full flex-col items-center gap-3 px-4 py-6 text-center sm:px-6 sm:py-8"
+      >
         <button type="button" class="avatar cursor-pointer" @click="openAvatarPicker">
           <div
             v-if="currentAvatarSrc"
@@ -235,9 +237,7 @@ function getStatusMessage(error: unknown): string | null {
             :value="themePreference"
             class="select w-full capitalize"
             @change="
-              themePreference = ($event.target as HTMLSelectElement).value as
-                | DaisyTheme
-                | 'auto'
+              themePreference = ($event.target as HTMLSelectElement).value as DaisyTheme | 'auto'
             "
           >
             <option value="auto">System</option>

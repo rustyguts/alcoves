@@ -155,9 +155,15 @@ vi.mock("vue-router", async (importOriginal) => {
 
 const stubs = {
   AppIcon: { template: "<i />", props: ["name", "class"] },
-  ConfirmModal: { template: "<div data-stub='confirm-modal' />", props: ["open", "title", "message", "confirmLabel", "confirmClass", "confirmIcon", "pending"] },
+  ConfirmModal: {
+    template: "<div data-stub='confirm-modal' />",
+    props: ["open", "title", "message", "confirmLabel", "confirmClass", "confirmIcon", "pending"],
+  },
   InviteLinkRow: { template: "<div data-stub='invite-link-row' />", props: ["invite", "revoking"] },
-  LibraryMemberRow: { template: "<div data-stub='member-row' />", props: ["member", "roleDraft", "updatingRole", "removing", "roleOptions"] },
+  LibraryMemberRow: {
+    template: "<div data-stub='member-row' />",
+    props: ["member", "roleDraft", "updatingRole", "removing", "roleOptions"],
+  },
 };
 
 describe("library settings page", () => {

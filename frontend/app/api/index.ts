@@ -110,7 +110,10 @@ const libraries = {
 
 const files = {
   /** GET /api/libraries/:id/files */
-  list(libraryId: string, query?: { folder?: string; trashed?: string; cursor?: string; limit?: string }) {
+  list(
+    libraryId: string,
+    query?: { folder?: string; trashed?: string; cursor?: string; limit?: string },
+  ) {
     return apiFetch<PaginatedFiles>(`/api/libraries/${libraryId}/files`, { query });
   },
 
@@ -120,13 +123,23 @@ const files = {
   },
 
   /** PATCH /api/libraries/:id/files/:fileId */
-  update(libraryId: string, fileId: string, body: { name?: string; parentFolderId?: string | null }) {
-    return apiFetch<LibraryFile>(`/api/libraries/${libraryId}/files/${fileId}`, { method: "PATCH", body });
+  update(
+    libraryId: string,
+    fileId: string,
+    body: { name?: string; parentFolderId?: string | null },
+  ) {
+    return apiFetch<LibraryFile>(`/api/libraries/${libraryId}/files/${fileId}`, {
+      method: "PATCH",
+      body,
+    });
   },
 
   /** DELETE /api/libraries/:id/files/:fileId */
   delete(libraryId: string, fileId: string, body?: { fileIds?: string[] }) {
-    return apiFetch<void>(`/api/libraries/${libraryId}/files/${fileId}`, { method: "DELETE", body });
+    return apiFetch<void>(`/api/libraries/${libraryId}/files/${fileId}`, {
+      method: "DELETE",
+      body,
+    });
   },
 
   /** POST /api/libraries/:id/files/restore */
@@ -136,29 +149,46 @@ const files = {
 
   /** POST /api/libraries/:id/files/purge */
   purge(libraryId: string, body?: { fileIds?: string[]; folderIds?: string[] }) {
-    return apiFetch<{ purged: number }>(`/api/libraries/${libraryId}/files/purge`, { method: "POST", body });
+    return apiFetch<{ purged: number }>(`/api/libraries/${libraryId}/files/purge`, {
+      method: "POST",
+      body,
+    });
   },
 
   /** GET /api/libraries/:id/files/:fileId/playback-sources */
   playbackSources(libraryId: string, fileId: string) {
-    return apiFetch<PlaybackSourcesResponse>(`/api/libraries/${libraryId}/files/${fileId}/playback-sources`);
+    return apiFetch<PlaybackSourcesResponse>(
+      `/api/libraries/${libraryId}/files/${fileId}/playback-sources`,
+    );
   },
 
   /** POST /api/libraries/:id/files/:fileId/proxy */
   generateProxy(libraryId: string, fileId: string) {
-    return apiFetch<LibraryFile>(`/api/libraries/${libraryId}/files/${fileId}/proxy`, { method: "POST" });
+    return apiFetch<LibraryFile>(`/api/libraries/${libraryId}/files/${fileId}/proxy`, {
+      method: "POST",
+    });
   },
 
   /** POST /api/libraries/:id/files/:fileId/clip */
-  clip(libraryId: string, fileId: string, body: { startTime: number; endTime: number; name?: string }) {
-    return apiFetch<void>(`/api/libraries/${libraryId}/files/${fileId}/clip`, { method: "POST", body });
+  clip(
+    libraryId: string,
+    fileId: string,
+    body: { startTime: number; endTime: number; name?: string },
+  ) {
+    return apiFetch<void>(`/api/libraries/${libraryId}/files/${fileId}/clip`, {
+      method: "POST",
+      body,
+    });
   },
 
   /** POST /api/libraries/:id/files/video-thumbnails/reprocess */
   reprocessVideoThumbnails(libraryId: string) {
-    return apiFetch<{ queuedCount: number }>(`/api/libraries/${libraryId}/files/video-thumbnails/reprocess`, {
-      method: "POST",
-    });
+    return apiFetch<{ queuedCount: number }>(
+      `/api/libraries/${libraryId}/files/video-thumbnails/reprocess`,
+      {
+        method: "POST",
+      },
+    );
   },
 } as const;
 
@@ -177,7 +207,10 @@ const folders = {
 
   /** PATCH /api/libraries/:id/folders/:folderId */
   update(libraryId: string, folderId: string, body: { name: string }) {
-    return apiFetch<LibraryFolder>(`/api/libraries/${libraryId}/folders/${folderId}`, { method: "PATCH", body });
+    return apiFetch<LibraryFolder>(`/api/libraries/${libraryId}/folders/${folderId}`, {
+      method: "PATCH",
+      body,
+    });
   },
 
   /** DELETE /api/libraries/:id/folders/:folderId */
@@ -187,7 +220,10 @@ const folders = {
 
   /** POST /api/libraries/:id/folders/:folderId/move */
   move(libraryId: string, folderId: string, body: { parentFolderId: string | null }) {
-    return apiFetch<void>(`/api/libraries/${libraryId}/folders/${folderId}/move`, { method: "POST", body });
+    return apiFetch<void>(`/api/libraries/${libraryId}/folders/${folderId}/move`, {
+      method: "POST",
+      body,
+    });
   },
 
   /** POST /api/libraries/:id/folders/restore */
@@ -197,7 +233,10 @@ const folders = {
 
   /** POST /api/libraries/:id/folders/purge */
   purge(libraryId: string, body?: { folderIds?: string[] }) {
-    return apiFetch<{ purged: number }>(`/api/libraries/${libraryId}/folders/purge`, { method: "POST", body });
+    return apiFetch<{ purged: number }>(`/api/libraries/${libraryId}/folders/purge`, {
+      method: "POST",
+      body,
+    });
   },
 } as const;
 
@@ -216,7 +255,10 @@ const tags = {
 
   /** PATCH /api/libraries/:id/tags/:tagId */
   update(libraryId: string, tagId: string, body: { name?: string; color?: string }) {
-    return apiFetch<LibraryTag>(`/api/libraries/${libraryId}/tags/${tagId}`, { method: "PATCH", body });
+    return apiFetch<LibraryTag>(`/api/libraries/${libraryId}/tags/${tagId}`, {
+      method: "PATCH",
+      body,
+    });
   },
 
   /** DELETE /api/libraries/:id/tags/:tagId */
@@ -234,10 +276,13 @@ const tags = {
 
   /** PUT /api/libraries/:id/folders/:folderId/tags */
   syncFolderTags(libraryId: string, folderId: string, body: { tagIds: string[] }) {
-    return apiFetch<{ tags: LibraryTag[] }>(`/api/libraries/${libraryId}/folders/${folderId}/tags`, {
-      method: "PUT",
-      body,
-    });
+    return apiFetch<{ tags: LibraryTag[] }>(
+      `/api/libraries/${libraryId}/folders/${folderId}/tags`,
+      {
+        method: "PUT",
+        body,
+      },
+    );
   },
 } as const;
 
@@ -251,15 +296,17 @@ const members = {
 
   /** POST /api/libraries/:id/users/invite-email */
   inviteByEmail(libraryId: string, body: { email: string; role: "admin" | "viewer" }) {
-    return apiFetch<{ action: "added" | "invited" | "already_member"; invite?: { inviteUrl: string } }>(
-      `/api/libraries/${libraryId}/users/invite-email`,
-      { method: "POST", body },
-    );
+    return apiFetch<{
+      action: "added" | "invited" | "already_member";
+      invite?: { inviteUrl: string };
+    }>(`/api/libraries/${libraryId}/users/invite-email`, { method: "POST", body });
   },
 
   /** POST /api/libraries/:id/users/invite-link */
   createInviteLink(libraryId: string) {
-    return apiFetch<{ inviteUrl: string }>(`/api/libraries/${libraryId}/users/invite-link`, { method: "POST" });
+    return apiFetch<{ inviteUrl: string }>(`/api/libraries/${libraryId}/users/invite-link`, {
+      method: "POST",
+    });
   },
 
   /** PATCH /api/libraries/:id/users/:userId */
@@ -274,7 +321,9 @@ const members = {
 
   /** DELETE /api/libraries/:id/users/invites/:inviteId */
   revokeInvite(libraryId: string, inviteId: string) {
-    return apiFetch<void>(`/api/libraries/${libraryId}/users/invites/${inviteId}`, { method: "DELETE" });
+    return apiFetch<void>(`/api/libraries/${libraryId}/users/invites/${inviteId}`, {
+      method: "DELETE",
+    });
   },
 } as const;
 
@@ -287,8 +336,15 @@ const people = {
   },
 
   /** PATCH /api/libraries/:id/people/:personId */
-  update(libraryId: string, personId: string, body: { name?: string; coverFaceDetectionId?: string }) {
-    return apiFetch<LibraryPerson>(`/api/libraries/${libraryId}/people/${personId}`, { method: "PATCH", body });
+  update(
+    libraryId: string,
+    personId: string,
+    body: { name?: string; coverFaceDetectionId?: string },
+  ) {
+    return apiFetch<LibraryPerson>(`/api/libraries/${libraryId}/people/${personId}`, {
+      method: "PATCH",
+      body,
+    });
   },
 
   /** GET /api/libraries/:id/people/:personId/faces */
@@ -311,9 +367,12 @@ const people = {
 
   /** POST /api/libraries/:id/face-recognition/reprocess */
   reprocess(libraryId: string) {
-    return apiFetch<{ queuedCount: number }>(`/api/libraries/${libraryId}/face-recognition/reprocess`, {
-      method: "POST",
-    });
+    return apiFetch<{ queuedCount: number }>(
+      `/api/libraries/${libraryId}/face-recognition/reprocess`,
+      {
+        method: "POST",
+      },
+    );
   },
 
   /** URL builder: /api/libraries/:id/people/:personId/thumbnail */
@@ -333,9 +392,12 @@ const objects = {
 
   /** POST /api/libraries/:id/object-detection/reprocess */
   reprocess(libraryId: string) {
-    return apiFetch<{ queuedCount: number }>(`/api/libraries/${libraryId}/object-detection/reprocess`, {
-      method: "POST",
-    });
+    return apiFetch<{ queuedCount: number }>(
+      `/api/libraries/${libraryId}/object-detection/reprocess`,
+      {
+        method: "POST",
+      },
+    );
   },
 } as const;
 
@@ -344,7 +406,10 @@ const objects = {
 const downloads = {
   /** POST /api/libraries/:id/download-estimate */
   estimate(libraryId: string, body: { fileIds: string[]; folderIds: string[] }) {
-    return apiFetch<DownloadEstimate>(`/api/libraries/${libraryId}/download-estimate`, { method: "POST", body });
+    return apiFetch<DownloadEstimate>(`/api/libraries/${libraryId}/download-estimate`, {
+      method: "POST",
+      body,
+    });
   },
 
   // Note: POST /api/libraries/:id/download uses raw fetch for blob streaming.
@@ -370,7 +435,9 @@ const invites = {
 
   /** POST /api/invites/:token/accept */
   accept(token: string) {
-    return apiFetch<{ libraryId: string; libraryName: string }>(`/api/invites/${token}/accept`, { method: "POST" });
+    return apiFetch<{ libraryId: string; libraryName: string }>(`/api/invites/${token}/accept`, {
+      method: "POST",
+    });
   },
 } as const;
 
@@ -397,12 +464,17 @@ const admin = {
 
   /** POST /api/admin/jobs/:queueName/:jobId */
   controlJob(queueName: string, jobId: string, body: { action: "retry" | "remove" }) {
-    return apiFetch<void>(`/api/admin/jobs/${encodeURIComponent(queueName)}/${jobId}`, { method: "POST", body });
+    return apiFetch<void>(`/api/admin/jobs/${encodeURIComponent(queueName)}/${jobId}`, {
+      method: "POST",
+      body,
+    });
   },
 
   /** POST /api/admin/jobs/:queueName/purge */
   purgeQueue(queueName: string) {
-    return apiFetch<{ total: number }>(`/api/admin/jobs/${encodeURIComponent(queueName)}/purge`, { method: "POST" });
+    return apiFetch<{ total: number }>(`/api/admin/jobs/${encodeURIComponent(queueName)}/purge`, {
+      method: "POST",
+    });
   },
 
   // Note: GET /api/admin/jobs/stream is SSE, not wrapped here.

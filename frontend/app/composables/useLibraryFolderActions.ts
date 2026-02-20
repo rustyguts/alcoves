@@ -148,9 +148,7 @@ export function useLibraryFolderActions(
 
   async function deleteFolders(folderIds: string[]) {
     try {
-      await Promise.all(
-        folderIds.map((folderId) => api.folders.delete(libraryId.value, folderId)),
-      );
+      await Promise.all(folderIds.map((folderId) => api.folders.delete(libraryId.value, folderId)));
       await Promise.all([resetAndFetch(), refreshTrashedCount()]);
     } catch {
       toast.add({ title: "Failed to delete folder", color: "error" });

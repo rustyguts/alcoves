@@ -1,5 +1,4 @@
-import { mount, flushPromises } from "@vue/test-utils";
-import { ref, reactive } from "vue";
+import { mount } from "@vue/test-utils";
 import LibraryIndexPage from "~/pages/libraries/[id]/index.vue";
 import type { LibraryEntry, LibraryFile, LibraryFolder, LibraryTag } from "~~/shared/types/api";
 
@@ -31,22 +30,6 @@ function makeFile(overrides: Partial<LibraryFile> = {}): LibraryFile {
     thumbnailFileId: null,
     sourceFileId: null,
     originalCreatedAt: null,
-    trashedAt: null,
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-01",
-    owner: null,
-    tags: [],
-    ...overrides,
-  };
-}
-
-function makeFolder(overrides: Partial<LibraryFolder> = {}): LibraryFolder {
-  return {
-    id: "folder-1",
-    libraryId: "lib-1",
-    parentFolderId: null,
-    name: "My Folder",
-    kind: "folder",
     trashedAt: null,
     createdAt: "2024-01-01",
     updatedAt: "2024-01-01",
@@ -191,11 +174,15 @@ vi.mock("~/composables/useLibraryExplorer", () => ({
     isTrashRoute: mockRef(() => mocks.isTrashRoute),
     viewMode: mockRef(
       () => mocks.viewMode,
-      (v: string) => { mocks.viewMode = v; },
+      (v: string) => {
+        mocks.viewMode = v;
+      },
     ),
     entryViewMode: mockRef(
       () => mocks.entryViewMode,
-      (v: "file" | "card") => { mocks.entryViewMode = v; },
+      (v: "file" | "card") => {
+        mocks.entryViewMode = v;
+      },
     ),
     showTrashed: mockRef(() => mocks.showTrashed),
     canManageLibrary: mockRef(() => mocks.canManageLibrary),
@@ -204,23 +191,33 @@ vi.mock("~/composables/useLibraryExplorer", () => ({
     openFolder: mocks.openFolder,
     entries: mockRef(
       () => mocks.entries,
-      (v: LibraryEntry[]) => { mocks.entries = v; },
+      (v: LibraryEntry[]) => {
+        mocks.entries = v;
+      },
     ),
     breadcrumbs: mockRef(
       () => mocks.breadcrumbs,
-      (v: Array<{ id: string; name: string }>) => { mocks.breadcrumbs = v; },
+      (v: Array<{ id: string; name: string }>) => {
+        mocks.breadcrumbs = v;
+      },
     ),
     nextCursor: mockRef(
       () => mocks.nextCursor,
-      (v: string | null) => { mocks.nextCursor = v; },
+      (v: string | null) => {
+        mocks.nextCursor = v;
+      },
     ),
     totalCount: mockRef(
       () => mocks.totalCount,
-      (v: number) => { mocks.totalCount = v; },
+      (v: number) => {
+        mocks.totalCount = v;
+      },
     ),
     trashedCount: mockRef(
       () => mocks.trashedCount,
-      (v: number) => { mocks.trashedCount = v; },
+      (v: number) => {
+        mocks.trashedCount = v;
+      },
     ),
     libraryTags: mockRef(() => mocks.libraryTags),
     loadingMore: mockRef(() => mocks.loadingMore),
@@ -231,7 +228,9 @@ vi.mock("~/composables/useLibraryExplorer", () => ({
     selectedFolders: mocks.selectedFolders,
     lastClickedIndex: mockRef(
       () => mocks.lastClickedIndex,
-      (v: number | null) => { mocks.lastClickedIndex = v; },
+      (v: number | null) => {
+        mocks.lastClickedIndex = v;
+      },
     ),
     clearSelection: mocks.clearSelection,
     isEntrySelected: mocks.isEntrySelected,
@@ -269,23 +268,31 @@ vi.mock("~/composables/useLibraryFolderActions", () => ({
   useLibraryFolderActions: () => ({
     createFolderOpen: mockRef(
       () => mocks.createFolderOpen,
-      (v: boolean) => { mocks.createFolderOpen = v; },
+      (v: boolean) => {
+        mocks.createFolderOpen = v;
+      },
     ),
     createFolderName: mockRef(
       () => mocks.createFolderName,
-      (v: string) => { mocks.createFolderName = v; },
+      (v: string) => {
+        mocks.createFolderName = v;
+      },
     ),
     creatingFolder: mockRef(() => mocks.creatingFolder),
     openCreateFolderModal: mocks.openCreateFolderModal,
     createFolder: mocks.createFolder,
     moveFolderOpen: mockRef(
       () => mocks.moveFolderOpen,
-      (v: boolean) => { mocks.moveFolderOpen = v; },
+      (v: boolean) => {
+        mocks.moveFolderOpen = v;
+      },
     ),
     movingFolder: mockRef(() => mocks.movingFolder),
     moveDestinationValue: mockRef(
       () => mocks.moveDestinationValue,
-      (v: string) => { mocks.moveDestinationValue = v; },
+      (v: string) => {
+        mocks.moveDestinationValue = v;
+      },
     ),
     moveLoading: mockRef(() => mocks.moveLoading),
     moveFolderSaving: mockRef(() => mocks.moveFolderSaving),
@@ -317,16 +324,61 @@ vi.mock("~/composables/useFileDrop", () => ({
 const stubs = {
   AppIcon: { template: "<i />", props: ["name", "class"] },
   EmojiPicker: { template: "<span data-stub='emoji' />", props: ["modelValue"] },
-  UploadModal: { template: "<div data-stub='upload' />", props: ["open", "libraryId", "libraryName", "parentFolderId"] },
-  FilePreview: { template: "<div data-stub='preview' />", props: ["open", "file", "libraryId", "files"] },
+  UploadModal: {
+    template: "<div data-stub='upload' />",
+    props: ["open", "libraryId", "libraryName", "parentFolderId"],
+  },
+  FilePreview: {
+    template: "<div data-stub='preview' />",
+    props: ["open", "file", "libraryId", "files"],
+  },
   ClipModal: { template: "<div data-stub='clip' />", props: ["open", "file", "libraryId"] },
   AppContextMenu: { template: "<div data-stub='ctx'><slot /></div>", props: ["open", "position"] },
   ContextMenuItemsRenderer: { template: "<div data-stub='ctx-items' />", props: ["groups"] },
-  LibraryEntriesGrid: { template: "<div data-stub='grid' />", props: ["entries", "libraryId", "showTrashed", "dragEnabled", "draggedFileIds", "dropTargetFolderId", "renameValue", "isEntrySelected", "isRenaming", "failedThumbnails", "isImageFile", "isSmallImage", "cardThumbWidth", "cardThumbHeight"] },
-  LibraryEntriesTable: { template: "<div data-stub='table' />", props: ["entries", "showTrashed", "dragEnabled", "draggedFileIds", "dropTargetFolderId", "renameValue", "isEntrySelected", "isRenaming"] },
-  LibraryEmptyState: { template: "<div data-stub='empty' />", props: ["showTrashed", "title", "description", "canManageLibrary"] },
-  LibraryEntriesSkeleton: { template: "<div data-stub='skeleton' />", props: ["entryViewMode", "showTrashed"] },
-  LibraryTabs: { template: "<div data-stub='tabs' />", props: ["libraryId", "faceRecognitionEnabled", "canManageLibrary"] },
+  LibraryEntriesGrid: {
+    template: "<div data-stub='grid' />",
+    props: [
+      "entries",
+      "libraryId",
+      "showTrashed",
+      "dragEnabled",
+      "draggedFileIds",
+      "dropTargetFolderId",
+      "renameValue",
+      "isEntrySelected",
+      "isRenaming",
+      "failedThumbnails",
+      "isImageFile",
+      "isSmallImage",
+      "cardThumbWidth",
+      "cardThumbHeight",
+    ],
+  },
+  LibraryEntriesTable: {
+    template: "<div data-stub='table' />",
+    props: [
+      "entries",
+      "showTrashed",
+      "dragEnabled",
+      "draggedFileIds",
+      "dropTargetFolderId",
+      "renameValue",
+      "isEntrySelected",
+      "isRenaming",
+    ],
+  },
+  LibraryEmptyState: {
+    template: "<div data-stub='empty' />",
+    props: ["showTrashed", "title", "description", "canManageLibrary"],
+  },
+  LibraryEntriesSkeleton: {
+    template: "<div data-stub='skeleton' />",
+    props: ["entryViewMode", "showTrashed"],
+  },
+  LibraryTabs: {
+    template: "<div data-stub='tabs' />",
+    props: ["libraryId", "faceRecognitionEnabled", "canManageLibrary"],
+  },
   AlcovesImage: { template: "<img />", props: ["libraryId", "fileId", "alt", "width", "height"] },
   RouterLink: { template: "<a :href='to'><slot /></a>", props: ["to"] },
 };
@@ -337,10 +389,18 @@ beforeAll(() => {
     const store: Record<string, string> = {};
     globalThis.localStorage = {
       getItem: (key: string) => store[key] ?? null,
-      setItem: (key: string, value: string) => { store[key] = value; },
-      removeItem: (key: string) => { delete store[key]; },
-      clear: () => { Object.keys(store).forEach((k) => delete store[k]); },
-      get length() { return Object.keys(store).length; },
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+      clear: () => {
+        Object.keys(store).forEach((k) => delete store[k]);
+      },
+      get length() {
+        return Object.keys(store).length;
+      },
       key: (idx: number) => Object.keys(store)[idx] ?? null,
     } as Storage;
   }

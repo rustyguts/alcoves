@@ -4,7 +4,18 @@ import type { LibraryEntry, LibraryFile, LibraryFolder } from "~~/shared/types/a
 
 const stubs = {
   AppIcon: { template: "<i />", props: ["name", "class"] },
-  UserAvatar: { template: "<span />", props: ["displayName", "avatarUrl", "sizeClass", "textSizeClass", "bgClass", "tooltip", "tooltipPosition"] },
+  UserAvatar: {
+    template: "<span />",
+    props: [
+      "displayName",
+      "avatarUrl",
+      "sizeClass",
+      "textSizeClass",
+      "bgClass",
+      "tooltip",
+      "tooltipPosition",
+    ],
+  },
 };
 
 function makeFolder(overrides: Partial<LibraryFolder> = {}): LibraryFolder {
@@ -244,7 +255,7 @@ describe("LibraryEntriesTable", () => {
       global: { stubs },
     });
     // UserAvatar stub renders as <span>
-    const avatarStubs = wrapper.findAll("span[displayname]");
+    const _avatarStubs = wrapper.findAll("span[displayname]");
     // Use a broader check — just verify the owner cell doesn't show "-"
     const ownerCell = wrapper.findAll("td")[3]!;
     expect(ownerCell.text()).not.toBe("-");
