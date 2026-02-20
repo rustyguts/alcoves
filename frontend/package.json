@@ -25,7 +25,7 @@
     "tus-js-client": "^4.3.1",
     "vidstack": "^1.12.13",
     "vue": "^3.5.28",
-    "vue-router": "^5.0.2",
+    "vue-router": "^5.0.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -39,8 +39,8 @@
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^28.1.0",
     "oxfmt": "^0.33.0",
-    "oxlint": "^1.48.0",
-    "oxlint-tsgolint": "^0.14.0",
+    "oxlint": "^1.49.0",
+    "oxlint-tsgolint": "^0.14.1",
     "typescript": "^5.9.3",
     "unplugin-auto-import": "^21.0.0",
     "vitest": "^4.0.18",
