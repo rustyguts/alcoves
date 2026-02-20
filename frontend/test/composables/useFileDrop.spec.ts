@@ -174,10 +174,7 @@ function createDataTransferNoWebkit(files: File[]): DataTransfer {
   } as unknown as DataTransfer;
 }
 
-function createDragEvent(
-  type: string,
-  dataTransfer?: DataTransfer,
-): DragEvent {
+function createDragEvent(type: string, dataTransfer?: DataTransfer): DragEvent {
   const prevented = { value: false };
   return {
     type,

@@ -80,7 +80,9 @@ export function useLibraryPeople(libraryId: Ref<string> | ComputedRef<string>) {
   async function setPersonCover(personId: string, faceDetectionId: string) {
     updatingCoverFaceId.value = faceDetectionId;
     try {
-      const updated = await api.people.update(libraryId.value, personId, { coverFaceDetectionId: faceDetectionId });
+      const updated = await api.people.update(libraryId.value, personId, {
+        coverFaceDetectionId: faceDetectionId,
+      });
 
       const idx = people.value.findIndex((p) => p.id === personId);
       if (idx !== -1) people.value[idx] = updated;

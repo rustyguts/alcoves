@@ -129,7 +129,9 @@ describe("EmojiPicker", () => {
     });
     await wrapper.find("button").trigger("click");
 
-    const highlighted = wrapper.findAll(".grid button").find((b) => b.classes().includes("bg-primary/20"));
+    const highlighted = wrapper
+      .findAll(".grid button")
+      .find((b) => b.classes().includes("bg-primary/20"));
     expect(highlighted).toBeDefined();
     expect(highlighted?.text()).toContain("\u{1F60A}");
   });

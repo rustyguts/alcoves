@@ -234,7 +234,8 @@ async function reprocessObjectDetection() {
       description: `${result.queuedCount} image${result.queuedCount === 1 ? "" : "s"} queued for fresh object detection.`,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to queue object detection reprocessing";
+    const message =
+      err instanceof Error ? err.message : "Failed to queue object detection reprocessing";
     toast.add({ title: message, color: "error" });
   } finally {
     objDetReprocessing.value = false;
@@ -462,7 +463,7 @@ async function deleteLibrary() {
                 <div class="flex items-center gap-2">
                   <span class="badge badge-sm badge-outline badge-neutral">{{ invite.role }}</span>
                   <button
-                class="btn btn-soft btn-sm btn-ghost btn-outline"
+                    class="btn btn-soft btn-sm btn-ghost btn-outline"
                     @click="copyInviteLink(invite.inviteUrl)"
                   >
                     <AppIcon name="i-lucide-copy" class="size-4" />
@@ -649,14 +650,11 @@ async function deleteLibrary() {
       <div class="modal-box">
         <h3 class="text-lg font-bold">Disable Object Detection</h3>
         <p class="text-sm text-muted py-4">
-          This will permanently delete all detected object data for this library. This action
-          cannot be undone.
+          This will permanently delete all detected object data for this library. This action cannot
+          be undone.
         </p>
         <div class="modal-action">
-          <button
-            class="btn"
-            @click="objDetDisableOpen = false"
-          >Cancel</button>
+          <button class="btn" @click="objDetDisableOpen = false">Cancel</button>
           <button
             class="btn btn-error"
             :disabled="objDetToggling"
@@ -682,11 +680,9 @@ async function deleteLibrary() {
           objects may change if the model or settings have been updated.
         </p>
         <div class="modal-action">
-          <button
-            class="btn"
-            :disabled="objDetReprocessing"
-            @click="objDetReprocessOpen = false"
-          >Cancel</button>
+          <button class="btn" :disabled="objDetReprocessing" @click="objDetReprocessOpen = false">
+            Cancel
+          </button>
           <button
             class="btn btn-warning"
             :disabled="objDetReprocessing"

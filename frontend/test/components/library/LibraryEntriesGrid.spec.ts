@@ -4,7 +4,10 @@ import type { LibraryEntry, LibraryFile, LibraryFolder } from "~~/shared/types/a
 
 const stubs = {
   AppIcon: { template: "<i />", props: ["name", "class"] },
-  AlcovesImage: { template: "<img />", props: ["libraryId", "fileId", "alt", "width", "height", "format", "quality", "class"] },
+  AlcovesImage: {
+    template: "<img />",
+    props: ["libraryId", "fileId", "alt", "width", "height", "format", "quality", "class"],
+  },
 };
 
 function makeFolder(overrides: Partial<LibraryFolder> = {}): LibraryFolder {
@@ -249,8 +252,22 @@ describe("LibraryEntriesGrid", () => {
   it("renders tags as colored dots", () => {
     const file = makeFile({
       tags: [
-        { id: "tag-1", libraryId: "lib-1", name: "Important", color: "#ff0000", createdAt: "", updatedAt: "" },
-        { id: "tag-2", libraryId: "lib-1", name: "Work", color: "#00ff00", createdAt: "", updatedAt: "" },
+        {
+          id: "tag-1",
+          libraryId: "lib-1",
+          name: "Important",
+          color: "#ff0000",
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "tag-2",
+          libraryId: "lib-1",
+          name: "Work",
+          color: "#00ff00",
+          createdAt: "",
+          updatedAt: "",
+        },
       ],
     });
     const wrapper = mount(LibraryEntriesGrid, {

@@ -17,8 +17,9 @@ function getDirectoryNames(dataTransfer: DataTransfer): Set<string> {
     const item = items[i];
     if (!item || item.kind !== "file") continue;
 
-    const entry = (item as DataTransferItem & { webkitGetAsEntry?: () => FileSystemEntry | null })
-      .webkitGetAsEntry?.();
+    const entry = (
+      item as DataTransferItem & { webkitGetAsEntry?: () => FileSystemEntry | null }
+    ).webkitGetAsEntry?.();
     if (entry?.isDirectory) {
       // Store the name so we can exclude matching File objects from the files list.
       dirs.add(entry.name);

@@ -32,10 +32,7 @@ function mountMenu(slots: Record<string, string> = {}) {
   });
 }
 
-async function mountOpen(
-  position = { x: 100, y: 200 },
-  slots: Record<string, string> = {},
-) {
+async function mountOpen(position = { x: 100, y: 200 }, slots: Record<string, string> = {}) {
   const wrapper = mountMenu(slots);
   await wrapper.setProps({ open: true, position });
   await settle();
@@ -89,9 +86,12 @@ describe("AppContextMenu", () => {
   });
 
   it("renders slot content inside the dropdown panel", async () => {
-    const wrapper = await mountOpen({ x: 10, y: 10 }, {
-      default: "<span class='my-menu'>Items</span>",
-    });
+    const wrapper = await mountOpen(
+      { x: 10, y: 10 },
+      {
+        default: "<span class='my-menu'>Items</span>",
+      },
+    );
     expect(wrapper.find(".my-menu").exists()).toBe(true);
     expect(wrapper.text()).toContain("Items");
   });

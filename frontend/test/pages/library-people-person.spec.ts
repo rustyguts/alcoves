@@ -1,5 +1,4 @@
 import { mount, flushPromises } from "@vue/test-utils";
-import { nextTick } from "vue";
 import PeoplePersonPage from "~/pages/libraries/[id]/people-person.vue";
 import type { LibraryPerson, PersonFace } from "~~/shared/types/api";
 
@@ -39,9 +38,18 @@ vi.mock("vue-router", async (importOriginal) => {
 
 const stubs = {
   AppIcon: { template: "<i />", props: ["name", "class"] },
-  AlcovesImage: { template: "<img />", props: ["libraryId", "fileId", "alt", "width", "height", "class"] },
-  AppContextMenu: { template: "<div data-stub='context-menu'><slot /></div>", props: ["open", "position"] },
-  FilePreview: { template: "<div data-stub='file-preview' />", props: ["open", "file", "libraryId", "files"] },
+  AlcovesImage: {
+    template: "<img />",
+    props: ["libraryId", "fileId", "alt", "width", "height", "class"],
+  },
+  AppContextMenu: {
+    template: "<div data-stub='context-menu'><slot /></div>",
+    props: ["open", "position"],
+  },
+  FilePreview: {
+    template: "<div data-stub='file-preview' />",
+    props: ["open", "file", "libraryId", "files"],
+  },
 };
 
 function makePerson(overrides: Partial<LibraryPerson> = {}): LibraryPerson {
@@ -107,9 +115,7 @@ describe("library people-person page", () => {
   it("renders person name and face count", async () => {
     const person = makePerson({ name: "Alice", faceCount: 3 });
     const faces = [makeFace({ id: "f1" }), makeFace({ id: "f2" }), makeFace({ id: "f3" })];
-    mocks.apiFetch
-      .mockResolvedValueOnce([person])
-      .mockResolvedValueOnce(faces);
+    mocks.apiFetch.mockResolvedValueOnce([person]).mockResolvedValueOnce(faces);
     const wrapper = mountPage();
     await flushPromises();
     expect(wrapper.text()).toContain("Alice");
@@ -118,9 +124,7 @@ describe("library people-person page", () => {
 
   it("shows 'Unnamed person' for person without name", async () => {
     const person = makePerson({ name: null });
-    mocks.apiFetch
-      .mockResolvedValueOnce([person])
-      .mockResolvedValueOnce([makeFace()]);
+    mocks.apiFetch.mockResolvedValueOnce([person]).mockResolvedValueOnce([makeFace()]);
     const wrapper = mountPage();
     await flushPromises();
     expect(wrapper.text()).toContain("Unnamed person");
@@ -129,9 +133,7 @@ describe("library people-person page", () => {
   it("renders face grid with AlcovesImage for each face", async () => {
     const person = makePerson();
     const faces = [makeFace({ id: "f1" }), makeFace({ id: "f2" })];
-    mocks.apiFetch
-      .mockResolvedValueOnce([person])
-      .mockResolvedValueOnce(faces);
+    mocks.apiFetch.mockResolvedValueOnce([person]).mockResolvedValueOnce(faces);
     const wrapper = mountPage();
     await flushPromises();
     const images = wrapper.findAll("img");
@@ -140,9 +142,7 @@ describe("library people-person page", () => {
 
   it("shows empty state when person has no faces", async () => {
     const person = makePerson({ faceCount: 0 });
-    mocks.apiFetch
-      .mockResolvedValueOnce([person])
-      .mockResolvedValueOnce([]);
+    mocks.apiFetch.mockResolvedValueOnce([person]).mockResolvedValueOnce([]);
     const wrapper = mountPage();
     await flushPromises();
     expect(wrapper.text()).toContain("No faces available");
@@ -159,7 +159,7 @@ describe("library people-person page", () => {
 
   it("shows toast on fetch failure", async () => {
     mocks.apiFetch.mockRejectedValueOnce(new Error("Network error"));
-    const wrapper = mountPage();
+    const _wrapper = mountPage();
     await flushPromises();
     expect(mocks.toast.add).toHaveBeenCalledWith({
       title: "Failed to load person",
@@ -169,9 +169,7 @@ describe("library people-person page", () => {
 
   it("uses singular 'face' when there is exactly 1 face", async () => {
     const person = makePerson({ faceCount: 1 });
-    mocks.apiFetch
-      .mockResolvedValueOnce([person])
-      .mockResolvedValueOnce([makeFace()]);
+    mocks.apiFetch.mockResolvedValueOnce([person]).mockResolvedValueOnce([makeFace()]);
     const wrapper = mountPage();
     await flushPromises();
     expect(wrapper.text()).toContain("1 face");

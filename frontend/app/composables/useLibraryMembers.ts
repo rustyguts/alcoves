@@ -82,7 +82,10 @@ export function useLibraryMembers(
 
     inviteByEmailLoading.value = true;
     try {
-      const result = await api.members.inviteByEmail(libraryId.value, { email, role: inviteEmailRole.value });
+      const result = await api.members.inviteByEmail(libraryId.value, {
+        email,
+        role: inviteEmailRole.value,
+      });
 
       if (result.action === "already_member") {
         toast.add({ title: "User already has access" });

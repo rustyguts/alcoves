@@ -515,8 +515,13 @@ const foldersToPurge = ref<string[]>([]);
 const purgeAll = ref(false);
 
 // Upload queue integration
-const { addFiles, onLibraryUploadComplete, removeOnComplete, onLibraryUploadSuccess, removeOnSuccess } =
-  useUploadQueue();
+const {
+  addFiles,
+  onLibraryUploadComplete,
+  removeOnComplete,
+  onLibraryUploadSuccess,
+  removeOnSuccess,
+} = useUploadQueue();
 
 const UPLOAD_REFRESH_DEBOUNCE_MS = 3_000;
 const lastUploadRefreshAt = ref(0);
@@ -534,11 +539,14 @@ function refreshAfterUploadDebounced() {
 
   if (uploadRefreshTimer) return;
 
-  uploadRefreshTimer = setTimeout(() => {
-    uploadRefreshTimer = null;
-    lastUploadRefreshAt.value = Date.now();
-    void resetAndFetch({ silent: true });
-  }, Math.max(UPLOAD_REFRESH_DEBOUNCE_MS - elapsed, 0));
+  uploadRefreshTimer = setTimeout(
+    () => {
+      uploadRefreshTimer = null;
+      lastUploadRefreshAt.value = Date.now();
+      void resetAndFetch({ silent: true });
+    },
+    Math.max(UPLOAD_REFRESH_DEBOUNCE_MS - elapsed, 0),
+  );
 }
 
 const canDropUpload = computed(() => canManageLibrary.value && !showTrashed.value);
@@ -546,7 +554,12 @@ const canDropUpload = computed(() => canManageLibrary.value && !showTrashed.valu
 const { isOverDropZone: isFileDragActive, dropZoneProps: fileDropZoneProps } = useFileDrop({
   enabled: canDropUpload,
   onDrop(droppedFiles) {
-    addFiles(droppedFiles, libraryId.value, library.value?.name ?? "Library", currentFolderId.value);
+    addFiles(
+      droppedFiles,
+      libraryId.value,
+      library.value?.name ?? "Library",
+      currentFolderId.value,
+    );
     toast.add({
       title: `${droppedFiles.length} file${droppedFiles.length === 1 ? "" : "s"} added to upload queue`,
     });
@@ -760,9 +773,12 @@ async function handlePermanentDelete() {
         color: "success",
       });
     } else {
-      const result = await api.files.purge(libraryId.value, foldersToPurge.value.length
-            ? { folderIds: foldersToPurge.value }
-            : { fileIds: filesToPurge.value });
+      const result = await api.files.purge(
+        libraryId.value,
+        foldersToPurge.value.length
+          ? { folderIds: foldersToPurge.value }
+          : { fileIds: filesToPurge.value },
+      );
       await resetAndFetch();
       await refreshTrashedCount();
       toast.add({
@@ -791,8 +807,16 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
   const isInSelection =
     entry.kind === "file" ? selectedFiles.has(entry.id) : selectedFolders.has(entry.id);
 
-  const targetFileIds: string[] = isInSelection ? [...selectedFiles] : entry.kind === "file" ? [entry.id] : [];
-  const targetFolderIds: string[] = isInSelection ? [...selectedFolders] : entry.kind === "folder" ? [entry.id] : [];
+  const targetFileIds: string[] = isInSelection
+    ? [...selectedFiles]
+    : entry.kind === "file"
+      ? [entry.id]
+      : [];
+  const targetFolderIds: string[] = isInSelection
+    ? [...selectedFolders]
+    : entry.kind === "folder"
+      ? [entry.id]
+      : [];
   const totalCount = targetFileIds.length + targetFolderIds.length;
   const isMulti = totalCount > 1;
 
@@ -841,7 +865,10 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
       });
     }
 
-    return [...(restoreItems.length ? [restoreItems] : []), ...(purgeItems.length ? [purgeItems] : [])];
+    return [
+      ...(restoreItems.length ? [restoreItems] : []),
+      ...(purgeItems.length ? [purgeItems] : []),
+    ];
   }
 
   // ── Read-only viewer ─────────────────────────────────────────────────────────
@@ -852,7 +879,12 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           ? [{ label: "Open", icon: "i-lucide-folder-open", onSelect: () => openFolder(entry.id) }]
           : []),
         {
-          label: totalCount > 1 ? `Download ${totalCount} items as ZIP` : entry.kind === "folder" ? "Download as ZIP" : "Download",
+          label:
+            totalCount > 1
+              ? `Download ${totalCount} items as ZIP`
+              : entry.kind === "folder"
+                ? "Download as ZIP"
+                : "Download",
           icon: "i-lucide-download",
           onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
         },
@@ -878,11 +910,13 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
         },
         ...(targetFileIds.length
-          ? [{
-              label: targetFileIds.length > 1 ? `Move ${targetFileIds.length} files` : "Move",
-              icon: "i-lucide-folder-input",
-              onSelect: () => openMoveFilesModal(targetFileIds),
-            }]
+          ? [
+              {
+                label: targetFileIds.length > 1 ? `Move ${targetFileIds.length} files` : "Move",
+                icon: "i-lucide-folder-input",
+                onSelect: () => openMoveFilesModal(targetFileIds),
+              },
+            ]
           : []),
         {
           label: `Tags`,
@@ -1036,10 +1070,7 @@ const emptyStateDescription = computed(() => {
 </script>
 
 <template>
-  <div
-    class="relative flex h-full flex-1 min-h-0 flex-col gap-4"
-    v-bind="fileDropZoneProps"
-  >
+  <div class="relative flex h-full flex-1 min-h-0 flex-col gap-4" v-bind="fileDropZoneProps">
     <div
       v-if="isFileDragActive"
       class="absolute inset-0 z-30 rounded-lg border-2 border-dashed border-primary bg-primary/10 flex items-center justify-center pointer-events-none"
@@ -1062,7 +1093,10 @@ const emptyStateDescription = computed(() => {
                 <AppIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
                 {{ item.label }}
               </RouterLink>
-              <span v-else class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-base-content">
+              <span
+                v-else
+                class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-base-content"
+              >
                 <AppIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
                 {{ item.label }}
               </span>
@@ -1135,7 +1169,9 @@ const emptyStateDescription = computed(() => {
         v-if="filesPending && (entries?.length ?? 0) === 0"
         class="flex min-h-64 items-center justify-center"
       >
-        <div class="inline-flex items-center gap-2 rounded-box border border-base-300/70 bg-base-100 px-3 py-2 text-sm text-base-content/70 shadow-sm">
+        <div
+          class="inline-flex items-center gap-2 rounded-box border border-base-300/70 bg-base-100 px-3 py-2 text-sm text-base-content/70 shadow-sm"
+        >
           <AppIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
           Loading {{ showTrashed ? "trash" : "files" }}
         </div>
@@ -1419,7 +1455,11 @@ const emptyStateDescription = computed(() => {
         </div>
         <div class="modal-action">
           <button class="btn btn-soft btn-outline" @click="cancelLargeDownload">Cancel</button>
-          <button class="btn btn-soft btn-primary" :disabled="zipDownloading" @click="confirmLargeDownload">
+          <button
+            class="btn btn-soft btn-primary"
+            :disabled="zipDownloading"
+            @click="confirmLargeDownload"
+          >
             <span v-if="zipDownloading" class="loading loading-spinner loading-xs"></span>
             <AppIcon v-else name="i-lucide-download" class="size-4" />
             Download Anyway

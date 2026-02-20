@@ -1,4 +1,4 @@
-import { mount, flushPromises } from "@vue/test-utils";
+import { mount } from "@vue/test-utils";
 import PeoplePage from "~/pages/libraries/[id]/people.vue";
 
 function mockRef<T>(get: () => T, set?: (value: T) => void) {

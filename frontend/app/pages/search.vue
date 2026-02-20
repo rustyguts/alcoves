@@ -120,9 +120,7 @@ function getThumbnailFileId(result: GlobalSearchResult): string | null {
 
 const previewFile = ref<LibraryFile | null>(null);
 const previewOpen = ref(false);
-const previewFiles = computed<LibraryFile[]>(() =>
-  previewFile.value ? [previewFile.value] : [],
-);
+const previewFiles = computed<LibraryFile[]>(() => (previewFile.value ? [previewFile.value] : []));
 
 async function openPreview(result: GlobalSearchResult) {
   if (result.kind !== "file") return;

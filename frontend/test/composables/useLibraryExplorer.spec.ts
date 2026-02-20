@@ -57,7 +57,7 @@ vi.mock("vue-router", async (importOriginal) => ({
 import { flushPromises } from "@vue/test-utils";
 import { useLibraryExplorer } from "~/composables/useLibraryExplorer";
 import { apiFetch } from "~/utils/api-fetch";
-import type { LibraryFile, LibraryFolder, LibraryEntry, PaginatedFiles } from "~~/shared/types/api";
+import type { LibraryFile, LibraryFolder, LibraryEntry } from "~~/shared/types/api";
 
 const mockApiFetch = apiFetch as ReturnType<typeof vi.fn>;
 
@@ -243,12 +243,8 @@ describe("useLibraryExplorer", () => {
   });
 
   it("clearSelection clears all selections", () => {
-    const {
-      selectedFiles,
-      selectedFolders,
-      lastClickedIndex,
-      clearSelection,
-    } = useLibraryExplorer();
+    const { selectedFiles, selectedFolders, lastClickedIndex, clearSelection } =
+      useLibraryExplorer();
 
     selectedFiles.add("f1");
     selectedFolders.add("fo1");

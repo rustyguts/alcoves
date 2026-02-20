@@ -132,6 +132,10 @@ Frontend env vars (Vite):
 
 See `.env.example` for full list and defaults.
 
+## Lights Off Software Factory
+
+When the user says "turn off the lights", follow the full workflow defined in [turn-off-the-lights.md](turn-off-the-lights.md).
+
 ## Engineering Guardrails
 
 - Do not switch package manager (Bun) or lint/format stack (OXlint/OXfmt)

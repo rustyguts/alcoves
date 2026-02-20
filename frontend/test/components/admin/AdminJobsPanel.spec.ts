@@ -250,10 +250,10 @@ describe("AdminJobsPanel", () => {
     await wrapper.vm.$nextTick();
 
     await wrapper.find("button[data-tip='Retry']").trigger("click");
-    expect(mocks.apiFetch).toHaveBeenCalledWith(
-      "/api/admin/jobs/%7Bvideo-processing%7D/job-2",
-      { method: "POST", body: { action: "retry" } },
-    );
+    expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
+      method: "POST",
+      body: { action: "retry" },
+    });
     expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job retried" });
   });
 
@@ -265,10 +265,10 @@ describe("AdminJobsPanel", () => {
     await wrapper.vm.$nextTick();
 
     await wrapper.find("button[data-tip='Remove']").trigger("click");
-    expect(mocks.apiFetch).toHaveBeenCalledWith(
-      "/api/admin/jobs/%7Bvideo-processing%7D/job-2",
-      { method: "POST", body: { action: "remove" } },
-    );
+    expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
+      method: "POST",
+      body: { action: "remove" },
+    });
     expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job removed" });
   });
 
@@ -301,7 +301,10 @@ describe("AdminJobsPanel", () => {
   });
 
   it("calls purge API with confirmation", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => true));
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
     const wrapper = await mountPanel();
     await wrapper.vm.$nextTick();
     const es = MockEventSource.instances[0]!;
@@ -312,16 +315,18 @@ describe("AdminJobsPanel", () => {
     expect(purgeButtons.length).toBeGreaterThan(0);
     await purgeButtons[0]!.trigger("click");
 
-    expect(mocks.apiFetch).toHaveBeenCalledWith(
-      "/api/admin/jobs/%7Bvideo-processing%7D/purge",
-      { method: "POST" },
-    );
+    expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/purge", {
+      method: "POST",
+    });
     vi.unstubAllGlobals();
     vi.stubGlobal("EventSource", MockEventSource);
   });
 
   it("does not purge when confirmation is cancelled", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => false));
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => false),
+    );
     const wrapper = await mountPanel();
     await wrapper.vm.$nextTick();
     const es = MockEventSource.instances[0]!;
