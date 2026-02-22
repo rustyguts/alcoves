@@ -20,7 +20,7 @@
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@iconify/vue": "^5.0.0",
-    "daisyui": "^5.5.18",
+    "daisyui": "^5.5.19",
     "tailwindcss": "^4.2.0",
     "tus-js-client": "^4.3.1",
     "vidstack": "^1.12.13",
@@ -38,12 +38,12 @@
     "@vitest/coverage-v8": "^4.0.18",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^28.1.0",
-    "oxfmt": "^0.33.0",
+    "oxfmt": "^0.34.0",
     "oxlint": "^1.49.0",
-    "oxlint-tsgolint": "^0.14.1",
+    "oxlint-tsgolint": "^0.14.2",
     "typescript": "^5.9.3",
     "unplugin-auto-import": "^21.0.0",
     "vitest": "^4.0.18",
-    "vue-tsc": "^3.2.4"
+    "vue-tsc": "^3.2.5"
   }
 }
