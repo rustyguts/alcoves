@@ -10,14 +10,16 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 )
 
 type AdminHandler struct {
-	db *gorm.DB
+	db      *gorm.DB
+	hashSvc *filehash.Service
 }
 
-func NewAdminHandler(db *gorm.DB) *AdminHandler {
-	return &AdminHandler{db: db}
+func NewAdminHandler(db *gorm.DB, hashSvc *filehash.Service) *AdminHandler {
+	return &AdminHandler{db: db, hashSvc: hashSvc}
 }
 
 func (h *AdminHandler) RegisterRoutes(g *echo.Group) {
@@ -25,6 +27,7 @@ func (h *AdminHandler) RegisterRoutes(g *echo.Group) {
 	g.GET("/stats", h.Stats)
 	g.GET("/users", h.ListUsers)
 	g.PATCH("/users/:userId", h.UpdateUser)
+	g.POST("/backfill-hashes", h.BackfillHashes)
 }
 
 func (h *AdminHandler) requireOwnerMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -130,4 +133,12 @@ func (h *AdminHandler) UpdateUser(c echo.Context) error {
 		"avatarUrl":   user.AvatarUrl,
 		"role":        user.Role,
 	})
+}
+
+func (h *AdminHandler) BackfillHashes(c echo.Context) error {
+	count, err := h.hashSvc.EnqueueUnhashedFiles()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to enqueue hash backfill")
+	}
+	return c.JSON(http.StatusOK, map[string]int{"queuedCount": count})
 }

@@ -63,6 +63,7 @@ type FileResponse struct {
 	ThumbnailFileID   *string       `json:"thumbnailFileId"`
 	SourceFileID      *string       `json:"sourceFileId"`
 	OriginalCreatedAt *string       `json:"originalCreatedAt"`
+	Hash              *string       `json:"hash"`
 	TrashedAt         *string       `json:"trashedAt"`
 	CreatedAt         string        `json:"createdAt"`
 	UpdatedAt         string        `json:"updatedAt"`
@@ -118,6 +119,7 @@ type listingRow struct {
 	ProxyEtaSeconds   *int
 	ThumbnailFileID   *string
 	SourceFileID      *string
+	Hash              *string
 	OriginalCreatedAt *time.Time
 	TrashedAt         *time.Time
 	CreatedAt         time.Time
@@ -300,6 +302,7 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 				ThumbnailFileID:   row.ThumbnailFileID,
 				SourceFileID:      row.SourceFileID,
 				OriginalCreatedAt: timePtr(row.OriginalCreatedAt),
+				Hash:              row.Hash,
 				TrashedAt:         timePtr(row.TrashedAt),
 				CreatedAt:         row.CreatedAt.Format(time.RFC3339Nano),
 				UpdatedAt:         row.UpdatedAt.Format(time.RFC3339Nano),
@@ -410,7 +413,7 @@ func (s *Service) buildFileQueries(libraryID string, showTrashed bool, currentFo
 		'file' as kind, 1 as kind_rank, lower(name) as sort_name,
 		mime_type, size, duration, width, height,
 		proxy_status, proxy_progress, proxy_eta_seconds, thumbnail_file_id,
-		source_file_id, original_created_at,
+		source_file_id, original_created_at, hash,
 		trashed_at, created_at, updated_at
 		FROM files WHERE %s%s
 		ORDER BY lower(name) ASC, id ASC LIMIT %d`,

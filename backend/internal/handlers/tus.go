@@ -20,6 +20,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
+	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
@@ -358,18 +359,20 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 
 	fileID := uuid.New()
 
-	// Stream the completed file from staging to permanent storage
+	// Stream the completed file from staging to permanent storage, computing SHA256 as we go
 	f, err := os.Open(stagingPath)
 	if err != nil {
 		return fmt.Errorf("failed to open staging file: %w", err)
 	}
 	defer f.Close()
 
-	bytesWritten, err := h.storageSvc.StoreFileStream(upload.LibraryID, fileID.String(), f)
+	hr := filehash.NewHashingReader(f)
+	bytesWritten, err := h.storageSvc.StoreFileStream(upload.LibraryID, fileID.String(), hr)
 	if err != nil {
 		return fmt.Errorf("failed to store file: %w", err)
 	}
 
+	hashStr := hr.HexSum()
 	libUUID, _ := uuid.Parse(upload.LibraryID)
 
 	file := models.File{
@@ -380,6 +383,7 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 		MimeType:       upload.MimeType,
 		Size:           bytesWritten,
 		OwnerID:        &upload.UserID,
+		Hash:           &hashStr,
 	}
 
 	if upload.LastModified != nil {

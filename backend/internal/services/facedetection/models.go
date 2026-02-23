@@ -19,7 +19,7 @@ const (
 	recognitionModelFile = "recognition-model.onnx"
 
 	// HuggingFace model URLs (SCRFD_34G and ArcFace W600K R50)
-	detectionModelURL   = "https://huggingface.co/rustyguts/alcoves-models/resolve/main/det_10g.onnx"
+	detectionModelURL   = "https://huggingface.co/public-data/insightface/resolve/main/models/buffalo_l/det_10g.onnx"
 	recognitionModelURL = "https://huggingface.co/public-data/insightface/resolve/main/models/buffalo_l/w600k_r50.onnx"
 
 	minModelSize = 1 * 1024 * 1024 // 1MB — anything smaller is likely an LFS pointer or error page

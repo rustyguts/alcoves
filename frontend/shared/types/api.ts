@@ -35,6 +35,7 @@ export interface LibraryFile {
   thumbnailFileId?: string | null;
   sourceFileId: string | null;
   originalCreatedAt: string | null;
+  hash: string | null;
   trashedAt: string | null;
   createdAt: string;
   updatedAt: string;

@@ -18,6 +18,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
+	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
@@ -94,12 +95,14 @@ func (h *FileHandler) Upload(c echo.Context) error {
 
 	fileID := uuid.New()
 
-	// Stream body directly to storage
-	bytesWritten, err := h.storageSvc.StoreFileStream(libraryID.String(), fileID.String(), c.Request().Body)
+	// Stream body directly to storage, computing SHA256 as we go
+	hr := filehash.NewHashingReader(c.Request().Body)
+	bytesWritten, err := h.storageSvc.StoreFileStream(libraryID.String(), fileID.String(), hr)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to store file")
 	}
 
+	hashStr := hr.HexSum()
 	file := models.File{
 		ID:             fileID,
 		LibraryID:      libraryID,
@@ -108,6 +111,7 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		MimeType:       mimeType,
 		Size:           bytesWritten,
 		OwnerID:        &userID,
+		Hash:           &hashStr,
 	}
 
 	if err := h.db.Create(&file).Error; err != nil {
@@ -788,6 +792,7 @@ func fileToJSON(f *models.File) map[string]interface{} {
 	} else {
 		result["originalCreatedAt"] = nil
 	}
+	result["hash"] = f.Hash
 	return result
 }
 

@@ -109,6 +109,7 @@ type File struct {
 	ThumbnailFileID   *uuid.UUID `gorm:"column:thumbnail_file_id;type:uuid" json:"thumbnailFileId"`
 	SourceFileID      *uuid.UUID `gorm:"column:source_file_id;type:uuid" json:"sourceFileId"`
 	OriginalCreatedAt *time.Time `gorm:"column:original_created_at" json:"originalCreatedAt"`
+	Hash              *string    `gorm:"column:hash;type:text" json:"hash"`
 	TrashedAt         *time.Time `gorm:"column:trashed_at;index:files_library_parent_trash_name_idx" json:"trashedAt"`
 	CreatedAt         time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
 	UpdatedAt         time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`

@@ -21,6 +21,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/access"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
+	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
@@ -115,6 +116,9 @@ func main() {
 	// Video proxy service
 	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient)
 
+	// File hash service
+	hashSvc := filehash.NewService(db, storageSvc, asynqClient)
+
 	// Image proxy service — cache lookup, Redis pub/sub signaling, queued processing.
 	imgSvc := imageproxy.NewService(storageSvc, asynqClient, asynqRedisOpt, imageproxy.NewVipsProcessor())
 
@@ -138,6 +142,7 @@ func main() {
 		videoTaskHandler := videoSvc.NewTaskHandler()
 		mux.HandleFunc(videoproxy.TaskTypeVideoProxy, videoTaskHandler.ProcessTask)
 		mux.HandleFunc(videoproxy.TaskTypeVideoThumb, videoTaskHandler.ProcessThumbnailTask)
+		mux.HandleFunc(filehash.TaskTypeFileHash, hashSvc.NewTaskHandler().ProcessTask)
 
 		go func() {
 			log.Println("Starting asynq worker...")
@@ -221,7 +226,7 @@ func main() {
 		searchHandler.RegisterRoutes(api)
 
 		// Admin routes
-		adminHandler := handlers.NewAdminHandler(db)
+		adminHandler := handlers.NewAdminHandler(db, hashSvc)
 		adminHandler.RegisterRoutes(api.Group("/admin"))
 
 		// Admin job queue routes
