@@ -10,12 +10,11 @@ import { useUploadQueue } from "~/composables/useUploadQueue";
 import { useFileDrop } from "~/composables/useFileDrop";
 import { useToast } from "~/composables/useToast";
 import AppIcon from "~/components/AppIcon.vue";
-import ContextMenuItemsRenderer from "~/components/ContextMenuItemsRenderer.vue";
+import type { ContextMenuItem as UIContextMenuItem } from "@nuxt/ui";
 import UploadModal from "~/components/UploadModal.vue";
 import FilePreview from "~/components/FilePreview.vue";
 import ClipModal from "~/components/ClipModal.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
-import AppContextMenu from "~/components/AppContextMenu.vue";
 import LibraryEntriesGrid from "~/components/library/LibraryEntriesGrid.vue";
 import LibraryEmptyState from "~/components/library/LibraryEmptyState.vue";
 import LibraryEntriesTable from "~/components/library/LibraryEntriesTable.vue";
@@ -131,33 +130,11 @@ type ContextMenuItem = {
 };
 
 const contextMenuEntry = ref<LibraryEntry | null>(null);
-const contextMenuPosition = ref<{ x: number; y: number } | null>(null);
 
-function showContextMenu(entry: LibraryEntry, event: MouseEvent) {
-  event.preventDefault();
+// Updated before UContextMenu opens on native contextmenu bubble.
+function showContextMenu(entry: LibraryEntry, _event: MouseEvent) {
   contextMenuEntry.value = entry;
-  contextMenuPosition.value = { x: event.clientX, y: event.clientY };
 }
-
-function hideContextMenu() {
-  contextMenuEntry.value = null;
-  contextMenuPosition.value = null;
-}
-
-function handleContextMenuSelect(item: ContextMenuItem) {
-  if (item.disabled) return;
-  item.onSelect?.();
-  hideContextMenu();
-}
-
-// Close context menu on escape or click outside
-onMounted(() => {
-  const handleEscape = (e: KeyboardEvent) => {
-    if (e.key === "Escape") hideContextMenu();
-  };
-  window.addEventListener("keydown", handleEscape);
-  onUnmounted(() => window.removeEventListener("keydown", handleEscape));
-});
 
 function buildBreadcrumbUrl(folderId: string | null): string {
   const basePath = `/libraries/${libraryId.value}`;
@@ -1053,8 +1030,10 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
   ];
 }
 
-const contextMenuGroups = computed(() =>
-  contextMenuEntry.value ? getContextMenuItems(contextMenuEntry.value) : [],
+const contextMenuGroups = computed<UIContextMenuItem[][]>(() =>
+  contextMenuEntry.value
+    ? (getContextMenuItems(contextMenuEntry.value) as UIContextMenuItem[][])
+    : [],
 );
 
 const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
@@ -1180,6 +1159,10 @@ const emptyStateDescription = computed(() => {
     </div>
 
     <div class="relative overflow-y-auto flex-1 min-h-0">
+      <UContextMenu
+        :items="contextMenuGroups"
+        :ui="{ content: 'w-56', trigger: 'block' }"
+      >
       <div
         v-if="filesPending && (entries?.length ?? 0) === 0"
         class="flex min-h-64 items-center justify-center"
@@ -1277,6 +1260,7 @@ const emptyStateDescription = computed(() => {
       <div v-if="loadingMore" class="flex items-center justify-center py-4">
         <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
       </div>
+      </UContextMenu>
     </div>
 
     <UploadModal
@@ -1494,16 +1478,5 @@ const emptyStateDescription = computed(() => {
       </template>
     </UModal>
 
-    <AppContextMenu
-      :open="!!contextMenuEntry && !!contextMenuPosition"
-      :position="contextMenuPosition"
-      @close="hideContextMenu"
-    >
-      <ul
-        class="rounded-xl bg-default border border-default shadow-xl p-2 w-auto max-h-[calc(100vh-1rem)] overflow-y-auto"
-      >
-        <ContextMenuItemsRenderer :groups="contextMenuGroups" @select="handleContextMenuSelect" />
-      </ul>
-    </AppContextMenu>
   </div>
 </template>

@@ -165,7 +165,7 @@ const columns: TableColumn<AdminUser>[] = [
 <template>
   <div class="flex flex-col gap-6 overflow-y-auto flex-1 min-h-0">
     <div>
-      <h1 class="text-2xl font-bold">Admin dashboard</h1>
+      <h1 class="text-2xl font-bold">Admin Dashboard</h1>
       <p class="text-sm text-muted mt-0.5">
         Instance overview, user management, and background jobs.
       </p>

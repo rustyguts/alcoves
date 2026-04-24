@@ -41,7 +41,9 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+  <div
+    class="p-3 grid auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+  >
     <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
       <div
         class="rounded-xl bg-default px-2 pt-2 pb-1 cursor-pointer transition-colors select-none shadow-sm"

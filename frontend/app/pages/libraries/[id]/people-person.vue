@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from "vue-router";
-import AppIcon from "~/components/AppIcon.vue";
-import AppContextMenu from "~/components/AppContextMenu.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
 import FilePreview from "~/components/FilePreview.vue";
 import { useToast } from "~/composables/useToast";
 import { apiFetch } from "~/utils/api-fetch";
+import type { ContextMenuItem } from "@nuxt/ui";
 import type { LibraryFile, LibraryPerson, PersonFace } from "~~/shared/types/api";
-
-type FaceContextAction = "update-cover" | "new-person";
 
 const route = useRoute();
 const router = useRouter();
@@ -24,7 +21,6 @@ const previewOpen = ref(false);
 const fileCache = ref<Record<string, LibraryFile>>({});
 
 const contextMenuFace = ref<PersonFace | null>(null);
-const contextMenuPosition = ref<{ x: number; y: number } | null>(null);
 
 const personLabel = computed(() => person.value?.name?.trim() || "Unnamed person");
 const previewFiles = computed<LibraryFile[]>(() => {
@@ -78,15 +74,8 @@ async function openFacePreview(face: PersonFace) {
   }
 }
 
-function showFaceContextMenu(face: PersonFace, event: MouseEvent) {
-  event.preventDefault();
+function showFaceContextMenu(face: PersonFace) {
   contextMenuFace.value = face;
-  contextMenuPosition.value = { x: event.clientX, y: event.clientY };
-}
-
-function hideFaceContextMenu() {
-  contextMenuFace.value = null;
-  contextMenuPosition.value = null;
 }
 
 async function updateCoverPhoto(faceId: string) {
@@ -129,18 +118,22 @@ async function createNewPerson(faceId: string) {
   }
 }
 
-async function handleFaceAction(action: FaceContextAction) {
+const contextMenuItems = computed<ContextMenuItem[]>(() => {
   const face = contextMenuFace.value;
-  hideFaceContextMenu();
-  if (!face) return;
-
-  if (action === "update-cover") {
-    await updateCoverPhoto(face.id);
-    return;
-  }
-
-  await createNewPerson(face.id);
-}
+  if (!face) return [];
+  return [
+    {
+      label: "Update cover photo",
+      icon: "i-lucide-image-up",
+      onSelect: () => updateCoverPhoto(face.id),
+    },
+    {
+      label: "New person",
+      icon: "i-lucide-user-round-plus",
+      onSelect: () => createNewPerson(face.id),
+    },
+  ];
+});
 
 watch(
   [libraryId, personId],
@@ -149,14 +142,6 @@ watch(
   },
   { immediate: true },
 );
-
-onMounted(() => {
-  const handleEscape = (event: KeyboardEvent) => {
-    if (event.key === "Escape") hideFaceContextMenu();
-  };
-  window.addEventListener("keydown", handleEscape);
-  onUnmounted(() => window.removeEventListener("keydown", handleEscape));
-});
 </script>
 
 <template>
@@ -182,62 +167,42 @@ onMounted(() => {
       <UButton color="primary" size="sm" @click="goBack">Back to People</UButton>
     </div>
 
-    <div
+    <UContextMenu
       v-else-if="faces.length"
-      class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2"
+      :items="contextMenuItems"
+      :ui="{ content: 'w-56' }"
     >
       <div
-        v-for="face in faces"
-        :key="face.id"
-        class="relative overflow-hidden rounded-xl border border-default bg-elevated cursor-pointer transition hover:border-accented"
-        @click="openFacePreview(face)"
-        @contextmenu="showFaceContextMenu(face, $event)"
+        class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2"
       >
-        <AlcovesImage
-          :library-id="libraryId"
-          :file-id="face.fileId"
-          :alt="face.fileName"
-          :width="300"
-          :height="300"
-          class="w-full aspect-square object-cover"
-        />
         <div
-          v-if="actionFaceId === face.id"
-          class="absolute inset-0 bg-black/40 flex items-center justify-center"
+          v-for="face in faces"
+          :key="face.id"
+          class="relative overflow-hidden rounded-xl border border-default bg-elevated cursor-pointer transition hover:border-accented"
+          @click="openFacePreview(face)"
+          @contextmenu="showFaceContextMenu(face)"
         >
-          <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white" />
+          <AlcovesImage
+            :library-id="libraryId"
+            :file-id="face.fileId"
+            :alt="face.fileName"
+            :width="300"
+            :height="300"
+            class="w-full aspect-square object-cover"
+          />
+          <div
+            v-if="actionFaceId === face.id"
+            class="absolute inset-0 bg-black/40 flex items-center justify-center"
+          >
+            <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white" />
+          </div>
         </div>
       </div>
-    </div>
+    </UContextMenu>
 
     <div v-else class="flex items-center justify-center py-16">
       <p class="text-sm text-muted">No faces available for this person</p>
     </div>
-
-    <AppContextMenu
-      :open="!!contextMenuFace && !!contextMenuPosition"
-      :position="contextMenuPosition"
-      @close="hideFaceContextMenu"
-    >
-      <div class="rounded-xl bg-default border border-default shadow-xl min-w-56 p-1 flex flex-col">
-        <button
-          type="button"
-          class="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-default hover:bg-elevated transition"
-          @click="handleFaceAction('update-cover')"
-        >
-          <UIcon name="i-lucide-image-up" class="size-4 shrink-0" />
-          <span>Update cover photo</span>
-        </button>
-        <button
-          type="button"
-          class="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-default hover:bg-elevated transition"
-          @click="handleFaceAction('new-person')"
-        >
-          <UIcon name="i-lucide-user-round-plus" class="size-4 shrink-0" />
-          <span>New person</span>
-        </button>
-      </div>
-    </AppContextMenu>
 
     <FilePreview
       v-if="previewFile"

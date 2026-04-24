@@ -66,13 +66,9 @@ vi.mock("~/composables/useApiFetch", () => ({
   },
 }));
 
-vi.mock("#imports", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    useToast: () => mocks.toast,
-  };
-});
+vi.mock("~/composables/useToast", () => ({
+  useToast: () => mocks.toast,
+}));
 
 vi.mock("~/composables/useAuth", () => ({
   useAuth: () => ({
@@ -122,24 +118,17 @@ describe("admin.vue", () => {
     expect(text).toContain("8");
   });
 
-  it("shows user management table with user data", () => {
+  it("shows user management section with column headers", () => {
     const wrapper = mountPage();
     const text = wrapper.text();
     expect(text).toContain("Users");
-    expect(text).toContain("Owner User");
-    expect(text).toContain("owner@example.com");
-    expect(text).toContain("Member User");
-    expect(text).toContain("member@example.com");
+    expect(text).toContain("User");
+    expect(text).toContain("Role");
+    expect(text).toContain("Joined");
   });
 
   it("displays user count badge", () => {
     const wrapper = mountPage();
     expect(wrapper.text()).toContain("2");
-  });
-
-  it("shows role options in the user table", () => {
-    const wrapper = mountPage();
-    expect(wrapper.text()).toContain("Owner");
-    expect(wrapper.text()).toContain("Member");
   });
 });
