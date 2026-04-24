@@ -2,11 +2,9 @@
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
-import { useTheme, daisyThemes } from "~/composables/useTheme";
-import type { DaisyTheme } from "~/composables/useTheme";
+import { useTheme } from "~/composables/useTheme";
+import type { ColorPreference } from "~/composables/useTheme";
 import { useToast } from "~/composables/useToast";
-import AppIcon from "~/components/AppIcon.vue";
-
 import type { SessionInfo } from "~~/shared/types/api";
 
 const MAX_AVATAR_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -16,18 +14,13 @@ const toast = useToast();
 const { preference: themePreference } = useTheme();
 
 const displayName = ref(user.value?.displayName ?? "");
-const displayNameInput = ref<HTMLInputElement | null>(null);
 const avatarInput = ref<HTMLInputElement | null>(null);
 const selectedAvatar = ref<File | null>(null);
 const avatarPreviewUrl = ref<string | null>(null);
 const saving = ref(false);
-const editingDisplayName = ref(false);
-const highlightSave = ref(false);
 
 watch(user, (u) => {
-  if (u) {
-    displayName.value = u.displayName;
-  }
+  if (u) displayName.value = u.displayName;
 });
 
 const currentAvatarSrc = computed(() => avatarPreviewUrl.value ?? user.value?.avatarUrl ?? null);
@@ -37,15 +30,6 @@ const hasProfileChanges = computed(() => {
   return hasDisplayNameUpdate || !!selectedAvatar.value;
 });
 
-function startEditingDisplayName() {
-  editingDisplayName.value = true;
-  highlightSave.value = true;
-  nextTick(() => {
-    displayNameInput.value?.focus();
-    displayNameInput.value?.select();
-  });
-}
-
 function openAvatarPicker() {
   avatarInput.value?.click();
 }
@@ -53,7 +37,6 @@ function openAvatarPicker() {
 function onAvatarSelected(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0] ?? null;
-
   if (!file) return;
   if (!file.type.startsWith("image/")) {
     toast.add({ title: "Please select an image file", color: "error" });
@@ -65,18 +48,13 @@ function onAvatarSelected(event: Event) {
     input.value = "";
     return;
   }
-
   selectedAvatar.value = file;
-  if (avatarPreviewUrl.value) {
-    URL.revokeObjectURL(avatarPreviewUrl.value);
-  }
+  if (avatarPreviewUrl.value) URL.revokeObjectURL(avatarPreviewUrl.value);
   avatarPreviewUrl.value = URL.createObjectURL(file);
 }
 
 onBeforeUnmount(() => {
-  if (avatarPreviewUrl.value) {
-    URL.revokeObjectURL(avatarPreviewUrl.value);
-  }
+  if (avatarPreviewUrl.value) URL.revokeObjectURL(avatarPreviewUrl.value);
 });
 
 async function save() {
@@ -91,24 +69,15 @@ async function save() {
       return;
     }
 
-    if (hasDisplayNameUpdate) {
-      await updateProfile({ displayName: nextDisplayName });
-    }
-
-    if (selectedAvatar.value) {
-      await uploadAvatar(selectedAvatar.value);
-    }
+    if (hasDisplayNameUpdate) await updateProfile({ displayName: nextDisplayName });
+    if (selectedAvatar.value) await uploadAvatar(selectedAvatar.value);
 
     selectedAvatar.value = null;
-    if (avatarInput.value) {
-      avatarInput.value.value = "";
-    }
+    if (avatarInput.value) avatarInput.value.value = "";
     if (avatarPreviewUrl.value) {
       URL.revokeObjectURL(avatarPreviewUrl.value);
       avatarPreviewUrl.value = null;
     }
-    editingDisplayName.value = false;
-    highlightSave.value = false;
     toast.add({ title: "Profile updated", color: "success" });
   } catch (error) {
     const message = getStatusMessage(error) ?? "Failed to update profile";
@@ -118,7 +87,6 @@ async function save() {
   }
 }
 
-// Sessions
 const { data: sessions, refresh: refreshSessions } =
   useApiFetch<SessionInfo[]>("/api/auth/sessions");
 
@@ -157,68 +125,69 @@ function formatSessionDate(dateString: string): string {
 
 function getStatusMessage(error: unknown): string | null {
   if (!error || typeof error !== "object") return null;
-
   const maybeData = (error as { data?: unknown }).data;
   if (!maybeData || typeof maybeData !== "object") return null;
-
   const statusMessage = (maybeData as { statusMessage?: unknown }).statusMessage;
   return typeof statusMessage === "string" ? statusMessage : null;
 }
+
+const themeOptions: { label: string; value: ColorPreference; icon: string }[] = [
+  { label: "System", value: "auto", icon: "i-lucide-monitor" },
+  { label: "Light", value: "light", icon: "i-lucide-sun" },
+  { label: "Dark", value: "dark", icon: "i-lucide-moon" },
+];
 </script>
 
 <template>
-  <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 overflow-y-auto pb-6">
-    <section
-      class="hero rounded-box bg-gradient-to-br from-primary/20 via-base-200 to-secondary/20"
+  <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 overflow-y-auto pb-6">
+    <UCard
+      :ui="{
+        root: 'overflow-hidden',
+        body: 'bg-gradient-to-br from-primary-500/10 via-default to-secondary-500/10 p-6 sm:p-10',
+      }"
     >
-      <div
-        class="hero-content w-full flex-col items-center gap-3 px-4 py-6 text-center sm:px-6 sm:py-8"
-      >
-        <button type="button" class="avatar cursor-pointer" @click="openAvatarPicker">
-          <div
-            v-if="currentAvatarSrc"
-            class="size-20 rounded-full ring ring-primary/20 ring-offset-2 ring-offset-base-100"
-          >
-            <img :src="currentAvatarSrc" alt="" class="size-full object-cover" />
-          </div>
-          <div
-            v-else
-            class="size-20 rounded-full bg-primary text-primary-content flex items-center justify-center text-3xl font-bold ring ring-primary/20 ring-offset-2 ring-offset-base-100"
-          >
-            {{ user?.displayName?.charAt(0).toUpperCase() ?? "U" }}
-          </div>
-        </button>
-        <div class="min-w-0 w-full space-y-1">
-          <button
-            v-if="!editingDisplayName"
-            type="button"
-            class="truncate text-3xl font-bold tracking-tight transition-colors hover:text-primary"
-            @click="startEditingDisplayName"
-          >
-            {{ user?.displayName || "User" }}
-          </button>
-          <input
-            v-else
-            ref="displayNameInput"
-            v-model="displayName"
-            class="input input-md sm:input-lg mx-auto w-full max-w-xs sm:max-w-sm"
-            placeholder="Your display name"
-            @keydown.enter="save"
+      <div class="flex flex-col items-center gap-5 text-center">
+        <button
+          type="button"
+          class="group relative rounded-full transition hover:ring-4 hover:ring-primary-500/20"
+          @click="openAvatarPicker"
+        >
+          <UAvatar
+            :src="currentAvatarSrc ?? undefined"
+            :text="user?.displayName ?? 'U'"
+            :alt="user?.displayName ?? 'User'"
+            size="3xl"
           />
-          <p class="truncate text-sm text-base-content/70">{{ user?.email }}</p>
-        </div>
-        <div class="flex items-center">
-          <button
-            class="btn btn-soft btn-primary"
-            :class="highlightSave || hasProfileChanges ? 'ring ring-primary/30' : ''"
-            :disabled="saving || !hasProfileChanges"
-            @click="save"
+          <span
+            class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition group-hover:opacity-100"
           >
-            <span v-if="saving" class="loading loading-spinner loading-xs"></span>
-            Save
-          </button>
+            <UIcon name="i-lucide-camera" class="size-6 text-white" />
+          </span>
+        </button>
+
+        <div class="w-full max-w-sm space-y-2">
+          <UInput
+            v-model="displayName"
+            placeholder="Display name"
+            size="lg"
+            class="w-full"
+            :ui="{ root: 'w-full', base: 'text-center text-xl font-semibold' }"
+          />
+          <p class="text-sm text-muted">{{ user?.email }}</p>
         </div>
+
+        <UButton
+          color="primary"
+          size="lg"
+          :loading="saving"
+          :disabled="!hasProfileChanges"
+          icon="i-lucide-save"
+          @click="save"
+        >
+          Save changes
+        </UButton>
       </div>
+
       <input
         ref="avatarInput"
         type="file"
@@ -226,77 +195,83 @@ function getStatusMessage(error: unknown): string | null {
         class="hidden"
         @change="onAvatarSelected"
       />
-    </section>
+    </UCard>
 
-    <section class="card bg-base-100">
-      <div class="card-body gap-4">
-        <h2 class="card-title text-base">Appearance</h2>
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Theme</legend>
-          <select
-            :value="themePreference"
-            class="select w-full capitalize"
-            @change="
-              themePreference = ($event.target as HTMLSelectElement).value as DaisyTheme | 'auto'
-            "
-          >
-            <option value="auto">System</option>
-            <option v-for="t in daisyThemes" :key="t" :value="t" class="capitalize">
-              {{ t }}
-            </option>
-          </select>
-        </fieldset>
+    <UCard>
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-palette" class="size-5 text-primary" />
+          <h2 class="text-base font-semibold">Appearance</h2>
+        </div>
+      </template>
+
+      <div class="grid grid-cols-3 gap-3">
+        <button
+          v-for="opt in themeOptions"
+          :key="opt.value"
+          type="button"
+          class="flex flex-col items-center gap-2 rounded-lg border p-4 transition hover:border-primary-500 hover:bg-primary-500/5"
+          :class="
+            themePreference === opt.value
+              ? 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500'
+              : 'border-default'
+          "
+          @click="themePreference = opt.value"
+        >
+          <UIcon :name="opt.icon" class="size-6" />
+          <span class="text-sm font-medium">{{ opt.label }}</span>
+        </button>
       </div>
-    </section>
+    </UCard>
 
-    <section class="card bg-base-100">
-      <div class="card-body gap-5">
-        <div class="flex flex-wrap items-center justify-between gap-2">
+    <UCard>
+      <template #header>
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 class="text-xl font-semibold">Active Sessions</h2>
-            <p class="text-sm text-base-content/60">
-              Manage your active sessions. Revoke any session you don't recognize.
-            </p>
+            <h2 class="text-base font-semibold">Active sessions</h2>
+            <p class="text-sm text-muted">Revoke any session you don't recognise.</p>
           </div>
-          <span class="badge badge-outline">{{ sessions?.length ?? 0 }} total</span>
+          <UBadge color="neutral" variant="outline">{{ sessions?.length ?? 0 }} total</UBadge>
         </div>
+      </template>
 
-        <div v-if="sessions?.length" class="grid gap-3">
-          <div
-            v-for="session in sessions"
-            :key="session.id"
-            class="flex items-center justify-between rounded-box border border-base-300/70 bg-base-200/40 p-4"
-          >
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <AppIcon name="i-lucide-monitor" class="size-4 text-base-content/60" />
-                <span class="font-medium">{{ parseBrowser(session.userAgent) }}</span>
-                <span v-if="session.isCurrent" class="badge badge-primary badge-sm">Current</span>
-              </div>
-              <div class="flex flex-wrap items-center gap-3 text-xs text-base-content/60">
-                <span v-if="session.ipAddress">{{ session.ipAddress }}</span>
-                <span>Signed in {{ formatSessionDate(session.createdAt) }}</span>
-              </div>
+      <div v-if="sessions?.length" class="grid gap-3">
+        <div
+          v-for="session in sessions"
+          :key="session.id"
+          class="flex items-center justify-between rounded-lg border border-default bg-elevated/40 p-4"
+        >
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-monitor" class="size-4 text-muted" />
+              <span class="font-medium">{{ parseBrowser(session.userAgent) }}</span>
+              <UBadge v-if="session.isCurrent" color="primary" size="sm">Current</UBadge>
             </div>
-            <button
-              v-if="!session.isCurrent"
-              class="btn btn-soft btn-error btn-outline btn-xs"
-              :disabled="revokingId === session.id"
-              @click="revokeSession(session.id)"
-            >
-              <span
-                v-if="revokingId === session.id"
-                class="loading loading-spinner loading-xs"
-              ></span>
-              Revoke
-            </button>
+            <div class="flex flex-wrap items-center gap-3 text-xs text-muted">
+              <span v-if="session.ipAddress">{{ session.ipAddress }}</span>
+              <span>Signed in {{ formatSessionDate(session.createdAt) }}</span>
+            </div>
           </div>
-        </div>
-        <div v-else class="alert alert-info/70">
-          <AppIcon name="i-lucide-shield-check" class="size-4" />
-          <span class="text-sm">No active sessions found.</span>
+          <UButton
+            v-if="!session.isCurrent"
+            color="error"
+            variant="soft"
+            size="xs"
+            :loading="revokingId === session.id"
+            @click="revokeSession(session.id)"
+          >
+            Revoke
+          </UButton>
         </div>
       </div>
-    </section>
+      <UAlert
+        v-else
+        color="info"
+        variant="soft"
+        icon="i-lucide-shield-check"
+        title="No other active sessions"
+        description="Only this browser session is active right now."
+      />
+    </UCard>
   </div>
 </template>

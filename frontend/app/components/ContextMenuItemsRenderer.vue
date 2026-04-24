@@ -22,32 +22,32 @@ const emit = defineEmits<{
 
 <template>
   <template v-for="(group, groupIndex) in groups" :key="groupIndex">
-    <li v-if="groupIndex > 0" class="menu-title my-1 p-0">
-      <div class="h-px w-full bg-base-300/80" />
+    <li v-if="groupIndex > 0" class="my-1" role="separator">
+      <div class="h-px w-full bg-accented/80" />
     </li>
     <template v-for="(item, itemIndex) in group" :key="`${groupIndex}-${itemIndex}-${item.label}`">
       <li v-if="item.children?.length">
-        <details>
+        <details class="group">
           <summary
-            :class="[
-              item.color === 'error' ? 'text-error' : '',
-              'px-2 py-1.5 gap-2 whitespace-nowrap',
-            ]"
+            class="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors hover:bg-elevated/70 list-none"
+            :class="item.color === 'error' ? 'text-error' : ''"
           >
             <AppIcon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-            <span>{{ item.label }}</span>
+            <span class="flex-1">{{ item.label }}</span>
+            <AppIcon
+              name="i-lucide-chevron-right"
+              class="size-3.5 shrink-0 text-muted transition-transform group-open:rotate-90"
+            />
           </summary>
-          <ul>
+          <ul class="ml-3 mt-0.5 flex flex-col border-l border-default pl-1">
             <li
               v-for="(child, childIndex) in item.children"
               :key="`${item.label}-${childIndex}-${child.label}`"
             >
               <button
                 type="button"
-                :class="[
-                  child.color === 'error' ? 'text-error' : '',
-                  'px-2 py-1.5 gap-2 whitespace-nowrap',
-                ]"
+                class="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors hover:bg-elevated/70 disabled:cursor-not-allowed disabled:opacity-50"
+                :class="child.color === 'error' ? 'text-error' : ''"
                 :disabled="child.disabled"
                 @click="emit('select', child)"
               >
@@ -61,10 +61,8 @@ const emit = defineEmits<{
       <li v-else>
         <button
           type="button"
-          :class="[
-            item.color === 'error' ? 'text-error' : '',
-            'px-2 py-1.5 gap-2 whitespace-nowrap',
-          ]"
+          class="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors hover:bg-elevated/70 disabled:cursor-not-allowed disabled:opacity-50"
+          :class="item.color === 'error' ? 'text-error' : ''"
           :disabled="item.disabled"
           @click="emit('select', item)"
         >

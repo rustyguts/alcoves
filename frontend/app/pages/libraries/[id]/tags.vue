@@ -232,126 +232,137 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="flex w-full flex-1 flex-col gap-4 overflow-y-auto pb-6">
-    <section class="card border border-base-300/70 bg-base-100 shadow-sm">
-      <div class="card-body gap-3">
+    <UCard>
+      <template #header>
         <div class="flex items-center justify-between gap-3">
-          <h1 class="text-xl font-semibold">Manage Tags</h1>
-          <button
-            class="btn btn-soft btn-ghost btn-sm"
-            :disabled="loadingUsage"
-            title="Refresh usage counts"
-            @click="refreshTagUsageCounts"
-          >
-            <span v-if="loadingUsage" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-refresh-cw" class="size-4" />
-          </button>
+          <div>
+            <h1 class="text-xl font-semibold">Manage Tags</h1>
+            <p class="text-sm text-muted">Create, color, and organize tags across your library.</p>
+          </div>
+          <UTooltip text="Refresh usage counts">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              square
+              :loading="loadingUsage"
+              icon="i-lucide-refresh-cw"
+              @click="refreshTagUsageCounts"
+            />
+          </UTooltip>
         </div>
+      </template>
 
-        <div class="relative rounded-box border border-base-300/70">
-          <table class="table table-zebra w-full sm:table-fixed">
-            <thead>
-              <tr>
-                <th class="w-14 sm:w-20">Color</th>
-                <th>Name</th>
-                <th class="hidden w-16 text-right sm:table-cell sm:w-24">Items</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>
-                  <TagColorPickerDropdown
-                    key-id="create"
-                    :open="openColorDropdown === 'create'"
-                    :color="createTagColor"
-                    :draft="createTagColorDraft"
-                    :palette="TAG_COLOR_PALETTE"
-                    title="Select new tag color"
-                    @toggle="toggleColorDropdown('create')"
-                    @pick="selectCreateTagColor"
-                    @update-draft="createTagColorDraft = $event"
-                    @commit-draft="applyCreateColorDraft"
+      <div class="relative rounded-xl border border-default overflow-hidden">
+        <table class="w-full text-sm sm:table-fixed">
+          <thead class="bg-elevated">
+            <tr class="text-left">
+              <th class="w-14 sm:w-20 px-4 py-3 font-medium">Color</th>
+              <th class="px-4 py-3 font-medium">Name</th>
+              <th class="hidden w-16 px-4 py-3 text-right font-medium sm:table-cell sm:w-24">
+                Items
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-default">
+            <tr class="bg-default">
+              <td class="px-4 py-3">
+                <TagColorPickerDropdown
+                  key-id="create"
+                  :open="openColorDropdown === 'create'"
+                  :color="createTagColor"
+                  :draft="createTagColorDraft"
+                  :palette="TAG_COLOR_PALETTE"
+                  title="Select new tag color"
+                  @toggle="toggleColorDropdown('create')"
+                  @pick="selectCreateTagColor"
+                  @update-draft="createTagColorDraft = $event"
+                  @commit-draft="applyCreateColorDraft"
+                />
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-2">
+                  <UInput
+                    v-model="createTagName"
+                    size="sm"
+                    placeholder="New tag"
+                    :ui="{ root: 'flex-1 min-w-0' }"
+                    @keydown.enter="createTagAndRefresh"
                   />
-                </td>
-                <td>
-                  <div class="flex items-center gap-2">
-                    <input
-                      v-model="createTagName"
-                      class="input input-sm min-w-0 flex-1"
-                      placeholder="New tag"
-                      @keydown.enter="createTagAndRefresh"
-                    />
-                    <button
-                      class="btn btn-soft btn-primary btn-sm btn-square shrink-0"
-                      :disabled="!createTagName.trim() || creatingTag"
-                      @click="createTagAndRefresh"
-                    >
-                      <span v-if="creatingTag" class="loading loading-spinner loading-xs"></span>
-                      <AppIcon v-else name="i-lucide-plus" class="size-4" />
-                    </button>
-                  </div>
-                </td>
-                <td class="hidden text-right text-sm text-base-content/60 sm:table-cell">-</td>
-              </tr>
-
-              <tr v-if="loading">
-                <td colspan="3">
-                  <div class="flex items-center gap-2 py-2 text-sm text-base-content/70">
-                    <span class="loading loading-spinner loading-sm"></span>
-                    Loading tags
-                  </div>
-                </td>
-              </tr>
-
-              <tr v-for="tag in sortedTags" :key="tag.id">
-                <td>
-                  <TagColorPickerDropdown
-                    :key-id="tag.id"
-                    :open="openColorDropdown === tag.id"
-                    :color="tag.color"
-                    :draft="tagColorDrafts[tag.id]"
-                    :palette="TAG_COLOR_PALETTE"
-                    @toggle="toggleColorDropdown(tag.id)"
-                    @pick="
-                      (color) => {
-                        updateTagColor(tag, color);
-                        tagColorDrafts[tag.id] = color;
-                      }
-                    "
-                    @update-draft="tagColorDrafts[tag.id] = $event"
-                    @commit-draft="applyTagColorDraft(tag)"
+                  <UButton
+                    color="primary"
+                    variant="soft"
+                    size="sm"
+                    square
+                    icon="i-lucide-plus"
+                    :loading="creatingTag"
+                    :disabled="!createTagName.trim() || creatingTag"
+                    @click="createTagAndRefresh"
                   />
-                </td>
-                <td>
-                  <div class="flex items-center gap-2">
-                    <input
-                      v-model="tagDraftNames[tag.id]"
-                      class="input input-sm w-full"
-                      @blur="saveDraftTagName(tag)"
-                      @keydown.enter="saveDraftTagName(tag)"
-                    />
-                    <button
-                      class="btn btn-soft btn-error btn-sm btn-square"
-                      @click="deleteTagAndRefresh(tag.id)"
-                    >
-                      <AppIcon name="i-lucide-trash-2" class="size-4" />
-                    </button>
-                  </div>
-                </td>
-                <td class="hidden text-right text-sm sm:table-cell">
-                  <span v-if="loadingUsage" class="text-base-content/60">...</span>
-                  <span v-else class="font-semibold">{{ usageCountFor(tag.id) }}</span>
-                </td>
-              </tr>
+                </div>
+              </td>
+              <td class="hidden px-4 py-3 text-right text-sm text-muted sm:table-cell">-</td>
+            </tr>
 
-              <tr v-if="!loading && !sortedTags.length">
-                <td colspan="3" class="py-8 text-center text-sm text-base-content/60">
-                  No tags yet
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+            <tr v-if="loading">
+              <td colspan="3" class="px-4 py-3">
+                <div class="flex items-center gap-2 text-sm text-muted">
+                  <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+                  Loading tags
+                </div>
+              </td>
+            </tr>
+
+            <tr v-for="tag in sortedTags" :key="tag.id" class="transition hover:bg-elevated/50">
+              <td class="px-4 py-3">
+                <TagColorPickerDropdown
+                  :key-id="tag.id"
+                  :open="openColorDropdown === tag.id"
+                  :color="tag.color"
+                  :draft="tagColorDrafts[tag.id]"
+                  :palette="TAG_COLOR_PALETTE"
+                  @toggle="toggleColorDropdown(tag.id)"
+                  @pick="
+                    (color) => {
+                      updateTagColor(tag, color);
+                      tagColorDrafts[tag.id] = color;
+                    }
+                  "
+                  @update-draft="tagColorDrafts[tag.id] = $event"
+                  @commit-draft="applyTagColorDraft(tag)"
+                />
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-2">
+                  <UInput
+                    v-model="tagDraftNames[tag.id]"
+                    size="sm"
+                    :ui="{ root: 'w-full' }"
+                    @blur="saveDraftTagName(tag)"
+                    @keydown.enter="saveDraftTagName(tag)"
+                  />
+                  <UButton
+                    color="error"
+                    variant="soft"
+                    size="sm"
+                    square
+                    icon="i-lucide-trash-2"
+                    @click="deleteTagAndRefresh(tag.id)"
+                  />
+                </div>
+              </td>
+              <td class="hidden px-4 py-3 text-right text-sm sm:table-cell">
+                <span v-if="loadingUsage" class="text-muted">...</span>
+                <span v-else class="font-semibold">{{ usageCountFor(tag.id) }}</span>
+              </td>
+            </tr>
+
+            <tr v-if="!loading && !sortedTags.length">
+              <td colspan="3" class="px-4 py-8 text-center text-sm text-muted">No tags yet</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </section>
+    </UCard>
   </div>
 </template>

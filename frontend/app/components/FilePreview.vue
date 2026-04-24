@@ -357,9 +357,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <dialog class="modal" :class="{ 'modal-open': open }">
+  <Teleport to="body">
     <div
-      class="modal-box max-w-none w-screen h-screen rounded-none bg-black/95 backdrop-blur-sm p-0 flex items-center justify-center"
+      v-if="open"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-sm"
+      @click.self="open = false"
     >
       <!-- Media content: fills the entire viewport -->
       <div
@@ -422,7 +424,7 @@ onUnmounted(() => {
       </div>
 
       <div v-else-if="previewType === 'pdf'" class="w-full h-full p-16">
-        <iframe :src="fileUrl" class="w-full h-full rounded border-0" />
+        <iframe :src="fileUrl" class="w-full h-full rounded-lg border-0" />
       </div>
 
       <div
@@ -431,7 +433,7 @@ onUnmounted(() => {
       >
         <pre
           v-if="textContent !== null"
-          class="p-4 bg-neutral-900/80 rounded border border-white/20 text-sm text-white whitespace-pre-wrap max-w-4xl w-full self-start"
+          class="p-4 bg-neutral-900/80 rounded-lg border border-white/20 text-sm text-white whitespace-pre-wrap max-w-4xl w-full self-start"
           >{{ textContent }}</pre
         >
         <div v-else class="flex items-center justify-center">
@@ -452,35 +454,42 @@ onUnmounted(() => {
       >
         <div class="flex items-center gap-3 min-w-0 pointer-events-auto">
           <button
-            class="btn btn-circle btn-ghost text-white/80 hover:text-white hover:bg-white/20"
+            class="inline-flex items-center justify-center size-10 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors"
             @click="open = false"
           >
             <AppIcon name="i-lucide-x" class="size-5" />
           </button>
           <span class="text-white text-sm font-medium truncate">{{ file.name }}</span>
           <div v-if="previewType === 'video'" class="flex items-center gap-2">
-            <button
-              class="btn btn-soft btn-xs btn-primary"
+            <UButton
+              color="primary"
+              variant="soft"
+              size="xs"
+              icon="i-lucide-clapperboard"
+              :loading="generatingProxy"
               :disabled="generatingProxy"
               @click="generateProxy"
             >
-              <span v-if="generatingProxy" class="loading loading-spinner loading-xs"></span>
-              <AppIcon v-else name="i-lucide-clapperboard" class="size-3.5" />
               Create Proxy
-            </button>
+            </UButton>
             <select
               v-if="playbackSources.length > 0"
               v-model="selectedPlaybackSourceId"
-              class="select select-xs select-bordered bg-black/40 text-white border-white/25"
+              class="rounded-md border border-white/25 bg-black/40 px-2 py-1 text-xs text-white focus:outline-none focus:ring-2 focus:ring-primary/60"
             >
-              <option v-for="source in playbackSources" :key="source.id" :value="source.id">
+              <option
+                v-for="source in playbackSources"
+                :key="source.id"
+                :value="source.id"
+                class="bg-neutral-900 text-white"
+              >
                 {{ source.kind === "proxy" ? "Proxy" : "Source" }} - {{ source.name }}
               </option>
             </select>
           </div>
         </div>
         <button
-          class="btn btn-circle btn-ghost text-white/80 hover:text-white hover:bg-white/20 shrink-0 pointer-events-auto"
+          class="inline-flex items-center justify-center size-10 rounded-full text-white/80 hover:text-white hover:bg-white/20 shrink-0 pointer-events-auto transition-colors"
           @click="downloadFile"
         >
           <AppIcon name="i-lucide-download" class="size-5" />
@@ -489,16 +498,18 @@ onUnmounted(() => {
 
       <div
         v-if="videoProxyProcessing"
-        class="absolute left-1/2 top-14 z-20 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 rounded-box border border-white/15 bg-black/65 p-3 backdrop-blur-sm"
+        class="absolute left-1/2 top-14 z-20 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 rounded-xl border border-white/15 bg-black/65 p-3 backdrop-blur-sm"
       >
         <div class="mb-2 flex items-center justify-between text-xs text-white/80">
           <span>Preparing video preview</span>
           <span class="font-semibold">{{ videoProxyProgressPercent }}%</span>
         </div>
-        <progress
-          class="progress progress-primary w-full"
-          :value="videoProxyProgressPercent"
-          max="100"
+        <UProgress
+          class="w-full"
+          :model-value="videoProxyProgressPercent"
+          :max="100"
+          color="primary"
+          size="sm"
         />
         <p v-if="videoProxyEtaLabel" class="mt-1 text-xs text-white/70">
           ETA {{ videoProxyEtaLabel }}
@@ -508,7 +519,7 @@ onUnmounted(() => {
       <!-- Overlay: previous button -->
       <button
         v-if="hasPrevious"
-        class="btn btn-soft btn-circle btn-ghost absolute left-4 top-1/2 -translate-y-1/2 z-20 text-white bg-black/40 hover:bg-black/70"
+        class="absolute left-4 top-1/2 z-20 -translate-y-1/2 inline-flex items-center justify-center size-10 rounded-full text-white bg-black/40 hover:bg-black/70 transition-colors"
         @click="goToPrevious"
       >
         <AppIcon name="i-lucide-chevron-left" class="size-5" />
@@ -517,16 +528,13 @@ onUnmounted(() => {
       <!-- Overlay: next button -->
       <button
         v-if="hasNext"
-        class="btn btn-soft btn-circle btn-ghost absolute right-4 top-1/2 -translate-y-1/2 z-20 text-white bg-black/40 hover:bg-black/70"
+        class="absolute right-4 top-1/2 z-20 -translate-y-1/2 inline-flex items-center justify-center size-10 rounded-full text-white bg-black/40 hover:bg-black/70 transition-colors"
         @click="goToNext"
       >
         <AppIcon name="i-lucide-chevron-right" class="size-5" />
       </button>
     </div>
-    <form method="dialog" class="modal-backdrop" @click="open = false">
-      <button>close</button>
-    </form>
-  </dialog>
+  </Teleport>
 </template>
 
 <style>

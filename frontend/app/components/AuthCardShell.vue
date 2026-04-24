@@ -11,18 +11,25 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="flex min-h-svh items-center justify-center p-4">
-    <div class="w-full max-w-md space-y-6">
-      <div class="flex flex-col items-center gap-2">
-        <img src="/logo.webp" alt="Alcoves" width="96" height="96" />
-        <h2 class="text-2xl font-bold">{{ title }}</h2>
-        <p class="text-sm text-base-content/60">{{ subtitle }}</p>
-        <p v-if="error" class="text-sm text-error mt-1">{{ error }}</p>
-      </div>
+  <div
+    class="flex min-h-svh items-center justify-center p-4 bg-neutral-50 dark:bg-neutral-950"
+  >
+    <div class="w-full max-w-md">
+      <UCard>
+        <div class="flex flex-col items-center gap-3 mb-6">
+          <img src="/logo.webp" alt="Alcoves" width="72" height="72" class="rounded-xl" />
+          <h2 class="text-2xl font-bold text-highlighted">{{ title }}</h2>
+          <p class="text-sm text-muted text-center">{{ subtitle }}</p>
+        </div>
 
-      <slot />
+        <UAlert v-if="error" color="error" variant="soft" :description="error" class="mb-4" />
 
-      <slot name="footer" />
+        <slot />
+
+        <template #footer>
+          <slot name="footer" />
+        </template>
+      </UCard>
     </div>
   </div>
 </template>

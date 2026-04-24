@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { LibraryPendingInvite } from "~~/shared/types/api";
-import AppIcon from "~/components/AppIcon.vue";
 
 interface Props {
   invite: LibraryPendingInvite;
@@ -24,20 +23,24 @@ const emit = defineEmits<{
       </p>
     </div>
     <div class="flex items-center gap-2">
-      <button
-        class="btn btn-soft btn-sm btn-ghost btn-outline"
+      <UButton
+        color="neutral"
+        variant="soft"
+        size="sm"
+        icon="i-lucide-copy"
+        square
         @click="emit('copy', invite.inviteUrl)"
-      >
-        <AppIcon name="i-lucide-copy" class="size-4" />
-      </button>
-      <button
-        class="btn btn-sm btn-error btn-soft"
+      />
+      <UButton
+        color="error"
+        variant="soft"
+        size="sm"
+        icon="i-lucide-x"
+        square
+        :loading="revoking"
         :disabled="revoking"
         @click="emit('revoke', invite.id)"
-      >
-        <span v-if="revoking" class="loading loading-spinner loading-xs"></span>
-        <AppIcon v-else name="i-lucide-x" class="size-4" />
-      </button>
+      />
     </div>
   </div>
 </template>

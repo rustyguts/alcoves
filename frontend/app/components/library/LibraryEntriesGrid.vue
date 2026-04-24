@@ -44,7 +44,7 @@ const emit = defineEmits<{
   <div class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
     <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
       <div
-        class="rounded-lg bg-base-100 px-2 pt-2 pb-1 cursor-pointer transition-colors select-none"
+        class="rounded-xl bg-default px-2 pt-2 pb-1 cursor-pointer transition-colors select-none shadow-sm"
         :class="[
           props.isEntrySelected(entry)
             ? 'bg-primary/20 hover:bg-primary/28'
@@ -66,11 +66,12 @@ const emit = defineEmits<{
         @drop="emit('drop', entry, $event)"
       >
         <div v-if="props.isRenaming(entry)" :data-rename-input-entry-id="entry.id" class="mb-3">
-          <input
-            :value="renameValue"
-            class="input input-sm w-full"
+          <UInput
+            :model-value="renameValue"
+            size="sm"
             autofocus
-            @input="emit('updateRenameValue', ($event.target as HTMLInputElement).value)"
+            :ui="{ root: 'w-full' }"
+            @update:model-value="emit('updateRenameValue', String($event ?? ''))"
             @blur="emit('saveRename', entry)"
             @keydown.enter="emit('saveRename', entry)"
             @keydown.escape="emit('cancelRename')"
@@ -97,7 +98,7 @@ const emit = defineEmits<{
         </div>
 
         <div
-          class="h-40 rounded-md bg-base-100 mb-3 flex items-center justify-center overflow-hidden"
+          class="h-40 rounded-lg bg-default mb-3 flex items-center justify-center overflow-hidden"
         >
           <template v-if="entry.kind === 'folder'">
             <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
@@ -130,7 +131,7 @@ const emit = defineEmits<{
                 v-if="entry.proxyStatus === 'processing'"
                 class="absolute inset-0 flex items-center justify-center bg-black/40"
               >
-                <span class="loading loading-spinner loading-sm text-white"></span>
+                <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white" />
               </div>
             </div>
           </template>

@@ -23,23 +23,25 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <details class="dropdown" data-color-dropdown :open="open">
-    <summary
-      class="btn btn-soft btn-sm btn-circle btn-ghost p-0"
+  <div class="relative inline-block" data-color-dropdown>
+    <button
+      type="button"
+      class="inline-flex items-center justify-center size-8 rounded-full hover:bg-elevated/70 transition-colors"
       :title="title"
       @click.prevent="emit('toggle')"
     >
       <span class="size-4 rounded-full" :style="{ backgroundColor: color }" />
-    </summary>
+    </button>
     <div
-      class="dropdown-content rounded-box z-20 mt-2 w-52 border border-base-300/80 bg-base-100 p-4 shadow-xl"
+      v-if="open"
+      class="absolute left-0 top-full z-20 mt-2 w-52 rounded-xl border border-default bg-default p-4 shadow-lg"
     >
       <div class="grid grid-cols-4 gap-2">
         <button
           v-for="entry in palette"
           :key="`${keyId}-${entry}`"
           type="button"
-          class="relative size-9 rounded-full border border-base-300 transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
+          class="relative size-9 rounded-full border border-default transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
           :class="entry === color.toUpperCase() ? 'ring-2 ring-primary/40' : ''"
           :style="{ backgroundColor: entry }"
           :title="entry"
@@ -52,14 +54,16 @@ const emit = defineEmits<{
           />
         </button>
       </div>
-      <input
-        :value="draft"
-        class="input input-sm mt-2 w-full font-mono uppercase"
+      <UInput
+        :model-value="draft"
+        size="sm"
         placeholder="#3B82F6"
-        @input="emit('updateDraft', ($event.target as HTMLInputElement).value)"
+        class="mt-2 font-mono uppercase"
+        :ui="{ root: 'w-full' }"
+        @update:model-value="emit('updateDraft', String($event ?? ''))"
         @blur="emit('commitDraft')"
         @keydown.enter.prevent="emit('commitDraft')"
       />
     </div>
-  </details>
+  </div>
 </template>

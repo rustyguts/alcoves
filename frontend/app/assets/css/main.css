@@ -1,9 +1,11 @@
 @import "tailwindcss";
+@import "@nuxt/ui";
 @import "@fontsource-variable/ibm-plex-sans";
-@plugin "daisyui" {
-  themes: all;
-}
 
 @theme {
   --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --ui-primary: var(--ui-color-primary-500);
 }

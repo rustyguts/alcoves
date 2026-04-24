@@ -38,7 +38,7 @@ describe("LibraryEntriesSkeleton", () => {
     const wrapper = mount(LibraryEntriesSkeleton, {
       props: { entryViewMode: "file", showTrashed: false },
     });
-    const skeletons = wrapper.findAll(".skeleton");
+    const skeletons = wrapper.findAll(".u-skeleton");
     expect(skeletons.length).toBeGreaterThan(0);
   });
 
@@ -46,7 +46,7 @@ describe("LibraryEntriesSkeleton", () => {
     const wrapper = mount(LibraryEntriesSkeleton, {
       props: { entryViewMode: "card", showTrashed: false },
     });
-    const skeletons = wrapper.findAll(".skeleton");
+    const skeletons = wrapper.findAll(".u-skeleton");
     expect(skeletons.length).toBeGreaterThan(0);
   });
 

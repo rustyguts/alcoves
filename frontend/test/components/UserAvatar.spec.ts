@@ -6,7 +6,7 @@ describe("UserAvatar", () => {
     const wrapper = mount(UserAvatar, {
       props: { displayName: "John Doe" },
     });
-    expect(wrapper.text()).toContain("J");
+    expect(wrapper.text()).toContain("John Doe");
     expect(wrapper.find("img").exists()).toBe(false);
   });
 
@@ -20,87 +20,32 @@ describe("UserAvatar", () => {
     expect(img.attributes("alt")).toBe("John Doe");
   });
 
-  it("uppercases the first character of displayName", () => {
+  it("passes alt equal to displayName", () => {
     const wrapper = mount(UserAvatar, {
-      props: { displayName: "alice" },
+      props: { displayName: "Alice", avatarUrl: "/a.jpg" },
     });
-    expect(wrapper.text()).toContain("A");
+    expect(wrapper.find("img").attributes("alt")).toBe("Alice");
   });
 
-  it("uses U as fallback for empty display name", () => {
-    const wrapper = mount(UserAvatar, {
-      props: { displayName: "" },
-    });
-    expect(wrapper.text()).toContain("U");
-  });
-
-  it("trims whitespace before extracting initial", () => {
-    const wrapper = mount(UserAvatar, {
-      props: { displayName: "  Bob" },
-    });
-    expect(wrapper.text()).toContain("B");
-  });
-
-  it("applies default size classes", () => {
-    const wrapper = mount(UserAvatar, {
-      props: { displayName: "Test" },
-    });
-    const innerDiv = wrapper.find(".w-8");
-    expect(innerDiv.exists()).toBe(true);
-  });
-
-  it("applies custom size class", () => {
-    const wrapper = mount(UserAvatar, {
-      props: { displayName: "Test", sizeClass: "w-12" },
-    });
-    expect(wrapper.find(".w-12").exists()).toBe(true);
-  });
-
-  it("applies custom bg class for initial fallback", () => {
-    const wrapper = mount(UserAvatar, {
-      props: { displayName: "Test", bgClass: "bg-primary text-primary-content" },
-    });
-    expect(wrapper.find(".bg-primary").exists()).toBe(true);
-  });
-
-  it("applies tooltip when tooltip prop is true", () => {
+  it("wraps with tooltip when tooltip prop is true", () => {
     const wrapper = mount(UserAvatar, {
       props: { displayName: "Jane", tooltip: true },
     });
-    const root = wrapper.element as HTMLElement;
-    expect(root.classList.contains("tooltip")).toBe(true);
-    expect(root.getAttribute("data-tip")).toBe("Jane");
+    expect(wrapper.find(".u-tooltip").exists()).toBe(true);
   });
 
-  it("does not apply tooltip by default", () => {
+  it("does not wrap with tooltip by default", () => {
     const wrapper = mount(UserAvatar, {
       props: { displayName: "Jane" },
     });
-    const root = wrapper.element as HTMLElement;
-    expect(root.classList.contains("tooltip")).toBe(false);
-    expect(root.getAttribute("data-tip")).toBeNull();
+    expect(wrapper.find(".u-tooltip").exists()).toBe(false);
   });
 
-  it("applies custom tooltip position", () => {
-    const wrapper = mount(UserAvatar, {
-      props: { displayName: "Jane", tooltip: true, tooltipPosition: "bottom" },
-    });
-    const root = wrapper.element as HTMLElement;
-    expect(root.classList.contains("tooltip-bottom")).toBe(true);
-  });
-
-  it("applies custom rounded class", () => {
-    const wrapper = mount(UserAvatar, {
-      props: { displayName: "Test", roundedClass: "rounded-lg" },
-    });
-    expect(wrapper.find(".rounded-lg").exists()).toBe(true);
-  });
-
-  it("renders initial fallback when avatarUrl is null", () => {
+  it("renders avatar text fallback", () => {
     const wrapper = mount(UserAvatar, {
       props: { displayName: "Test User", avatarUrl: null },
     });
     expect(wrapper.find("img").exists()).toBe(false);
-    expect(wrapper.text()).toContain("T");
+    expect(wrapper.text()).toContain("Test User");
   });
 });

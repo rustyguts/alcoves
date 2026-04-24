@@ -11,7 +11,6 @@ const route = useRoute();
 const router = useRouter();
 const error = ref("");
 
-// Fetch available SSO providers from backend
 const providersLoading = ref(true);
 const googleAuthEnabled = ref(false);
 
@@ -25,6 +24,7 @@ onMounted(async () => {
     providersLoading.value = false;
   }
 });
+
 const redirectPath = computed(() => {
   const raw = route.query.redirect;
   if (typeof raw !== "string" || !raw.startsWith("/")) return "/";
@@ -33,46 +33,36 @@ const redirectPath = computed(() => {
 const registerLink = computed(() =>
   redirectPath.value === "/"
     ? "/register"
-    : {
-        path: "/register",
-        query: { redirect: redirectPath.value },
-      },
+    : { path: "/register", query: { redirect: redirectPath.value } },
 );
 
 if (route.query.error === "google") {
   error.value = "Google sign-in failed. Please try again.";
 }
 
-const email = ref("");
-const password = ref("");
-const fieldErrors = ref<Record<string, string>>({});
-
 const schema = z.object({
   email: z.string().email("Invalid email"),
   password: z.string().min(8, "Must be at least 8 characters"),
 });
 
+const state = reactive({
+  email: "",
+  password: "",
+});
+
+const submitting = ref(false);
+
 async function onSubmit() {
   error.value = "";
-  fieldErrors.value = {};
-
-  const result = schema.safeParse({ email: email.value, password: password.value });
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      const key = issue.path[0];
-      if (key && !fieldErrors.value[String(key)]) {
-        fieldErrors.value[String(key)] = issue.message;
-      }
-    }
-    return;
-  }
-
+  submitting.value = true;
   try {
-    await login(result.data.email, result.data.password);
+    await login(state.email, state.password);
     router.push(redirectPath.value);
   } catch (err: unknown) {
     const msg = (err as { data?: { message?: string } })?.data?.message;
     error.value = msg || "Invalid email or password";
+  } finally {
+    submitting.value = false;
   }
 }
 </script>
@@ -83,52 +73,63 @@ async function onSubmit() {
     subtitle="Sign in to your account to continue."
     :error="error"
   >
-    <form @submit.prevent="onSubmit" class="space-y-4">
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Email</legend>
-        <input
-          v-model="email"
+    <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
+      <UFormField label="Email" name="email" required>
+        <UInput
+          v-model="state.email"
           type="email"
-          placeholder="Enter your email"
-          required
-          class="input w-full"
+          placeholder="you@example.com"
+          icon="i-lucide-mail"
+          size="lg"
+          class="w-full"
+          :ui="{ root: 'w-full' }"
         />
-        <p v-if="fieldErrors.email" class="text-error text-xs mt-1">{{ fieldErrors.email }}</p>
-      </fieldset>
+      </UFormField>
 
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Password</legend>
-        <input
-          v-model="password"
+      <UFormField label="Password" name="password" required>
+        <UInput
+          v-model="state.password"
           type="password"
-          placeholder="Enter your password"
-          required
-          class="input w-full"
+          placeholder="••••••••"
+          icon="i-lucide-lock"
+          size="lg"
+          class="w-full"
+          :ui="{ root: 'w-full' }"
         />
-        <p v-if="fieldErrors.password" class="text-error text-xs mt-1">
-          {{ fieldErrors.password }}
-        </p>
-      </fieldset>
+      </UFormField>
 
-      <button type="submit" class="btn btn-soft btn-primary btn-block">Sign in</button>
-    </form>
-
-    <div class="space-y-4">
-      <Transition
-        enter-active-class="transition-opacity duration-300"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
+      <UButton
+        type="submit"
+        color="primary"
+        size="lg"
+        :loading="submitting"
+        block
+        class="justify-center"
       >
-        <div v-if="!providersLoading && googleAuthEnabled">
-          <div class="divider">or</div>
-          <OAuthGoogleButton />
-        </div>
-      </Transition>
+        Sign in
+      </UButton>
+    </UForm>
 
-      <div class="text-center text-sm">
-        Don't have an account?
-        <RouterLink :to="registerLink" class="text-primary font-medium">Sign up</RouterLink>.
+    <template #footer>
+      <div class="space-y-4 w-full">
+        <Transition
+          enter-active-class="transition-opacity duration-300"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+        >
+          <div v-if="!providersLoading && googleAuthEnabled" class="space-y-4">
+            <USeparator label="or" />
+            <OAuthGoogleButton />
+          </div>
+        </Transition>
+
+        <p class="text-center text-sm text-muted">
+          Don't have an account?
+          <RouterLink :to="registerLink" class="text-primary font-medium hover:underline">
+            Sign up
+          </RouterLink>
+        </p>
       </div>
-    </div>
+    </template>
   </AuthCardShell>
 </template>

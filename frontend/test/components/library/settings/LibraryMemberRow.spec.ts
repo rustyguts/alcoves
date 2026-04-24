@@ -2,10 +2,25 @@ import { mount } from "@vue/test-utils";
 import LibraryMemberRow from "~/components/library/settings/LibraryMemberRow.vue";
 
 const stubs = {
-  AppIcon: { template: "<i />", props: ["name", "class"] },
   UserAvatar: {
     template: '<div class="avatar-stub">{{ displayName }}</div>',
     props: ["displayName", "avatarUrl", "sizeClass"],
+  },
+  UBadge: {
+    template: '<span class="u-badge" :data-color="color"><slot /></span>',
+    props: ["color", "variant", "size"],
+  },
+  USelect: {
+    template:
+      "<select :disabled='disabled' :value='modelValue' @change=\"$emit('update:modelValue', $event.target.value)\"><option v-for='i in items' :key='i.value' :value='i.value'>{{ i.label }}</option></select>",
+    props: ["modelValue", "items", "disabled"],
+    emits: ["update:modelValue"],
+  },
+  UButton: {
+    template:
+      "<button :disabled='disabled || loading' :data-icon='icon' :data-color='color' :data-loading='loading' @click=\"$emit('click', $event)\"><slot /></button>",
+    props: ["color", "variant", "size", "icon", "square", "loading", "disabled"],
+    emits: ["click"],
   },
 };
 
@@ -59,7 +74,7 @@ describe("LibraryMemberRow", () => {
 
   it("shows owner badge for owner role", () => {
     const wrapper = mountRow({ member: createMember({ role: "owner" }) });
-    expect(wrapper.find(".badge").text()).toBe("owner");
+    expect(wrapper.find(".u-badge").text()).toContain("owner");
   });
 
   it("does not show role select for owner role", () => {
@@ -91,37 +106,43 @@ describe("LibraryMemberRow", () => {
 
   it("renders remove button for non-owners", () => {
     const wrapper = mountRow();
-    const removeBtn = wrapper.findAll("button").find((b) => !b.text());
-    expect(removeBtn).toBeDefined();
+    const buttons = wrapper.findAll("button");
+    expect(buttons.length).toBeGreaterThan(0);
   });
 
   it("does not render remove button for owners", () => {
     const wrapper = mountRow({ member: createMember({ role: "owner" }) });
     const buttons = wrapper.findAll("button");
-    expect(buttons).toHaveLength(0);
+    expect(buttons.length).toBe(0);
   });
 
   it("emits remove when remove button is clicked", async () => {
     const member = createMember();
     const wrapper = mountRow({ member });
-    const removeBtn = wrapper.find("button.btn-error");
-    await removeBtn.trigger("click");
+    const buttons = wrapper.findAll("button");
+    const removeBtn = buttons.find((b) => b.attributes("data-color") === "error");
+    await removeBtn?.trigger("click");
     expect(wrapper.emitted("remove")).toBeDefined();
   });
 
   it("disables remove button when removing is true", () => {
     const wrapper = mountRow({ removing: true });
-    const removeBtn = wrapper.find("button.btn-error");
-    expect(removeBtn.attributes("disabled")).toBeDefined();
+    const buttons = wrapper.findAll("button");
+    const removeBtn = buttons.find((b) => b.attributes("data-color") === "error");
+    expect(removeBtn?.attributes("disabled")).toBeDefined();
   });
 
-  it("shows loading spinner on remove button when removing", () => {
+  it("marks loading on remove button when removing", () => {
     const wrapper = mountRow({ removing: true });
-    expect(wrapper.find(".loading").exists()).toBe(true);
+    const buttons = wrapper.findAll("button");
+    const removeBtn = buttons.find((b) => b.attributes("data-color") === "error");
+    expect(removeBtn?.attributes("data-loading")).toBe("true");
   });
 
-  it("does not show loading spinner when not removing", () => {
+  it("does not mark loading when not removing", () => {
     const wrapper = mountRow({ removing: false });
-    expect(wrapper.find(".loading").exists()).toBe(false);
+    const buttons = wrapper.findAll("button");
+    const removeBtn = buttons.find((b) => b.attributes("data-color") === "error");
+    expect(removeBtn?.attributes("data-loading")).toBe("false");
   });
 });

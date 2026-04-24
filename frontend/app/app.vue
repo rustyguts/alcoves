@@ -4,7 +4,6 @@ import { useUploadQueue } from "~/composables/useUploadQueue";
 import { useTheme } from "~/composables/useTheme";
 import DashboardLayout from "~/layouts/dashboard.vue";
 import UploadProgress from "~/components/UploadProgress.vue";
-import ToastContainer from "~/components/ToastContainer.vue";
 
 const route = useRoute();
 useTheme();
@@ -28,12 +27,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-full overflow-hidden bg-base-200">
-    <DashboardLayout v-if="isDashboard">
-      <RouterView />
-    </DashboardLayout>
-    <RouterView v-else />
-    <UploadProgress />
-    <ToastContainer />
-  </div>
+  <UApp>
+    <div class="h-full overflow-hidden bg-neutral-50 dark:bg-neutral-950 text-default">
+      <DashboardLayout v-if="isDashboard">
+        <RouterView />
+      </DashboardLayout>
+      <RouterView v-else />
+      <UploadProgress />
+    </div>
+  </UApp>
 </template>

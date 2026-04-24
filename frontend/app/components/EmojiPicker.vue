@@ -174,7 +174,7 @@ onUnmounted(() => {
   <div ref="pickerRef" class="relative inline-block">
     <button
       type="button"
-      class="btn btn-ghost btn-square"
+      class="inline-flex items-center justify-center size-10 rounded-lg hover:bg-elevated/70 transition-colors"
       title="Choose emoji icon"
       @click.stop="open = !open"
     >
@@ -184,22 +184,22 @@ onUnmounted(() => {
 
     <div
       v-if="open"
-      class="absolute left-0 top-full mt-2 z-50 bg-base-100 rounded-box shadow-lg border border-base-300 p-3 w-72"
+      class="absolute left-0 top-full mt-2 z-50 bg-default rounded-xl shadow-lg border border-default p-3 w-72"
     >
       <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-semibold text-base-content/60">Pick an icon</span>
-        <button v-if="modelValue" type="button" class="btn btn-ghost btn-xs" @click="clearEmoji">
+        <span class="text-xs font-semibold text-muted">Pick an icon</span>
+        <UButton v-if="modelValue" color="neutral" variant="ghost" size="xs" @click="clearEmoji">
           Remove
-        </button>
+        </UButton>
       </div>
       <div v-for="category in emojiCategories" :key="category.label" class="mb-2 last:mb-0">
-        <p class="text-xs text-base-content/50 mb-1">{{ category.label }}</p>
+        <p class="text-xs text-dimmed mb-1">{{ category.label }}</p>
         <div class="grid grid-cols-8 gap-0.5">
           <button
             v-for="emoji in category.emojis"
             :key="emoji"
             type="button"
-            class="btn btn-ghost btn-sm btn-square text-lg"
+            class="inline-flex items-center justify-center size-8 rounded-md text-lg transition-colors hover:bg-elevated"
             :class="modelValue === emoji ? 'bg-primary/20' : ''"
             @click="selectEmoji(emoji)"
           >

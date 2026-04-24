@@ -17,6 +17,10 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+    locale: "en-US",
+    timezoneId: "UTC",
   },
   webServer: {
     command: "bun run dev -- --port 4173 --host 127.0.0.1",

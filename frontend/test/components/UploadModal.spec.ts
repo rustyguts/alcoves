@@ -54,7 +54,7 @@ describe("UploadModal", () => {
 
   it("starts with upload disabled", () => {
     const wrapper = mountComponent();
-    const uploadButton = wrapper.findAll("button.btn").find((el) => el.text().includes("Upload"));
+    const uploadButton = wrapper.findAll("button").find((el) => el.text().includes("Upload"));
 
     expect(uploadButton?.attributes("disabled")).toBeDefined();
     expect(wrapper.text()).toContain("Uploading to My Library");
@@ -80,7 +80,7 @@ describe("UploadModal", () => {
     await fileInput.trigger("change");
     await wrapper.vm.$nextTick();
 
-    const uploadButton = wrapper.findAll("button.btn").find((el) => el.text().includes("Upload"));
+    const uploadButton = wrapper.findAll("button").find((el) => el.text().includes("Upload"));
     expect(uploadButton?.attributes("disabled")).toBeUndefined();
 
     await uploadButton?.trigger("click");

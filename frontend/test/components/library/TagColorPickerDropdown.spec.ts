@@ -24,14 +24,14 @@ describe("TagColorPickerDropdown", () => {
 
   it("renders a color swatch button", () => {
     const wrapper = mountPicker();
-    const swatch = wrapper.find("summary span");
+    const swatch = wrapper.find("[data-color-dropdown] > button span");
     expect(swatch.exists()).toBe(true);
     expect(swatch.attributes("style")).toContain("background-color: rgb(255, 0, 0)");
   });
 
   it("emits toggle on summary click", async () => {
     const wrapper = mountPicker();
-    await wrapper.find("summary").trigger("click");
+    await wrapper.find("[data-color-dropdown] > button").trigger("click");
     expect(wrapper.emitted("toggle")).toHaveLength(1);
   });
 
@@ -84,11 +84,13 @@ describe("TagColorPickerDropdown", () => {
 
   it("uses custom title prop", () => {
     const wrapper = mountPicker({ title: "Pick color" });
-    expect(wrapper.find("summary").attributes("title")).toBe("Pick color");
+    expect(wrapper.find("[data-color-dropdown] > button").attributes("title")).toBe("Pick color");
   });
 
   it("uses default title", () => {
     const wrapper = mountPicker();
-    expect(wrapper.find("summary").attributes("title")).toBe("Select tag color");
+    expect(wrapper.find("[data-color-dropdown] > button").attributes("title")).toBe(
+      "Select tag color",
+    );
   });
 });

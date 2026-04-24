@@ -89,7 +89,10 @@ describe("InviteLinkRow", () => {
       props: { invite: createInvite(), revoking: true },
       global: { stubs },
     });
-    expect(wrapper.find(".loading").exists()).toBe(true);
+    expect(
+      wrapper.find("button[data-loading='true']").exists() ||
+        wrapper.find("[data-icon='i-lucide-loader-2']").exists(),
+    ).toBe(true);
   });
 
   it("does not show loading spinner when not revoking", () => {
@@ -97,6 +100,9 @@ describe("InviteLinkRow", () => {
       props: { invite: createInvite(), revoking: false },
       global: { stubs },
     });
-    expect(wrapper.find(".loading").exists()).toBe(false);
+    expect(
+      wrapper.find("button[data-loading='true']").exists() ||
+        wrapper.find("[data-icon='i-lucide-loader-2']").exists(),
+    ).toBe(false);
   });
 });

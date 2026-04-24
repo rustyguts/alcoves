@@ -93,7 +93,29 @@ vi.mock("vue-router", async (importOriginal) => {
 });
 
 const stubs = {
-  AppIcon: { template: "<i />", props: ["name", "class"] },
+  UIcon: { template: "<i />", props: ["name"] },
+  UInput: { template: "<input />", props: ["modelValue", "placeholder", "icon", "size", "type"] },
+  UButton: {
+    template: "<button><slot /></button>",
+    props: ["color", "variant", "size", "icon", "square", "to"],
+  },
+  UAvatar: {
+    template: "<div class='avatar'><slot /></div>",
+    props: ["src", "alt", "text", "size"],
+  },
+  UNavigationMenu: {
+    template: `<nav class="w-full"><a v-for="i in items" :key="i.label" :href="typeof i.to === 'string' ? i.to : '#'">{{ i.label }}</a></nav>`,
+    props: ["items", "orientation", "variant"],
+  },
+  UDropdownMenu: {
+    template: "<div class='dropdown'><slot /></div>",
+    props: ["items", "content", "ui"],
+  },
+  USlideover: {
+    template: "<div v-if='open'><slot name='content' /></div>",
+    props: ["open", "side", "ui"],
+  },
+  USeparator: { template: "<hr />", props: ["label"] },
 };
 
 describe("dashboard.vue", () => {
@@ -138,46 +160,16 @@ describe("dashboard.vue", () => {
     expect(wrapper.text()).toContain("Admin");
   });
 
-  it("hides Settings link for non-owners", () => {
+  it("hides Admin link for non-owners", () => {
     mocks.user.role = "viewer";
     const wrapper = mountLayout();
-    expect(wrapper.text()).not.toContain("Settings");
+    expect(wrapper.text()).not.toContain("Admin");
   });
 
-  it("displays user initial in avatar placeholder", () => {
-    mocks.user.avatarUrl = null;
-    const wrapper = mountLayout();
-    const allText = wrapper.text();
-    expect(allText).toContain("T");
-  });
-
-  it("sidebar nav elements have w-full class", () => {
-    const wrapper = mountLayout();
-    const navElements = wrapper.findAll("nav");
-    expect(navElements.length).toBeGreaterThanOrEqual(2);
-    for (const nav of navElements) {
-      expect(nav.classes()).toContain("w-full");
-    }
-  });
-
-  it("content container has padding class", () => {
-    const wrapper = mountLayout();
-    const contentDiv = wrapper.find(".drawer-content .p-4");
-    expect(contentDiv.exists()).toBe(true);
-  });
-
-  it("shows emoji instead of icon when library has emoji set", () => {
+  it("shows emoji when library has emoji set", () => {
     mocks.libraries[1]!.emoji = "\u{1F680}";
     const wrapper = mountLayout();
     expect(wrapper.text()).toContain("\u{1F680}");
     mocks.libraries[1]!.emoji = null;
-  });
-
-  it("sidebar nav uses standard menu size (not menu-sm)", () => {
-    const wrapper = mountLayout();
-    const navElements = wrapper.findAll("nav");
-    for (const nav of navElements) {
-      expect(nav.classes()).not.toContain("menu-sm");
-    }
   });
 });

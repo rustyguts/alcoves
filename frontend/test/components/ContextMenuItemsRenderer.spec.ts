@@ -66,7 +66,7 @@ describe("ContextMenuItemsRenderer", () => {
       },
       global: { stubs },
     });
-    const dividers = wrapper.findAll(".menu-title");
+    const dividers = wrapper.findAll("li[role='separator']");
     expect(dividers).toHaveLength(1);
   });
 
@@ -116,6 +116,6 @@ describe("ContextMenuItemsRenderer", () => {
       props: { groups: [[{ label: "Only group" }]] },
       global: { stubs },
     });
-    expect(wrapper.findAll(".menu-title")).toHaveLength(0);
+    expect(wrapper.findAll("li[role='separator']")).toHaveLength(0);
   });
 });

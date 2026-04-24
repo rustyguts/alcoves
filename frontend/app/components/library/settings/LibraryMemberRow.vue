@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { LibraryMemberWithUser } from "~~/shared/types/api";
-import AppIcon from "~/components/AppIcon.vue";
 import UserAvatar from "~/components/UserAvatar.vue";
 
 interface RoleOption {
@@ -39,32 +38,27 @@ const emit = defineEmits<{
     </div>
 
     <div class="flex items-center gap-2">
-      <span v-if="member.role === 'owner'" class="badge badge-sm badge-primary">owner</span>
+      <UBadge v-if="member.role === 'owner'" color="primary" variant="soft" size="sm">
+        owner
+      </UBadge>
       <template v-else>
-        <select
-          :value="roleDraft"
-          class="select w-28"
+        <USelect
+          :model-value="roleDraft"
+          :items="roleOptions"
           :disabled="updatingRole"
-          @change="
-            emit(
-              'updateRole',
-              member,
-              ($event.target as HTMLSelectElement).value as 'admin' | 'viewer',
-            )
-          "
-        >
-          <option v-for="item in roleOptions" :key="item.value" :value="item.value">
-            {{ item.label }}
-          </option>
-        </select>
-        <button
-          class="btn btn-sm btn-error btn-soft"
+          class="w-28"
+          @update:model-value="emit('updateRole', member, $event as 'admin' | 'viewer')"
+        />
+        <UButton
+          color="error"
+          variant="soft"
+          size="sm"
+          icon="i-lucide-user-minus"
+          square
+          :loading="removing"
           :disabled="removing"
           @click="emit('remove', member)"
-        >
-          <span v-if="removing" class="loading loading-spinner loading-xs"></span>
-          <AppIcon v-else name="i-lucide-user-minus" class="size-4" />
-        </button>
+        />
       </template>
     </div>
   </div>

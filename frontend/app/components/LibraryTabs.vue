@@ -76,14 +76,21 @@ const tabs = computed(() => {
 
 <template>
   <div class="flex flex-wrap items-center gap-2">
-    <div role="tablist" class="tabs tabs-border flex-1 min-w-0 overflow-x-auto whitespace-nowrap">
+    <div
+      role="tablist"
+      class="flex flex-1 min-w-0 overflow-x-auto overflow-y-hidden whitespace-nowrap border-b border-default [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
       <RouterLink
         v-for="tab in tabs"
         :key="tab.key"
         role="tab"
         :to="tab.to"
-        class="tab gap-1.5"
-        :class="currentTab === tab.key ? 'tab-active' : ''"
+        class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px"
+        :class="
+          currentTab === tab.key
+            ? 'border-primary text-primary'
+            : 'border-transparent text-muted hover:text-default hover:border-default'
+        "
       >
         <AppIcon :name="tab.icon" class="size-4" />
         <span class="hidden sm:inline">{{ tab.label }}</span>

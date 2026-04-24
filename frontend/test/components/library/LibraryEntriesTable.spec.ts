@@ -213,7 +213,7 @@ describe("LibraryEntriesTable", () => {
       }),
       global: { stubs },
     });
-    const input = wrapper.find("input.input-sm");
+    const input = wrapper.find("[data-rename-input-entry-id] input");
     expect(input.exists()).toBe(true);
     expect(input.element.value).toBe("new-name.jpg");
   });
@@ -228,7 +228,7 @@ describe("LibraryEntriesTable", () => {
       }),
       global: { stubs },
     });
-    await wrapper.find("input.input-sm").trigger("keydown", { key: "Enter" });
+    await wrapper.find("[data-rename-input-entry-id] input").trigger("keydown", { key: "Enter" });
     expect(wrapper.emitted("saveRename")).toBeTruthy();
   });
 
@@ -242,7 +242,7 @@ describe("LibraryEntriesTable", () => {
       }),
       global: { stubs },
     });
-    await wrapper.find("input.input-sm").trigger("keydown", { key: "Escape" });
+    await wrapper.find("[data-rename-input-entry-id] input").trigger("keydown", { key: "Escape" });
     expect(wrapper.emitted("cancelRename")).toBeTruthy();
   });
 

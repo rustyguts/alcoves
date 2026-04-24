@@ -3,7 +3,6 @@ import { useRouter, useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
-import AppIcon from "~/components/AppIcon.vue";
 import UserAvatar from "~/components/UserAvatar.vue";
 import type { InviteLookupResponse } from "~~/shared/types/api";
 
@@ -45,15 +44,31 @@ const statusMessage = computed(() => {
   }
 });
 
+const statusColor = computed<"primary" | "success" | "error" | "warning" | "info" | "neutral">(
+  () => {
+    switch (invite.value?.status) {
+      case "pending":
+        return "primary";
+      case "accepted":
+      case "already_member":
+        return "success";
+      case "expired":
+      case "revoked":
+      case "not_allowed":
+        return "error";
+      default:
+        return "neutral";
+    }
+  },
+);
+
 async function acceptInvite() {
   if (!invite.value?.canAccept) return;
-
   accepting.value = true;
   try {
     const result = await api.invites.accept(token.value);
-
     await refreshLibraries?.();
-    toast.add({ title: `Joined ${result.libraryName}` });
+    toast.add({ title: `Joined ${result.libraryName}`, color: "success" });
     router.push(`/libraries/${result.libraryId}`);
   } catch (err: unknown) {
     toast.add({
@@ -69,55 +84,53 @@ async function acceptInvite() {
 
 <template>
   <div class="mx-auto max-w-2xl py-6 overflow-y-auto flex-1 min-h-0">
-    <div class="card bg-base-100 shadow-sm">
-      <div class="flex items-center gap-3 px-6 pt-5 pb-2">
-        <UserAvatar
-          v-if="invite"
-          :display-name="invite.invitedBy.displayName"
-          :avatar-url="invite.invitedBy.avatarUrl"
-          size-class="w-10"
-          bg-class="bg-primary text-primary-content"
-          text-size-class="text-sm"
-        />
-        <div>
-          <h1 class="text-lg font-semibold">{{ inviteTitle }}</h1>
-          <p class="text-sm text-muted">
-            <template v-if="invite?.invitedEmail">Access level: {{ invite.role }}</template>
-            <template v-else>Access level can be adjusted after you join.</template>
-          </p>
-        </div>
-      </div>
-
-      <div class="card-body">
-        <div v-if="status === 'pending'" class="flex items-center justify-center py-8">
-          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
-        </div>
-
-        <div v-else class="flex flex-col gap-4">
-          <p class="text-sm text-muted">{{ statusMessage }}</p>
-
-          <div class="flex items-center gap-2">
-            <button
-              v-if="invite?.canAccept"
-              class="btn btn-soft btn-primary"
-              :disabled="accepting"
-              @click="acceptInvite"
-            >
-              <span v-if="accepting" class="loading loading-spinner loading-xs"></span>
-              <AppIcon v-else name="i-lucide-check" class="size-4" />
-              Accept Invite
-            </button>
-            <RouterLink
-              v-if="invite?.library.id"
-              :to="`/libraries/${invite.library.id}`"
-              class="btn btn-soft btn-outline"
-            >
-              <AppIcon name="i-lucide-arrow-right" class="size-4" />
-              Go to library
-            </RouterLink>
+    <UCard>
+      <template #header>
+        <div class="flex items-center gap-3">
+          <UserAvatar
+            v-if="invite"
+            :display-name="invite.invitedBy.displayName"
+            :avatar-url="invite.invitedBy.avatarUrl"
+            size-class="w-10"
+          />
+          <div>
+            <h1 class="text-lg font-semibold">{{ inviteTitle }}</h1>
+            <p class="text-sm text-muted">
+              <template v-if="invite?.invitedEmail">Access level: {{ invite.role }}</template>
+              <template v-else>Access level can be adjusted after you join.</template>
+            </p>
           </div>
         </div>
+      </template>
+
+      <div v-if="status === 'pending'" class="flex items-center justify-center py-8">
+        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
       </div>
-    </div>
+
+      <div v-else class="flex flex-col gap-4">
+        <UAlert :color="statusColor" variant="soft" :description="statusMessage" />
+
+        <div class="flex flex-wrap items-center gap-2">
+          <UButton
+            v-if="invite?.canAccept"
+            color="primary"
+            icon="i-lucide-check"
+            :loading="accepting"
+            @click="acceptInvite"
+          >
+            Accept Invite
+          </UButton>
+          <UButton
+            v-if="invite?.library.id"
+            :to="`/libraries/${invite.library.id}`"
+            color="neutral"
+            variant="soft"
+            trailing-icon="i-lucide-arrow-right"
+          >
+            Go to library
+          </UButton>
+        </div>
+      </div>
+    </UCard>
   </div>
 </template>

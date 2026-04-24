@@ -35,31 +35,31 @@ const emit = defineEmits<{
 
 <template>
   <table class="w-full">
-    <thead class="sticky top-0 z-30 shadow-[0_1px_0_0] shadow-base-300/70">
+    <thead class="sticky top-0 z-30 shadow-[0_1px_0_0] shadow-accented/70">
       <tr>
-        <th class="w-12 px-4 py-3 bg-base-100/90 backdrop-blur-sm rounded-tl-lg" />
+        <th class="w-12 px-4 py-3 bg-default/90 backdrop-blur-sm rounded-tl-xl" />
         <th
-          class="text-left text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm"
+          class="text-left text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm"
         >
           Name
         </th>
         <th
-          class="text-left text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm"
+          class="text-left text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm"
         >
           Tags
         </th>
         <th
-          class="text-left text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm hidden sm:table-cell"
+          class="text-left text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm hidden sm:table-cell"
         >
           Owner
         </th>
         <th
-          class="text-left text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm hidden sm:table-cell"
+          class="text-left text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm hidden sm:table-cell"
         >
           {{ showTrashed ? "Trashed" : "Modified" }}
         </th>
         <th
-          class="text-right text-xs font-medium text-muted px-4 py-3 bg-base-100/90 backdrop-blur-sm hidden sm:table-cell rounded-tr-lg"
+          class="text-right text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm hidden sm:table-cell rounded-tr-xl"
         >
           Size
         </th>
@@ -100,11 +100,12 @@ const emit = defineEmits<{
           </td>
           <td class="px-4 py-3 min-w-0">
             <div v-if="props.isRenaming(entry)" :data-rename-input-entry-id="entry.id">
-              <input
-                :value="renameValue"
-                class="input input-sm w-full"
+              <UInput
+                :model-value="renameValue"
+                size="sm"
                 autofocus
-                @input="emit('updateRenameValue', ($event.target as HTMLInputElement).value)"
+                :ui="{ root: 'w-full' }"
+                @update:model-value="emit('updateRenameValue', String($event ?? ''))"
                 @blur="emit('saveRename', entry)"
                 @keydown.enter="emit('saveRename', entry)"
                 @keydown.escape="emit('cancelRename')"

@@ -12,7 +12,11 @@ declare global {
   const customRef: typeof import('vue').customRef
   const defineAsyncComponent: typeof import('vue').defineAsyncComponent
   const defineComponent: typeof import('vue').defineComponent
+  const defineLocale: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/defineLocale').defineLocale
+  const defineShortcuts: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts').defineShortcuts
   const effectScope: typeof import('vue').effectScope
+  const extendLocale: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/defineLocale').extendLocale
+  const extractShortcuts: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts').extractShortcuts
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
@@ -55,16 +59,26 @@ declare global {
   const toValue: typeof import('vue').toValue
   const triggerRef: typeof import('vue').triggerRef
   const unref: typeof import('vue').unref
+  const useAppConfig: typeof import('./node_modules/@nuxt/ui/dist/runtime/vue/composables/useAppConfig.js').useAppConfig
   const useAttrs: typeof import('vue').useAttrs
+  const useContentSearch: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useContentSearch').useContentSearch
   const useCssModule: typeof import('vue').useCssModule
   const useCssVars: typeof import('vue').useCssVars
+  const useFileUpload: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useFileUpload').useFileUpload
+  const useFormField: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useFormField').useFormField
   const useId: typeof import('vue').useId
+  const useKbd: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useKbd').useKbd
   const useLink: typeof import('vue-router').useLink
   const useModel: typeof import('vue').useModel
+  const useOverlay: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useOverlay').useOverlay
+  const useResizable: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useResizable').useResizable
   const useRoute: typeof import('vue-router').useRoute
   const useRouter: typeof import('vue-router').useRouter
+  const useScrollShadow: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useScrollShadow').useScrollShadow
+  const useScrollspy: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useScrollspy').useScrollspy
   const useSlots: typeof import('vue').useSlots
   const useTemplateRef: typeof import('vue').useTemplateRef
+  const useToast: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useToast').useToast
   const watch: typeof import('vue').watch
   const watchEffect: typeof import('vue').watchEffect
   const watchPostEffect: typeof import('vue').watchPostEffect

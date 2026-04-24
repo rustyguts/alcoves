@@ -48,11 +48,12 @@ function saveName() {
         >
           {{ name }}
         </h1>
-        <input
+        <UInput
           v-else
           v-model="editName"
+          size="lg"
           autofocus
-          class="input input-lg w-full"
+          :ui="{ root: 'w-full' }"
           @blur="saveName"
           @keydown.enter="saveName"
           @keydown.escape="editingName = false"
@@ -62,7 +63,7 @@ function saveName() {
         <slot name="actions" />
       </div>
     </div>
-    <div v-if="slots.subtitle" class="mt-1 text-sm text-base-content/70">
+    <div v-if="slots.subtitle" class="mt-1 text-sm text-muted">
       <slot name="subtitle" />
     </div>
     <div v-if="slots.default" class="mt-3">

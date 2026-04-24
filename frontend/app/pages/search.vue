@@ -4,7 +4,6 @@ import type { GlobalSearchResponse, GlobalSearchResult, LibraryFile } from "~~/s
 import { formatDate, formatFileSize, getMimeIcon } from "~/utils/mime-icons";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
-import AppIcon from "~/components/AppIcon.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
 import FilePreview from "~/components/FilePreview.vue";
 
@@ -30,11 +29,7 @@ watch(
 );
 
 function createEmptySearchResponse(query = ""): GlobalSearchResponse {
-  return {
-    query,
-    totalCount: 0,
-    results: [],
-  };
+  return { query, totalCount: 0, results: [] };
 }
 
 const {
@@ -43,10 +38,7 @@ const {
   error,
   execute,
 } = useApiFetch<GlobalSearchResponse>("/api/search", {
-  query: computed(() => ({
-    q: activeQuery.value,
-    limit: String(SEARCH_LIMIT),
-  })),
+  query: computed(() => ({ q: activeQuery.value, limit: String(SEARCH_LIMIT) })),
   immediate: false,
   default: () => createEmptySearchResponse(),
 });
@@ -58,7 +50,6 @@ watch(
       searchData.value = createEmptySearchResponse(value);
       return;
     }
-
     await execute();
   },
   { immediate: true },
@@ -78,25 +69,16 @@ const groupedResults = computed(() => {
   }> = [];
   const byLibraryId = new Map<
     string,
-    {
-      libraryId: string;
-      libraryName: string;
-      results: GlobalSearchResult[];
-    }
+    { libraryId: string; libraryName: string; results: GlobalSearchResult[] }
   >();
 
   for (const result of results.value) {
     let group = byLibraryId.get(result.libraryId);
     if (!group) {
-      group = {
-        libraryId: result.libraryId,
-        libraryName: result.libraryName,
-        results: [],
-      };
+      group = { libraryId: result.libraryId, libraryName: result.libraryName, results: [] };
       byLibraryId.set(result.libraryId, group);
       groups.push(group);
     }
-
     group.results.push(result);
   }
 
@@ -108,7 +90,7 @@ function getResultIcon(result: GlobalSearchResult): string {
   return getMimeIcon(result.mimeType ?? "application/octet-stream");
 }
 
-const failedThumbnails = new Set<string>();
+const failedThumbnails = reactive(new Set<string>());
 
 function getThumbnailFileId(result: GlobalSearchResult): string | null {
   if (result.kind !== "file" || failedThumbnails.has(result.id)) return null;
@@ -129,17 +111,19 @@ async function openPreview(result: GlobalSearchResult) {
     previewFile.value = file;
     previewOpen.value = true;
   } catch {
-    // silently fail
+    // silent
   }
 }
 </script>
 
 <template>
   <div class="mx-auto w-full max-w-6xl space-y-6 overflow-y-auto flex-1 min-h-0">
-    <div
-      class="card bg-gradient-to-br from-primary/10 via-elevated to-base-100 shadow-sm overflow-hidden"
+    <UCard
+      :ui="{
+        root: 'overflow-hidden bg-gradient-to-br from-primary-500/10 via-default to-secondary-500/10',
+      }"
     >
-      <div class="card-body space-y-4">
+      <div class="space-y-4">
         <div class="space-y-1">
           <h1 class="text-2xl font-semibold">Global Search</h1>
           <p class="text-sm text-muted">
@@ -151,80 +135,74 @@ async function openPreview(result: GlobalSearchResult) {
           class="flex flex-col gap-3 md:flex-row md:items-center"
           @submit.prevent="submitSearch"
         >
-          <div class="relative w-full">
-            <AppIcon
-              name="i-lucide-search"
-              class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted pointer-events-none"
-            />
-            <input
-              v-model="searchInput"
-              type="search"
-              placeholder="Search all libraries..."
-              autocomplete="off"
-              enterkeyhint="search"
-              class="input w-full pl-10 rounded-xl"
-            />
-          </div>
-          <button type="submit" class="btn btn-soft btn-primary">
-            <AppIcon name="i-lucide-search" class="size-4" />
-            Search
-          </button>
+          <UInput
+            v-model="searchInput"
+            type="search"
+            placeholder="Search all libraries…"
+            icon="i-lucide-search"
+            size="lg"
+            class="w-full"
+            :ui="{ root: 'w-full' }"
+          />
+          <UButton type="submit" color="primary" size="lg" icon="i-lucide-search"> Search </UButton>
         </form>
 
         <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
-          <span class="badge badge-ghost badge-sm"
-            >{{ searchData?.totalCount ?? 0 }} total matches</span
-          >
-          <span class="badge badge-ghost badge-sm">{{ results.length }} shown</span>
+          <UBadge color="neutral" variant="subtle" size="sm">
+            {{ searchData?.totalCount ?? 0 }} total matches
+          </UBadge>
+          <UBadge color="neutral" variant="subtle" size="sm">{{ results.length }} shown</UBadge>
           <span v-if="(searchData?.totalCount ?? 0) > results.length">
             Showing the top {{ results.length }} most relevant results.
           </span>
         </div>
       </div>
-    </div>
+    </UCard>
 
-    <div v-if="activeQuery.length < MIN_QUERY_LENGTH" class="card bg-base-100">
-      <div class="card-body">
-        <div class="flex items-center gap-3 text-muted">
-          <AppIcon name="i-lucide-search-check" class="size-5" />
-          <p>Enter at least {{ MIN_QUERY_LENGTH }} characters to start searching.</p>
-        </div>
-      </div>
-    </div>
+    <UAlert
+      v-if="activeQuery.length < MIN_QUERY_LENGTH"
+      color="info"
+      variant="soft"
+      icon="i-lucide-search-check"
+      :description="`Enter at least ${MIN_QUERY_LENGTH} characters to start searching.`"
+    />
 
     <div v-else-if="status === 'pending'" class="flex items-center justify-center py-12">
-      <AppIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+      <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
     </div>
 
-    <div v-else-if="error" class="card bg-base-100">
-      <div class="card-body">
-        <div class="flex items-center gap-3 text-error">
-          <AppIcon name="i-lucide-alert-circle" class="size-5" />
-          <p>Search failed. Try again in a moment.</p>
-        </div>
-      </div>
-    </div>
+    <UAlert
+      v-else-if="error"
+      color="error"
+      variant="soft"
+      icon="i-lucide-alert-circle"
+      title="Search failed"
+      description="Try again in a moment."
+    />
 
-    <div v-else-if="!results.length" class="card bg-base-100">
-      <div class="card-body">
-        <div class="flex items-center gap-3 text-muted">
-          <AppIcon name="i-lucide-folder-search" class="size-5" />
-          <p>No results found for "{{ activeQuery }}".</p>
-        </div>
-      </div>
-    </div>
+    <UAlert
+      v-else-if="!results.length"
+      color="neutral"
+      variant="soft"
+      icon="i-lucide-folder-search"
+      :description="`No results found for “${activeQuery}”.`"
+    />
 
     <div v-else class="space-y-4">
-      <div v-for="group in groupedResults" :key="group.libraryId" class="card bg-base-100">
-        <div class="flex items-center justify-between px-6 pt-5 pb-2">
-          <div class="flex items-center gap-2">
-            <AppIcon name="i-lucide-library" class="size-4 text-primary" />
-            <h2 class="font-semibold">{{ group.libraryName }}</h2>
+      <UCard v-for="group in groupedResults" :key="group.libraryId" :ui="{ body: 'p-1' }">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-library" class="size-4 text-primary" />
+              <h2 class="font-semibold">{{ group.libraryName }}</h2>
+            </div>
+            <UBadge color="neutral" variant="subtle" size="sm">
+              {{ group.results.length }}
+            </UBadge>
           </div>
-          <span class="badge badge-ghost badge-sm">{{ group.results.length }}</span>
-        </div>
+        </template>
 
-        <div class="space-y-1 p-1">
+        <div class="space-y-1">
           <div
             v-for="result in group.results"
             :key="`${result.kind}-${result.id}`"
@@ -233,7 +211,7 @@ async function openPreview(result: GlobalSearchResult) {
             @dblclick="openPreview(result)"
           >
             <div
-              class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated/80 overflow-hidden"
+              class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated overflow-hidden"
             >
               <AlcovesImage
                 v-if="getThumbnailFileId(result)"
@@ -247,7 +225,7 @@ async function openPreview(result: GlobalSearchResult) {
                 class="size-full object-cover"
                 @error="failedThumbnails.add(result.id)"
               />
-              <AppIcon v-else :name="getResultIcon(result)" class="size-4 text-primary" />
+              <UIcon v-else :name="getResultIcon(result)" class="size-4 text-primary" />
             </div>
 
             <div class="min-w-0 flex-1">
@@ -262,24 +240,23 @@ async function openPreview(result: GlobalSearchResult) {
             </div>
 
             <div class="hidden shrink-0 items-center gap-2 md:flex">
-              <span
-                v-if="result.matchedLabels?.length"
-                class="badge badge-soft badge-primary badge-sm"
-              >
+              <UBadge v-if="result.matchedLabels?.length" color="primary" variant="soft" size="sm">
                 contains: {{ result.matchedLabels.join(", ") }}
-              </span>
+              </UBadge>
               <span class="text-xs text-muted">{{ formatDate(result.updatedAt) }}</span>
-              <span class="badge badge-soft badge-neutral badge-sm">{{ result.kind }}</span>
-              <span
+              <UBadge color="neutral" variant="soft" size="sm">{{ result.kind }}</UBadge>
+              <UBadge
                 v-if="result.kind === 'file' && typeof result.size === 'number'"
-                class="badge badge-ghost badge-sm"
+                color="neutral"
+                variant="subtle"
+                size="sm"
               >
                 {{ formatFileSize(result.size) }}
-              </span>
+              </UBadge>
             </div>
           </div>
         </div>
-      </div>
+      </UCard>
     </div>
 
     <FilePreview

@@ -190,7 +190,7 @@ describe("AdminJobsPanel", () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).toContain("60%");
-    expect(wrapper.find("progress.progress-info").exists()).toBe(true);
+    expect(wrapper.find("progress").exists()).toBe(true);
   });
 
   it("expands job detail on row click", async () => {
@@ -238,8 +238,9 @@ describe("AdminJobsPanel", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.findAll("button[data-tip='Retry']")).toHaveLength(1);
-    expect(wrapper.findAll("button[data-tip='Remove']")).toHaveLength(1);
+    const rowHtml = wrapper.findAll("table")[1]!.html();
+    expect(rowHtml).toContain("i-lucide-rotate-cw");
+    expect(rowHtml).toContain("i-lucide-trash-2");
   });
 
   it("calls retry API on retry button click", async () => {
@@ -249,12 +250,15 @@ describe("AdminJobsPanel", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    await wrapper.find("button[data-tip='Retry']").trigger("click");
+    const retryBtn = wrapper
+      .findAll("button")
+      .find((b) => b.attributes("data-icon") === "i-lucide-rotate-cw");
+    await retryBtn?.trigger("click");
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
       method: "POST",
       body: { action: "retry" },
     });
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job retried" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job retried", color: "success" });
   });
 
   it("calls remove API on remove button click", async () => {
@@ -264,12 +268,16 @@ describe("AdminJobsPanel", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    await wrapper.find("button[data-tip='Remove']").trigger("click");
+    const jobsTable = wrapper.findAll("table")[1]!;
+    const removeBtn = jobsTable
+      .findAll("button")
+      .find((b) => b.attributes("data-icon") === "i-lucide-trash-2");
+    await removeBtn?.trigger("click");
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
       method: "POST",
       body: { action: "remove" },
     });
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job removed" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job removed", color: "success" });
   });
 
   it("shows empty state when no jobs match filters", async () => {
@@ -288,7 +296,7 @@ describe("AdminJobsPanel", () => {
       props: { embedded: false },
       global: { stubs },
     });
-    expect(wrapper.find(".loading.loading-dots").exists()).toBe(true);
+    expect(wrapper.find("[data-icon='i-lucide-loader-2']").exists()).toBe(true);
   });
 
   it("closes EventSource on unmount", async () => {
@@ -311,7 +319,7 @@ describe("AdminJobsPanel", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    const purgeButtons = wrapper.findAll("button").filter((b) => b.text().includes("Purge Jobs"));
+    const purgeButtons = wrapper.findAll("button").filter((b) => b.text().includes("Purge"));
     expect(purgeButtons.length).toBeGreaterThan(0);
     await purgeButtons[0]!.trigger("click");
 
@@ -333,7 +341,7 @@ describe("AdminJobsPanel", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    const purgeButtons = wrapper.findAll("button").filter((b) => b.text().includes("Purge Jobs"));
+    const purgeButtons = wrapper.findAll("button").filter((b) => b.text().includes("Purge"));
     await purgeButtons[0]!.trigger("click");
 
     expect(mocks.apiFetch).not.toHaveBeenCalled();

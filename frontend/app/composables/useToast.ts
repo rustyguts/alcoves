@@ -1,31 +1,30 @@
-import { ref, type Ref } from "vue";
+import { useToast as useNuxtUiToast } from "@nuxt/ui/composables/useToast";
 
 export interface Toast {
-  id: number;
+  id: string | number;
   title: string;
   description?: string;
   color?: "success" | "error" | "warning" | "info" | "neutral" | "primary";
 }
 
-const toasts: Ref<Toast[]> = ref([]);
-let nextId = 0;
-
 export function useToast() {
+  const ui = useNuxtUiToast();
+
   function add(toast: Omit<Toast, "id">) {
-    const id = nextId++;
-    toasts.value.push({ ...toast, id });
-    setTimeout(() => {
-      remove(id);
-    }, 4000);
+    ui.add({
+      title: toast.title,
+      description: toast.description,
+      color: toast.color ?? "neutral",
+    });
   }
 
-  function remove(id: number) {
-    toasts.value = toasts.value.filter((t) => t.id !== id);
+  function remove(id: string | number) {
+    ui.remove(String(id));
   }
 
   function clear() {
-    toasts.value = [];
+    ui.clear();
   }
 
-  return { toasts, add, remove, clear };
+  return { toasts: ui.toasts, add, remove, clear };
 }

@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import AppIcon from "~/components/AppIcon.vue";
-import AppModal from "~/components/AppModal.vue";
-
 interface Props {
   title: string;
   message: string;
@@ -11,8 +8,8 @@ interface Props {
   pending?: boolean;
 }
 
-withDefaults(defineProps<Props>(), {
-  confirmClass: "btn-soft btn-primary",
+const props = withDefaults(defineProps<Props>(), {
+  confirmClass: "",
   confirmIcon: "i-lucide-check",
   pending: false,
 });
@@ -22,19 +19,34 @@ const open = defineModel<boolean>("open", { default: false });
 const emit = defineEmits<{
   confirm: [];
 }>();
+
+const confirmColor = computed<"primary" | "error" | "warning" | "success" | "neutral">(() => {
+  const c = props.confirmClass;
+  if (c.includes("error")) return "error";
+  if (c.includes("warning")) return "warning";
+  if (c.includes("success")) return "success";
+  if (c.includes("neutral")) return "neutral";
+  return "primary";
+});
 </script>
 
 <template>
-  <AppModal v-model:open="open">
-    <h3 class="text-lg font-bold">{{ title }}</h3>
-    <p class="text-sm text-muted py-4">{{ message }}</p>
-    <div class="modal-action">
-      <button class="btn btn-soft" :disabled="pending" @click="open = false">Cancel</button>
-      <button class="btn" :class="confirmClass" :disabled="pending" @click="emit('confirm')">
-        <span v-if="pending" class="loading loading-spinner loading-xs"></span>
-        <AppIcon v-else :name="confirmIcon" class="size-4" />
-        {{ confirmLabel }}
-      </button>
-    </div>
-  </AppModal>
+  <UModal v-model:open="open" :title="title" :description="message">
+    <template #footer>
+      <div class="flex justify-end gap-2 w-full">
+        <UButton color="neutral" variant="ghost" :disabled="pending" @click="open = false">
+          Cancel
+        </UButton>
+        <UButton
+          :color="confirmColor"
+          :icon="pending ? undefined : confirmIcon"
+          :loading="pending"
+          :disabled="pending"
+          @click="emit('confirm')"
+        >
+          {{ confirmLabel }}
+        </UButton>
+      </div>
+    </template>
+  </UModal>
 </template>

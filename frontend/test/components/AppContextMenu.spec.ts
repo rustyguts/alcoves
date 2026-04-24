@@ -24,11 +24,6 @@ function mountMenu(slots: Record<string, string> = {}) {
       position: null,
     },
     slots: { default: "<ul>Menu</ul>", ...slots },
-    global: {
-      stubs: {
-        Teleport: true,
-      },
-    },
   });
 }
 
@@ -56,15 +51,16 @@ describe("AppContextMenu", () => {
   it("renders overlay and panel when open with valid position", async () => {
     const wrapper = await mountOpen();
     expect(wrapper.find(".fixed.inset-0").exists()).toBe(true);
-    expect(wrapper.find(".dropdown").exists()).toBe(true);
+    expect(wrapper.find(".absolute.z-50").exists()).toBe(true);
   });
 
   it("positions panel using inline styles", async () => {
     const wrapper = await mountOpen({ x: 50, y: 75 });
-    const panel = wrapper.find(".dropdown");
+    const panel = wrapper.find(".absolute.z-50");
     expect(panel.exists()).toBe(true);
-    expect(panel.attributes("style")).toContain("left:");
-    expect(panel.attributes("style")).toContain("top:");
+    const style = panel.attributes("style") ?? "";
+    expect(style).toMatch(/left:\s*\d+px/);
+    expect(style).toMatch(/top:\s*\d+px/);
   });
 
   it("emits close when overlay background is clicked", async () => {
@@ -81,7 +77,7 @@ describe("AppContextMenu", () => {
 
   it("does not emit close when clicking inside the panel", async () => {
     const wrapper = await mountOpen();
-    await wrapper.find(".dropdown").trigger("click");
+    await wrapper.find(".absolute.z-50").trigger("click");
     expect(wrapper.emitted("close")).toBeUndefined();
   });
 

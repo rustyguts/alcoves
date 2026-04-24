@@ -104,7 +104,7 @@ describe("ClipModal", () => {
     });
 
     // Click "Create Clip" button — the primary action button
-    const createBtn = wrapper.findAll("button.btn").find((b) => b.text().includes("Create Clip"));
+    const createBtn = wrapper.findAll("button").find((b) => b.text().includes("Create Clip"));
     expect(createBtn?.exists()).toBe(true);
     await createBtn!.trigger("click");
 
@@ -133,7 +133,7 @@ describe("ClipModal", () => {
       global: { stubs },
     });
 
-    const createBtn = wrapper.findAll("button.btn").find((b) => b.text().includes("Create Clip"));
+    const createBtn = wrapper.findAll("button").find((b) => b.text().includes("Create Clip"));
     await createBtn!.trigger("click");
 
     // Wait for promises to resolve
@@ -150,7 +150,7 @@ describe("ClipModal", () => {
       global: { stubs },
     });
 
-    const cancelBtn = wrapper.findAll("button.btn").find((b) => b.text().includes("Cancel"));
+    const cancelBtn = wrapper.findAll("button").find((b) => b.text().includes("Cancel"));
     expect(cancelBtn?.exists()).toBe(true);
   });
 

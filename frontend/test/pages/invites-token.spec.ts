@@ -190,7 +190,7 @@ describe("invites/[token].vue", () => {
   it("shows loading spinner when status is pending", () => {
     mocks.status = "pending";
     const wrapper = mountPage();
-    expect(wrapper.find("svg").exists()).toBe(true);
+    expect(wrapper.find("[data-icon='i-lucide-loader-2']").exists()).toBe(true);
   });
 
   it("shows fallback invite title when invite is null", () => {

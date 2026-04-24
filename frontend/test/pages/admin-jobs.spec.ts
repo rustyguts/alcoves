@@ -215,12 +215,10 @@ describe("admin/jobs.vue", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    // Failed job should have action buttons
-    const buttons = wrapper.findAll("button[data-tip='Retry']");
-    expect(buttons.length).toBe(1);
-
-    const removeButtons = wrapper.findAll("button[data-tip='Remove']");
-    expect(removeButtons.length).toBe(1);
+    const jobsTable = wrapper.findAll("table")[1]!;
+    const html = jobsTable.html();
+    expect(html).toContain("i-lucide-rotate-cw");
+    expect(html).toContain("i-lucide-trash-2");
   });
 
   it("calls retry API when retry button is clicked", async () => {
@@ -232,14 +230,16 @@ describe("admin/jobs.vue", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    const retryBtn = wrapper.find("button[data-tip='Retry']");
-    await retryBtn.trigger("click");
+    const retryBtn = wrapper
+      .findAll("button")
+      .find((b) => b.attributes("data-icon") === "i-lucide-rotate-cw");
+    await retryBtn?.trigger("click");
 
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
       method: "POST",
       body: { action: "retry" },
     });
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job retried" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job retried", color: "success" });
   });
 
   it("calls remove API when remove button is clicked", async () => {
@@ -251,14 +251,17 @@ describe("admin/jobs.vue", () => {
     es.simulateMessage(getSnapshot());
     await wrapper.vm.$nextTick();
 
-    const removeBtn = wrapper.find("button[data-tip='Remove']");
-    await removeBtn.trigger("click");
+    const jobsTable = wrapper.findAll("table")[1]!;
+    const removeBtn = jobsTable
+      .findAll("button")
+      .find((b) => b.attributes("data-icon") === "i-lucide-trash-2");
+    await removeBtn?.trigger("click");
 
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
       method: "POST",
       body: { action: "remove" },
     });
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job removed" });
+    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Job removed", color: "success" });
   });
 
   it("shows job count", async () => {

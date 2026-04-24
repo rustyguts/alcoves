@@ -15,12 +15,16 @@
     "test:unit": "vitest run --config vitest.config.ts",
     "test:unit:coverage": "vitest run --config vitest.config.ts --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:flow": "playwright test test/e2e/flows",
+    "test:e2e:screenshots": "playwright test --grep @screenshot",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
     "coverage:summary": "node test/scripts/coverage-summary.mjs"
   },
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@iconify/vue": "^5.0.0",
-    "daisyui": "^5.5.19",
+    "@nuxt/ui": "^4.6.1",
     "tailwindcss": "^4.2.0",
     "tus-js-client": "^4.3.1",
     "vidstack": "^1.12.13",

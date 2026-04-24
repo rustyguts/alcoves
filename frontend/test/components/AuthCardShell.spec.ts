@@ -24,23 +24,23 @@ describe("AuthCardShell", () => {
     const wrapper = mount(AuthCardShell, {
       props: { title: "Login", subtitle: "Enter credentials", error: "Invalid password" },
     });
-    const errorEl = wrapper.find(".text-error");
-    expect(errorEl.exists()).toBe(true);
-    expect(errorEl.text()).toBe("Invalid password");
+    const alert = wrapper.find(".u-alert");
+    expect(alert.exists()).toBe(true);
+    expect(wrapper.text()).toContain("Invalid password");
   });
 
   it("hides error message when error prop is empty", () => {
     const wrapper = mount(AuthCardShell, {
       props: { title: "Login", subtitle: "Enter credentials", error: "" },
     });
-    expect(wrapper.find(".text-error").exists()).toBe(false);
+    expect(wrapper.find(".u-alert").exists()).toBe(false);
   });
 
   it("hides error message when error prop is not provided", () => {
     const wrapper = mount(AuthCardShell, {
       props: { title: "Login", subtitle: "Sub" },
     });
-    expect(wrapper.find(".text-error").exists()).toBe(false);
+    expect(wrapper.find(".u-alert").exists()).toBe(false);
   });
 
   it("renders default slot content", () => {

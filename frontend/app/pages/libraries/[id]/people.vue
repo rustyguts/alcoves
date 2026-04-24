@@ -71,16 +71,17 @@ onMounted(() => {
   <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
     <div class="grid gap-4">
       <div v-if="selectedPeople.size >= 2" class="flex items-center gap-2">
-        <button class="btn btn-sm btn-primary" @click="mergePeople">
-          <AppIcon name="i-lucide-merge" class="size-4" />
+        <UButton color="primary" size="sm" icon="i-lucide-merge" @click="mergePeople">
           Merge Selected
-        </button>
+        </UButton>
         <span class="text-sm text-muted">{{ selectedPeople.size }} selected</span>
-        <button class="btn btn-soft btn-sm btn-ghost" @click="selectedPeople.clear()">Clear</button>
+        <UButton color="neutral" variant="ghost" size="sm" @click="selectedPeople.clear()">
+          Clear
+        </UButton>
       </div>
 
       <div v-if="peopleLoading" class="flex items-center justify-center py-16">
-        <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
       </div>
 
       <div v-else-if="libraryPeople.length" class="space-y-2 p-2">
@@ -89,11 +90,11 @@ onMounted(() => {
             v-for="person in libraryPeople"
             :key="person.id"
             type="button"
-            class="group relative size-40 shrink-0 overflow-hidden rounded-box border border-base-300 bg-base-200 cursor-pointer select-none transition"
+            class="group relative size-40 shrink-0 overflow-hidden rounded-xl border border-default bg-elevated cursor-pointer select-none transition"
             :class="
               selectedPeople.has(person.id)
-                ? 'ring-2 ring-primary ring-offset-2 ring-offset-base-100'
-                : 'hover:border-base-content/40'
+                ? 'ring-2 ring-primary ring-offset-2 ring-offset-default'
+                : 'hover:border-accented'
             "
             :title="person.name?.trim() || 'Unnamed person'"
             @click="togglePersonSelection(person.id)"
@@ -125,54 +126,59 @@ onMounted(() => {
       </div>
 
       <div v-else class="flex flex-col items-center justify-center py-16 px-4">
-        <div
-          class="size-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center mb-4"
-        >
-          <AppIcon name="i-lucide-scan-face" class="size-8 text-(--ui-text-muted)" />
+        <div class="size-16 rounded-full bg-elevated flex items-center justify-center mb-4">
+          <UIcon name="i-lucide-scan-face" class="size-8 text-muted" />
         </div>
-        <p class="text-lg font-medium text-foreground mb-1">No faces detected yet</p>
-        <p class="text-sm text-muted">
+        <p class="text-lg font-medium text-default mb-1">No faces detected yet</p>
+        <p class="text-sm text-muted text-center max-w-md">
           Upload images to this library and faces will be automatically detected and grouped.
         </p>
       </div>
     </div>
 
     <!-- Rename person modal -->
-    <dialog class="modal" :class="{ 'modal-open': renamePersonOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold mb-4">Name Person</h3>
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Person name</legend>
-          <input
+    <UModal
+      v-model:open="renamePersonOpen"
+      title="Name Person"
+      description="Leave blank to remove the name"
+      :dismissible="!renamingPersonSavingId"
+    >
+      <template #body>
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium">Person name</label>
+          <UInput
             v-model="renamePersonValue"
             autofocus
             placeholder="e.g. Alex"
-            class="input w-full"
+            :ui="{ root: 'w-full' }"
             @keydown.enter.prevent="confirmRenamePerson"
           />
-        </fieldset>
-        <p class="mt-2 text-xs text-muted">Leave blank to remove the name</p>
-        <div class="modal-action">
-          <button
-            class="btn btn-soft btn-sm btn-outline"
+          <p class="text-xs text-muted">Leave blank to remove the name</p>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
             :disabled="!!renamingPersonSavingId"
             @click="closeRenamePersonModal"
           >
             Cancel
-          </button>
-          <button
-            class="btn btn-sm btn-primary"
+          </UButton>
+          <UButton
+            color="primary"
+            size="sm"
+            :loading="!!renamingPersonSavingId"
             :disabled="!!renamingPersonSavingId || !renamePersonTarget"
             @click="confirmRenamePerson"
           >
-            <span v-if="!!renamingPersonSavingId" class="loading loading-spinner loading-xs"></span>
             Save
-          </button>
+          </UButton>
         </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="closeRenamePersonModal">close</button>
-      </form>
-    </dialog>
+      </template>
+    </UModal>
   </div>
 </template>

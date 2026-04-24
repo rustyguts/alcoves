@@ -63,7 +63,7 @@ describe("LibraryTabs", () => {
     const wrapper = mountTabs();
     const tabs = wrapper.findAll("[role='tab']");
     const filesTab = tabs.find((t) => t.text().includes("Files"));
-    expect(filesTab?.classes()).toContain("tab-active");
+    expect(filesTab?.classes().join(" ")).toMatch(/text-primary/);
   });
 
   it("marks Tags tab active on tags path", () => {
@@ -71,7 +71,7 @@ describe("LibraryTabs", () => {
     const wrapper = mountTabs();
     const tabs = wrapper.findAll("[role='tab']");
     const tagsTab = tabs.find((t) => t.text().includes("Tags"));
-    expect(tagsTab?.classes()).toContain("tab-active");
+    expect(tagsTab?.classes().join(" ")).toMatch(/text-primary/);
   });
 
   it("marks Trash tab active on trash path", () => {
@@ -79,7 +79,7 @@ describe("LibraryTabs", () => {
     const wrapper = mountTabs();
     const tabs = wrapper.findAll("[role='tab']");
     const trashTab = tabs.find((t) => t.text().includes("Trash"));
-    expect(trashTab?.classes()).toContain("tab-active");
+    expect(trashTab?.classes().join(" ")).toMatch(/text-primary/);
   });
 
   it("marks Settings tab active on settings path", () => {
@@ -87,7 +87,7 @@ describe("LibraryTabs", () => {
     const wrapper = mountTabs({ canManageLibrary: true });
     const tabs = wrapper.findAll("[role='tab']");
     const settingsTab = tabs.find((t) => t.text().includes("Settings"));
-    expect(settingsTab?.classes()).toContain("tab-active");
+    expect(settingsTab?.classes().join(" ")).toMatch(/text-primary/);
   });
 
   it("marks People tab active on people path", () => {
@@ -95,7 +95,7 @@ describe("LibraryTabs", () => {
     const wrapper = mountTabs({ faceRecognitionEnabled: true });
     const tabs = wrapper.findAll("[role='tab']");
     const peopleTab = tabs.find((t) => t.text().includes("People"));
-    expect(peopleTab?.classes()).toContain("tab-active");
+    expect(peopleTab?.classes().join(" ")).toMatch(/text-primary/);
   });
 
   it("generates correct tab links", () => {

@@ -28,10 +28,10 @@ const expanded = ref(true);
     >
       <div
         v-if="hasActiveUploads"
-        class="fixed bottom-4 right-4 z-50 w-96 bg-base-100 rounded-lg shadow-xl overflow-hidden"
+        class="fixed bottom-4 right-4 z-50 w-96 bg-default rounded-xl shadow-lg border border-default overflow-hidden"
       >
         <div
-          class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none bg-base-200"
+          class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none bg-elevated"
           @click="expanded = !expanded"
         >
           <span class="text-sm font-medium">
@@ -51,12 +51,14 @@ const expanded = ref(true);
 
         <div
           v-if="expanded && erroredUploads.length > 0"
-          class="flex items-center justify-between px-4 py-1.5 border-t border-base-300"
+          class="flex items-center justify-between px-4 py-1.5 border-t border-default"
         >
           <span class="text-xs text-error">{{ erroredUploads.length }} failed</span>
           <div class="flex gap-1">
-            <button class="btn btn-xs btn-ghost" @click="retryAll">Retry All</button>
-            <button class="btn btn-xs btn-ghost btn-error" @click="clearErrors">Clear</button>
+            <UButton color="neutral" variant="ghost" size="xs" @click="retryAll">
+              Retry All
+            </UButton>
+            <UButton color="error" variant="ghost" size="xs" @click="clearErrors">Clear</UButton>
           </div>
         </div>
 
@@ -64,7 +66,7 @@ const expanded = ref(true);
           <div
             v-for="item in activeUploads"
             :key="item.id"
-            class="px-2 py-2 rounded-md bg-base-200/60"
+            class="px-2 py-2 rounded-lg bg-elevated/60"
           >
             <div class="flex items-center justify-between mb-1">
               <span class="text-sm truncate flex-1 mr-2">{{ item.file.name }}</span>
@@ -72,17 +74,25 @@ const expanded = ref(true);
             </div>
 
             <div v-if="item.status === 'uploading'" class="flex items-center gap-2">
-              <progress class="progress flex-1" :value="item.progress" max="100"></progress>
+              <UProgress
+                class="flex-1"
+                :model-value="item.progress"
+                :max="100"
+                color="primary"
+                size="sm"
+              />
               <span class="text-xs text-muted w-8 text-right">{{ item.progress }}%</span>
             </div>
 
             <div v-else-if="item.status === 'error'" class="flex items-center justify-between">
               <span class="text-xs text-error">{{ item.error }}</span>
               <div class="flex gap-1">
-                <button class="btn btn-xs btn-ghost" @click="retryFile(item.id)">Retry</button>
-                <button class="btn btn-xs btn-ghost btn-error" @click="removeFile(item.id)">
+                <UButton color="neutral" variant="ghost" size="xs" @click="retryFile(item.id)">
+                  Retry
+                </UButton>
+                <UButton color="error" variant="ghost" size="xs" @click="removeFile(item.id)">
                   Remove
-                </button>
+                </UButton>
               </div>
             </div>
 

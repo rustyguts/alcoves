@@ -210,6 +210,17 @@ const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelec
   ],
 );
 
+// Build UDropdownMenu items for the "New" menu
+const newDropdownMenuItems = computed(() =>
+  newMenuItems.value.map((group) =>
+    group.map((item) => ({
+      label: item.label,
+      icon: item.icon,
+      onSelect: item.onSelect,
+    })),
+  ),
+);
+
 function openPreview(file: LibraryFile) {
   previewFile.value = file;
   previewOpen.value = true;
@@ -1073,94 +1084,98 @@ const emptyStateDescription = computed(() => {
   <div class="relative flex h-full flex-1 min-h-0 flex-col gap-4" v-bind="fileDropZoneProps">
     <div
       v-if="isFileDragActive"
-      class="absolute inset-0 z-30 rounded-lg border-2 border-dashed border-primary bg-primary/10 flex items-center justify-center pointer-events-none"
+      class="absolute inset-0 z-30 rounded-xl border-2 border-dashed border-primary bg-primary/10 flex items-center justify-center pointer-events-none"
     >
-      <div class="badge badge-primary badge-lg px-4 py-3 text-sm font-medium">
+      <UBadge
+        color="primary"
+        variant="solid"
+        size="lg"
+        icon="i-lucide-upload-cloud"
+        class="px-4 py-3 text-sm font-medium shadow-lg"
+      >
         Drop files to upload to this folder
-      </div>
+      </UBadge>
     </div>
 
     <div class="flex min-h-10 w-full items-center gap-2 pl-2 sm:pl-3 lg:pl-4">
       <div v-if="!showTrashed" class="min-w-0 flex-1">
-        <div class="breadcrumbs text-sm leading-tight">
-          <ul class="whitespace-nowrap">
-            <li v-for="(item, index) in breadcrumbItems" :key="item.id" class="min-w-0">
+        <nav class="text-sm leading-tight">
+          <ul class="flex items-center flex-wrap gap-x-1.5 whitespace-nowrap">
+            <li
+              v-for="(item, index) in breadcrumbItems"
+              :key="item.id"
+              class="min-w-0 flex items-center gap-1.5"
+            >
+              <UIcon
+                v-if="index > 0"
+                name="i-lucide-chevron-right"
+                class="size-3.5 text-muted shrink-0"
+              />
               <RouterLink
                 v-if="!item.isCurrent"
                 :to="item.to"
-                class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-base-content/70 transition-colors hover:text-primary"
+                class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-muted transition-colors hover:text-primary"
               >
-                <AppIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
+                <UIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
                 {{ item.label }}
               </RouterLink>
               <span
                 v-else
-                class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-base-content"
+                class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-default"
               >
-                <AppIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
+                <UIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
                 {{ item.label }}
               </span>
             </li>
           </ul>
-        </div>
+        </nav>
       </div>
       <div v-else class="min-w-0 flex-1" />
 
       <div class="flex shrink-0 items-center gap-2">
         <template v-if="!showTrashed">
-          <button
-            class="btn btn-soft btn-square btn-sm min-h-8 h-8 w-8 p-0"
-            :class="entryViewMode === 'file' ? 'btn-primary' : ''"
-            title="List view"
-            @click="entryViewMode = 'file'"
-          >
-            <AppIcon name="i-lucide-list" class="size-4" />
-          </button>
-          <button
-            class="btn btn-soft btn-square btn-sm min-h-8 h-8 w-8 p-0"
-            :class="entryViewMode === 'card' ? 'btn-primary' : ''"
-            title="Grid view"
-            @click="entryViewMode = 'card'"
-          >
-            <AppIcon name="i-lucide-layout-grid" class="size-4" />
-          </button>
+          <UTooltip text="List view">
+            <UButton
+              :color="entryViewMode === 'file' ? 'primary' : 'neutral'"
+              variant="soft"
+              size="sm"
+              square
+              icon="i-lucide-list"
+              @click="entryViewMode = 'file'"
+            />
+          </UTooltip>
+          <UTooltip text="Grid view">
+            <UButton
+              :color="entryViewMode === 'card' ? 'primary' : 'neutral'"
+              variant="soft"
+              size="sm"
+              square
+              icon="i-lucide-layout-grid"
+              @click="entryViewMode = 'card'"
+            />
+          </UTooltip>
         </template>
 
-        <button
+        <UButton
           v-if="showTrashed && !filesPending && totalCount > 0"
-          class="btn btn-soft btn-sm btn-error"
+          color="error"
+          variant="soft"
+          size="sm"
+          icon="i-lucide-trash-2"
           @click="openPurgeAllModal()"
         >
-          <AppIcon name="i-lucide-trash-2" class="size-4" />
           <span class="hidden sm:inline">Delete All</span>
-        </button>
+        </UButton>
 
-        <details
+        <UDropdownMenu
           v-if="canManageLibrary && !showTrashed"
-          ref="newDropdown"
-          class="dropdown dropdown-end relative z-40"
+          :items="newDropdownMenuItems"
+          :content="{ align: 'end' }"
         >
-          <summary class="btn btn-soft btn-sm btn-primary">
-            <AppIcon name="i-lucide-plus" class="size-4" />
+          <UButton color="primary" variant="soft" size="sm" icon="i-lucide-plus">
             <span class="hidden sm:inline">New</span>
-          </summary>
-          <ul class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow mt-2">
-            <li v-for="group in newMenuItems" :key="group.map((i) => i.label).join()">
-              <a
-                v-for="item in group"
-                :key="item.label"
-                href="#"
-                @click.prevent="
-                  item.onSelect();
-                  newDropdown!.open = false;
-                "
-              >
-                <AppIcon :name="item.icon" class="size-4" />
-                {{ item.label }}
-              </a>
-            </li>
-          </ul>
-        </details>
+          </UButton>
+        </UDropdownMenu>
       </div>
     </div>
 
@@ -1170,21 +1185,27 @@ const emptyStateDescription = computed(() => {
         class="flex min-h-64 items-center justify-center"
       >
         <div
-          class="inline-flex items-center gap-2 rounded-box border border-base-300/70 bg-base-100 px-3 py-2 text-sm text-base-content/70 shadow-sm"
+          class="inline-flex items-center gap-2 rounded-xl border border-default bg-elevated/70 px-3 py-2 text-sm text-muted shadow-sm"
         >
-          <AppIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+          <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
           Loading {{ showTrashed ? "trash" : "files" }}
         </div>
       </div>
 
       <div
         v-if="filesPending && (entries?.length ?? 0) > 0"
-        class="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-base-100/35 pt-6"
+        class="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-default/35 pt-6"
       >
-        <div class="badge badge-soft badge-primary gap-2 px-3 py-3">
-          <AppIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+        <UBadge
+          color="primary"
+          variant="soft"
+          size="md"
+          class="gap-2 px-3 py-3"
+          icon="i-lucide-loader-2"
+          :ui="{ leadingIcon: 'animate-spin' }"
+        >
           Loading
-        </div>
+        </UBadge>
       </div>
 
       <LibraryEntriesTable
@@ -1254,7 +1275,7 @@ const emptyStateDescription = computed(() => {
 
       <div ref="sentinel" class="h-px" />
       <div v-if="loadingMore" class="flex items-center justify-center py-4">
-        <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
       </div>
     </div>
 
@@ -1284,192 +1305,194 @@ const emptyStateDescription = computed(() => {
     />
 
     <!-- Create Folder Modal -->
-    <dialog class="modal" :class="{ 'modal-open': createFolderOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Create Folder</h3>
-        <div class="flex flex-col gap-4 mt-4">
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Folder name</legend>
-            <input
-              ref="createFolderInput"
-              v-model="createFolderName"
-              placeholder="New folder"
-              class="input w-full"
-              @keydown.enter="createFolder"
-            />
-          </fieldset>
+    <UModal v-model:open="createFolderOpen" title="Create Folder">
+      <template #body>
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium">Folder name</label>
+          <UInput
+            ref="createFolderInput"
+            v-model="createFolderName"
+            placeholder="New folder"
+            :ui="{ root: 'w-full' }"
+            @keydown.enter="createFolder"
+          />
         </div>
-        <div class="modal-action">
-          <button class="btn btn-soft btn-outline" @click="createFolderOpen = false">Cancel</button>
-          <button
-            class="btn btn-soft btn-primary"
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" variant="outline" @click="createFolderOpen = false">
+            Cancel
+          </UButton>
+          <UButton
+            color="primary"
+            variant="soft"
+            icon="i-lucide-folder-plus"
+            :loading="creatingFolder"
             :disabled="!createFolderName.trim() || creatingFolder"
             @click="createFolder"
           >
-            <span v-if="creatingFolder" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-folder-plus" class="size-4" />
             Create
-          </button>
+          </UButton>
         </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="createFolderOpen = false">close</button>
-      </form>
-    </dialog>
+      </template>
+    </UModal>
 
     <!-- Move Folder Modal -->
-    <dialog class="modal" :class="{ 'modal-open': moveFolderOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Move Folder</h3>
-        <div class="flex flex-col gap-4 mt-4">
+    <UModal v-model:open="moveFolderOpen" title="Move Folder">
+      <template #body>
+        <div class="flex flex-col gap-4">
           <p class="text-sm text-muted">
             Move
             <strong>{{ movingFolder?.name }}</strong>
             to a new location.
           </p>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Destination</legend>
-            <select v-model="moveDestinationValue" class="select w-full" :disabled="moveLoading">
-              <option v-for="item in moveDestinationOptions" :key="item.value" :value="item.value">
-                {{ item.label }}
-              </option>
-            </select>
-          </fieldset>
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-medium">Destination</label>
+            <USelect
+              v-model="moveDestinationValue"
+              :items="moveDestinationOptions"
+              :disabled="moveLoading"
+              class="w-full"
+            />
+          </div>
         </div>
-        <div class="modal-action">
-          <button class="btn btn-soft btn-outline" @click="moveFolderOpen = false">Cancel</button>
-          <button
-            class="btn btn-soft btn-primary"
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" variant="outline" @click="moveFolderOpen = false">
+            Cancel
+          </UButton>
+          <UButton
+            color="primary"
+            variant="soft"
+            icon="i-lucide-folder-input"
+            :loading="moveFolderSaving"
             :disabled="moveLoading || moveFolderSaving"
             @click="moveFolder"
           >
-            <span v-if="moveFolderSaving" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-folder-input" class="size-4" />
             Move
-          </button>
+          </UButton>
         </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="moveFolderOpen = false">close</button>
-      </form>
-    </dialog>
+      </template>
+    </UModal>
 
     <!-- Move Files Modal -->
-    <dialog class="modal" :class="{ 'modal-open': moveFilesOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Move Files</h3>
-        <div class="flex flex-col gap-4 mt-4">
+    <UModal v-model:open="moveFilesOpen" title="Move Files">
+      <template #body>
+        <div class="flex flex-col gap-4">
           <p class="text-sm text-muted">
             Move
             <strong>{{ moveFileCount }}</strong>
             {{ moveFileCount === 1 ? "file" : "files" }} to a new location.
           </p>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Destination</legend>
-            <select
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-medium">Destination</label>
+            <USelect
               v-model="moveFilesDestinationValue"
-              class="select w-full"
+              :items="moveFileDestinationOptions"
               :disabled="moveFilesLoading"
-            >
-              <option
-                v-for="item in moveFileDestinationOptions"
-                :key="item.value"
-                :value="item.value"
-              >
-                {{ item.label }}
-              </option>
-            </select>
-          </fieldset>
+              class="w-full"
+            />
+          </div>
         </div>
-        <div class="modal-action">
-          <button class="btn btn-soft btn-outline" @click="closeMoveFilesModal">Cancel</button>
-          <button
-            class="btn btn-soft btn-primary"
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" variant="outline" @click="closeMoveFilesModal"> Cancel </UButton>
+          <UButton
+            color="primary"
+            variant="soft"
+            icon="i-lucide-folder-input"
+            :loading="moveFilesSaving"
             :disabled="moveFilesLoading || moveFilesSaving"
             @click="moveFiles"
           >
-            <span v-if="moveFilesSaving" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-folder-input" class="size-4" />
             Move
-          </button>
+          </UButton>
         </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="closeMoveFilesModal">close</button>
-      </form>
-    </dialog>
+      </template>
+    </UModal>
 
     <!-- Permanently Delete Items Modal -->
-    <dialog class="modal" :class="{ 'modal-open': purgeModalOpen }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Permanently Delete Items</h3>
-        <div class="flex flex-col gap-4 mt-4">
-          <p class="text-sm text-muted">
-            This will permanently delete
-            <strong>{{ purgeFileCount }}</strong>
-            {{ purgeFileCount === 1 ? "item" : "items" }} from disk. This action cannot be undone.
-          </p>
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Type 'delete' to confirm</legend>
-            <input v-model="purgeConfirmation" placeholder="delete" class="input w-full" />
-          </fieldset>
+    <UModal v-model:open="purgeModalOpen" title="Permanently Delete Items">
+      <template #body>
+        <div class="flex flex-col gap-4">
+          <UAlert
+            color="error"
+            variant="soft"
+            icon="i-lucide-alert-triangle"
+            :title="`Delete ${purgeFileCount} ${purgeFileCount === 1 ? 'item' : 'items'}`"
+            description="This will permanently delete these items from disk. This action cannot be undone."
+          />
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-medium">Type 'delete' to confirm</label>
+            <UInput v-model="purgeConfirmation" placeholder="delete" :ui="{ root: 'w-full' }" />
+          </div>
         </div>
-        <div class="modal-action">
-          <button class="btn btn-soft btn-outline" @click="purgeModalOpen = false">Cancel</button>
-          <button
-            class="btn btn-soft btn-error"
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" variant="outline" @click="purgeModalOpen = false">
+            Cancel
+          </UButton>
+          <UButton
+            color="error"
+            variant="soft"
+            icon="i-lucide-trash-2"
             :disabled="purgeConfirmation !== 'delete'"
             @click="handlePermanentDelete"
           >
-            <AppIcon name="i-lucide-trash-2" class="size-4" />
             Delete Permanently
-          </button>
+          </UButton>
         </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="purgeModalOpen = false">close</button>
-      </form>
-    </dialog>
+      </template>
+    </UModal>
 
     <!-- Large Download Warning Modal -->
-    <dialog class="modal" :class="{ 'modal-open': showSizeWarning }">
-      <div class="modal-box">
-        <h3 class="text-lg font-bold">Large Download Warning</h3>
-        <div class="flex flex-col gap-3 mt-4">
-          <div
-            class="flex items-center gap-3 p-3 rounded-lg bg-warning/10 border border-warning/20"
-          >
-            <AppIcon name="i-lucide-alert-triangle" class="size-5 text-warning shrink-0" />
-            <p class="text-sm">This download is very large and may take a while.</p>
-          </div>
+    <UModal v-model:open="showSizeWarning" title="Large Download Warning">
+      <template #body>
+        <div class="flex flex-col gap-3">
+          <UAlert
+            color="warning"
+            variant="soft"
+            icon="i-lucide-alert-triangle"
+            description="This download is very large and may take a while."
+          />
           <div class="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p class="text-muted">Estimated Size</p>
-              <p class="font-medium">{{ formattedEstimatedSize }}</p>
+            <div class="rounded-xl border border-default bg-elevated/50 p-3">
+              <p class="text-muted text-xs uppercase tracking-wide">Estimated Size</p>
+              <p class="font-medium text-default mt-1">{{ formattedEstimatedSize }}</p>
             </div>
-            <div>
-              <p class="text-muted">Files</p>
-              <p class="font-medium">{{ estimatedFileCount.toLocaleString("en-US") }}</p>
+            <div class="rounded-xl border border-default bg-elevated/50 p-3">
+              <p class="text-muted text-xs uppercase tracking-wide">Files</p>
+              <p class="font-medium text-default mt-1">
+                {{ estimatedFileCount.toLocaleString("en-US") }}
+              </p>
             </div>
           </div>
         </div>
-        <div class="modal-action">
-          <button class="btn btn-soft btn-outline" @click="cancelLargeDownload">Cancel</button>
-          <button
-            class="btn btn-soft btn-primary"
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" variant="outline" @click="cancelLargeDownload"> Cancel </UButton>
+          <UButton
+            color="primary"
+            variant="soft"
+            icon="i-lucide-download"
+            :loading="zipDownloading"
             :disabled="zipDownloading"
             @click="confirmLargeDownload"
           >
-            <span v-if="zipDownloading" class="loading loading-spinner loading-xs"></span>
-            <AppIcon v-else name="i-lucide-download" class="size-4" />
             Download Anyway
-          </button>
+          </UButton>
         </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="cancelLargeDownload">close</button>
-      </form>
-    </dialog>
+      </template>
+    </UModal>
 
     <AppContextMenu
       :open="!!contextMenuEntry && !!contextMenuPosition"
@@ -1477,7 +1500,7 @@ const emptyStateDescription = computed(() => {
       @close="hideContextMenu"
     >
       <ul
-        class="menu dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl p-2 w-auto max-h-[calc(100vh-1rem)] overflow-y-auto"
+        class="rounded-xl bg-default border border-default shadow-xl p-2 w-auto max-h-[calc(100vh-1rem)] overflow-y-auto"
       >
         <ContextMenuItemsRenderer :groups="contextMenuGroups" @select="handleContextMenuSelect" />
       </ul>

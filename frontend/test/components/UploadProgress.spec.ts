@@ -48,13 +48,14 @@ const UIconStub = defineComponent({
 const UButtonStub = defineComponent({
   name: "UButton",
   props: {
-    label: {
-      type: String,
-      default: "",
-    },
+    label: { type: String, default: "" },
+    color: { type: String, default: "" },
+    variant: { type: String, default: "" },
+    size: { type: String, default: "" },
+    icon: { type: String, default: "" },
   },
   emits: ["click"],
-  template: `<button @click="$emit('click')">{{ label }}</button>`,
+  template: `<button @click="$emit('click')">{{ label }}<slot /></button>`,
 });
 
 const UProgressStub = defineComponent({
@@ -161,8 +162,8 @@ describe("UploadProgress", () => {
 
     const wrapper = mountComponent();
 
-    const retry = wrapper.findAll("button").find((el) => el.text() === "Retry");
-    const remove = wrapper.findAll("button").find((el) => el.text() === "Remove");
+    const retry = wrapper.findAll("button").find((el) => el.text().trim() === "Retry");
+    const remove = wrapper.findAll("button").find((el) => el.text().trim() === "Remove");
 
     await retry?.trigger("click");
     await remove?.trigger("click");

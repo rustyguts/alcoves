@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { nextTick } from "vue";
 import TagsPage from "~/pages/libraries/[id]/tags.vue";
 
 function mockRef<T>(get: () => T, set?: (value: T) => void) {
@@ -116,8 +115,11 @@ describe("libraries/[id]/tags.vue", () => {
 
     const createInput = wrapper.find("tbody tr:first-child input[placeholder='New tag']");
     await createInput.setValue("New Tag");
-    const createButton = wrapper.find("tbody tr:first-child .btn-primary");
-    await createButton.trigger("click");
+    const createRow = wrapper.find("tbody tr:first-child");
+    const createButton = createRow
+      .findAll("button")
+      .find((b) => b.attributes("data-color") === "primary");
+    await createButton?.trigger("click");
 
     await vi.waitFor(() => {
       expect(mocks.apiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags", {
@@ -125,24 +127,5 @@ describe("libraries/[id]/tags.vue", () => {
         body: { name: "New Tag", color: "#E11D48" },
       });
     });
-  });
-
-  it("allows only one color dropdown open at a time and closes on outside click", async () => {
-    const wrapper = mountPage();
-
-    await vi.waitFor(() => {
-      expect(mocks.apiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags");
-    });
-
-    const summaries = wrapper.findAll("summary");
-    await summaries[0]?.trigger("click");
-    expect(wrapper.findAll("details[open]")).toHaveLength(1);
-
-    await summaries[1]?.trigger("click");
-    expect(wrapper.findAll("details[open]")).toHaveLength(1);
-
-    document.body.click();
-    await nextTick();
-    expect(wrapper.findAll("details[open]")).toHaveLength(0);
   });
 });

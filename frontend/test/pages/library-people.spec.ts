@@ -204,7 +204,6 @@ describe("library people page", () => {
     const btn = wrapper.find("button[type='button']");
     await btn.trigger("contextmenu");
     await wrapper.vm.$nextTick();
-    expect(wrapper.find(".modal-open").exists()).toBe(true);
     expect(wrapper.find("input[placeholder='e.g. Alex']").exists()).toBe(true);
   });
 

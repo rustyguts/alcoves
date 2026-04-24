@@ -1,88 +1,45 @@
-export const daisyThemes = [
-  "light",
-  "dark",
-  "cupcake",
-  "bumblebee",
-  "emerald",
-  "corporate",
-  "synthwave",
-  "retro",
-  "cyberpunk",
-  "valentine",
-  "halloween",
-  "garden",
-  "forest",
-  "aqua",
-  "lofi",
-  "pastel",
-  "fantasy",
-  "wireframe",
-  "black",
-  "luxury",
-  "dracula",
-  "cmyk",
-  "autumn",
-  "business",
-  "acid",
-  "lemonade",
-  "night",
-  "coffee",
-  "winter",
-  "dim",
-  "nord",
-  "sunset",
-  "caramellatte",
-  "abyss",
-  "silk",
-] as const;
+import { ref, computed, watch } from "vue";
 
-export type DaisyTheme = (typeof daisyThemes)[number];
+export type ColorPreference = "auto" | "light" | "dark";
 
 const STORAGE_KEY = "alcoves.theme";
 
-const preference = ref<DaisyTheme | "auto">(
-  (localStorage.getItem(STORAGE_KEY) as DaisyTheme | "auto") || "auto",
+const preference = ref<ColorPreference>(
+  (localStorage.getItem(STORAGE_KEY) as ColorPreference) || "auto",
 );
 
-function getSystemTheme(): DaisyTheme {
+function getSystemTheme(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-const resolvedTheme = computed<DaisyTheme>(() =>
+const theme = computed<"light" | "dark">(() =>
   preference.value === "auto" ? getSystemTheme() : preference.value,
 );
 
-function applyTheme(theme: DaisyTheme) {
-  document.documentElement.setAttribute("data-theme", theme);
+function applyTheme(mode: "light" | "dark") {
+  const el = document.documentElement;
+  el.classList.toggle("dark", mode === "dark");
+  el.classList.toggle("light", mode === "light");
+  el.style.colorScheme = mode;
 }
 
-// Apply on load
-applyTheme(resolvedTheme.value);
+applyTheme(theme.value);
 
-// React to changes
 watch(preference, (next) => {
   if (next === "auto") {
     localStorage.removeItem(STORAGE_KEY);
   } else {
     localStorage.setItem(STORAGE_KEY, next);
   }
-  applyTheme(resolvedTheme.value);
+  applyTheme(theme.value);
 });
 
-// Listen for system theme changes when in auto mode
 if (typeof window !== "undefined") {
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-    if (preference.value === "auto") {
-      applyTheme(resolvedTheme.value);
-    }
+    if (preference.value === "auto") applyTheme(theme.value);
   });
 }
 
 export function useTheme() {
-  return {
-    /** The resolved (effective) theme name */
-    theme: resolvedTheme,
-    /** The user preference: a theme name or "auto" */
-    preference,
-  };
+  return { theme, preference };
 }

@@ -510,17 +510,21 @@ describe("library index page", () => {
 
   it("shows list/grid view toggle buttons", () => {
     const wrapper = mountPage();
-    const listBtn = wrapper.find("button[title='List view']");
-    const gridBtn = wrapper.find("button[title='Grid view']");
-    expect(listBtn.exists()).toBe(true);
-    expect(gridBtn.exists()).toBe(true);
+    const buttons = wrapper.findAll("button");
+    const listBtn = buttons.find((b) => b.attributes("data-icon") === "i-lucide-list");
+    const gridBtn = buttons.find((b) => b.attributes("data-icon") === "i-lucide-layout-grid");
+    expect(listBtn).toBeDefined();
+    expect(gridBtn).toBeDefined();
   });
 
   it("hides view toggle buttons in trash mode", () => {
     mocks.showTrashed = true;
     const wrapper = mountPage();
-    expect(wrapper.find("button[title='List view']").exists()).toBe(false);
-    expect(wrapper.find("button[title='Grid view']").exists()).toBe(false);
+    const buttons = wrapper.findAll("button");
+    const listBtn = buttons.find((b) => b.attributes("data-icon") === "i-lucide-list");
+    const gridBtn = buttons.find((b) => b.attributes("data-icon") === "i-lucide-layout-grid");
+    expect(listBtn).toBeUndefined();
+    expect(gridBtn).toBeUndefined();
   });
 
   it("shows Delete All button in trash mode with items", () => {
@@ -558,14 +562,18 @@ describe("library index page", () => {
   it("highlights list view button when in file mode", () => {
     mocks.entryViewMode = "file";
     const wrapper = mountPage();
-    const listBtn = wrapper.find("button[title='List view']");
-    expect(listBtn.classes()).toContain("btn-primary");
+    const listBtn = wrapper
+      .findAll("button")
+      .find((b) => b.attributes("data-icon") === "i-lucide-list");
+    expect(listBtn?.attributes("data-color")).toBe("primary");
   });
 
   it("highlights grid view button when in card mode", () => {
     mocks.entryViewMode = "card";
     const wrapper = mountPage();
-    const gridBtn = wrapper.find("button[title='Grid view']");
-    expect(gridBtn.classes()).toContain("btn-primary");
+    const gridBtn = wrapper
+      .findAll("button")
+      .find((b) => b.attributes("data-icon") === "i-lucide-layout-grid");
+    expect(gridBtn?.attributes("data-color")).toBe("primary");
   });
 });

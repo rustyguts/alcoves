@@ -63,14 +63,16 @@ onUnmounted(() => window.removeEventListener("resize", clampPosition));
     >
       <div
         ref="panelRef"
-        class="dropdown dropdown-open absolute z-50"
+        class="absolute z-50 min-w-44 rounded-lg bg-default border border-default shadow-lg p-1"
         :style="{
           left: `${adjustedPosition.x}px`,
           top: `${adjustedPosition.y}px`,
         }"
         @click.stop
       >
-        <slot />
+        <ul class="flex flex-col">
+          <slot />
+        </ul>
       </div>
     </div>
   </Teleport>

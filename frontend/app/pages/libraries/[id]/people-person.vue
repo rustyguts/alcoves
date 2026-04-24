@@ -161,11 +161,10 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 p-2">
-    <div class="flex items-center gap-2">
-      <button class="btn btn-sm btn-ghost" @click="goBack">
-        <AppIcon name="i-lucide-arrow-left" class="size-4" />
+    <div class="flex items-center gap-3">
+      <UButton color="neutral" variant="ghost" size="sm" icon="i-lucide-arrow-left" @click="goBack">
         Back
-      </button>
+      </UButton>
       <div class="min-w-0">
         <p class="text-sm font-semibold truncate">{{ personLabel }}</p>
         <p class="text-xs text-muted">
@@ -175,12 +174,12 @@ onMounted(() => {
     </div>
 
     <div v-if="loading" class="flex items-center justify-center py-16">
-      <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+      <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
     </div>
 
     <div v-else-if="!person" class="flex flex-col items-center justify-center py-16 px-4 gap-3">
       <p class="text-sm text-muted">Person not found in this library</p>
-      <button class="btn btn-sm btn-primary" @click="goBack">Back to People</button>
+      <UButton color="primary" size="sm" @click="goBack">Back to People</UButton>
     </div>
 
     <div
@@ -190,7 +189,7 @@ onMounted(() => {
       <div
         v-for="face in faces"
         :key="face.id"
-        class="relative overflow-hidden rounded-box border border-base-300 bg-base-200 cursor-pointer"
+        class="relative overflow-hidden rounded-xl border border-default bg-elevated cursor-pointer transition hover:border-accented"
         @click="openFacePreview(face)"
         @contextmenu="showFaceContextMenu(face, $event)"
       >
@@ -206,7 +205,7 @@ onMounted(() => {
           v-if="actionFaceId === face.id"
           class="absolute inset-0 bg-black/40 flex items-center justify-center"
         >
-          <span class="loading loading-spinner loading-sm text-white"></span>
+          <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white" />
         </div>
       </div>
     </div>
@@ -220,22 +219,24 @@ onMounted(() => {
       :position="contextMenuPosition"
       @close="hideFaceContextMenu"
     >
-      <ul
-        class="menu menu-sm dropdown-content rounded-box bg-base-100 border border-base-300/70 shadow-xl min-w-56 p-2"
-      >
-        <li>
-          <button type="button" @click="handleFaceAction('update-cover')">
-            <AppIcon name="i-lucide-image-up" class="size-4 shrink-0" />
-            <span>Update cover photo</span>
-          </button>
-        </li>
-        <li>
-          <button type="button" @click="handleFaceAction('new-person')">
-            <AppIcon name="i-lucide-user-round-plus" class="size-4 shrink-0" />
-            <span>New person</span>
-          </button>
-        </li>
-      </ul>
+      <div class="rounded-xl bg-default border border-default shadow-xl min-w-56 p-1 flex flex-col">
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-default hover:bg-elevated transition"
+          @click="handleFaceAction('update-cover')"
+        >
+          <UIcon name="i-lucide-image-up" class="size-4 shrink-0" />
+          <span>Update cover photo</span>
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-default hover:bg-elevated transition"
+          @click="handleFaceAction('new-person')"
+        >
+          <UIcon name="i-lucide-user-round-plus" class="size-4 shrink-0" />
+          <span>New person</span>
+        </button>
+      </div>
     </AppContextMenu>
 
     <FilePreview

@@ -72,47 +72,50 @@ async function createClip() {
       </p>
 
       <div class="grid grid-cols-2 gap-3">
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">Start Time (seconds)</legend>
-          <input
+        <UFormField label="Start Time (seconds)">
+          <UInput
             v-model.number="startTime"
             type="number"
             min="0"
             :max="endTime"
             step="0.1"
-            class="input w-full"
+            :ui="{ root: 'w-full' }"
           />
-          <p class="label">{{ formatTime(startTime) }}</p>
-        </fieldset>
-        <fieldset class="fieldset">
-          <legend class="fieldset-legend">End Time (seconds)</legend>
-          <input
+          <template #help>{{ formatTime(startTime) }}</template>
+        </UFormField>
+        <UFormField label="End Time (seconds)">
+          <UInput
             v-model.number="endTime"
             type="number"
             :min="startTime"
             :max="file.duration ?? 9999"
             step="0.1"
-            class="input w-full"
+            :ui="{ root: 'w-full' }"
           />
-          <p class="label">{{ formatTime(endTime) }}</p>
-        </fieldset>
+          <template #help>{{ formatTime(endTime) }}</template>
+        </UFormField>
       </div>
 
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend">Clip Name (optional)</legend>
-        <input
+      <UFormField label="Clip Name (optional)">
+        <UInput
           v-model="clipName"
-          class="input w-full"
           :placeholder="`${file.name.replace(/\.[^.]+$/, '')}_clip`"
+          :ui="{ root: 'w-full' }"
         />
-      </fieldset>
+      </UFormField>
 
       <div class="flex justify-end gap-2 pt-2">
-        <button class="btn btn-soft btn-sm" @click="open = false">Cancel</button>
-        <button class="btn btn-soft btn-sm btn-primary" :disabled="loading" @click="createClip">
-          <span v-if="loading" class="loading loading-spinner loading-xs"></span>
+        <UButton color="neutral" variant="soft" size="sm" @click="open = false">Cancel</UButton>
+        <UButton
+          color="primary"
+          variant="soft"
+          size="sm"
+          :loading="loading"
+          :disabled="loading"
+          @click="createClip"
+        >
           Create Clip
-        </button>
+        </UButton>
       </div>
     </div>
   </AppModal>
