@@ -1,0 +1,235 @@
+package handlers
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
+
+	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
+	"github.com/alcoves/alcoves-backend/internal/services/storage"
+)
+
+// ShareHandler exposes public moment share endpoints. The HTML landing page is
+// rendered by the Nuxt frontend; this handler only serves API data (metadata,
+// video bytes, thumbnail redirect).
+type ShareHandler struct {
+	db      *gorm.DB
+	storage *storage.Service
+	baseURL string
+}
+
+func NewShareHandler(db *gorm.DB, storageSvc *storage.Service, baseURL string) *ShareHandler {
+	return &ShareHandler{db: db, storage: storageSvc, baseURL: baseURL}
+}
+
+// RegisterRoutes mounts the public share endpoints under the provided group
+// (typically /api/share). All routes bypass session auth via auth middleware
+// allowlist.
+func (h *ShareHandler) RegisterRoutes(g *echo.Group) {
+	g.GET("/:token", h.Metadata)
+	g.GET("/:token/video", h.Video)
+	g.GET("/:token/thumbnail", h.Thumbnail)
+}
+
+type shareMetadataResponse struct {
+	Token        string `json:"token"`
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	ShareURL     string `json:"shareUrl"`
+	AppURL       string `json:"appUrl"`
+	VideoURL     string `json:"videoUrl,omitempty"`
+	ThumbnailURL string `json:"thumbnailUrl,omitempty"`
+	Ready        bool   `json:"ready"`
+}
+
+type resolvedShare struct {
+	share  models.MomentShare
+	moment models.Moment
+	file   models.File
+}
+
+func (h *ShareHandler) resolve(token string) (*resolvedShare, error) {
+	var share models.MomentShare
+	if err := h.db.Where("token = ? AND revoked_at IS NULL", token).First(&share).Error; err != nil {
+		return nil, err
+	}
+	var moment models.Moment
+	if err := h.db.Where("id = ? AND trashed_at IS NULL", share.MomentID).First(&moment).Error; err != nil {
+		return nil, err
+	}
+	var file models.File
+	if err := h.db.Where("id = ? AND trashed_at IS NULL", moment.FileID).First(&file).Error; err != nil {
+		return nil, err
+	}
+	return &resolvedShare{share: share, moment: moment, file: file}, nil
+}
+
+// Metadata returns JSON describing a share, consumed by Nuxt SSR to render the landing page.
+func (h *ShareHandler) Metadata(c echo.Context) error {
+	token := c.Param("token")
+	if token == "" {
+		return echo.NewHTTPError(http.StatusNotFound, "Not found")
+	}
+
+	rs, err := h.resolve(token)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "Share not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+	}
+
+	base := h.resolveBase(c)
+
+	ready := rs.moment.ExportedVersion != nil &&
+		rs.moment.ExportStatus != nil &&
+		*rs.moment.ExportStatus == "ready"
+
+	resp := shareMetadataResponse{
+		Token:       token,
+		Title:       firstNonEmpty(rs.moment.Name, rs.file.Name, "Moment"),
+		Description: rs.moment.Description,
+		ShareURL:    base + "/s/" + token,
+		AppURL:      base,
+		Ready:       ready,
+	}
+	if ready {
+		resp.VideoURL = base + "/api/share/" + token + "/video"
+		resp.ThumbnailURL = base + "/api/share/" + token + "/thumbnail"
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+// Video streams the cached exported MP4 with HTTP Range support.
+func (h *ShareHandler) Video(c echo.Context) error {
+	token := c.Param("token")
+	rs, err := h.resolve(token)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "Not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+	}
+	if rs.moment.ExportedVersion == nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Export not ready")
+	}
+
+	cacheKey := momentexport.CacheKey(
+		rs.moment.LibraryID.String(),
+		rs.moment.ID.String(),
+		*rs.moment.ExportedVersion,
+	)
+	size, err := h.storage.CacheStat(cacheKey)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Export file missing")
+	}
+
+	etag := fmt.Sprintf(`"v%d"`, *rs.moment.ExportedVersion)
+	c.Response().Header().Set("Accept-Ranges", "bytes")
+	c.Response().Header().Set("Content-Type", "video/mp4")
+	c.Response().Header().Set("Cache-Control", "private, max-age=60")
+	c.Response().Header().Set("ETag", etag)
+
+	rangeHeader := c.Request().Header.Get("Range")
+	if rangeHeader == "" {
+		c.Response().Header().Set("Content-Length", strconv.FormatInt(size, 10))
+		reader, err := h.storage.OpenCacheReadStream(cacheKey)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read export")
+		}
+		defer reader.Close()
+		c.Response().WriteHeader(http.StatusOK)
+		_, _ = io.Copy(c.Response(), reader)
+		return nil
+	}
+
+	matches := rangeRegex.FindStringSubmatch(rangeHeader)
+	if matches == nil {
+		return echo.NewHTTPError(http.StatusRequestedRangeNotSatisfiable, "Invalid range")
+	}
+	start, _ := strconv.ParseInt(matches[1], 10, 64)
+	var end int64
+	if matches[2] != "" {
+		end, _ = strconv.ParseInt(matches[2], 10, 64)
+	} else {
+		end = size - 1
+	}
+	if start >= size {
+		c.Response().Header().Set("Content-Range", fmt.Sprintf("bytes */%d", size))
+		return c.NoContent(http.StatusRequestedRangeNotSatisfiable)
+	}
+	if end >= size {
+		end = size - 1
+	}
+	reader, err := h.storage.OpenCacheReadStreamRange(cacheKey, &storage.ByteRange{Start: start, End: end})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read range")
+	}
+	defer reader.Close()
+	length := end - start + 1
+	c.Response().Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, size))
+	c.Response().Header().Set("Content-Length", strconv.FormatInt(length, 10))
+	c.Response().WriteHeader(http.StatusPartialContent)
+	_, _ = io.Copy(c.Response(), reader)
+	return nil
+}
+
+// Thumbnail redirects to the file proxy for a reasonable thumbnail image.
+func (h *ShareHandler) Thumbnail(c echo.Context) error {
+	token := c.Param("token")
+	rs, err := h.resolve(token)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "Not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+	}
+
+	thumbID := rs.file.ID
+	if rs.file.ThumbnailFileID != nil {
+		thumbID = *rs.file.ThumbnailFileID
+	}
+	url := fmt.Sprintf("/api/files/proxy/%s/%s?format=jpeg&width=1280&height=720&quality=75",
+		rs.file.LibraryID.String(), thumbID.String())
+	return c.Redirect(http.StatusFound, url)
+}
+
+// resolveBase picks the user-facing origin used when building share URLs.
+func (h *ShareHandler) resolveBase(c echo.Context) string {
+	req := c.Request()
+	if fwdHost := strings.TrimSpace(req.Header.Get("X-Forwarded-Host")); fwdHost != "" {
+		proto := strings.TrimSpace(req.Header.Get("X-Forwarded-Proto"))
+		if proto == "" {
+			proto = c.Scheme()
+		}
+		if proto == "" {
+			proto = "http"
+		}
+		return proto + "://" + fwdHost
+	}
+	if h.baseURL != "" {
+		return strings.TrimRight(h.baseURL, "/")
+	}
+	scheme := c.Scheme()
+	if scheme == "" {
+		scheme = "http"
+	}
+	return scheme + "://" + req.Host
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}

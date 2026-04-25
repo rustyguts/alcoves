@@ -21,6 +21,7 @@ export interface MockLibrary {
   currentUserRole?: Role | null;
   faceRecognitionEnabled: boolean;
   objectDetectionEnabled: boolean;
+  sharingEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -169,6 +170,27 @@ export interface MockState {
   people: MockPerson[];
   objectLabels: MockObjectLabel[];
   sessions: MockSession[];
+  moments: MockMoment[];
   searchResults?: (query: string) => { query: string; totalCount: number; results: unknown[] };
   overrides: RouteHandler[];
+}
+
+export interface MockMoment {
+  id: string;
+  libraryId: string;
+  fileId: string;
+  createdById: string;
+  name: string;
+  description: string;
+  startSeconds: number;
+  endSeconds: number;
+  exportStatus: string | null;
+  exportProgress: number | null;
+  exportEtaSeconds: number | null;
+  exportVersion: number;
+  exportedVersion: number | null;
+  trashedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tags: MockTag[];
 }

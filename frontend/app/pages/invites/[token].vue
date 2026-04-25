@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { useRouter, useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
 import UserAvatar from "~/components/UserAvatar.vue";
 import type { InviteLookupResponse } from "~~/shared/types/api";
+
+definePageMeta({ layout: "dashboard" });
 
 const router = useRouter();
 const route = useRoute();
@@ -18,7 +19,7 @@ const {
   refresh,
 } = useApiFetch<InviteLookupResponse>(() => `/api/invites/${token.value}`);
 
-const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
+const { refreshLibraries } = useLibrariesList();
 
 const inviteTitle = computed(() => {
   if (!invite.value) return "Library invite";
@@ -67,7 +68,7 @@ async function acceptInvite() {
   accepting.value = true;
   try {
     const result = await api.invites.accept(token.value);
-    await refreshLibraries?.();
+    await refreshLibraries();
     toast.add({ title: `Joined ${result.libraryName}`, color: "success" });
     router.push(`/libraries/${result.libraryId}`);
   } catch (err: unknown) {

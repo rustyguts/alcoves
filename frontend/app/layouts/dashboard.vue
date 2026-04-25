@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
@@ -12,6 +11,8 @@ const router = useRouter();
 const route = useRoute();
 
 const { data: libraries, refresh: refreshLibraries } = useApiFetch<Library[]>("/api/libraries");
+const { register } = useLibrariesList();
+register(refreshLibraries);
 
 const globalSearchQuery = ref("");
 const sidebarOpen = ref(false);
@@ -34,14 +35,20 @@ function submitGlobalSearch() {
   router.push(q ? { path: "/search", query: { q } } : { path: "/search" });
 }
 
+function isActive(to: string): boolean {
+  return route.path === to || route.path.startsWith(`${to}/`);
+}
+
 const defaultLibraryItems = computed<NavigationMenuItem[]>(() => {
   const def = libraries.value?.find((l) => l.isDefault);
   if (!def) return [];
+  const to = `/libraries/${def.id}`;
   return [
     {
       label: def.emoji ? `${def.emoji}  ${def.name}` : def.name,
       icon: def.emoji ? undefined : "i-lucide-library",
-      to: `/libraries/${def.id}`,
+      to,
+      active: isActive(to),
     },
   ];
 });
@@ -50,11 +57,15 @@ const libraryItems = computed<NavigationMenuItem[]>(() => {
   return (
     libraries.value
       ?.filter((l) => !l.isDefault)
-      .map((l) => ({
-        label: l.emoji ? `${l.emoji}  ${l.name}` : l.name,
-        icon: l.emoji ? undefined : "i-lucide-folder",
-        to: `/libraries/${l.id}`,
-      })) ?? []
+      .map((l) => {
+        const to = `/libraries/${l.id}`;
+        return {
+          label: l.emoji ? `${l.emoji}  ${l.name}` : l.name,
+          icon: l.emoji ? undefined : "i-lucide-folder",
+          to,
+          active: isActive(to),
+        };
+      }) ?? []
   );
 });
 
@@ -65,11 +76,7 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
       label: "Admin",
       icon: "i-lucide-shield-check",
       to: "/admin",
-    },
-    {
-      label: "Settings",
-      icon: "i-lucide-settings",
-      to: "/settings",
+      active: isActive("/admin"),
     },
   ];
 });
@@ -78,7 +85,7 @@ const userMenuItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
       label: user.value?.displayName ?? "User",
-      avatar: { src: user.value?.avatarUrl ?? undefined, text: user.value?.displayName ?? "U" },
+      avatar: { src: user.value?.avatarUrl ? apiUrl(user.value.avatarUrl) : undefined, text: user.value?.displayName?.charAt(0).toUpperCase() ?? "U" },
       type: "label",
     },
   ],
@@ -86,12 +93,7 @@ const userMenuItems = computed<DropdownMenuItem[][]>(() => [
     {
       label: "Profile",
       icon: "i-lucide-user",
-      to: "/profile",
-    },
-    {
-      label: "Settings",
-      icon: "i-lucide-settings",
-      to: "/settings",
+      onSelect: () => router.push("/profile"),
     },
   ],
   [
@@ -111,11 +113,10 @@ async function createLibrary() {
   await refreshLibraries();
 }
 
-provide("refreshLibraries", refreshLibraries);
 </script>
 
 <template>
-  <div class="h-full flex bg-neutral-50 dark:bg-neutral-950">
+  <div class="h-screen flex overflow-hidden bg-neutral-50 dark:bg-neutral-950">
     <!-- Mobile sidebar slideover -->
     <USlideover v-model:open="sidebarOpen" side="left" :ui="{ content: 'w-72' }">
       <template #content>

@@ -1,4 +1,4 @@
-import { apiFetch } from "~/utils/api-fetch";
+import { apiFetch, apiUrl } from "~/utils/api-fetch";
 import type {
   AuthUser,
   AuthProvidersResponse,
@@ -18,6 +18,14 @@ import type {
   InviteLookupResponse,
   AdminStats,
   AdminUser,
+  Moment,
+  MomentCreate,
+  MomentPatch,
+  MomentShare,
+  AudioDetection,
+  HighlightFilter,
+  HighlightFilterCreate,
+  HighlightFilterPatch,
 } from "~~/shared/types/api";
 
 // ─── Auth ──────────────────────────────────────────────
@@ -95,6 +103,7 @@ const libraries = {
       emoji?: string;
       faceRecognitionEnabled?: boolean;
       objectDetectionEnabled?: boolean;
+      sharingEnabled?: boolean;
     },
   ) {
     return apiFetch<Library>(`/api/libraries/${libraryId}`, { method: "PATCH", body });
@@ -169,16 +178,32 @@ const files = {
     });
   },
 
-  /** POST /api/libraries/:id/files/:fileId/clip */
-  clip(
-    libraryId: string,
-    fileId: string,
-    body: { startTime: number; endTime: number; name?: string },
-  ) {
-    return apiFetch<void>(`/api/libraries/${libraryId}/files/${fileId}/clip`, {
+  /** POST /api/libraries/:id/files/:fileId/transcribe */
+  transcribe(libraryId: string, fileId: string) {
+    return apiFetch<LibraryFile>(`/api/libraries/${libraryId}/files/${fileId}/transcribe`, {
       method: "POST",
-      body,
     });
+  },
+
+  /** GET /api/libraries/:id/files/:fileId/transcript */
+  transcript(libraryId: string, fileId: string) {
+    return apiFetch<{ text: string; vtt: string; model: string }>(
+      `/api/libraries/${libraryId}/files/${fileId}/transcript`,
+    );
+  },
+
+  /** POST /api/libraries/:id/files/:fileId/audio-detect */
+  audioDetect(libraryId: string, fileId: string) {
+    return apiFetch<LibraryFile>(`/api/libraries/${libraryId}/files/${fileId}/audio-detect`, {
+      method: "POST",
+    });
+  },
+
+  /** GET /api/libraries/:id/files/:fileId/audio-detections */
+  audioDetections(libraryId: string, fileId: string) {
+    return apiFetch<AudioDetection[]>(
+      `/api/libraries/${libraryId}/files/${fileId}/audio-detections`,
+    );
   },
 
   /** POST /api/libraries/:id/files/video-thumbnails/reprocess */
@@ -286,6 +311,38 @@ const tags = {
   },
 } as const;
 
+// ─── Highlight filters ─────────────────────────────────
+
+const highlightFilters = {
+  /** GET /api/libraries/:id/highlight-filters */
+  list(libraryId: string) {
+    return apiFetch<HighlightFilter[]>(`/api/libraries/${libraryId}/highlight-filters`);
+  },
+
+  /** POST /api/libraries/:id/highlight-filters */
+  create(libraryId: string, body: HighlightFilterCreate) {
+    return apiFetch<HighlightFilter>(`/api/libraries/${libraryId}/highlight-filters`, {
+      method: "POST",
+      body,
+    });
+  },
+
+  /** PATCH /api/libraries/:id/highlight-filters/:filterId */
+  update(libraryId: string, filterId: string, body: HighlightFilterPatch) {
+    return apiFetch<HighlightFilter>(
+      `/api/libraries/${libraryId}/highlight-filters/${filterId}`,
+      { method: "PATCH", body },
+    );
+  },
+
+  /** DELETE /api/libraries/:id/highlight-filters/:filterId */
+  remove(libraryId: string, filterId: string) {
+    return apiFetch<void>(`/api/libraries/${libraryId}/highlight-filters/${filterId}`, {
+      method: "DELETE",
+    });
+  },
+} as const;
+
 // ─── Members ───────────────────────────────────────────
 
 const members = {
@@ -378,7 +435,7 @@ const people = {
   /** URL builder: /api/libraries/:id/people/:personId/thumbnail */
   thumbnailUrl(libraryId: string, personId: string, version?: string) {
     const v = version ? `?v=${encodeURIComponent(version)}` : "";
-    return `/api/libraries/${libraryId}/people/${personId}/thumbnail${v}`;
+    return apiUrl(`/api/libraries/${libraryId}/people/${personId}/thumbnail${v}`);
   },
 } as const;
 
@@ -480,6 +537,92 @@ const admin = {
   // Note: GET /api/admin/jobs/stream is SSE, not wrapped here.
 } as const;
 
+// ─── Moments ───────────────────────────────────────────
+
+const moments = {
+  /** GET /api/libraries/:id/files/:fileId/moments */
+  list(libraryId: string, fileId: string) {
+    return apiFetch<Moment[]>(`/api/libraries/${libraryId}/files/${fileId}/moments`);
+  },
+
+  /** POST /api/libraries/:id/files/:fileId/moments */
+  create(libraryId: string, fileId: string, body: MomentCreate) {
+    return apiFetch<Moment>(`/api/libraries/${libraryId}/files/${fileId}/moments`, {
+      method: "POST",
+      body,
+    });
+  },
+
+  /** GET /api/libraries/:id/files/:fileId/moments/:momentId */
+  get(libraryId: string, fileId: string, momentId: string) {
+    return apiFetch<Moment>(
+      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}`,
+    );
+  },
+
+  /** PATCH /api/libraries/:id/files/:fileId/moments/:momentId */
+  update(libraryId: string, fileId: string, momentId: string, body: MomentPatch) {
+    return apiFetch<Moment>(
+      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}`,
+      { method: "PATCH", body },
+    );
+  },
+
+  /** DELETE /api/libraries/:id/files/:fileId/moments/:momentId */
+  delete(libraryId: string, fileId: string, momentId: string) {
+    return apiFetch<void>(
+      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}`,
+      { method: "DELETE" },
+    );
+  },
+
+  /** PUT /api/libraries/:id/files/:fileId/moments/:momentId/tags */
+  syncTags(libraryId: string, fileId: string, momentId: string, tagIds: string[]) {
+    return apiFetch<Moment>(
+      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}/tags`,
+      { method: "PUT", body: { tagIds } },
+    );
+  },
+
+  /** POST /api/libraries/:id/files/:fileId/moments/:momentId/export */
+  export(libraryId: string, fileId: string, momentId: string) {
+    return apiFetch<Moment>(
+      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}/export`,
+      { method: "POST" },
+    );
+  },
+
+  /** Download URL (browser navigates to this) */
+  downloadUrl(libraryId: string, fileId: string, momentId: string): string {
+    return apiUrl(
+      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}/download`,
+    );
+  },
+
+  /** POST /api/libraries/:id/files/:fileId/moments/:momentId/shares */
+  createShare(libraryId: string, fileId: string, momentId: string) {
+    return apiFetch<MomentShare>(
+      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}/shares`,
+      { method: "POST" },
+    );
+  },
+
+  /** GET /api/libraries/:id/files/:fileId/moments/:momentId/shares */
+  listShares(libraryId: string, fileId: string, momentId: string) {
+    return apiFetch<MomentShare[]>(
+      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}/shares`,
+    );
+  },
+
+  /** DELETE /api/libraries/:id/files/:fileId/moments/:momentId/shares/:token */
+  revokeShare(libraryId: string, fileId: string, momentId: string, token: string) {
+    return apiFetch<void>(
+      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}/shares/${token}`,
+      { method: "DELETE" },
+    );
+  },
+} as const;
+
 // ─── Combined export ───────────────────────────────────
 
 export const api = {
@@ -488,6 +631,7 @@ export const api = {
   files,
   folders,
   tags,
+  highlightFilters,
   members,
   people,
   objects,
@@ -495,4 +639,5 @@ export const api = {
   search,
   invites,
   admin,
+  moments,
 } as const;

@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import AppIcon from "~/components/AppIcon.vue";
+
+definePageMeta({ layout: "library" });
+
 
 interface ObjectLabel {
   label: string;

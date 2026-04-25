@@ -1,28 +1,6 @@
-import { defineConfig } from "vitest/config";
-import vue from "@vitejs/plugin-vue";
-import AutoImport from "unplugin-auto-import/vite";
+import { defineVitestConfig } from "@nuxt/test-utils/config";
 
-export default defineConfig({
-  plugins: [
-    vue({
-      template: {
-        compilerOptions: {
-          isCustomElement: (tag: string) => tag.startsWith("media-"),
-        },
-      },
-    }),
-    AutoImport({
-      imports: ["vue", "vue-router"],
-    }),
-  ],
-  resolve: {
-    alias: {
-      "~": new URL("./app", import.meta.url).pathname,
-      "~~": new URL(".", import.meta.url).pathname,
-      "@": new URL("./app", import.meta.url).pathname,
-      "~~/": new URL("./", import.meta.url).pathname,
-    },
-  },
+export default defineVitestConfig({
   test: {
     name: "unit",
     globals: true,
@@ -35,7 +13,7 @@ export default defineConfig({
       "test/layouts/**/*.spec.ts",
       "test/router/**/*.spec.ts",
     ],
-    environment: "jsdom",
+    environment: "nuxt",
     setupFiles: ["./test/setup.ts"],
     coverage: {
       provider: "v8",
@@ -43,7 +21,7 @@ export default defineConfig({
       reportsDirectory: "./coverage",
       all: true,
       include: ["app/**/*.{ts,vue}"],
-      exclude: ["app/pages/libraries/[id].vue", "app/types/**/*.d.ts", "**/*.d.ts", "**/*.spec.ts"],
+      exclude: ["app/pages/libraries/**", "app/types/**/*.d.ts", "**/*.d.ts", "**/*.spec.ts"],
       thresholds: {
         lines: 25,
         functions: 25,

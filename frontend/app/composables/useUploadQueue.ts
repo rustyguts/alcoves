@@ -131,10 +131,15 @@ export function useUploadQueue() {
     }
 
     const upload = new tus.Upload(item.file, {
-      endpoint: TUS_ENDPOINT,
+      endpoint: apiUrl(TUS_ENDPOINT),
       retryDelays: [0, 1000, 3000, 5000, 10000],
       chunkSize: 50 * 1024 * 1024,
       metadata,
+      // Forward session cookie when streaming uploads cross-origin to the API.
+      onBeforeRequest(req: tus.HttpRequest) {
+        const xhr = req.getUnderlyingObject() as XMLHttpRequest | undefined;
+        if (xhr && "withCredentials" in xhr) xhr.withCredentials = true;
+      },
 
       onShouldRetry(err, _retryAttempt, _options) {
         const status = (err as tus.DetailedError).originalResponse?.getStatus();

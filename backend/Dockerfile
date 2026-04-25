@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libvips-dev \
     ffmpeg \
+    cmake \
+    git \
+    build-essential \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install ONNX Runtime (detect architecture)
@@ -22,6 +26,18 @@ RUN ARCH=$(dpkg --print-architecture) && \
     ln -sf /usr/local/lib/libonnxruntime.so /usr/local/lib/onnxruntime.so && \
     ldconfig && \
     rm -rf onnxruntime-linux-${ONNX_ARCH}-1.24.1*
+
+# Build whisper.cpp (whisper-cli) for transcription. Models are downloaded at runtime.
+ARG WHISPER_VERSION=v1.7.4
+RUN git clone --depth 1 --branch ${WHISPER_VERSION} https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp && \
+    cd /tmp/whisper.cpp && \
+    cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
+    cmake --build build -j --config Release && \
+    install -m 0755 build/bin/whisper-cli /usr/local/bin/whisper-cli && \
+    find build -name 'libwhisper.so*' -exec cp -a {} /usr/local/lib/ \; && \
+    find build -name 'libggml*.so*' -exec cp -a {} /usr/local/lib/ \; && \
+    ldconfig && \
+    rm -rf /tmp/whisper.cpp
 
 # Install Air for hot reload
 RUN go install github.com/air-verse/air@latest

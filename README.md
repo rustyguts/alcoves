@@ -144,6 +144,44 @@ volumes:
 docker compose -f docker-compose.prod.yml up -d
 ```
 
+## Kubernetes (Helm)
+
+Production-style deploy ships as a Helm chart at [`helm/alcoves/`](helm/alcoves/).
+
+```bash
+# 1. namespace + secrets
+kubectl create namespace alcoves
+kubectl -n alcoves create secret generic alcoves-database \
+  --from-literal=url='postgres://alcoves:secret@postgres:5432/alcoves?sslmode=require'
+kubectl -n alcoves create secret generic alcoves-session \
+  --from-literal=sessionSecret="$(openssl rand -base64 48)"
+
+# 2. customize values
+cp helm/alcoves/values.example.yaml my-values.yaml
+$EDITOR my-values.yaml          # set baseUrl, image tags, ingress host, replicas, etc.
+
+# 3. install
+helm install alcoves helm/alcoves -n alcoves \
+  -f my-values.yaml \
+  --set database.existingSecret=alcoves-database \
+  --set existingSessionSecret=alcoves-session
+
+# upgrade
+helm upgrade alcoves helm/alcoves -n alcoves -f my-values.yaml \
+  --set database.existingSecret=alcoves-database \
+  --set existingSessionSecret=alcoves-session
+```
+
+The chart deploys three workloads:
+
+- `frontend` — Nuxt SSR
+- `backend-api` — `ALCOVES_MODE=api` (HTTP only)
+- `backend-worker` — `ALCOVES_MODE=worker` (asynq jobs: ffmpeg, whisper.cpp, ONNX inference)
+
+External Postgres (with `pgvector`) and Dragonfly/Redis are required and not bundled. Storage is either a `ReadWriteMany` PVC (`storage.driver=local`) or S3-compatible (`storage.driver=s3`). DB migrations run on api pod startup.
+
+See [`helm/alcoves/README.md`](helm/alcoves/README.md) for full options + tuning notes.
+
 ## Configuration
 
 Alcoves is configured via environment variables:

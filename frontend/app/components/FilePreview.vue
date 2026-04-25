@@ -21,8 +21,8 @@ const emit = defineEmits<{
 
 const open = defineModel<boolean>("open", { default: false });
 
-const fileUrl = computed(
-  () => `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`,
+const fileUrl = computed(() =>
+  apiUrl(`/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`),
 );
 
 const playbackSources = ref<PlaybackSource[]>([]);
@@ -201,7 +201,7 @@ function startProxyPolling() {
 
 function downloadFile() {
   const link = document.createElement("a");
-  link.href = `/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`;
+  link.href = apiUrl(`/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`);
   link.download = "";
   link.click();
 }
@@ -304,7 +304,7 @@ function buildPreviewUrl(file: LibraryFile): string {
     ["quality", "90"],
     ["width", String(w)],
   ]);
-  return `/api/files/proxy/${props.libraryId}/${file.id}?${params}`;
+  return apiUrl(`/api/files/proxy/${props.libraryId}/${file.id}?${params}`);
 }
 
 const previewImageUrl = computed(() => buildPreviewUrl(props.file));
@@ -323,6 +323,7 @@ watch(
       .filter((f): f is LibraryFile => f !== null && f.mimeType.startsWith("image/"))
       .map((f) => {
         const img = new Image();
+        img.crossOrigin = "use-credentials";
         img.src = buildPreviewUrl(f);
         return img;
       });
@@ -373,7 +374,7 @@ onUnmounted(() => {
           class="player w-full max-w-5xl"
           :src="mediaSrc"
           :title="file.name"
-          crossorigin
+          crossorigin="use-credentials"
           playsinline
           autoplay
         >
@@ -394,7 +395,7 @@ onUnmounted(() => {
           class="player w-full max-w-2xl"
           :src="mediaSrc"
           :title="file.name"
-          crossorigin
+          crossorigin="use-credentials"
           playsinline
         >
           <media-provider />
@@ -413,6 +414,7 @@ onUnmounted(() => {
           :src="previewImageUrl"
           :alt="file.name"
           decoding="async"
+          crossorigin="use-credentials"
           class="block transition-opacity duration-100"
           :class="[
             'max-h-full max-w-full object-contain',

@@ -18,9 +18,9 @@ const (
 	detectionModelFile   = "detection-model.onnx"
 	recognitionModelFile = "recognition-model.onnx"
 
-	// HuggingFace model URLs (SCRFD_34G and ArcFace W600K R50)
-	detectionModelURL   = "https://huggingface.co/public-data/insightface/resolve/main/models/buffalo_l/det_10g.onnx"
-	recognitionModelURL = "https://huggingface.co/public-data/insightface/resolve/main/models/buffalo_l/w600k_r50.onnx"
+	// Self-hosted mirrors (SCRFD det_10g + ArcFace W600K R50, originally from InsightFace buffalo_l)
+	detectionModelURL   = "https://s3.rustyguts.net/models/det_10g.onnx"
+	recognitionModelURL = "https://s3.rustyguts.net/models/w600k_r50.onnx"
 
 	minModelSize = 1 * 1024 * 1024 // 1MB — anything smaller is likely an LFS pointer or error page
 )
@@ -65,17 +65,39 @@ func EnsureModelsDownloaded(modelsPath string) error {
 }
 
 // downloadIfNeeded downloads a file from url to dest if the file doesn't exist or is invalid.
+// Retries up to 6 times on transient (5xx / network) errors with exponential backoff.
 func downloadIfNeeded(dest, url string) error {
-	// Check if file already exists and is valid
 	if info, err := os.Stat(dest); err == nil {
 		if info.Size() > minModelSize {
-			return nil // Already downloaded and valid
+			return nil
 		}
 		log.Printf("Model file %s is too small (%d bytes), re-downloading", dest, info.Size())
 	}
 
-	log.Printf("Downloading model to %s ...", dest)
+	const maxAttempts = 6
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		log.Printf("Downloading model to %s (attempt %d/%d)...", dest, attempt, maxAttempts)
+		err := doDownload(dest, url)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		s := err.Error()
+		if !(strings.Contains(s, "HTTP 5") || strings.Contains(s, "connection reset") || strings.Contains(s, "unexpected EOF") || strings.Contains(s, "EOF")) {
+			return err
+		}
+		backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+		if backoff > 30*time.Second {
+			backoff = 30 * time.Second
+		}
+		log.Printf("Transient download error (%v), retrying in %s", err, backoff)
+		time.Sleep(backoff)
+	}
+	return fmt.Errorf("download failed after %d attempts: %w", maxAttempts, lastErr)
+}
 
+func doDownload(dest, url string) error {
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Get(url)
 	if err != nil {
@@ -87,7 +109,6 @@ func downloadIfNeeded(dest, url string) error {
 		return fmt.Errorf("HTTP %d downloading %s", resp.StatusCode, url)
 	}
 
-	// Check content type — HTML means we got an LFS pointer page
 	ct := resp.Header.Get("Content-Type")
 	if strings.Contains(ct, "text/html") {
 		return fmt.Errorf("got HTML response (LFS pointer?) for %s", url)

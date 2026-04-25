@@ -43,6 +43,14 @@ func (p *VipsProcessor) Transform(srcData []byte, opts TransformOptions) ([]byte
 		return nil, "", fmt.Errorf("failed to auto-rotate image: %w", err)
 	}
 
+	// Bake the source ICC profile into sRGB before we strip metadata on export.
+	// Without this, wide-gamut inputs (Display P3, Adobe RGB, ProPhoto) produce
+	// washed-out thumbnails because browsers interpret the profile-less output
+	// as sRGB.
+	if err := img.ToColorSpace(vips.InterpretationSRGB); err != nil {
+		return nil, "", fmt.Errorf("failed to convert to sRGB: %w", err)
+	}
+
 	// Resize to fit within requested dimensions (maintain aspect ratio).
 	if opts.Width > 0 || opts.Height > 0 {
 		origW := float64(img.Width())

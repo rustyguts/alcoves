@@ -259,6 +259,79 @@ export async function createMockApi(page: Page, state: MockState): Promise<void>
       }
     }
 
+    const momentsMatch = p.match(/^\/api\/libraries\/([\w-]+)\/files\/([\w-]+)\/moments$/);
+    if (momentsMatch) {
+      const libId = momentsMatch[1]!;
+      const fileId = momentsMatch[2]!;
+      if (request.method() === "GET") {
+        await fulfillJson(
+          route,
+          200,
+          state.moments.filter((m) => m.libraryId === libId && m.fileId === fileId),
+        );
+        return;
+      }
+      if (request.method() === "POST") {
+        const data = request.postDataJSON() as {
+          name?: string;
+          description?: string;
+          startSeconds: number;
+          endSeconds: number;
+        };
+        const now = new Date().toISOString();
+        const moment = {
+          id: `moment-${Date.now()}`,
+          libraryId: libId,
+          fileId,
+          createdById: "user-owner",
+          name: data.name ?? "",
+          description: data.description ?? "",
+          startSeconds: data.startSeconds,
+          endSeconds: data.endSeconds,
+          exportStatus: null,
+          exportProgress: null,
+          exportEtaSeconds: null,
+          exportVersion: 1,
+          exportedVersion: null,
+          trashedAt: null,
+          createdAt: now,
+          updatedAt: now,
+          tags: [],
+        };
+        state.moments.push(moment);
+        await fulfillJson(route, 201, moment);
+        return;
+      }
+    }
+
+    const momentByIdMatch = p.match(
+      /^\/api\/libraries\/([\w-]+)\/files\/([\w-]+)\/moments\/([\w-]+)$/,
+    );
+    if (momentByIdMatch) {
+      const momentId = momentByIdMatch[3]!;
+      const moment = state.moments.find((m) => m.id === momentId);
+      if (request.method() === "GET") {
+        if (moment) await fulfillJson(route, 200, moment);
+        else await fulfillJson(route, 404, { message: "Moment not found" });
+        return;
+      }
+      if (request.method() === "PATCH") {
+        if (!moment) {
+          await fulfillJson(route, 404, { message: "Moment not found" });
+          return;
+        }
+        Object.assign(moment, request.postDataJSON() as Record<string, unknown>);
+        moment.updatedAt = new Date().toISOString();
+        await fulfillJson(route, 200, moment);
+        return;
+      }
+      if (request.method() === "DELETE") {
+        state.moments = state.moments.filter((m) => m.id !== momentId);
+        await fulfillEmpty(route, 204);
+        return;
+      }
+    }
+
     const tagsMatch = p.match(/^\/api\/libraries\/([\w-]+)\/tags$/);
     if (tagsMatch) {
       const libId = tagsMatch[1]!;

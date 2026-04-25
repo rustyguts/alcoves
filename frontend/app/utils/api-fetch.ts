@@ -22,6 +22,52 @@ export interface ApiFetchOptions {
   headers?: Record<string, string>;
 }
 
+function resolveServerBase(): string {
+  if (!import.meta.server) return "";
+  try {
+    const config = useRuntimeConfig();
+    const apiUrl = (config.apiUrl as string) || "http://localhost:3001";
+    return apiUrl.replace(/\/$/, "");
+  } catch {
+    return process.env.ALCOVES_API_URL || "http://localhost:3001";
+  }
+}
+
+function resolveClientBase(): string {
+  if (!import.meta.client) return "";
+  try {
+    const config = useRuntimeConfig();
+    const apiOrigin = (config.public?.apiOrigin as string | undefined) ?? "";
+    return apiOrigin.replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Prefix a relative API path with the appropriate base origin so the request
+ * bypasses the Nuxt nitro dev proxy where possible. Already-absolute URLs
+ * are returned unchanged.
+ */
+export function apiUrl(path: string): string {
+  if (!path) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  if (import.meta.server) {
+    return resolveServerBase() + path;
+  }
+  const base = resolveClientBase();
+  return base ? base + path : path;
+}
+
+/**
+ * True when the client should send credentials to the API origin.
+ * Cross-origin requests need `credentials: "include"` to forward cookies.
+ */
+function clientUsesCrossOrigin(): boolean {
+  if (!import.meta.client) return false;
+  return resolveClientBase() !== "";
+}
+
 export async function apiFetch<T = unknown>(
   url: string,
   options: ApiFetchOptions = {},
@@ -38,7 +84,28 @@ export async function apiFetch<T = unknown>(
     if (qs) fullUrl += (fullUrl.includes("?") ? "&" : "?") + qs;
   }
 
-  const fetchOptions: RequestInit = { method, headers: { ...headers }, credentials: "same-origin" };
+  if (!fullUrl.startsWith("http")) {
+    fullUrl = apiUrl(fullUrl);
+  }
+
+  const finalHeaders: Record<string, string> = { ...headers };
+
+  if (import.meta.server) {
+    try {
+      const reqHeaders = useRequestHeaders(["cookie"]);
+      if (reqHeaders.cookie && !finalHeaders.cookie && !finalHeaders.Cookie) {
+        finalHeaders.cookie = reqHeaders.cookie;
+      }
+    } catch {
+      // outside a Nuxt request context — no cookies to forward
+    }
+  }
+
+  const fetchOptions: RequestInit = {
+    method,
+    headers: finalHeaders,
+    credentials: clientUsesCrossOrigin() ? "include" : "same-origin",
+  };
 
   if (body !== undefined) {
     if (body instanceof FormData) {
@@ -69,7 +136,6 @@ export async function apiFetch<T = unknown>(
     return (await response.text()) as T;
   }
 
-  // Handle empty responses (204 No Content, etc.)
   const text = await response.text();
   if (!text) return null as T;
   return JSON.parse(text) as T;

@@ -21,21 +21,25 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
+	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
+	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 )
 
 type FileHandler struct {
-	db         *gorm.DB
-	fileSvc    *files.Service
-	storageSvc *storage.Service
-	faceSvc    *facedetection.Service
-	objSvc     *objectdetection.Service
-	videoSvc   *videoproxy.Service
+	db             *gorm.DB
+	fileSvc        *files.Service
+	storageSvc     *storage.Service
+	faceSvc        *facedetection.Service
+	objSvc         *objectdetection.Service
+	videoSvc       *videoproxy.Service
+	transcribeSvc  *transcribe.Service
+	audioDetectSvc *audiodetection.Service
 }
 
-func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service) *FileHandler {
-	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc}
+func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service) *FileHandler {
+	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc, transcribeSvc: transcribeSvc, audioDetectSvc: audioDetectSvc}
 }
 
 func (h *FileHandler) RegisterRoutes(g *echo.Group) {
@@ -46,6 +50,10 @@ func (h *FileHandler) RegisterRoutes(g *echo.Group) {
 	g.DELETE("/:id/files/:fileId", h.Delete)
 	g.GET("/:id/files/:fileId/playback-sources", h.PlaybackSources)
 	g.POST("/:id/files/:fileId/proxy", h.GenerateProxy)
+	g.POST("/:id/files/:fileId/transcribe", h.GenerateTranscript)
+	g.GET("/:id/files/:fileId/transcript", h.GetTranscript)
+	g.POST("/:id/files/:fileId/audio-detect", h.GenerateAudioDetections)
+	g.GET("/:id/files/:fileId/audio-detections", h.ListAudioDetections)
 	g.POST("/:id/files/video-thumbnails/reprocess", h.ReprocessVideoThumbnails)
 	g.GET("/:id/files/:fileId/proxy", h.Proxy)
 	g.GET("/:id/files/:fileId/thumbnail", h.Thumbnail)
@@ -656,6 +664,147 @@ func (h *FileHandler) GenerateProxy(c echo.Context) error {
 	return c.JSON(http.StatusOK, fileToJSON(&file))
 }
 
+func (h *FileHandler) GenerateTranscript(c echo.Context) error {
+	if h.transcribeSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Transcribe service unavailable")
+	}
+
+	libraryID := c.Param("id")
+	fileID := c.Param("fileId")
+
+	var file models.File
+	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+
+	if !strings.HasPrefix(file.MimeType, "video/") && !strings.HasPrefix(file.MimeType, "audio/") {
+		return echo.NewHTTPError(http.StatusBadRequest, "File is not audio/video")
+	}
+	if file.SourceFileID != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Cannot transcribe proxy file")
+	}
+
+	now := time.Now()
+	queued := "queued"
+	zero := 0
+	newVersion := file.TranscribeVersion + 1
+	if err := h.db.Model(&models.File{}).
+		Where("id = ?", file.ID).
+		Updates(map[string]interface{}{
+			"transcribe_status":      queued,
+			"transcribe_progress":    zero,
+			"transcribe_eta_seconds": nil,
+			"transcribe_error":       nil,
+			"transcribe_version":     newVersion,
+			"updated_at":             now,
+		}).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update file transcribe status")
+	}
+
+	if err := h.transcribeSvc.EnqueueTranscribe(libraryID, fileID); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue transcription")
+	}
+
+	file.TranscribeStatus = &queued
+	file.TranscribeProgress = &zero
+	file.TranscribeEtaSeconds = nil
+	file.TranscribeError = nil
+	file.TranscribeVersion = newVersion
+
+	return c.JSON(http.StatusAccepted, fileToJSON(&file))
+}
+
+func (h *FileHandler) GetTranscript(c echo.Context) error {
+	libraryID := c.Param("id")
+	fileID := c.Param("fileId")
+
+	var file models.File
+	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+	if file.TranscribeStatus == nil || *file.TranscribeStatus != "ready" {
+		return echo.NewHTTPError(http.StatusNotFound, "Transcript not ready")
+	}
+
+	resp := map[string]interface{}{
+		"text":  file.TranscriptText,
+		"vtt":   file.TranscriptVTT,
+		"model": file.TranscriptModel,
+	}
+	return c.JSON(http.StatusOK, resp)
+}
+
+func (h *FileHandler) GenerateAudioDetections(c echo.Context) error {
+	if h.audioDetectSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Audio detection service unavailable")
+	}
+
+	libraryID := c.Param("id")
+	fileID := c.Param("fileId")
+
+	var file models.File
+	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+	if !strings.HasPrefix(file.MimeType, "video/") && !strings.HasPrefix(file.MimeType, "audio/") {
+		return echo.NewHTTPError(http.StatusBadRequest, "File is not audio/video")
+	}
+	if file.TranscribeStatus == nil || *file.TranscribeStatus != "ready" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Transcription must be completed before audio detection")
+	}
+	if file.SourceFileID != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Cannot run detection on proxy file")
+	}
+
+	now := time.Now()
+	queued := "queued"
+	zero := 0
+	newVersion := file.AudioDetectVersion + 1
+	if err := h.db.Model(&models.File{}).
+		Where("id = ?", file.ID).
+		Updates(map[string]interface{}{
+			"audio_detect_status":      queued,
+			"audio_detect_progress":    zero,
+			"audio_detect_eta_seconds": nil,
+			"audio_detect_error":       nil,
+			"audio_detect_version":     newVersion,
+			"updated_at":               now,
+		}).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update audio detection status")
+	}
+
+	if err := h.audioDetectSvc.EnqueueDetect(libraryID, fileID); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue audio detection")
+	}
+
+	file.AudioDetectStatus = &queued
+	file.AudioDetectProgress = &zero
+	file.AudioDetectEtaSeconds = nil
+	file.AudioDetectError = nil
+	file.AudioDetectVersion = newVersion
+
+	return c.JSON(http.StatusAccepted, fileToJSON(&file))
+}
+
+func (h *FileHandler) ListAudioDetections(c echo.Context) error {
+	libraryID := c.Param("id")
+	fileID := c.Param("fileId")
+
+	var file models.File
+	if err := h.db.Select("id").Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+
+	if h.audioDetectSvc == nil {
+		return c.JSON(http.StatusOK, []interface{}{})
+	}
+	dets, err := h.audioDetectSvc.ListByFile(libraryID, fileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to list detections")
+	}
+	return c.JSON(http.StatusOK, dets)
+}
+
 func (h *FileHandler) Proxy(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
@@ -778,9 +927,23 @@ func fileToJSON(f *models.File) map[string]interface{} {
 		"duration":        f.Duration,
 		"width":           f.Width,
 		"height":          f.Height,
-		"proxyStatus":     f.ProxyStatus,
-		"proxyProgress":   f.ProxyProgress,
-		"proxyEtaSeconds": f.ProxyEtaSeconds,
+		"proxyStatus":          f.ProxyStatus,
+		"proxyProgress":        f.ProxyProgress,
+		"proxyEtaSeconds":      f.ProxyEtaSeconds,
+		"transcribeStatus":     f.TranscribeStatus,
+		"transcribeProgress":   f.TranscribeProgress,
+		"transcribeEtaSeconds": f.TranscribeEtaSeconds,
+		"transcribeError":      f.TranscribeError,
+		"transcribeVersion":    f.TranscribeVersion,
+		"transcribedVersion":   f.TranscribedVersion,
+		"transcriptModel":      f.TranscriptModel,
+		"audioDetectStatus":     f.AudioDetectStatus,
+		"audioDetectProgress":   f.AudioDetectProgress,
+		"audioDetectEtaSeconds": f.AudioDetectEtaSeconds,
+		"audioDetectError":      f.AudioDetectError,
+		"audioDetectVersion":    f.AudioDetectVersion,
+		"audioDetectedVersion":  f.AudioDetectedVersion,
+		"audioDetectModel":      f.AudioDetectModel,
 		"thumbnailFileId": uuidPtr(f.ThumbnailFileID),
 		"sourceFileId":    uuidPtr(f.SourceFileID),
 		"trashedAt":       timeStr(f.TrashedAt),

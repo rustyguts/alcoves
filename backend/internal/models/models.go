@@ -50,6 +50,7 @@ type Library struct {
 	IsDefault              bool      `gorm:"column:is_default;not null;default:false" json:"isDefault"`
 	FaceRecognitionEnabled bool      `gorm:"column:face_recognition_enabled;not null;default:false" json:"faceRecognitionEnabled"`
 	ObjectDetectionEnabled bool      `gorm:"column:object_detection_enabled;not null;default:false" json:"objectDetectionEnabled"`
+	SharingEnabled         bool      `gorm:"column:sharing_enabled;not null;default:false" json:"sharingEnabled"`
 	OwnerID                uuid.UUID `gorm:"column:owner_id;type:uuid;not null" json:"ownerId"`
 	CreatedAt              time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
 	UpdatedAt              time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
@@ -106,6 +107,22 @@ type File struct {
 	ProxyStatus       *string    `gorm:"column:proxy_status;type:text" json:"proxyStatus"`
 	ProxyProgress     *int       `gorm:"column:proxy_progress;type:integer" json:"proxyProgress"`
 	ProxyEtaSeconds   *int       `gorm:"column:proxy_eta_seconds;type:integer" json:"proxyEtaSeconds"`
+	TranscribeStatus      *string `gorm:"column:transcribe_status;type:text" json:"transcribeStatus"`
+	TranscribeProgress    *int    `gorm:"column:transcribe_progress;type:integer" json:"transcribeProgress"`
+	TranscribeEtaSeconds  *int    `gorm:"column:transcribe_eta_seconds;type:integer" json:"transcribeEtaSeconds"`
+	TranscribeError       *string `gorm:"column:transcribe_error;type:text" json:"transcribeError"`
+	TranscribeVersion     int     `gorm:"column:transcribe_version;type:integer;not null;default:0" json:"transcribeVersion"`
+	TranscribedVersion    *int    `gorm:"column:transcribed_version;type:integer" json:"transcribedVersion"`
+	TranscriptText        *string `gorm:"column:transcript_text;type:text" json:"transcriptText,omitempty"`
+	TranscriptVTT         *string `gorm:"column:transcript_vtt;type:text" json:"transcriptVtt,omitempty"`
+	TranscriptModel       *string `gorm:"column:transcript_model;type:text" json:"transcriptModel"`
+	AudioDetectStatus      *string `gorm:"column:audio_detect_status;type:text" json:"audioDetectStatus"`
+	AudioDetectProgress    *int    `gorm:"column:audio_detect_progress;type:integer" json:"audioDetectProgress"`
+	AudioDetectEtaSeconds  *int    `gorm:"column:audio_detect_eta_seconds;type:integer" json:"audioDetectEtaSeconds"`
+	AudioDetectError       *string `gorm:"column:audio_detect_error;type:text" json:"audioDetectError"`
+	AudioDetectVersion     int     `gorm:"column:audio_detect_version;type:integer;not null;default:0" json:"audioDetectVersion"`
+	AudioDetectedVersion   *int    `gorm:"column:audio_detected_version;type:integer" json:"audioDetectedVersion"`
+	AudioDetectModel       *string `gorm:"column:audio_detect_model;type:text" json:"audioDetectModel"`
 	ThumbnailFileID   *uuid.UUID `gorm:"column:thumbnail_file_id;type:uuid" json:"thumbnailFileId"`
 	SourceFileID      *uuid.UUID `gorm:"column:source_file_id;type:uuid" json:"sourceFileId"`
 	OriginalCreatedAt *time.Time `gorm:"column:original_created_at" json:"originalCreatedAt"`
@@ -302,6 +319,109 @@ func (ObjectDetection) TableName() string { return "object_detections" }
 func (o *ObjectDetection) BeforeCreate(tx *gorm.DB) error {
 	if o.ID == uuid.Nil {
 		o.ID = uuid.New()
+	}
+	return nil
+}
+
+// Moment maps to the "moments" table — a named time range on a video file.
+type Moment struct {
+	ID               uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	FileID           uuid.UUID  `gorm:"column:file_id;type:uuid;not null;index:moments_file_idx" json:"fileId"`
+	LibraryID        uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:moments_library_idx" json:"libraryId"`
+	CreatedByID      uuid.UUID  `gorm:"column:created_by_id;type:uuid;not null" json:"createdById"`
+	Name             string     `gorm:"column:name;type:text;not null;default:''" json:"name"`
+	Description      string     `gorm:"column:description;type:text;not null;default:''" json:"description"`
+	StartSeconds     float64    `gorm:"column:start_seconds;type:numeric(12,3);not null" json:"startSeconds"`
+	EndSeconds       float64    `gorm:"column:end_seconds;type:numeric(12,3);not null" json:"endSeconds"`
+	ExportStatus     *string    `gorm:"column:export_status;type:text" json:"exportStatus"`
+	ExportProgress   *int       `gorm:"column:export_progress" json:"exportProgress"`
+	ExportEtaSeconds *int       `gorm:"column:export_eta_seconds" json:"exportEtaSeconds"`
+	ExportVersion    int        `gorm:"column:export_version;not null;default:1" json:"exportVersion"`
+	ExportedVersion  *int       `gorm:"column:exported_version" json:"exportedVersion"`
+	TrashedAt        *time.Time `gorm:"column:trashed_at" json:"trashedAt"`
+	CreatedAt        time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
+
+	File      *File     `gorm:"foreignKey:FileID" json:"-"`
+	Library   *Library  `gorm:"foreignKey:LibraryID" json:"-"`
+	CreatedBy *User     `gorm:"foreignKey:CreatedByID" json:"-"`
+}
+
+func (Moment) TableName() string { return "moments" }
+
+func (m *Moment) BeforeCreate(tx *gorm.DB) error {
+	if m.ID == uuid.Nil {
+		m.ID = uuid.New()
+	}
+	return nil
+}
+
+// MomentTag links a moment to a library tag.
+type MomentTag struct {
+	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	MomentID  uuid.UUID `gorm:"column:moment_id;type:uuid;not null;uniqueIndex:moment_tags_moment_tag_idx" json:"momentId"`
+	TagID     uuid.UUID `gorm:"column:tag_id;type:uuid;not null;uniqueIndex:moment_tags_moment_tag_idx;index:moment_tags_tag_idx" json:"tagId"`
+	CreatedAt time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (MomentTag) TableName() string { return "moment_tags" }
+
+// MomentShare is a public share link for a moment.
+type MomentShare struct {
+	ID          uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	MomentID    uuid.UUID  `gorm:"column:moment_id;type:uuid;not null;index:moment_shares_moment_idx" json:"momentId"`
+	LibraryID   uuid.UUID  `gorm:"column:library_id;type:uuid;not null" json:"libraryId"`
+	CreatedByID uuid.UUID  `gorm:"column:created_by_id;type:uuid;not null" json:"createdById"`
+	Token       string     `gorm:"column:token;type:text;not null;uniqueIndex:moment_shares_token_idx" json:"token"`
+	RevokedAt   *time.Time `gorm:"column:revoked_at" json:"revokedAt"`
+	CreatedAt   time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (MomentShare) TableName() string { return "moment_shares" }
+
+// AudioDetection represents a single tagged sound event detected in a file's audio track.
+type AudioDetection struct {
+	ID           uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	FileID       uuid.UUID `gorm:"column:file_id;type:uuid;not null;index:audio_detections_file_id_idx" json:"fileId"`
+	LibraryID    uuid.UUID `gorm:"column:library_id;type:uuid;not null;index:audio_detections_library_id_idx" json:"libraryId"`
+	Label        string    `gorm:"column:label;type:text;not null" json:"label"`
+	ClassIndex   int       `gorm:"column:class_index;type:integer;not null" json:"classIndex"`
+	Score        float32   `gorm:"column:score;type:real;not null" json:"score"`
+	StartSeconds float32   `gorm:"column:start_seconds;type:real;not null" json:"startSeconds"`
+	EndSeconds   float32   `gorm:"column:end_seconds;type:real;not null" json:"endSeconds"`
+	Version      int       `gorm:"column:version;type:integer;not null;default:1" json:"version"`
+	CreatedAt    time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (AudioDetection) TableName() string { return "audio_detections" }
+
+func (a *AudioDetection) BeforeCreate(tx *gorm.DB) error {
+	if a.ID == uuid.Nil {
+		a.ID = uuid.New()
+	}
+	return nil
+}
+
+// HighlightFilter is a per-library named rule that turns transcript / audio
+// detection signals into matchable highlights. The match logic is encoded as
+// a small expression language; see the frontend parser for grammar.
+type HighlightFilter struct {
+	ID               uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	LibraryID        uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:highlight_filters_library_idx" json:"libraryId"`
+	CreatedByID      *uuid.UUID `gorm:"column:created_by_id;type:uuid" json:"createdById"`
+	Name             string     `gorm:"column:name;type:text;not null" json:"name"`
+	Expression       string     `gorm:"column:expression;type:text;not null" json:"expression"`
+	ProximitySeconds int        `gorm:"column:proximity_seconds;type:integer;not null;default:5" json:"proximitySeconds"`
+	Color            string     `gorm:"column:color;type:text;not null;default:'#3B82F6'" json:"color"`
+	CreatedAt        time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
+}
+
+func (HighlightFilter) TableName() string { return "highlight_filters" }
+
+func (h *HighlightFilter) BeforeCreate(tx *gorm.DB) error {
+	if h.ID == uuid.Nil {
+		h.ID = uuid.New()
 	}
 	return nil
 }

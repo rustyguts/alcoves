@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "~/composables/useAuth";
+
+definePageMeta({ layout: "library" });
+
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useLibraryMembers } from "~/composables/useLibraryMembers";
 import { useToast } from "~/composables/useToast";
@@ -16,7 +18,7 @@ const route = useRoute();
 const libraryId = computed(() => route.params.id as string);
 const { user } = useAuth();
 const toast = useToast();
-const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
+const { refreshLibraries } = useLibrariesList();
 
 const { data: library, refresh: refreshLibrary } = useApiFetch<Library>(
   () => `/api/libraries/${libraryId.value}`,
@@ -114,6 +116,8 @@ const objDetReprocessing = ref(false);
 
 const videoThumbReprocessOpen = ref(false);
 const videoThumbReprocessing = ref(false);
+
+const sharingToggling = ref(false);
 const savingLibraryName = ref(false);
 const deleteLibraryOpen = ref(false);
 const deleteLibraryConfirmation = ref("");
@@ -246,6 +250,24 @@ const isLibraryOwner = computed(() => {
   return !!library.value?.ownerId && !!user.value?.id && library.value.ownerId === user.value.id;
 });
 
+async function toggleSharing(enabled: boolean) {
+  sharingToggling.value = true;
+  try {
+    await api.libraries.update(libraryId.value, { sharingEnabled: enabled });
+    await refreshLibrary();
+    toast.add({
+      title: enabled
+        ? "Sharing enabled. Members can now create public share links."
+        : "Sharing disabled. Existing links are revoked.",
+      color: "success",
+    });
+  } catch {
+    toast.add({ title: "Failed to update sharing setting", color: "error" });
+  } finally {
+    sharingToggling.value = false;
+  }
+}
+
 async function reprocessVideoThumbnails() {
   videoThumbReprocessing.value = true;
   videoThumbReprocessOpen.value = false;
@@ -277,7 +299,7 @@ async function deleteLibrary() {
   try {
     await api.libraries.delete(libraryId.value);
     deleteLibraryOpen.value = false;
-    await refreshLibraries?.();
+    await refreshLibraries();
     router.push("/");
   } catch {
     toast.add({
@@ -421,7 +443,7 @@ async function deleteLibrary() {
               v-for="member in libraryMembers"
               :key="member.id"
               :member="member"
-              :role-draft="memberRoleDrafts[member.userId]"
+              :role-draft="(memberRoleDrafts[member.userId] ?? (member.role === 'owner' ? 'admin' : member.role)) as 'admin' | 'viewer'"
               :updating-role="updatingMemberUserId === member.userId"
               :removing="removingMemberUserId === member.userId"
               :role-options="inviteRoleOptions"
@@ -571,6 +593,32 @@ async function deleteLibrary() {
             Reprocess Objects
           </UButton>
         </div>
+      </div>
+    </UCard>
+
+    <!-- Sharing Card -->
+    <UCard>
+      <template #header>
+        <div>
+          <p class="text-sm font-semibold">Sharing</p>
+          <p class="text-xs text-muted">
+            Allow members to create public share links for moments in this library.
+          </p>
+        </div>
+      </template>
+
+      <div class="flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-sm font-medium">Enable sharing</p>
+          <p class="text-xs text-muted">
+            When on, anyone with a share link can view the individual moment without signing in.
+          </p>
+        </div>
+        <USwitch
+          :model-value="library?.sharingEnabled ?? false"
+          :disabled="sharingToggling"
+          @update:model-value="toggleSharing($event as boolean)"
+        />
       </div>
     </UCard>
 

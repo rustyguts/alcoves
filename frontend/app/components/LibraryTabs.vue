@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useRoute } from "vue-router";
 import AppIcon from "~/components/AppIcon.vue";
 
 const props = defineProps<{
@@ -80,7 +79,7 @@ const tabs = computed(() => {
       role="tablist"
       class="flex flex-1 min-w-0 overflow-x-auto overflow-y-hidden whitespace-nowrap border-b border-default [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <RouterLink
+      <NuxtLink
         v-for="tab in tabs"
         :key="tab.key"
         role="tab"
@@ -94,7 +93,7 @@ const tabs = computed(() => {
       >
         <AppIcon :name="tab.icon" class="size-4" />
         <span class="hidden sm:inline">{{ tab.label }}</span>
-      </RouterLink>
+      </NuxtLink>
     </div>
     <div class="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto">
       <slot name="actions" />

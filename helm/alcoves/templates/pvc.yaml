@@ -1,0 +1,21 @@
+{{- if and (eq .Values.storage.driver "local") .Values.storage.persistentVolume.enabled (not .Values.storage.persistentVolume.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "alcoves.fullname" . }}-data
+  labels:
+    {{- include "alcoves.labels" . | nindent 4 }}
+  {{- with .Values.storage.persistentVolume.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.storage.persistentVolume.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.persistentVolume.size | quote }}
+  {{- if .Values.storage.persistentVolume.storageClass }}
+  storageClassName: {{ .Values.storage.persistentVolume.storageClass | quote }}
+  {{- end }}
+{{- end }}

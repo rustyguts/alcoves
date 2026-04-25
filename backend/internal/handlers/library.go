@@ -42,6 +42,7 @@ type libraryResponse struct {
 	IsDefault              bool    `json:"isDefault"`
 	FaceRecognitionEnabled bool    `json:"faceRecognitionEnabled"`
 	ObjectDetectionEnabled bool    `json:"objectDetectionEnabled"`
+	SharingEnabled         bool    `json:"sharingEnabled"`
 	OwnerID                string  `json:"ownerId"`
 	CurrentUserRole        *string `json:"currentUserRole,omitempty"`
 	CanManageUsers         *bool   `json:"canManageUsers,omitempty"`
@@ -57,6 +58,7 @@ func toLibraryResponse(lib *models.Library, la *access.LibraryAccess) libraryRes
 		IsDefault:              lib.IsDefault,
 		FaceRecognitionEnabled: lib.FaceRecognitionEnabled,
 		ObjectDetectionEnabled: lib.ObjectDetectionEnabled,
+		SharingEnabled:         lib.SharingEnabled,
 		OwnerID:                lib.OwnerID.String(),
 		CreatedAt:              lib.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
 		UpdatedAt:              lib.UpdatedAt.Format("2006-01-02T15:04:05.000Z"),
@@ -188,6 +190,7 @@ type updateLibraryRequest struct {
 	Emoji                  *string `json:"emoji"`
 	FaceRecognitionEnabled *bool   `json:"faceRecognitionEnabled"`
 	ObjectDetectionEnabled *bool   `json:"objectDetectionEnabled"`
+	SharingEnabled         *bool   `json:"sharingEnabled"`
 }
 
 func (h *LibraryHandler) Update(c echo.Context) error {
@@ -219,6 +222,9 @@ func (h *LibraryHandler) Update(c echo.Context) error {
 	}
 	if req.ObjectDetectionEnabled != nil {
 		updates["object_detection_enabled"] = *req.ObjectDetectionEnabled
+	}
+	if req.SharingEnabled != nil {
+		updates["sharing_enabled"] = *req.SharingEnabled
 	}
 
 	if len(updates) == 0 {

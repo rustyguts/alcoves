@@ -56,6 +56,21 @@ type Config struct {
 	ObjectDetectionMinScore  float64
 	ObjectDetectionMaxDets   int
 	ObjectDetectionNMSThresh float64
+
+	// Transcription (whisper.cpp)
+	WhisperBinaryPath    string
+	WhisperModel         string
+	WhisperModelsDir     string
+	WhisperModelBaseURL  string
+	WhisperLanguage      string
+	FFmpegBinaryPath     string
+
+	// Audio event detection (PANNs CNN14 via ONNX Runtime)
+	AudioDetectModelURL  string
+	AudioDetectLabelsURL string
+	AudioDetectWindowSec float64
+	AudioDetectThreshold float64
+	AudioDetectTopK      int
 }
 
 func Load() (*Config, error) {
@@ -125,6 +140,19 @@ func Load() (*Config, error) {
 		ObjectDetectionMinScore:  objMinScore,
 		ObjectDetectionMaxDets:   objMaxDets,
 		ObjectDetectionNMSThresh: objNMSThresh,
+
+		WhisperBinaryPath:   getEnv("ALCOVES_WHISPER_BINARY", "whisper-cli"),
+		WhisperModel:        getEnv("ALCOVES_WHISPER_MODEL", "base"),
+		WhisperModelsDir:    getEnv("ALCOVES_WHISPER_MODELS_DIR", filepath.Join(dataDir, ".whisper")),
+		WhisperModelBaseURL: getEnv("ALCOVES_WHISPER_MODEL_BASE_URL", "https://s3.rustyguts.net/models"),
+		WhisperLanguage:     getEnv("ALCOVES_WHISPER_LANGUAGE", "auto"),
+		FFmpegBinaryPath:    getEnv("ALCOVES_FFMPEG_BINARY", "ffmpeg"),
+
+		AudioDetectModelURL:  getEnv("ALCOVES_AUDIO_DETECT_MODEL_URL", "https://s3.rustyguts.net/models/panns_cnn14.onnx"),
+		AudioDetectLabelsURL: getEnv("ALCOVES_AUDIO_DETECT_LABELS_URL", "https://s3.rustyguts.net/models/audioset_class_labels_indices.csv"),
+		AudioDetectWindowSec: parseFloatEnv("ALCOVES_AUDIO_DETECT_WINDOW_SEC", 10.0),
+		AudioDetectThreshold: parseFloatEnv("ALCOVES_AUDIO_DETECT_THRESHOLD", 0.2),
+		AudioDetectTopK:      parseIntEnv("ALCOVES_AUDIO_DETECT_TOP_K", 5),
 	}
 
 	return cfg, nil
@@ -132,6 +160,20 @@ func Load() (*Config, error) {
 
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func parseFloatEnv(key string, fallback float64) float64 {
+	if v, err := strconv.ParseFloat(os.Getenv(key), 64); err == nil {
+		return v
+	}
+	return fallback
+}
+
+func parseIntEnv(key string, fallback int) int {
+	if v, err := strconv.Atoi(os.Getenv(key)); err == nil {
 		return v
 	}
 	return fallback

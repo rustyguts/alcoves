@@ -112,6 +112,14 @@ func (s *Service) OpenCacheReadStream(cacheKey string) (io.ReadCloser, error) {
 	return s.driver.OpenReadStream(ScopeCache, cacheKey, nil)
 }
 
+func (s *Service) OpenCacheReadStreamRange(cacheKey string, byteRange *ByteRange) (io.ReadCloser, error) {
+	return s.driver.OpenReadStream(ScopeCache, cacheKey, byteRange)
+}
+
+func (s *Service) CacheStat(cacheKey string) (int64, error) {
+	return s.driver.Stat(ScopeCache, cacheKey)
+}
+
 func (s *Service) ReadCacheBuffer(cacheKey string) ([]byte, error) {
 	return s.driver.ReadBuffer(ScopeCache, cacheKey)
 }

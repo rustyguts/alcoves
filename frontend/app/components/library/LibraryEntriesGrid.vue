@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { LibraryEntry, LibraryFile } from "~~/shared/types/api";
+import { apiUrl } from "~/utils/api-fetch";
 import { getMimeIcon } from "~/utils/mime-icons";
 import AppIcon from "~/components/AppIcon.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
@@ -46,7 +47,7 @@ const emit = defineEmits<{
   >
     <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
       <div
-        class="rounded-xl bg-default px-2 pt-2 pb-1 cursor-pointer transition-colors select-none shadow-sm"
+        class="rounded-xl bg-default overflow-hidden cursor-pointer transition-colors select-none shadow-sm"
         :class="[
           props.isEntrySelected(entry)
             ? 'bg-primary/20 hover:bg-primary/28'
@@ -67,7 +68,7 @@ const emit = defineEmits<{
         @dragleave="emit('dragLeave', entry, $event)"
         @drop="emit('drop', entry, $event)"
       >
-        <div v-if="props.isRenaming(entry)" :data-rename-input-entry-id="entry.id" class="mb-3">
+        <div v-if="props.isRenaming(entry)" :data-rename-input-entry-id="entry.id" class="px-2 pt-2 pb-2">
           <UInput
             :model-value="renameValue"
             size="sm"
@@ -81,7 +82,7 @@ const emit = defineEmits<{
           />
         </div>
 
-        <div v-else class="mb-3 flex items-start gap-2 min-w-0">
+        <div v-else class="px-2 pt-2 pb-2 flex items-start gap-2 min-w-0">
           <AppIcon
             :name="entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(entry.mimeType)"
             class="size-4 mt-0.5 shrink-0 text-muted"
@@ -97,10 +98,19 @@ const emit = defineEmits<{
           <span v-else class="text-sm font-semibold text-left truncate w-full" :title="entry.name">
             {{ entry.name }}
           </span>
+          <div v-if="entry.tags?.length" class="flex items-center gap-1 shrink-0">
+            <span
+              v-for="tag in entry.tags"
+              :key="tag.id"
+              class="size-2 rounded-full border border-default/50"
+              :title="tag.name"
+              :style="{ backgroundColor: tag.color }"
+            />
+          </div>
         </div>
 
         <div
-          class="h-40 rounded-lg bg-default mb-3 flex items-center justify-center overflow-hidden"
+          class="h-40 bg-elevated/40 flex items-center justify-center overflow-hidden"
         >
           <template v-if="entry.kind === 'folder'">
             <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
@@ -121,11 +131,12 @@ const emit = defineEmits<{
               />
               <img
                 v-else-if="!props.failedThumbnails.has(entry.id)"
-                :src="`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`"
+                :src="apiUrl(`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`)"
                 :alt="entry.name"
                 class="w-full h-full object-cover"
                 loading="lazy"
                 decoding="async"
+                crossorigin="use-credentials"
                 @error="emit('thumbnailError', entry.id)"
               />
               <AppIcon v-else name="i-lucide-film" class="size-10 text-muted" />
@@ -161,15 +172,6 @@ const emit = defineEmits<{
           </template>
         </div>
 
-        <div class="flex flex-wrap items-center gap-1.5">
-          <span
-            v-for="tag in entry.tags"
-            :key="tag.id"
-            class="size-2.5 rounded-full border border-default/50"
-            :title="tag.name"
-            :style="{ backgroundColor: tag.color }"
-          />
-        </div>
       </div>
     </template>
   </div>

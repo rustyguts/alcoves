@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from "vue-router";
 import type { GlobalSearchResponse, GlobalSearchResult, LibraryFile } from "~~/shared/types/api";
+
+definePageMeta({ layout: "dashboard" });
 import { formatDate, formatFileSize, getMimeIcon } from "~/utils/mime-icons";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";

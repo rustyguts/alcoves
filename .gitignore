@@ -16,6 +16,12 @@ logs
 # Runtime data
 data/
 
+# Staged model binaries (tracked via models/README.md only)
+models/*.onnx
+models/*.onnx.data
+models/*.bin
+models/*.pth
+
 # Legacy Nuxt artifacts (root-level, safe to delete)
 .nuxt/
 .output/

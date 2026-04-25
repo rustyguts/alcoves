@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useAuth } from "~/composables/useAuth";
 import { api } from "~/api";
@@ -15,10 +14,10 @@ const { data: library, refresh: refreshLibrary } = useApiFetch<Library>(
   () => `/api/libraries/${libraryId.value}`,
 );
 
-const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
+const { refreshLibraries: refreshLibrariesList } = useLibrariesList();
 
 watch(library, () => {
-  refreshLibraries?.();
+  refreshLibrariesList();
 });
 
 const canManageLibrary = computed(() => {
@@ -46,36 +45,26 @@ provide("canManageLibrary", canManageLibrary);
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 flex-1 min-h-0">
-    <LibraryHeader
-      :name="library?.name"
-      :emoji="library?.emoji"
-      :can-edit="canManageLibrary"
-      @update:name="saveLibraryName"
-      @update:emoji="saveLibraryEmoji"
-    >
-      <LibraryTabs
-        :library-id="libraryId"
-        :face-recognition-enabled="library?.faceRecognitionEnabled"
-        :object-detection-enabled="library?.objectDetectionEnabled"
-        :can-manage-library="canManageLibrary"
-      />
-    </LibraryHeader>
+  <NuxtLayout name="dashboard">
+    <div class="flex flex-col gap-4 flex-1 min-h-0">
+      <LibraryHeader
+        :name="library?.name"
+        :emoji="library?.emoji"
+        :can-edit="canManageLibrary"
+        @update:name="saveLibraryName"
+        @update:emoji="saveLibraryEmoji"
+      >
+        <LibraryTabs
+          :library-id="libraryId"
+          :face-recognition-enabled="library?.faceRecognitionEnabled"
+          :object-detection-enabled="library?.objectDetectionEnabled"
+          :can-manage-library="canManageLibrary"
+        />
+      </LibraryHeader>
 
-    <div class="relative flex-1 min-h-0">
-      <RouterView v-slot="{ Component, route: tabRoute }">
-        <Transition
-          mode="out-in"
-          enter-active-class="transition-opacity duration-120 ease-out"
-          enter-from-class="opacity-0"
-          enter-to-class="opacity-100"
-          leave-active-class="transition-opacity duration-90 ease-in"
-          leave-from-class="opacity-100"
-          leave-to-class="opacity-0"
-        >
-          <component :is="Component" :key="tabRoute.path" />
-        </Transition>
-      </RouterView>
+      <div class="relative flex-1 min-h-0">
+        <slot />
+      </div>
     </div>
-  </div>
+  </NuxtLayout>
 </template>

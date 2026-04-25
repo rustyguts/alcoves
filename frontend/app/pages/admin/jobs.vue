@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import AdminJobsPanel from "~/components/admin/AdminJobsPanel.vue";
+
+definePageMeta({ layout: "dashboard" });
 </script>
 
 <template>

@@ -65,8 +65,16 @@ func needsAuth(path string) bool {
 	if path == "/api/_auth/session" {
 		return false
 	}
+	// Health check
+	if path == "/api/health" {
+		return false
+	}
 	// Public file proxy
 	if strings.HasPrefix(path, "/api/files/proxy/") {
+		return false
+	}
+	// Public moment share endpoints (Nuxt SSR loads metadata; video/thumbnail stream directly)
+	if strings.HasPrefix(path, "/api/share/") {
 		return false
 	}
 	return true

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { useRouter } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
+
+definePageMeta({ layout: "dashboard" });
 
 interface Library {
   id: string;

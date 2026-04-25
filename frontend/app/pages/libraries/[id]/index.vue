@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { LibraryEntry, LibraryFile, LibraryFolder } from "~~/shared/types/api";
 import { getMimeIcon, formatFileSize, formatDate } from "~/utils/mime-icons";
+
+definePageMeta({ layout: "library", alias: ["/libraries/:id/trash"] });
+
 import { api } from "~/api";
 import { useLibraryExplorer } from "~/composables/useLibraryExplorer";
 import { useLibraryTags } from "~/composables/useLibraryTags";
@@ -13,7 +16,6 @@ import AppIcon from "~/components/AppIcon.vue";
 import type { ContextMenuItem as UIContextMenuItem } from "@nuxt/ui";
 import UploadModal from "~/components/UploadModal.vue";
 import FilePreview from "~/components/FilePreview.vue";
-import ClipModal from "~/components/ClipModal.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
 import LibraryEntriesGrid from "~/components/library/LibraryEntriesGrid.vue";
 import LibraryEmptyState from "~/components/library/LibraryEmptyState.vue";
@@ -23,6 +25,7 @@ const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
 const ROOT_MOVE_VALUE = "__root__";
 
 const toast = useToast();
+const router = useRouter();
 
 const {
   route,
@@ -78,8 +81,6 @@ const renameValue = ref("");
 const uploadOpen = ref(false);
 const newDropdown = ref<HTMLDetailsElement | null>(null);
 const createFolderInput = ref<HTMLInputElement | null>(null);
-const clipModalOpen = ref(false);
-const clipSourceFile = ref<LibraryFile | null>(null);
 
 const {
   createFolderOpen,
@@ -680,7 +681,7 @@ function downloadFiles(ids: string[]) {
   }
   for (const fid of ids) {
     const link = document.createElement("a");
-    link.href = `/api/libraries/${libraryId.value}/files/${fid}?inline=true`;
+    link.href = apiUrl(`/api/libraries/${libraryId.value}/files/${fid}?inline=true`);
     link.download = "";
     link.click();
   }
@@ -1004,12 +1005,10 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
       ...(entry.kind === "file" && entry.mimeType.startsWith("video/")
         ? [
             {
-              label: "Clip",
-              icon: "i-lucide-scissors",
-              onSelect() {
-                clipSourceFile.value = entry as LibraryFile;
-                clipModalOpen.value = true;
-              },
+              label: "Editor",
+              icon: "i-lucide-video",
+              onSelect: () =>
+                router.push(`/libraries/${libraryId.value}/edit/${entry.id}`),
             },
           ]
         : []),
@@ -1036,10 +1035,10 @@ const contextMenuGroups = computed<UIContextMenuItem[][]>(() =>
     : [],
 );
 
-const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
+const { refreshLibraries } = useLibrariesList();
 
 watch(library, () => {
-  refreshLibraries?.();
+  refreshLibraries();
 });
 
 const purgeFileCount = computed(() =>
@@ -1090,14 +1089,14 @@ const emptyStateDescription = computed(() => {
                 name="i-lucide-chevron-right"
                 class="size-3.5 text-muted shrink-0"
               />
-              <RouterLink
+              <NuxtLink
                 v-if="!item.isCurrent"
                 :to="item.to"
                 class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-muted transition-colors hover:text-primary"
               >
                 <UIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
                 {{ item.label }}
-              </RouterLink>
+              </NuxtLink>
               <span
                 v-else
                 class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-default"
@@ -1161,7 +1160,7 @@ const emptyStateDescription = computed(() => {
     <div class="relative overflow-y-auto flex-1 min-h-0">
       <UContextMenu
         :items="contextMenuGroups"
-        :ui="{ content: 'w-56', trigger: 'block' }"
+        :ui="{ content: 'w-56' }"
       >
       <div
         v-if="filesPending && (entries?.length ?? 0) === 0"
@@ -1280,13 +1279,6 @@ const emptyStateDescription = computed(() => {
       @update:file="handleFileUpdate"
     />
 
-    <ClipModal
-      v-if="clipSourceFile"
-      v-model:open="clipModalOpen"
-      :file="clipSourceFile"
-      :library-id="libraryId || ''"
-      @created="resetAndFetch()"
-    />
 
     <!-- Create Folder Modal -->
     <UModal v-model:open="createFolderOpen" title="Create Folder">

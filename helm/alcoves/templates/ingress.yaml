@@ -1,0 +1,41 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "alcoves.fullname" . }}
+  labels:
+    {{- include "alcoves.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          # API (auth, libraries, files, transcripts, etc.) goes to the api pod.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "alcoves.api.fullname" . }}
+                port:
+                  number: {{ .Values.backend.api.port }}
+          # Everything else hits the Nuxt frontend (including /s/** which is
+          # SSR'd by Nuxt for share-page OG tags).
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "alcoves.frontend.fullname" . }}
+                port:
+                  number: {{ .Values.frontend.port }}
+{{- end }}

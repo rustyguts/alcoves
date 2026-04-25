@@ -16,8 +16,8 @@ import (
 const (
 	objectModelFile = "yolo26x_fp16.onnx"
 
-	// YOLO26x FP16 ONNX model from the onnx-community HuggingFace repo.
-	objectModelURL = "https://huggingface.co/onnx-community/yolo26x-ONNX/resolve/main/onnx/model_fp16.onnx"
+	// YOLO26x FP16 ONNX mirror.
+	objectModelURL = "https://s3.rustyguts.net/models/yolo26x_fp16.onnx"
 
 	minModelSize = 1 * 1024 * 1024 // 1MB — anything smaller is likely invalid
 )
@@ -33,6 +33,7 @@ func EnsureModelsDownloaded(modelsPath string) error {
 }
 
 // downloadIfNeeded downloads a file from url to dest if the file doesn't exist or is invalid.
+// Retries up to 6 times on transient (5xx / network) errors.
 func downloadIfNeeded(dest, url string) error {
 	if info, err := os.Stat(dest); err == nil {
 		if info.Size() > minModelSize {
@@ -41,8 +42,30 @@ func downloadIfNeeded(dest, url string) error {
 		log.Printf("Model file %s is too small (%d bytes), re-downloading", dest, info.Size())
 	}
 
-	log.Printf("Downloading model to %s ...", dest)
+	const maxAttempts = 6
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		log.Printf("Downloading model to %s (attempt %d/%d)...", dest, attempt, maxAttempts)
+		err := doDownload(dest, url)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		s := err.Error()
+		if !(strings.Contains(s, "HTTP 5") || strings.Contains(s, "connection reset") || strings.Contains(s, "unexpected EOF") || strings.Contains(s, "EOF")) {
+			return err
+		}
+		backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+		if backoff > 30*time.Second {
+			backoff = 30 * time.Second
+		}
+		log.Printf("Transient download error (%v), retrying in %s", err, backoff)
+		time.Sleep(backoff)
+	}
+	return fmt.Errorf("download failed after %d attempts: %w", maxAttempts, lastErr)
+}
 
+func doDownload(dest, url string) error {
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Get(url)
 	if err != nil {

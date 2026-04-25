@@ -1,4 +1,3 @@
-import { useRoute, useRouter } from "vue-router";
 import type {
   FolderBreadcrumb,
   Library,

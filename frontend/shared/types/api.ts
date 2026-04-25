@@ -5,6 +5,7 @@ export interface Library {
   isDefault: boolean;
   faceRecognitionEnabled: boolean;
   objectDetectionEnabled: boolean;
+  sharingEnabled: boolean;
   ownerId: string;
   currentUserRole?: "owner" | "admin" | "viewer";
   canManageUsers?: boolean;
@@ -16,6 +17,48 @@ export interface LibraryUserSummary {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+}
+
+export type TranscribeStatus = "queued" | "processing" | "ready" | "failed" | null;
+export type AudioDetectStatus = "queued" | "processing" | "ready" | "failed" | null;
+
+export interface AudioDetection {
+  id: string;
+  fileId: string;
+  libraryId: string;
+  label: string;
+  classIndex: number;
+  score: number;
+  startSeconds: number;
+  endSeconds: number;
+  version: number;
+  createdAt: string;
+}
+
+export interface HighlightFilter {
+  id: string;
+  libraryId: string;
+  createdById: string | null;
+  name: string;
+  expression: string;
+  proximitySeconds: number;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HighlightFilterCreate {
+  name: string;
+  expression: string;
+  proximitySeconds?: number;
+  color?: string;
+}
+
+export interface HighlightFilterPatch {
+  name?: string;
+  expression?: string;
+  proximitySeconds?: number;
+  color?: string;
 }
 
 export interface LibraryFile {
@@ -32,6 +75,20 @@ export interface LibraryFile {
   proxyStatus: string | null;
   proxyProgress?: number | null;
   proxyEtaSeconds?: number | null;
+  transcribeStatus?: TranscribeStatus;
+  transcribeProgress?: number | null;
+  transcribeEtaSeconds?: number | null;
+  transcribeError?: string | null;
+  transcribeVersion?: number;
+  transcribedVersion?: number | null;
+  transcriptModel?: string | null;
+  audioDetectStatus?: AudioDetectStatus;
+  audioDetectProgress?: number | null;
+  audioDetectEtaSeconds?: number | null;
+  audioDetectError?: string | null;
+  audioDetectVersion?: number;
+  audioDetectedVersion?: number | null;
+  audioDetectModel?: string | null;
   thumbnailFileId?: string | null;
   sourceFileId: string | null;
   originalCreatedAt: string | null;
@@ -248,4 +305,63 @@ export interface ObjectLabelsResponse {
 export interface DownloadEstimate {
   totalSize: number;
   fileCount: number;
+}
+
+// ─── Moments ───────────────────────────────────────────
+
+export type MomentExportStatus =
+  | "queued"
+  | "processing"
+  | "ready"
+  | "failed"
+  | null;
+
+export interface MomentTagRef {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface Moment {
+  id: string;
+  fileId: string;
+  libraryId: string;
+  createdById: string;
+  name: string;
+  description: string;
+  startSeconds: number;
+  endSeconds: number;
+  exportStatus: MomentExportStatus;
+  exportProgress: number | null;
+  exportEtaSeconds: number | null;
+  exportVersion: number;
+  exportedVersion: number | null;
+  trashedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tags: MomentTagRef[];
+}
+
+export interface MomentCreate {
+  name?: string;
+  description?: string;
+  startSeconds: number;
+  endSeconds: number;
+}
+
+export interface MomentPatch {
+  name?: string;
+  description?: string;
+  startSeconds?: number;
+  endSeconds?: number;
+}
+
+export interface MomentShare {
+  id: string;
+  momentId: string;
+  libraryId: string;
+  token: string;
+  url: string;
+  revokedAt: string | null;
+  createdAt: string;
 }

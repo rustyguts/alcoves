@@ -31,7 +31,7 @@ const proxySrc = computed(() => {
   params.sort(([a], [b]) => a.localeCompare(b));
   const query = new URLSearchParams(params).toString();
 
-  return `/api/files/proxy/${props.libraryId}/${props.fileId}?${query}`;
+  return apiUrl(`/api/files/proxy/${props.libraryId}/${props.fileId}?${query}`);
 });
 </script>
 
@@ -44,6 +44,7 @@ const proxySrc = computed(() => {
     :class="$props.class"
     loading="lazy"
     decoding="async"
+    crossorigin="use-credentials"
     @error="emit('error', $event)"
     @load="emit('load', $event)"
   />

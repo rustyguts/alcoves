@@ -24,10 +24,12 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
+	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
+	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
+	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
-	"github.com/alcoves/alcoves-backend/internal/spa"
 )
 
 func main() {
@@ -116,6 +118,15 @@ func main() {
 	// Video proxy service
 	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient)
 
+	// Transcribe service (ffmpeg + whisper.cpp).
+	transcribeSvc := transcribe.NewService(db, storageSvc, asynqClient, cfg)
+
+	// Audio event detection service (PANNs CNN14 via ONNX Runtime).
+	audioDetectSvc := audiodetection.NewService(db, storageSvc, asynqClient, cfg)
+
+	// Moment export service (clip encoder for /moments/:id/export).
+	momentExportSvc := momentexport.NewService(db, storageSvc, asynqClient)
+
 	// File hash service
 	hashSvc := filehash.NewService(db, storageSvc, asynqClient)
 
@@ -143,6 +154,9 @@ func main() {
 		mux.HandleFunc(videoproxy.TaskTypeVideoProxy, videoTaskHandler.ProcessTask)
 		mux.HandleFunc(videoproxy.TaskTypeVideoThumb, videoTaskHandler.ProcessThumbnailTask)
 		mux.HandleFunc(filehash.TaskTypeFileHash, hashSvc.NewTaskHandler().ProcessTask)
+		mux.HandleFunc(momentexport.TaskTypeMomentExport, momentExportSvc.NewTaskHandler().ProcessTask)
+		mux.HandleFunc(transcribe.TaskTypeTranscribe, transcribeSvc.NewTaskHandler().ProcessTask)
+		mux.HandleFunc(audiodetection.TaskTypeAudioDetect, audioDetectSvc.NewTaskHandler().ProcessTask)
 
 		go func() {
 			log.Println("Starting asynq worker...")
@@ -161,14 +175,20 @@ func main() {
 	e.Use(echomw.Logger())
 	e.Use(echomw.Recover())
 	e.Use(echomw.CORSWithConfig(echomw.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions, http.MethodHead},
+		// Echo any origin back. Wildcard "*" cannot be combined with
+		// AllowCredentials=true per the CORS spec, so we use a dynamic
+		// matcher that reflects the request origin.
+		AllowOriginFunc: func(origin string) (bool, error) { return true, nil },
+		AllowMethods:    []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions, http.MethodHead},
 		AllowHeaders: []string{
 			echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization,
+			"Range", "If-Range",
 			// tus protocol headers
 			"Tus-Resumable", "Upload-Length", "Upload-Offset", "Upload-Metadata",
 		},
 		ExposeHeaders: []string{
+			// streaming/byte-range support
+			"Content-Length", "Content-Range", "Accept-Ranges",
 			// tus protocol response headers the client needs to read
 			"Tus-Resumable", "Tus-Version", "Tus-Extension",
 			"Upload-Offset", "Upload-Length", "Location",
@@ -202,7 +222,7 @@ func main() {
 		libraryHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// File routes (under /api/libraries)
-		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc)
+		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc)
 		fileHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Folder routes (under /api/libraries)
@@ -212,6 +232,13 @@ func main() {
 		// Tag routes (under /api/libraries)
 		tagHandler := handlers.NewTagHandler(db)
 		tagHandler.RegisterRoutes(api.Group("/libraries"))
+
+		highlightFilterHandler := handlers.NewHighlightFilterHandler(db)
+		highlightFilterHandler.RegisterRoutes(api.Group("/libraries"))
+
+		// Moment routes (under /api/libraries)
+		momentHandler := handlers.NewMomentHandler(db, storageSvc, momentExportSvc, cfg.BaseURL)
+		momentHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Member routes (under /api/libraries)
 		memberHandler := handlers.NewMemberHandler(db, accessSvc)
@@ -261,8 +288,10 @@ func main() {
 		fileProxyHandler := handlers.NewFileProxyHandler(db, storageSvc, imgSvc)
 		fileProxyHandler.RegisterRoutes(api.Group("/files"))
 
-		// SPA frontend (no-op in dev mode, serves embedded dist/ in production)
-		spa.RegisterRoutes(e)
+		// Public moment share endpoints (metadata + video + thumbnail).
+		// HTML landing page is rendered by Nuxt; this only exposes API.
+		shareHandler := handlers.NewShareHandler(db, storageSvc, cfg.BaseURL)
+		shareHandler.RegisterRoutes(api.Group("/share"))
 	}
 
 	// Graceful shutdown

@@ -1,0 +1,198 @@
+# Alcoves Helm values. Override anything here via -f my-values.yaml or --set.
+
+# =============================================================================
+# Images
+# =============================================================================
+image:
+  backend:
+    repository: ghcr.io/yourorg/alcoves-backend
+    tag: ""              # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: ghcr.io/yourorg/alcoves-frontend
+    tag: ""
+    pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# =============================================================================
+# Public-facing URL
+# =============================================================================
+# Used for OAuth redirect callbacks and outbound share links.
+baseUrl: https://alcoves.example.com
+
+# =============================================================================
+# Frontend (Nuxt SSR + Nitro)
+# =============================================================================
+frontend:
+  enabled: true
+  replicaCount: 2
+  port: 3000
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 1,    memory: 512Mi }
+  podAnnotations: {}
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+
+  # NUXT_PUBLIC_API_ORIGIN — exposed to the browser so binary content (video,
+  # images, downloads) bypasses Nitro and streams directly from the API.
+  # Defaults to baseUrl, which is correct when both Nuxt and the API live behind
+  # the same ingress. Set to an explicit https://api.example.com if you split
+  # them on different domains.
+  publicApiOrigin: ""    # "" → baseUrl
+
+# =============================================================================
+# Backend API
+# =============================================================================
+backend:
+  api:
+    enabled: true
+    replicaCount: 2
+    port: 3001
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits:   { cpu: 2,    memory: 2Gi }
+    podAnnotations: {}
+    nodeSelector: {}
+    affinity: {}
+    tolerations: []
+    livenessProbe:
+      httpGet: { path: /api/health, port: http }
+      initialDelaySeconds: 20
+      periodSeconds: 30
+    readinessProbe:
+      httpGet: { path: /api/health, port: http }
+      initialDelaySeconds: 5
+      periodSeconds: 5
+
+# =============================================================================
+# Backend worker (heavy jobs: ffmpeg, whisper.cpp, ONNX inference)
+# Runs as a separate deployment so transcode/detect work doesn't block API.
+# =============================================================================
+  worker:
+    enabled: true
+    replicaCount: 1
+    resources:
+      requests: { cpu: 500m, memory: 2Gi }
+      limits:   { cpu: 4,    memory: 8Gi }
+    podAnnotations: {}
+    nodeSelector: {}
+    affinity: {}
+    tolerations: []
+
+# =============================================================================
+# Storage — persistent volume for files, cache, model downloads
+# =============================================================================
+storage:
+  driver: local              # local | s3
+  # When driver=local the chart provisions a PVC mounted at /app/data.
+  # Both api + worker pods need access — must be ReadWriteMany if replicaCount > 1.
+  persistentVolume:
+    enabled: true
+    storageClass: ""         # "" → cluster default
+    accessModes: [ReadWriteMany]
+    size: 200Gi
+    annotations: {}
+    # If you already have a PVC, set this and the chart will reuse it.
+    existingClaim: ""
+  # When driver=s3, fill these. Buckets are separate prefixes.
+  s3:
+    bucket: ""
+    region: ""
+    endpoint: ""
+    forcePathStyle: false
+    accessKeyId: ""          # use existingSecret instead for prod
+    secretAccessKey: ""
+    filesPrefix: "files/"
+    avatarsPrefix: "avatars/"
+    cachePrefix: "cache/"
+    existingSecret: ""       # secret with keys: accessKeyId, secretAccessKey
+
+# =============================================================================
+# Database (PostgreSQL + pgvector)
+# =============================================================================
+# This chart does NOT deploy Postgres. Point at any cluster you trust
+# (CloudNativePG, Crunchy, RDS, etc.). Image must include pgvector.
+database:
+  url: ""                    # postgres://user:pass@host:5432/alcoves?sslmode=require
+  existingSecret: ""         # secret with key `url` overrides .url
+
+# =============================================================================
+# Queue (Dragonfly / Redis-compatible) for asynq jobs
+# =============================================================================
+queue:
+  host: dragonfly
+  port: 6379
+  password: ""
+  existingSecret: ""         # secret with key `password`
+
+# =============================================================================
+# Sessions
+# =============================================================================
+# AES-GCM key, ≥32 bytes. Generate: `openssl rand -base64 48`.
+sessionSecret: ""
+existingSessionSecret: ""    # secret with key `sessionSecret`
+
+# =============================================================================
+# OAuth (optional)
+# =============================================================================
+oauth:
+  google:
+    clientId: ""
+    clientSecret: ""
+    existingSecret: ""       # secret with keys: clientId, clientSecret
+
+# =============================================================================
+# Model assets — Whisper, PANNs, YOLO, InsightFace
+# Defaults point at the public bucket on s3.rustyguts.net. Override to mirror
+# privately if egress matters or the public bucket is unreachable.
+# =============================================================================
+models:
+  whisperModel: base
+  whisperModelBaseUrl: https://s3.rustyguts.net/models
+  audioDetectModelUrl: https://s3.rustyguts.net/models/panns_cnn14.onnx
+  audioDetectLabelsUrl: https://s3.rustyguts.net/models/audioset_class_labels_indices.csv
+
+# =============================================================================
+# Extra environment variables (advanced)
+# Merged into both api + worker pods. Use for tuning face/object detection,
+# overriding model paths, etc.
+# =============================================================================
+extraEnv: []
+# - name: ALCOVES_FACE_DETECTION_MIN_SCORE
+#   value: "0.6"
+
+# =============================================================================
+# Service + Ingress
+# =============================================================================
+service:
+  type: ClusterIP
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    # Large video uploads + ranged streaming. Tune for your reverse proxy.
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+  host: alcoves.example.com
+  tls:
+    enabled: true
+    secretName: alcoves-tls
+
+# =============================================================================
+# Pod-level options
+# =============================================================================
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podSecurityContext: {}
+securityContext: {}

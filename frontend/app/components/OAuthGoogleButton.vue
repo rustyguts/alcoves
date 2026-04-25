@@ -5,16 +5,18 @@ interface Props {
   block?: boolean;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   href: "/api/auth/google",
   label: "Continue with Google",
   block: true,
 });
+
+const resolvedHref = computed(() => apiUrl(props.href));
 </script>
 
 <template>
   <UButton
-    :to="href"
+    :to="resolvedHref"
     external
     color="neutral"
     variant="outline"

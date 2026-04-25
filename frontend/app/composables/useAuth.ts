@@ -1,33 +1,25 @@
-import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
 import { api } from "~/api";
 import type { AuthUser } from "~~/shared/types/api";
 
 export type { AuthUser };
 
-interface AuthState {
-  user: AuthUser | null;
-}
-
-const authState = ref<AuthState>({ user: null });
-
 export function useAuth() {
+  const user = useState<AuthUser | null>("auth:user", () => null);
   const router = useRouter();
 
-  const user = computed(() => authState.value.user);
-  const loggedIn = computed(() => !!authState.value.user);
+  const loggedIn = computed(() => !!user.value);
 
   async function fetchSession() {
     try {
       const data = await api.auth.session();
-      authState.value.user = data.user || null;
+      user.value = data.user || null;
     } catch {
-      authState.value.user = null;
+      user.value = null;
     }
   }
 
   function clearSession() {
-    authState.value.user = null;
+    user.value = null;
   }
 
   async function login(email: string, password: string) {
@@ -65,7 +57,7 @@ export function useAuth() {
   }
 
   return {
-    user,
+    user: computed(() => user.value),
     loggedIn,
     login,
     register,

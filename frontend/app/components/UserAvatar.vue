@@ -35,11 +35,13 @@ const size = computed<"3xs" | "2xs" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" |
 });
 
 const alt = computed(() => props.displayName);
+const initial = computed(() => props.displayName.charAt(0).toUpperCase());
+const resolvedSrc = computed(() => (props.avatarUrl ? apiUrl(props.avatarUrl) : undefined));
 </script>
 
 <template>
   <UTooltip v-if="tooltip" :text="displayName" :content="{ side: tooltipPosition }">
-    <UAvatar :src="avatarUrl ?? undefined" :alt="alt" :text="displayName" :size="size" />
+    <UAvatar :src="resolvedSrc" :alt="alt" :text="initial" :size="size" />
   </UTooltip>
-  <UAvatar v-else :src="avatarUrl ?? undefined" :alt="alt" :text="displayName" :size="size" />
+  <UAvatar v-else :src="resolvedSrc" :alt="alt" :text="initial" :size="size" />
 </template>

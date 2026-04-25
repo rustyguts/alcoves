@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { useRoute } from "vue-router";
 import { useApiFetch } from "~/composables/useApiFetch";
+
+definePageMeta({ layout: "library" });
+
 import { useLibraryTags } from "~/composables/useLibraryTags";
 import { useToast } from "~/composables/useToast";
 import { apiFetch } from "~/utils/api-fetch";
@@ -20,10 +22,10 @@ const libraryId = computed(() => route.params.id as string);
 const toast = useToast();
 
 const { data: library } = useApiFetch<Library>(() => `/api/libraries/${libraryId.value}`);
-const refreshLibraries = inject<() => Promise<void>>("refreshLibraries");
+const { refreshLibraries } = useLibrariesList();
 
 watch(library, () => {
-  refreshLibraries?.();
+  refreshLibraries();
 });
 
 const libraryTags = ref<LibraryTag[]>([]);
@@ -319,7 +321,7 @@ onBeforeUnmount(() => {
                   :key-id="tag.id"
                   :open="openColorDropdown === tag.id"
                   :color="tag.color"
-                  :draft="tagColorDrafts[tag.id]"
+                  :draft="tagColorDrafts[tag.id] ?? tag.color"
                   :palette="TAG_COLOR_PALETTE"
                   @toggle="toggleColorDropdown(tag.id)"
                   @pick="

@@ -23,7 +23,7 @@ export default defineConfig({
     timezoneId: "UTC",
   },
   webServer: {
-    command: "bun run dev -- --port 4173 --host 127.0.0.1",
+    command: "bun run dev --port 4173 --host 127.0.0.1",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !isCI,
     timeout: 240_000,

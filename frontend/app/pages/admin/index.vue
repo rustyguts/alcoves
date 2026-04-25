@@ -10,6 +10,8 @@ import type { AdminStats, AdminUser } from "~~/shared/types/api";
 import type { TableColumn } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
 
+definePageMeta({ layout: "dashboard" });
+
 const toast = useToast();
 const { user: currentUser } = useAuth();
 

@@ -581,13 +581,23 @@ func parseFFmpegSpeed(value string) (float64, error) {
 	return speed, nil
 }
 
+// thumbnailColorFilter normalizes arbitrary SDR/HDR inputs to SDR BT.709
+// before scaling. It linearizes, tone-maps HDR peaks (PQ/HLG) with Hable,
+// then re-encodes to BT.709 limited-range yuv420p. SDR BT.709 input passes
+// through effectively unchanged. Requires ffmpeg built with zimg (zscale).
+const thumbnailColorFilter = "zscale=t=linear:npl=100,format=gbrpf32le,tonemap=tonemap=hable:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p"
+
 // generateThumbnail extracts a thumbnail frame from the video as WebP.
 func generateThumbnail(ctx context.Context, srcPath, thumbPath string) error {
+	vf := thumbnailColorFilter + ",scale=480:-2"
 	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-i", srcPath,
 		"-ss", thumbnailTime,
 		"-vframes", "1",
-		"-vf", "scale=480:-2",
+		"-vf", vf,
+		"-color_primaries", "bt709",
+		"-color_trc", "bt709",
+		"-colorspace", "bt709",
 		"-c:v", "libwebp",
 		"-quality", "80",
 		"-y",
@@ -598,7 +608,10 @@ func generateThumbnail(ctx context.Context, srcPath, thumbPath string) error {
 		cmd2 := exec.CommandContext(ctx, "ffmpeg",
 			"-i", srcPath,
 			"-vframes", "1",
-			"-vf", "scale=480:-2",
+			"-vf", vf,
+			"-color_primaries", "bt709",
+			"-color_trc", "bt709",
+			"-colorspace", "bt709",
 			"-c:v", "libwebp",
 			"-quality", "80",
 			"-y",
@@ -610,11 +623,15 @@ func generateThumbnail(ctx context.Context, srcPath, thumbPath string) error {
 }
 
 func generateJPEGThumbnail(ctx context.Context, srcPath, thumbPath string) error {
+	vf := thumbnailColorFilter + ",scale=1280:-2"
 	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-i", srcPath,
 		"-ss", thumbnailTime,
 		"-vframes", "1",
-		"-vf", "scale=1280:-2",
+		"-vf", vf,
+		"-color_primaries", "bt709",
+		"-color_trc", "bt709",
+		"-colorspace", "bt709",
 		"-q:v", "3",
 		"-y",
 		thumbPath,
@@ -623,7 +640,10 @@ func generateJPEGThumbnail(ctx context.Context, srcPath, thumbPath string) error
 		cmd2 := exec.CommandContext(ctx, "ffmpeg",
 			"-i", srcPath,
 			"-vframes", "1",
-			"-vf", "scale=1280:-2",
+			"-vf", vf,
+			"-color_primaries", "bt709",
+			"-color_trc", "bt709",
+			"-colorspace", "bt709",
 			"-q:v", "3",
 			"-y",
 			thumbPath,

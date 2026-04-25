@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import * as z from "zod";
-import { useRoute, useRouter } from "vue-router";
 import AuthCardShell from "~/components/AuthCardShell.vue";
+
+definePageMeta({ layout: false });
 import OAuthGoogleButton from "~/components/OAuthGoogleButton.vue";
 import { useAuth } from "~/composables/useAuth";
 import { api } from "~/api";
@@ -149,9 +150,9 @@ async function onSubmit() {
 
         <p class="text-center text-sm text-muted">
           Already have an account?
-          <RouterLink :to="loginLink" class="text-primary font-medium hover:underline">
+          <NuxtLink :to="loginLink" class="text-primary font-medium hover:underline">
             Sign in
-          </RouterLink>
+          </NuxtLink>
         </p>
       </div>
     </template>

@@ -7,6 +7,8 @@ import type { ColorPreference } from "~/composables/useTheme";
 import { useToast } from "~/composables/useToast";
 import type { SessionInfo } from "~~/shared/types/api";
 
+definePageMeta({ layout: "dashboard" });
+
 const MAX_AVATAR_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 const { user, updateProfile, uploadAvatar } = useAuth();
@@ -23,7 +25,12 @@ watch(user, (u) => {
   if (u) displayName.value = u.displayName;
 });
 
-const currentAvatarSrc = computed(() => avatarPreviewUrl.value ?? user.value?.avatarUrl ?? null);
+const currentAvatarSrc = computed(() => {
+  if (avatarPreviewUrl.value) return avatarPreviewUrl.value;
+  const remote = user.value?.avatarUrl;
+  return remote ? apiUrl(remote) : null;
+});
+const avatarInitial = computed(() => (user.value?.displayName ?? "U").charAt(0).toUpperCase());
 const hasProfileChanges = computed(() => {
   const nextDisplayName = displayName.value.trim();
   const hasDisplayNameUpdate = !!(nextDisplayName && nextDisplayName !== user.value?.displayName);
@@ -154,7 +161,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
         >
           <UAvatar
             :src="currentAvatarSrc ?? undefined"
-            :text="user?.displayName ?? 'U'"
+            :text="avatarInitial"
             :alt="user?.displayName ?? 'User'"
             size="3xl"
           />
@@ -174,6 +181,16 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
             :ui="{ root: 'w-full', base: 'text-center text-xl font-semibold' }"
           />
           <p class="text-sm text-muted">{{ user?.email }}</p>
+          <div v-if="user?.role" class="flex justify-center">
+            <UBadge
+              :color="user.role === 'owner' ? 'primary' : 'neutral'"
+              variant="subtle"
+              size="sm"
+              class="capitalize"
+            >
+              {{ user.role }}
+            </UBadge>
+          </div>
         </div>
 
         <UButton

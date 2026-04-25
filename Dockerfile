@@ -1,13 +1,8 @@
-# Stage 1: Build frontend
-FROM oven/bun:1 AS frontend-build
+# syntax=docker/dockerfile:1
 
-WORKDIR /frontend
-COPY frontend/package.json frontend/bun.lock* ./
-RUN bun install --frozen-lockfile --ignore-scripts
-COPY frontend/ .
-RUN bun run build
+# Root Dockerfile builds the Go backend only. The Nuxt frontend ships as a
+# separate image (see frontend/Dockerfile) and runs as its own service.
 
-# Stage 2: Build Go binary with embedded frontend
 FROM golang:1.25-bookworm AS backend-build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -39,12 +34,26 @@ RUN go mod download
 
 COPY backend/ .
 
-# Copy the built frontend dist into the spa package for embedding
-COPY --from=frontend-build /frontend/dist ./internal/spa/dist
-
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /alcoves ./cmd/server
 
-# Stage 3: Minimal production image
+# whisper.cpp build stage — produces whisper-cli. Models are not bundled;
+# they are fetched on demand by the transcribe worker.
+FROM debian:bookworm-slim AS whisper-build
+
+ARG WHISPER_VERSION=v1.7.4
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+RUN git clone --depth 1 --branch ${WHISPER_VERSION} https://github.com/ggerganov/whisper.cpp.git .
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+    && cmake --build build -j --config Release
+
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -52,10 +61,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     libvips42 \
     ffmpeg \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /usr/share/locale/*
 
 COPY --from=backend-build /usr/local/lib/libonnxruntime* /usr/local/lib/
-RUN ldconfig
+COPY --from=whisper-build /src/build/bin/whisper-cli /usr/local/bin/whisper-cli
+COPY --from=whisper-build /src/build/src/ /tmp/whisper-src/
+COPY --from=whisper-build /src/build/ggml/src/ /tmp/whisper-ggml/
+RUN find /tmp/whisper-src -name 'libwhisper.so*' -exec cp -a {} /usr/local/lib/ \; && \
+    find /tmp/whisper-ggml -name 'libggml*.so*' -exec cp -a {} /usr/local/lib/ \; && \
+    rm -rf /tmp/whisper-src /tmp/whisper-ggml && \
+    ldconfig
 
 WORKDIR /app
 COPY --from=backend-build /alcoves ./alcoves

@@ -149,7 +149,9 @@ function toggleJobExpand(jobId: string) {
 let eventSource: EventSource | null = null;
 
 function connectSSE() {
-  eventSource = new EventSource("/api/admin/jobs/stream");
+  eventSource = new EventSource(apiUrl("/api/admin/jobs/stream"), {
+    withCredentials: true,
+  });
   eventSource.onopen = () => {
     connected.value = true;
   };
