@@ -52,6 +52,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /src
 RUN git clone --depth 1 --branch ${WHISPER_VERSION} https://github.com/ggerganov/whisper.cpp.git .
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+    -DGGML_NATIVE=OFF \
+    -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON \
+    -DGGML_AVX512=OFF -DGGML_AVX512_VBMI=OFF -DGGML_AVX512_VNNI=OFF \
     && cmake --build build -j --config Release
 
 FROM debian:bookworm-slim
