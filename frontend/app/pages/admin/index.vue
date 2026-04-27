@@ -18,6 +18,26 @@ const { user: currentUser } = useAuth();
 const { data: stats } = useApiFetch<AdminStats>("/api/admin/stats");
 const { data: users, status: usersStatus } = useApiFetch<AdminUser[]>("/api/admin/users");
 
+interface VersionInfo {
+  commit: string;
+  buildTime: string;
+  dirty: boolean;
+  mode: string;
+}
+const { data: versionInfo } = useApiFetch<VersionInfo>("/api/version");
+
+const GITHUB_REPO = "https://github.com/rustyguts/alcoves";
+const versionDisplay = computed(() => {
+  const sha = versionInfo.value?.commit;
+  if (!sha) return null;
+  return {
+    short: sha.slice(0, 7),
+    href: `${GITHUB_REPO}/commit/${sha}`,
+    dirty: versionInfo.value?.dirty ?? false,
+    buildTime: versionInfo.value?.buildTime || null,
+  };
+});
+
 const roleDrafts = reactive<Record<string, AdminUser["role"]>>({});
 const updatingRoleUserId = ref<string | null>(null);
 
@@ -207,5 +227,26 @@ const columns: TableColumn<AdminUser>[] = [
     </UCard>
 
     <AdminJobsPanel embedded />
+
+    <footer
+      v-if="versionDisplay"
+      class="flex items-center justify-end gap-2 pt-2 pb-4 text-xs text-muted"
+    >
+      <span>Version</span>
+      <a
+        :href="versionDisplay.href"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="font-mono underline hover:text-default"
+      >
+        {{ versionDisplay.short }}
+      </a>
+      <UBadge v-if="versionDisplay.dirty" color="warning" variant="subtle" size="xs">
+        dirty
+      </UBadge>
+      <span v-if="versionDisplay.buildTime" class="text-muted/70">
+        · built {{ formatDateTime(versionDisplay.buildTime) }}
+      </span>
+    </footer>
   </div>
 </template>

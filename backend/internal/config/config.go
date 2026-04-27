@@ -58,12 +58,13 @@ type Config struct {
 	ObjectDetectionNMSThresh float64
 
 	// Transcription (whisper.cpp)
-	WhisperBinaryPath    string
-	WhisperModel         string
-	WhisperModelsDir     string
-	WhisperModelBaseURL  string
-	WhisperLanguage      string
-	FFmpegBinaryPath     string
+	WhisperBinaryPath   string
+	WhisperModel        string
+	WhisperVADModel     string
+	WhisperModelsDir    string
+	WhisperModelBaseURL string
+	WhisperLanguage     string
+	FFmpegBinaryPath    string
 
 	// Audio event detection (PANNs CNN14 via ONNX Runtime)
 	AudioDetectModelURL  string
@@ -141,8 +142,15 @@ func Load() (*Config, error) {
 		ObjectDetectionMaxDets:   objMaxDets,
 		ObjectDetectionNMSThresh: objNMSThresh,
 
-		WhisperBinaryPath:   getEnv("ALCOVES_WHISPER_BINARY", "whisper-cli"),
-		WhisperModel:        getEnv("ALCOVES_WHISPER_MODEL", "base"),
+		WhisperBinaryPath: getEnv("ALCOVES_WHISPER_BINARY", "whisper-cli"),
+		WhisperModel:      getEnv("ALCOVES_WHISPER_MODEL", "medium"),
+		// Silero VAD model used to drop non-speech regions before decoding.
+		// Empty string disables VAD. The default is the Silero v6.2 ggml
+		// build that ships at https://huggingface.co/ggml-org/whisper-vad,
+		// mirrored at $ALCOVES_WHISPER_MODEL_BASE_URL. Without VAD, whisper
+		// hallucinates repetition loops on long non-speech regions
+		// (gameplay/music/silence) — see docs/models.md.
+		WhisperVADModel:     getEnv("ALCOVES_WHISPER_VAD_MODEL", "silero-v6.2.0"),
 		WhisperModelsDir:    getEnv("ALCOVES_WHISPER_MODELS_DIR", filepath.Join(dataDir, ".whisper")),
 		WhisperModelBaseURL: getEnv("ALCOVES_WHISPER_MODEL_BASE_URL", "https://s3.rustyguts.net/models"),
 		WhisperLanguage:     getEnv("ALCOVES_WHISPER_LANGUAGE", "auto"),

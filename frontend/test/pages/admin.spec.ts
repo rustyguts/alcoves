@@ -21,6 +21,17 @@ const mocks = vi.hoisted(() => ({
     folders: 8,
     totalSize: 1024 * 1024 * 500,
   },
+  version: {
+    commit: "75c26d8d76c45f29e302b590ed94f4172dfb538f",
+    buildTime: "2026-04-27T06:37:47Z",
+    dirty: false,
+    mode: "all",
+  } as null | {
+    commit: string;
+    buildTime: string;
+    dirty: boolean;
+    mode: string;
+  },
   users: [
     {
       id: "user-1",
@@ -58,6 +69,13 @@ vi.mock("~/composables/useApiFetch", () => ({
     if (url.includes("/admin/users")) {
       return {
         data: mockRef(() => mocks.users),
+        status: mockRef(() => "success"),
+        refresh: vi.fn(),
+      };
+    }
+    if (url.includes("/api/version")) {
+      return {
+        data: mockRef(() => mocks.version),
         status: mockRef(() => "success"),
         refresh: vi.fn(),
       };
@@ -134,5 +152,22 @@ describe("admin.vue", () => {
   it("displays user count badge", () => {
     const wrapper = mountPage();
     expect(wrapper.text()).toContain("2");
+  });
+
+  it("renders the version footer linking to the GitHub commit", () => {
+    const wrapper = mountPage();
+    const link = wrapper.find('a[href*="github.com/rustyguts/alcoves/commit/"]');
+    expect(link.exists()).toBe(true);
+    expect(link.attributes("href")).toBe(
+      "https://github.com/rustyguts/alcoves/commit/75c26d8d76c45f29e302b590ed94f4172dfb538f",
+    );
+    // Show short SHA (first 7 chars), not the full hash.
+    expect(link.text()).toBe("75c26d8");
+  });
+
+  it("hides the version footer when the backend returns no commit", () => {
+    mocks.version = null;
+    const wrapper = mountPage();
+    expect(wrapper.find('a[href*="github.com/rustyguts/alcoves/commit/"]').exists()).toBe(false);
   });
 });

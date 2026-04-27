@@ -8,8 +8,11 @@ vars below to pull from that repo instead of upstream sources.
 
 | File | Size | Purpose | Current upstream |
 |------|------|---------|------------------|
-| `ggml-base.bin` | 142M | whisper.cpp base multilingual — transcription (current default; reliable on commodity CPU) | `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin` |
-| `ggml-large-v3-turbo-q5_0.bin` | 574M | whisper.cpp large-v3-turbo Q5_0 multilingual — opt-in upgrade for hardware that can sustain it (OOM-killed on commodity CPU on long files) | `https://huggingface.co/Pomni/whisper-large-v3-turbo-ggml-allquants/resolve/main/ggml-large-v3-turbo-q5_0.bin` |
+| `ggml-base.bin` | 142M | whisper.cpp base multilingual — small/fast fallback for low-RAM hosts | `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin` |
+| `ggml-small.bin` | 466M | whisper.cpp small multilingual — mid-tier, ~1GB RAM | `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin` |
+| `ggml-medium.bin` | 1.5G | whisper.cpp medium multilingual — **current default** (~2.5GB RAM) | `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin` |
+| `ggml-silero-v6.2.0.bin` | 885K | Silero VAD v6.2 — **required** by transcribe worker; suppresses repetition-loop hallucination on non-speech audio | `https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin` |
+| `ggml-large-v3-turbo-q5_0.bin` | 574M | whisper.cpp large-v3-turbo Q5_0 multilingual — quantized large-v3, faster than medium with similar accuracy on capable CPUs | `https://huggingface.co/Pomni/whisper-large-v3-turbo-ggml-allquants/resolve/main/ggml-large-v3-turbo-q5_0.bin` |
 | `yolo26x_fp16.onnx` | 107M | YOLO26x FP16 — object detection | `https://huggingface.co/onnx-community/yolo26x-ONNX/resolve/main/onnx/model_fp16.onnx` |
 | `det_10g.onnx` | 17M | InsightFace buffalo_l — face detection | `https://huggingface.co/public-data/insightface/resolve/main/models/buffalo_l/det_10g.onnx` |
 | `w600k_r50.onnx` | 167M | InsightFace buffalo_l — face recognition | `https://huggingface.co/public-data/insightface/resolve/main/models/buffalo_l/w600k_r50.onnx` |

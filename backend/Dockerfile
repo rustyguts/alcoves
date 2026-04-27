@@ -28,7 +28,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
     rm -rf onnxruntime-linux-${ONNX_ARCH}-1.24.1*
 
 # Build whisper.cpp (whisper-cli) for transcription. Models are downloaded at runtime.
-ARG WHISPER_VERSION=v1.7.4
+ARG WHISPER_VERSION=v1.8.4
 RUN git clone --depth 1 --branch ${WHISPER_VERSION} https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp && \
     cd /tmp/whisper.cpp && \
     cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
@@ -43,6 +43,12 @@ RUN git clone --depth 1 --branch ${WHISPER_VERSION} https://github.com/ggerganov
 RUN go install github.com/air-verse/air@latest
 
 WORKDIR /app
+
+# Allow `go build`'s VCS detection to read /app/.git when bind-mounted by
+# docker compose (host UID rarely matches the container, so git would
+# otherwise refuse with a "dubious ownership" error and the version
+# endpoint would return an empty commit SHA).
+RUN git config --global --add safe.directory /app
 
 COPY go.mod go.sum ./
 RUN go mod download

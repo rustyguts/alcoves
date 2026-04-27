@@ -37,6 +37,10 @@ services:
       - .env
     volumes:
       - ./backend:/app
+      # Mount the repo's .git directory so `go build`'s VCS detection
+      # embeds vcs.revision, surfacing the commit SHA at /api/version.
+      # Read-only — container must never write to the host repo.
+      - ./.git:/app/.git:ro
       - go_mod_cache:/go/pkg/mod
       - go_build_cache:/root/.cache/go-build
       - ./data:/app/data

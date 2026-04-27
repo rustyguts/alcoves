@@ -118,9 +118,22 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		return err
 	}
 
+	// 3b. Ensure VAD model when enabled. VAD is required to suppress
+	// repetition-loop hallucinations on long non-speech regions; failure
+	// to fetch should not be silently swallowed since transcription
+	// quality drops materially without it.
+	var vadModelPath string
+	if h.cfg.WhisperVADModel != "" {
+		vadModelPath, err = ensureModel(ctx, h.cfg.WhisperModelsDir, h.cfg.WhisperVADModel, h.cfg.WhisperModelBaseURL)
+		if err != nil {
+			h.fail(fileID, fmt.Errorf("ensure whisper VAD model: %w", err))
+			return err
+		}
+	}
+
 	// 4. Run whisper.
 	outBase := filepath.Join(tmpDir, "out")
-	if err := runWhisper(ctx, h.cfg.WhisperBinaryPath, modelPath, wavPath, outBase, h.cfg.WhisperLanguage, audioSec, func(pct int) {
+	if err := runWhisper(ctx, h.cfg.WhisperBinaryPath, modelPath, vadModelPath, wavPath, outBase, h.cfg.WhisperLanguage, audioSec, func(pct int) {
 		h.setState(fileID, stringPtr("processing"), intPtr(pct), nil, nil)
 	}); err != nil {
 		h.fail(fileID, fmt.Errorf("whisper: %w", err))
@@ -289,27 +302,57 @@ var (
 	timestampRegex = regexp.MustCompile(`-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})`)
 )
 
-// runWhisper invokes whisper-cli and streams progress updates to onProgress.
-// `audioSec` is the duration of the input wav (used for per-segment progress);
-// pass 0 to disable timestamp-based progress and rely on `-pp` only.
-func runWhisper(ctx context.Context, binary, modelPath, wavPath, outBase, language string, audioSec float64, onProgress func(int)) error {
-	if _, err := exec.LookPath(binary); err != nil {
-		return fmt.Errorf(
-			"whisper binary %q not found in PATH. Install whisper.cpp (https://github.com/ggerganov/whisper.cpp) and ensure the binary is on PATH, or set ALCOVES_WHISPER_BINARY to an absolute path",
-			binary,
-		)
-	}
-	whisperArgs := []string{
+// buildWhisperArgs assembles the whisper-cli argument list. Pulled out so
+// flag policy can be unit-tested without spawning a real binary. The
+// repetition-loop fixes (-mc 0, -sns, --vad) are policy decisions, not
+// implementation details — losing one regresses transcript quality on
+// non-speech audio (game/music/silence), so we lock the set in tests.
+func buildWhisperArgs(modelPath, vadModelPath, wavPath, outBase, language string) []string {
+	args := []string{
 		"-m", modelPath,
 		"-f", wavPath,
 		"-otxt",
 		"-ovtt",
 		"-of", outBase,
 		"-pp",
+		// Disable carrying previous segment text as decoder context. Default
+		// (-mc -1) keeps all prior tokens, which traps the model in a
+		// repetition loop on quiet / non-speech audio: once it emits a
+		// hallucinated phrase, that phrase becomes the prompt for every
+		// subsequent segment and gets re-emitted indefinitely.
+		"-mc", "0",
+		// Suppress non-speech tokens (music, noise, etc.) to reduce the
+		// chance of the model latching onto a hallucinated phrase during
+		// silent regions.
+		"-sns",
+	}
+	if vadModelPath != "" {
+		// Voice Activity Detection. Skips the decoder over regions Silero
+		// flags as non-speech, which is the only reliable cure for the
+		// repetition-loop hallucination on game/music/silence audio. `-mc 0`
+		// + `-sns` alone are not enough — see docs/models.md and the
+		// reproduction in data/whisper-debug/.
+		args = append(args, "--vad", "--vad-model", vadModelPath)
 	}
 	if language != "" && language != "auto" {
-		whisperArgs = append(whisperArgs, "-l", language)
+		args = append(args, "-l", language)
 	}
+	return args
+}
+
+// runWhisper invokes whisper-cli and streams progress updates to onProgress.
+// `audioSec` is the duration of the input wav (used for per-segment progress);
+// pass 0 to disable timestamp-based progress and rely on `-pp` only.
+// `vadModelPath` enables Silero VAD when non-empty (required for whisper.cpp
+// >= v1.7.6); pass "" to skip VAD.
+func runWhisper(ctx context.Context, binary, modelPath, vadModelPath, wavPath, outBase, language string, audioSec float64, onProgress func(int)) error {
+	if _, err := exec.LookPath(binary); err != nil {
+		return fmt.Errorf(
+			"whisper binary %q not found in PATH. Install whisper.cpp (https://github.com/ggerganov/whisper.cpp) and ensure the binary is on PATH, or set ALCOVES_WHISPER_BINARY to an absolute path",
+			binary,
+		)
+	}
+	whisperArgs := buildWhisperArgs(modelPath, vadModelPath, wavPath, outBase, language)
 
 	// libc switches stdout/stderr to fully-buffered mode when they are pipes
 	// (not a TTY). Whisper writes per-segment timestamp lines via fprintf, so

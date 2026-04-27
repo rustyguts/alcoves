@@ -16,6 +16,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/database"
 	"github.com/alcoves/alcoves-backend/internal/handlers"
 	"github.com/alcoves/alcoves-backend/internal/middleware"
+	"github.com/alcoves/alcoves-backend/internal/version"
 	"github.com/hibiken/asynq"
 
 	"github.com/alcoves/alcoves-backend/internal/services/access"
@@ -208,6 +209,18 @@ func main() {
 	// Health check — always registered regardless of mode
 	api.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok", "mode": cfg.Mode})
+	})
+
+	// Version — public, no auth. Surfaces the git commit the binary was
+	// built from so the frontend can render a "view source at this commit"
+	// link in the admin panel.
+	api.GET("/version", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]any{
+			"commit":    version.Commit(),
+			"buildTime": version.BuildTime(),
+			"dirty":     version.Dirty(),
+			"mode":      cfg.Mode,
+		})
 	})
 
 	// API routes — skipped in worker-only mode

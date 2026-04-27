@@ -69,6 +69,10 @@ func needsAuth(path string) bool {
 	if path == "/api/health" {
 		return false
 	}
+	// Version info (used by admin footer; no sensitive data)
+	if path == "/api/version" {
+		return false
+	}
 	// Public file proxy
 	if strings.HasPrefix(path, "/api/files/proxy/") {
 		return false

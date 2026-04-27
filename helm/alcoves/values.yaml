@@ -74,9 +74,16 @@ backend:
   worker:
     enabled: true
     replicaCount: 1
+    # Whisper medium needs ~2.5GB RAM at runtime (f16 weights + KV cache).
+    # Combined with a concurrent ffmpeg transcode and ONNX detect job, the
+    # worker can spike past 4GB. Request 4Gi so the scheduler reserves
+    # enough; cap at 10Gi for long videos with multiple in-flight tasks.
+    # No CPU limit — whisper.cpp + ffmpeg can soak whatever the node has,
+    # and CFS throttling at a hard limit hurts more than it helps for these
+    # bursty, latency-sensitive jobs. Request 2 cores for scheduling.
     resources:
-      requests: { cpu: 500m, memory: 2Gi }
-      limits:   { cpu: 4,    memory: 8Gi }
+      requests: { cpu: 2, memory: 4Gi }
+      limits:   { memory: 10Gi }
     podAnnotations: {}
     nodeSelector: {}
     affinity: {}
@@ -150,7 +157,12 @@ oauth:
 # privately if egress matters or the public bucket is unreachable.
 # =============================================================================
 models:
-  whisperModel: base
+  whisperModel: medium
+  # Silero VAD model name. Required to suppress the repetition-loop
+  # hallucination on long non-speech audio (game/music/silence).
+  # Set to "" to disable (not recommended). Hosted alongside the whisper
+  # model file under whisperModelBaseUrl as ggml-<name>.bin.
+  whisperVadModel: silero-v6.2.0
   whisperModelBaseUrl: https://s3.rustyguts.net/models
   audioDetectModelUrl: https://s3.rustyguts.net/models/panns_cnn14.onnx
   audioDetectLabelsUrl: https://s3.rustyguts.net/models/audioset_class_labels_indices.csv

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -187,6 +188,57 @@ func TestProgressTracker_FallbackProgressLine(t *testing.T) {
 	if !reflect.DeepEqual(got, []int{25, 50}) {
 		t.Errorf("got %v, want [25 50]", got)
 	}
+}
+
+func TestBuildWhisperArgs_AlwaysIncludesAntiHallucinationFlags(t *testing.T) {
+	// These flags are load-bearing: without them whisper.cpp goes into a
+	// repetition loop on non-speech audio (game/music/silence). They are
+	// not just a "nice tuning" — losing one regresses transcript quality.
+	// Keep this test in sync with buildWhisperArgs comments.
+	args := buildWhisperArgs("/m/ggml-medium.bin", "", "/in.wav", "/tmp/out", "auto")
+	mustHavePair(t, args, "-mc", "0")
+	mustContain(t, args, "-sns")
+	// `auto` is treated as "let whisper detect" — no -l flag emitted.
+	if containsValue(args, "-l") {
+		t.Errorf("language=auto should omit -l, got %v", args)
+	}
+}
+
+func TestBuildWhisperArgs_VADAppendedWhenModelProvided(t *testing.T) {
+	args := buildWhisperArgs("/m/ggml-medium.bin", "/m/ggml-silero-v6.2.0.bin", "/in.wav", "/tmp/out", "en")
+	mustContain(t, args, "--vad")
+	mustHavePair(t, args, "--vad-model", "/m/ggml-silero-v6.2.0.bin")
+	mustHavePair(t, args, "-l", "en")
+}
+
+func TestBuildWhisperArgs_VADOmittedWhenModelEmpty(t *testing.T) {
+	args := buildWhisperArgs("/m/ggml-medium.bin", "", "/in.wav", "/tmp/out", "")
+	for _, a := range args {
+		if a == "--vad" || a == "--vad-model" {
+			t.Fatalf("expected no VAD flags when vadModelPath is empty, got %v", args)
+		}
+	}
+}
+
+func mustContain(t *testing.T, args []string, want string) {
+	t.Helper()
+	if !slices.Contains(args, want) {
+		t.Errorf("args missing %q: %v", want, args)
+	}
+}
+
+func mustHavePair(t *testing.T, args []string, flag, value string) {
+	t.Helper()
+	for i, a := range args {
+		if a == flag && i+1 < len(args) && args[i+1] == value {
+			return
+		}
+	}
+	t.Errorf("args missing %q %q pair: %v", flag, value, args)
+}
+
+func containsValue(args []string, flag string) bool {
+	return slices.Contains(args, flag)
 }
 
 func TestProgressTracker_NilCallbackIsSafe(t *testing.T) {

@@ -42,6 +42,8 @@ Sources values from the in-chart secret and any existing-secret references.
   value: "{{ .Values.queue.port }}"
 - name: ALCOVES_WHISPER_MODEL
   value: {{ .Values.models.whisperModel | quote }}
+- name: ALCOVES_WHISPER_VAD_MODEL
+  value: {{ .Values.models.whisperVadModel | default "" | quote }}
 - name: ALCOVES_WHISPER_MODEL_BASE_URL
   value: {{ .Values.models.whisperModelBaseUrl | quote }}
 - name: ALCOVES_AUDIO_DETECT_MODEL_URL

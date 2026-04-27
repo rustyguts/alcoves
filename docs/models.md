@@ -24,21 +24,40 @@ Pulled at runtime from `ALCOVES_WHISPER_MODEL_BASE_URL` /
 | Model                       | Size MB | RAM peak GB | Realtime (CPU) | WER (LS clean / other) | Languages | Notes                                       |
 | --------------------------- | ------- | ----------- | -------------- | ---------------------- | --------- | ------------------------------------------- |
 | ggml-tiny                   | 75      | ~0.4        | ~50×           | 7.5 / 16               | 99        | Fastest, weak accuracy                      |
-| **base (current)**          | **142** | **~0.5**    | **~32×**       | **5.0 / 12**           | **99**    | **Default — fast on commodity CPU, reliable on long files** |
+| base                        | 142     | ~0.5        | ~32×           | 5.0 / 12               | 99        | Fast fallback for low-RAM hosts             |
 | small                       | 466     | ~1.0        | ~16×           | 3.4 / 7.6              | 99        | Mid-tier                                    |
-| medium-q5_0                 | 515     | ~1.5        | ~6×            | 3.0 / 6.0              | 99        | <1 GB ceiling                               |
+| **medium (current)**        | **1500**| **~2.5**    | **~6×**        | **3.0 / 6.0**          | **99**    | **Default — strong accuracy, finishes within worker memory limits** |
 | large-v3                    | 3100    | ~3.3        | ~1×            | 2.7 / 5.2              | 99        | Slow on CPU                                 |
 | large-v3-q5_0               | 1080    | ~1.3        | ~3×            | 2.9 / 5.4              | 99        | Reasonable accuracy/size                    |
-| large-v3-turbo-q5_0         | 574     | ~0.9        | ~10×           | 3.0 / 5.5              | 99        | 8× faster than v3, near-v3 WER — but on commodity CPU still ~0.5x realtime under load, OOM-killed on long jobs |
+| large-v3-turbo-q5_0         | 574     | ~0.9        | ~10×           | 3.0 / 5.5              | 99        | 8× faster than v3, near-v3 WER — viable on capable CPU/GPU |
 | large-v3-turbo-q4_0         | 470     | ~0.8        | ~12×           | 3.2 / 5.8              | 99        | Smallest near-SOTA                          |
 | distil-large-v3.5-q5        | ~600    | ~1.0        | ~15×           | 3.0 / 5.6              | EN only   | Faster than turbo, English only             |
 
-**Status:** rolled back to `base` on 2026-04-26. `large-v3-turbo-q5_0` was set
-as default on 2026-04-25, but on the production CPU it ran far below its
-benchmarked 10× realtime (closer to 0.5×) and the kernel OOM-killed
-whisper-cli on long videos. `base` is materially less accurate but finishes
-reliably. Override per-deploy with `ALCOVES_WHISPER_MODEL=large-v3-turbo-q5_0`
-on hardware that can sustain the larger model.
+**Status:** default switched to `medium` on 2026-04-27. Worker memory
+request bumped from 2Gi → 4Gi (limit 8Gi → 10Gi) to accommodate the larger
+KV cache + concurrent ffmpeg/ONNX work. The earlier `large-v3-turbo-q5_0`
+attempt (2026-04-25 → 2026-04-26) was rolled back because it ran far below
+its benchmarked 10× realtime on the production CPU and the kernel
+OOM-killed whisper-cli on long videos at the old 8Gi limit. With `-mc 0`
+(no decoder context carry-over, added 2026-04-27 to fix a repetition-loop
+hallucination bug) memory pressure is materially lower; medium fits.
+Override per-deploy with `ALCOVES_WHISPER_MODEL=base` on RAM-constrained
+hosts, or `ALCOVES_WHISPER_MODEL=large-v3-turbo-q5_0` on capable hardware.
+
+**Repetition-loop fix history (2026-04-27).** `-mc 0` + `-sns` alone are
+insufficient on long non-speech audio (game streams, music-heavy
+recordings, silence). The model still hallucinates a phrase, the next
+chunk re-hallucinates the same phrase from the encoder context, and the
+output collapses into "phrase × N" loops (reproduced on a 25-min Age of
+Empires 4 capture: 122/122 cues = "That's you lay there on timbre."). The
+working fix is **Silero VAD preprocessing** (added in whisper.cpp v1.7.6,
+we run v1.8.4): the decoder only sees regions Silero classifies as
+speech, so no decoder pass = no hallucination. After enabling VAD on the
+same sample the output landed at 139 segments / 125 unique = 90% unique;
+the residual repeats are real game-music vocal loops in the source. VAD
+is wired through `ALCOVES_WHISPER_VAD_MODEL` (default `silero-v6.2.0`)
+and `ALCOVES_WHISPER_MODEL_BASE_URL`. Set the env to `""` to disable;
+not recommended.
 
 ## 2. Audio event detection (AudioSet 527-class)
 
