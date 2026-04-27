@@ -116,6 +116,10 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     defaults:
       run:
         working-directory: frontend
@@ -164,12 +168,12 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: bun run test:e2e
+        run: bunx playwright test --shard=${{ matrix.shard }}/4
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: playwright-report/
           if-no-files-found: ignore
