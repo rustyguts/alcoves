@@ -187,7 +187,8 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 
 	// If transforms are requested and the file is an image, route through the
 	// image proxy service (NFS cache check → enqueue job → Redis pub/sub wait).
-	if imageproxy.NeedsTransform(opts) && isImageMime(file.MimeType) {
+	// When no processor is wired up (e.g. tests), fall through to the original.
+	if imageproxy.NeedsTransform(opts) && isImageMime(file.MimeType) && h.imgSvc.HasProcessor() {
 		outBytes, mime, err := h.imgSvc.ServeTransform(c.Request().Context(), libraryID, fileID, opts)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to transform image")

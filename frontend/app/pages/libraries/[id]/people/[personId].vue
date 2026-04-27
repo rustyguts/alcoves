@@ -169,14 +169,8 @@ watch(
       <UButton color="primary" size="sm" @click="goBack">Back to People</UButton>
     </div>
 
-    <UContextMenu
-      v-else-if="faces.length"
-      :items="contextMenuItems"
-      :ui="{ content: 'w-56' }"
-    >
-      <div
-        class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2"
-      >
+    <UContextMenu v-else-if="faces.length" :items="contextMenuItems" :ui="{ content: 'w-56' }">
+      <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
         <div
           v-for="face in faces"
           :key="face.id"

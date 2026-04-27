@@ -6,7 +6,8 @@ describe("UserAvatar", () => {
     const wrapper = mount(UserAvatar, {
       props: { displayName: "John Doe" },
     });
-    expect(wrapper.text()).toContain("John Doe");
+    // Component renders the upper-cased first letter, not the full name.
+    expect(wrapper.text()).toBe("J");
     expect(wrapper.find("img").exists()).toBe(false);
   });
 
@@ -46,6 +47,6 @@ describe("UserAvatar", () => {
       props: { displayName: "Test User", avatarUrl: null },
     });
     expect(wrapper.find("img").exists()).toBe(false);
-    expect(wrapper.text()).toContain("Test User");
+    expect(wrapper.text()).toBe("T");
   });
 });

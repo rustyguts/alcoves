@@ -234,9 +234,11 @@ func (h *TusHandler) Create(c echo.Context) error {
 
 	// If upload is already complete (small file sent in creation request)
 	if upload.Offset >= upload.Size {
-		if err := h.finishUpload(upload); err != nil {
+		dupCount, err := h.finishUpload(upload)
+		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to finalize upload")
 		}
+		setDuplicateHeader(c, dupCount)
 	}
 
 	location := fmt.Sprintf("/api/tus/%s", uploadID)
@@ -336,10 +338,12 @@ func (h *TusHandler) Patch(c echo.Context) error {
 	if upload.Offset >= upload.Size {
 		// Unlock before finishUpload since it doesn't need the upload mutex
 		upload.mu.Unlock()
-		if err := h.finishUpload(upload); err != nil {
+		dupCount, err := h.finishUpload(upload)
+		if err != nil {
 			upload.mu.Lock() // re-lock for deferred unlock
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to finalize upload")
 		}
+		setDuplicateHeader(c, dupCount)
 		upload.mu.Lock() // re-lock for deferred unlock
 	}
 
@@ -348,7 +352,9 @@ func (h *TusHandler) Patch(c echo.Context) error {
 
 // finishUpload moves the completed upload to permanent storage and creates
 // the database record. Called when offset reaches the declared upload size.
-func (h *TusHandler) finishUpload(upload *tusUpload) error {
+// Returns the number of existing files in the library that share this hash
+// (i.e. how many duplicates the new upload collided with).
+func (h *TusHandler) finishUpload(upload *tusUpload) (int, error) {
 	stagingPath := h.stagingPath(upload.ID)
 	defer func() {
 		os.Remove(stagingPath)
@@ -362,14 +368,14 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 	// Stream the completed file from staging to permanent storage, computing SHA256 as we go
 	f, err := os.Open(stagingPath)
 	if err != nil {
-		return fmt.Errorf("failed to open staging file: %w", err)
+		return 0, fmt.Errorf("failed to open staging file: %w", err)
 	}
 	defer f.Close()
 
 	hr := filehash.NewHashingReader(f)
 	bytesWritten, err := h.storageSvc.StoreFileStream(upload.LibraryID, fileID.String(), hr)
 	if err != nil {
-		return fmt.Errorf("failed to store file: %w", err)
+		return 0, fmt.Errorf("failed to store file: %w", err)
 	}
 
 	hashStr := hr.HexSum()
@@ -394,7 +400,15 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 	if err := h.db.Create(&file).Error; err != nil {
 		// Clean up stored file on DB failure
 		h.storageSvc.DeleteFile(upload.LibraryID, fileID.String())
-		return fmt.Errorf("failed to create file record: %w", err)
+		return 0, fmt.Errorf("failed to create file record: %w", err)
+	}
+
+	// Best-effort duplicate detection — surfaced via response header.
+	dupCount := 0
+	if dupes, derr := filehash.FindDuplicates(h.db, libUUID, fileID, hashStr); derr != nil {
+		log.Printf("dedup query failed for tus file %s: %v", fileID, derr)
+	} else {
+		dupCount = len(dupes)
 	}
 
 	// Trigger face detection if applicable
@@ -448,7 +462,15 @@ func (h *TusHandler) finishUpload(upload *tusUpload) error {
 		}
 	}
 
-	return nil
+	return dupCount, nil
+}
+
+// setDuplicateHeader writes the X-Alcoves-Duplicate-Count response header when
+// the upload collided with at least one existing file.
+func setDuplicateHeader(c echo.Context, dupCount int) {
+	if dupCount > 0 {
+		c.Response().Header().Set("X-Alcoves-Duplicate-Count", strconv.Itoa(dupCount))
+	}
 }
 
 // setTusHeaders sets standard tus response headers.

@@ -113,7 +113,7 @@ Route groups registered in `main.go`:
 - `test/setup.ts` installs Nuxt UI component stubs (unprefixed names like `Modal`, not `UModal`)
 - Mock `useToast` via `vi.mock("@nuxt/ui/composables/useToast")`
 - `#imports` mocks DO work inside the Nuxt test env
-- Some pre-migration tests still stub `vue-router`; those patterns continue to work because Nuxt's `useRouter` resolves to vue-router under the hood
+- **`vue-router` mocks do NOT intercept Nuxt's auto-imported `useRoute`/`useRouter`** — Nuxt re-exports them from `#app/composables/router`, which is what the source code resolves to. See "Test discipline" → "Frontend mocking gotchas" below.
 
 **Frontend E2E tests** (Playwright, files in `test/e2e/`):
 - All API calls are mocked via `page.route()` — no real backend needed
@@ -155,3 +155,70 @@ When the user says "turn off the lights", follow the full workflow defined in [t
 - Run targeted tests first, then broader suites when needed
 - Avoid destructive git commands and do not revert unrelated local changes
 - When adding DOM/`window`/`localStorage` access to a new component or composable, guard with `import.meta.client` or wrap in `onMounted` — pages are SSR'd by default
+
+## Test discipline (REQUIRED for every code change)
+
+These rules are non-optional. Skipping them is what produced the multi-month
+test rot we just spent a session unwinding.
+
+**Before merging any feature, refactor, or bug fix:**
+
+1. **Run the targeted suite first.** If you changed `frontend/app/`, run
+   `bun run test:unit -- <changed file paths>` and the matching e2e file in
+   `frontend/test/e2e/flows/` if one exists. If you changed `backend/`, run
+   `go test ./internal/<changed package>/...`. Don't claim done before this.
+2. **Then run the full suite for the side you touched.** Frontend:
+   `bun run typecheck && bun run lint && bun run test:unit && bunx playwright test`. Backend:
+   `go test ./... -race -count=1`. All four steps must exit 0 (frontend) /
+   `go test` must be green (backend).
+3. **If a test fails, fix it before merge.** Two valid outcomes:
+   - The test caught a real regression → fix the source.
+   - The test was wrong (asserting against an outdated UI/API contract) →
+     update or delete the test in the same PR. **Never commit while ignoring
+     a failure.** "Pre-existing failure, not mine" is how the suite rotted to
+     104 failures. The rule: if it failed during your run and you didn't
+     touch it, you still own quieting it (fix, update, delete, or `it.skip`
+     with a comment + a `docs/todos.md` entry).
+4. **If you skip a test, leave a paper trail.** Use `it.skip` with a comment
+   that says *why* and links to a `docs/todos.md` line. Never silently
+   delete coverage — either keep + skip, or delete with the rationale in the
+   commit message.
+5. **Add tests for new behavior.** New composable, handler, util, or branch
+   gets a test in the same PR. The bar is "would a future regression be
+   caught?" — if no, write one.
+6. **For UI/frontend changes, also exercise the feature in a browser.**
+   Type-check + tests verify code correctness, not feature correctness. See
+   the "doing tasks" guidance — start `bun run dev`, click the golden path
+   and a couple of edge cases, watch for unrelated regressions before
+   reporting done.
+
+**Frontend mocking gotchas (read before writing a new test):**
+
+- `useRoute` and `useRouter` auto-import from `#app/composables/router`,
+  not `vue-router`. Mocking `vue-router` alone does **not** intercept Nuxt's
+  auto-imports. Tests that need to control route data either (a) avoid
+  `useRoute`-dependent code paths, or (b) wait for the project to adopt a
+  proper Nuxt route mount helper (tracked in `docs/todos.md` item 9).
+- When mocking `vue-router`, always spread `await importOriginal()` —
+  partial mocks break Nuxt plugins that need `createWebHistory` /
+  `router.beforeEach` / etc.
+- When mocking `~/utils/api-fetch`, return `apiUrl` and `ApiError` along
+  with `apiFetch` — multiple components import `apiUrl` and several use
+  `ApiError` for type narrowing. Missing exports surface as opaque vitest
+  module errors.
+- When mocking `~/composables/useAuth`, always include `{ loggedIn,
+  user, fetchSession }` (the shape `auth.global.ts` middleware destructures
+  on every page mount). Returning a partial shape crashes the middleware
+  during app init.
+- `localStorage`, `sessionStorage`, `navigator.clipboard`, and `<NuxtLayout>`
+  are stubbed in `test/setup.ts` — don't re-stub them per file.
+
+**Coverage:**
+
+- Frontend coverage thresholds live in `frontend/vitest.config.ts`. If they
+  trip, the CI run reports it but the suite still passes — they're a
+  signal, not a gate. If you raise them, raise them as part of the same PR
+  that lifts coverage so subsequent PRs aren't blocked.
+- Backend per-package coverage shows up in `go test ./... -cover`. Treat
+  any package at `0.0%` with non-test source as a known gap (catalogued in
+  `docs/todos.md` item 9).

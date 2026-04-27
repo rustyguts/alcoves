@@ -139,6 +139,8 @@ vi.mock("~/composables/useToast", () => ({
 
 vi.mock("~/utils/api-fetch", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+  apiUrl: (path: string) => path,
+  ApiError: class ApiError extends Error {},
 }));
 
 vi.mock("vue-router", async (importOriginal) => {
@@ -151,6 +153,109 @@ vi.mock("vue-router", async (importOriginal) => {
       params: { id: mocks.routeParamsId },
       query: mocks.routeQuery,
       fullPath: mocks.routePath,
+      meta: {},
+    }),
+    useRouter: () => ({
+      push: mocks.routerPush,
+      replace: vi.fn(),
+      currentRoute: { value: { path: mocks.routePath, query: mocks.routeQuery } },
+    }),
+  };
+});
+
+vi.mock("~/composables/useLibraryExplorer", () => ({
+  useLibraryExplorer: () => ({
+    route: {
+      path: mocks.routePath,
+      params: { id: mocks.routeParamsId },
+      query: mocks.routeQuery,
+    },
+    libraryId: mockRef(() => mocks.routeParamsId),
+    user: mockRef(() => ({ id: "user-1" })),
+    library: mockRef(() => mocks.library),
+    refreshLibrary: mocks.refreshLibrary,
+    isTrashRoute: mockRef(() => mocks.isTrashRoute),
+    viewMode: mockRef(
+      () => mocks.viewMode,
+      (v: string) => {
+        mocks.viewMode = v;
+      },
+    ),
+    entryViewMode: mockRef(
+      () => mocks.entryViewMode,
+      (v: "file" | "card") => {
+        mocks.entryViewMode = v;
+      },
+    ),
+    showTrashed: mockRef(() => mocks.showTrashed),
+    canManageLibrary: mockRef(() => mocks.canManageLibrary),
+    currentFolderId: mockRef(() => mocks.currentFolderId),
+    buildFolderQuery: mocks.buildFolderQuery,
+    openFolder: mocks.openFolder,
+    entries: mockRef(
+      () => mocks.entries,
+      (v: LibraryEntry[]) => {
+        mocks.entries = v;
+      },
+    ),
+    breadcrumbs: mockRef(
+      () => mocks.breadcrumbs,
+      (v: Array<{ id: string; name: string }>) => {
+        mocks.breadcrumbs = v;
+      },
+    ),
+    nextCursor: mockRef(
+      () => mocks.nextCursor,
+      (v: string | null) => {
+        mocks.nextCursor = v;
+      },
+    ),
+    totalCount: mockRef(
+      () => mocks.totalCount,
+      (v: number) => {
+        mocks.totalCount = v;
+      },
+    ),
+    trashedCount: mockRef(
+      () => mocks.trashedCount,
+      (v: number) => {
+        mocks.trashedCount = v;
+      },
+    ),
+    libraryTags: mockRef(() => mocks.libraryTags),
+    loadingMore: mockRef(() => mocks.loadingMore),
+    filesPending: mockRef(() => mocks.filesPending),
+    files: mockRef(() => mocks.entries.filter((e): e is LibraryFile => e.kind === "file")),
+    folders: mockRef(() => mocks.entries.filter((e): e is LibraryFolder => e.kind === "folder")),
+    selectedFiles: mocks.selectedFiles,
+    selectedFolders: mocks.selectedFolders,
+    lastClickedIndex: mockRef(
+      () => mocks.lastClickedIndex,
+      (v: number | null) => {
+        mocks.lastClickedIndex = v;
+      },
+    ),
+    clearSelection: mocks.clearSelection,
+    isEntrySelected: mocks.isEntrySelected,
+    fetchPage: mocks.fetchPage,
+    loadMore: mocks.loadMore,
+    resetAndFetch: mocks.resetAndFetch,
+    refreshTags: mocks.refreshTags,
+    refreshTrashedCount: mocks.refreshTrashedCount,
+    refreshFolders: mocks.refreshFolders,
+  }),
+}));
+vi.mock("#imports", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    RouterLink: { template: "<a :href='to'><slot /></a>", props: ["to"] },
+    useRoute: () => ({
+      path: mocks.routePath,
+      params: { id: mocks.routeParamsId },
+      query: mocks.routeQuery,
+      fullPath: mocks.routePath,
+      meta: {},
     }),
     useRouter: () => ({
       push: mocks.routerPush,

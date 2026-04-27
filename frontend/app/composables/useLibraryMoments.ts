@@ -13,9 +13,7 @@ export function useLibraryMoments(libraryId: Ref<string>, fileId: Ref<string>) {
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   const hasInFlight = computed(() =>
-    moments.value.some(
-      (m) => m.exportStatus === "queued" || m.exportStatus === "processing",
-    ),
+    moments.value.some((m) => m.exportStatus === "queued" || m.exportStatus === "processing"),
   );
 
   async function refresh() {
@@ -33,9 +31,7 @@ export function useLibraryMoments(libraryId: Ref<string>, fileId: Ref<string>) {
 
   async function create(body: MomentCreate): Promise<Moment> {
     const created = await api.moments.create(libraryId.value, fileId.value, body);
-    moments.value = [...moments.value, created].sort(
-      (a, b) => a.startSeconds - b.startSeconds,
-    );
+    moments.value = [...moments.value, created].sort((a, b) => a.startSeconds - b.startSeconds);
     return created;
   }
 

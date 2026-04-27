@@ -1,5 +1,7 @@
 vi.mock("~/utils/api-fetch", () => ({
   apiFetch: vi.fn(),
+  apiUrl: (path: string) => path,
+  ApiError: class ApiError extends Error {},
 }));
 
 const mocks = vi.hoisted(() => ({
@@ -66,6 +68,7 @@ describe("useDownloadZip", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileIds: ["file-1"], folderIds: [], skipSizeCheck: false }),
+        credentials: "include",
       });
     });
 
@@ -184,6 +187,7 @@ describe("useDownloadZip", () => {
           folderIds: ["folder-1", "folder-2"],
           skipSizeCheck: false,
         }),
+        credentials: "include",
       });
     });
 
@@ -246,6 +250,7 @@ describe("useDownloadZip", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileIds: ["file-1"], folderIds: [], skipSizeCheck: true }),
+        credentials: "include",
       });
     });
 

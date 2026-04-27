@@ -52,6 +52,8 @@ vi.mock("~/composables/useAuth", () => ({
     user: mockRef(() => mocks.user),
     updateProfile: mocks.updateProfile,
     uploadAvatar: mocks.uploadAvatar,
+    loggedIn: { value: true },
+    fetchSession: vi.fn().mockResolvedValue(null),
   }),
 }));
 
@@ -80,6 +82,8 @@ vi.mock("~/composables/useApiFetch", () => ({
 
 vi.mock("~/utils/api-fetch", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+  apiUrl: (path: string) => path,
+  ApiError: class ApiError extends Error {},
 }));
 
 const stubs = {
@@ -128,7 +132,10 @@ describe("profile.vue", () => {
 
   it("renders user info", () => {
     const wrapper = mountPage();
-    expect(wrapper.text()).toContain("Test User");
+    // Display name lives in an editable <UInput v-model="displayName">, so
+    // it shows up as the input value rather than rendered text.
+    const input = wrapper.find("input[placeholder='Display name']");
+    expect((input.element as HTMLInputElement).value).toBe("Test User");
     expect(wrapper.text()).toContain("user@example.com");
   });
 
@@ -146,7 +153,10 @@ describe("profile.vue", () => {
 
   it("shows avatar initial when no avatar URL", () => {
     const wrapper = mountPage();
-    expect(wrapper.text()).toContain("Test User");
+    // The local UAvatar stub renders the initial inside `.avatar > span`.
+    const avatar = wrapper.find(".avatar");
+    expect(avatar.exists()).toBe(true);
+    expect(avatar.text()).toBe("T");
   });
 
   it("shows avatar image when avatarUrl is set", () => {

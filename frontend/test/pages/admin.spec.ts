@@ -73,11 +73,15 @@ vi.mock("~/composables/useToast", () => ({
 vi.mock("~/composables/useAuth", () => ({
   useAuth: () => ({
     user: mockRef(() => mocks.currentUser),
+    loggedIn: { value: true },
+    fetchSession: vi.fn().mockResolvedValue(null),
   }),
 }));
 
 vi.mock("~/utils/api-fetch", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+  apiUrl: (path: string) => path,
+  ApiError: class ApiError extends Error {},
 }));
 
 describe("admin.vue", () => {

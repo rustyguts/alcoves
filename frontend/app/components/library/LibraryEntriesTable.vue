@@ -132,6 +132,14 @@ const emit = defineEmits<{
               >
                 {{ entry.name }}
               </span>
+              <UTooltip
+                v-if="entry.kind === 'file' && entry.hasDuplicates"
+                text="Duplicate of another file in this library"
+              >
+                <UBadge color="warning" variant="soft" size="xs" icon="i-lucide-copy" class="ml-1">
+                  Duplicate
+                </UBadge>
+              </UTooltip>
             </div>
           </td>
           <td class="px-4 py-3">

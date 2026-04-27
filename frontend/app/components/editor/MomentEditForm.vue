@@ -66,9 +66,7 @@ function onDelete() {
               variant="soft"
               size="xs"
               icon="i-lucide-refresh-cw"
-              :disabled="
-                moment.exportStatus === 'queued' || moment.exportStatus === 'processing'
-              "
+              :disabled="moment.exportStatus === 'queued' || moment.exportStatus === 'processing'"
               @click="emit('export', moment.id)"
             >
               Reprocess
@@ -111,12 +109,7 @@ function onDelete() {
     <div class="flex flex-col gap-2">
       <div class="flex items-center gap-2">
         <label class="text-xs font-medium text-muted w-24 shrink-0">Name</label>
-        <UInput
-          v-model="name"
-          size="xs"
-          placeholder="Untitled"
-          :ui="{ root: 'flex-1 min-w-0' }"
-        />
+        <UInput v-model="name" size="xs" placeholder="Untitled" :ui="{ root: 'flex-1 min-w-0' }" />
       </div>
 
       <div class="flex gap-2">
@@ -183,18 +176,10 @@ function onDelete() {
 
     <template #footer>
       <div class="flex items-center justify-end gap-2 w-full">
-        <UButton
-          color="error"
-          variant="soft"
-          size="xs"
-          icon="i-lucide-trash-2"
-          @click="onDelete"
-        >
+        <UButton color="error" variant="soft" size="xs" icon="i-lucide-trash-2" @click="onDelete">
           Delete
         </UButton>
-        <UButton color="primary" size="xs" icon="i-lucide-save" @click="onSave">
-          Save
-        </UButton>
+        <UButton color="primary" size="xs" icon="i-lucide-save" @click="onSave"> Save </UButton>
       </div>
     </template>
   </UCard>

@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("~/composables/useAuth", () => ({
   useAuth: () => ({
     register: mocks.register,
+    loggedIn: { value: true },
+    fetchSession: vi.fn().mockResolvedValue(null),
   }),
 }));
 

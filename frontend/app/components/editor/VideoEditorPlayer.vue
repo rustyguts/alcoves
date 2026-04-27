@@ -43,9 +43,7 @@ const fileUrl = computed(() =>
 
 const selectedPlaybackSource = computed(() => {
   if (!selectedPlaybackSourceId.value) return null;
-  return (
-    playbackSources.value.find((s) => s.id === selectedPlaybackSourceId.value) ?? null
-  );
+  return playbackSources.value.find((s) => s.id === selectedPlaybackSourceId.value) ?? null;
 });
 
 const videoSrc = computed(() => {

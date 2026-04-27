@@ -38,11 +38,9 @@ func testDB(t *testing.T) *gorm.DB {
 		t.Fatalf("Failed to migrate: %v", err)
 	}
 
-	// Clean tables before each test
-	db.Exec("DELETE FROM sessions")
-	db.Exec("DELETE FROM accounts")
-	db.Exec("DELETE FROM libraries")
-	db.Exec("DELETE FROM users")
+	// Clean tables before each test. CASCADE drops rows in any dependent
+	// tables that other test files migrated (library_members, files, etc.).
+	db.Exec("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
 
 	return db
 }

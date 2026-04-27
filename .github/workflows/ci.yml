@@ -7,6 +7,74 @@ on:
       - main
 
 jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_DB: alcoves_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5455:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      ALCOVES_DATABASE_URL: postgres://postgres:postgres@localhost:5455/alcoves_test
+      ALCOVES_SESSION_SECRET: alcoves-ci-secret-key-for-go-tests!!
+      ALCOVES_STORAGE_DRIVER: local
+      ALCOVES_STORAGE_PATH: ./data
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Install libvips
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvips-dev
+
+      - name: Install ONNX Runtime
+        run: |
+          ONNX_VERSION=1.24.1
+          ARCH=$(dpkg --print-architecture)
+          if [ "$ARCH" = "arm64" ]; then ONNX_ARCH="aarch64"; else ONNX_ARCH="x64"; fi
+          wget -q "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}.tgz"
+          tar -xzf "onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}.tgz"
+          sudo cp -r "onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}/lib/"* /usr/local/lib/
+          sudo cp -r "onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}/include/"* /usr/local/include/
+          sudo ln -sf /usr/local/lib/libonnxruntime.so /usr/local/lib/onnxruntime.so
+          sudo ldconfig
+          rm -rf "onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}"*
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./... -race -count=1
+
   unit-and-coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 20

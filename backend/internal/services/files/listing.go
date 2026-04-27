@@ -64,6 +64,7 @@ type FileResponse struct {
 	SourceFileID      *string       `json:"sourceFileId"`
 	OriginalCreatedAt *string       `json:"originalCreatedAt"`
 	Hash              *string       `json:"hash"`
+	HasDuplicates     bool          `json:"hasDuplicates"`
 	TrashedAt         *string       `json:"trashedAt"`
 	CreatedAt         string        `json:"createdAt"`
 	UpdatedAt         string        `json:"updatedAt"`
@@ -228,6 +229,9 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 		trashedFolderFileCounts = s.getTrashedFolderFileCounts(libraryID, folderIDs)
 	}
 
+	// Per-library duplicate flag for files (cheap single query joining hash siblings).
+	dupSet := s.loadHasDuplicates(libraryID, fileIDs)
+
 	// Build response entries
 	entries := make([]interface{}, len(combined))
 	for i, row := range combined {
@@ -303,6 +307,7 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 				SourceFileID:      row.SourceFileID,
 				OriginalCreatedAt: timePtr(row.OriginalCreatedAt),
 				Hash:              row.Hash,
+				HasDuplicates:     dupSet[row.ID],
 				TrashedAt:         timePtr(row.TrashedAt),
 				CreatedAt:         row.CreatedAt.Format(time.RFC3339Nano),
 				UpdatedAt:         row.UpdatedAt.Format(time.RFC3339Nano),
@@ -553,6 +558,40 @@ func (s *Service) loadOwners(ownerIDs []string) map[string]OwnerSummary {
 			DisplayName: row.DisplayName,
 			AvatarUrl:   row.AvatarUrl,
 		}
+	}
+	return result
+}
+
+// loadHasDuplicates returns the set of file IDs (in the given list) that have
+// at least one other non-trashed source file in the same library sharing the
+// same hash. Single query — no N+1.
+func (s *Service) loadHasDuplicates(libraryID string, fileIDs []string) map[string]bool {
+	result := map[string]bool{}
+	if len(fileIDs) == 0 {
+		return result
+	}
+	type row struct {
+		ID string `gorm:"column:id"`
+	}
+	var rows []row
+	s.db.Raw(`
+		SELECT f.id
+		FROM files f
+		WHERE f.id IN ?
+		  AND f.library_id = ?
+		  AND f.hash IS NOT NULL
+		  AND f.source_file_id IS NULL
+		  AND EXISTS (
+		    SELECT 1 FROM files o
+		    WHERE o.library_id = f.library_id
+		      AND o.hash = f.hash
+		      AND o.id <> f.id
+		      AND o.trashed_at IS NULL
+		      AND o.source_file_id IS NULL
+		  )
+	`, fileIDs, libraryID).Scan(&rows)
+	for _, r := range rows {
+		result[r.ID] = true
 	}
 	return result
 }

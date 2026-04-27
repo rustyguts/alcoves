@@ -39,8 +39,8 @@ No vendor lock-in. No subscriptions. Just your files, on your server.
 | Job Queue     | [Asynq](https://github.com/hibiken/asynq) + Dragonfly (Redis) |
 | Image         | [govips](https://github.com/davidbyttow/govips) (libvips)     |
 | AI            | [ONNX Runtime](https://onnxruntime.ai) — face & object detect |
-| Frontend      | Vue 3 + Vite SPA                                              |
-| UI            | [Nuxt UI v4](https://ui.nuxt.com) + Tailwind CSS v4 + DaisyUI |
+| Frontend      | [Nuxt 4](https://nuxt.com) (Vue 3 + Nitro server)             |
+| UI            | [Nuxt UI v4](https://ui.nuxt.com) + Tailwind CSS v4           |
 | Auth          | Session-based (AES-GCM encrypted cookies)                     |
 | Uploads       | [TUS](https://tus.io) resumable upload protocol               |
 | Deployment    | Docker / Docker Compose                                       |
@@ -49,7 +49,7 @@ No vendor lock-in. No subscriptions. Just your files, on your server.
 
 ### Using Docker Compose (Recommended)
 
-The fastest way to run Alcoves is with Docker Compose, which starts the Go backend, PostgreSQL, and Dragonfly.
+The fastest way to run Alcoves is with Docker Compose, which starts the Nuxt frontend (port 3000), the Go API backend (port 3001), PostgreSQL, and Dragonfly.
 
 **1. Clone the repository**
 
@@ -73,15 +73,17 @@ docker compose up -d
 
 **4. Open the app**
 
-Navigate to [http://localhost:3001](http://localhost:3001) and register your first account. The first user to register is automatically granted the **owner** role.
+Navigate to [http://localhost:3000](http://localhost:3000) and register your first account. The first user to register is automatically granted the **owner** role. (Port 3000 is the Nuxt frontend, which proxies API calls to the Go backend on port 3001.)
 
 ### Using the Container Image
 
-If you already have a PostgreSQL and Dragonfly (Redis) instance, you can run the Alcoves container directly.
+The published image `ghcr.io/rustyguts/alcoves:latest` is the **Go API backend only** — the Nuxt frontend ships as a separate image (built from `frontend/Dockerfile`). For a working setup you need both.
+
+If you already have PostgreSQL and Dragonfly (Redis) running, the simplest path is still `docker compose up` against the included `docker-compose.yml`. To run the API container standalone (for example, behind your own reverse proxy that already serves a built frontend):
 
 ```bash
 docker run -d \
-  --name alcoves \
+  --name alcoves-api \
   -p 3001:3001 \
   -e ALCOVES_DATABASE_URL="postgres://user:password@your-db-host:5432/alcoves?sslmode=disable" \
   -e ALCOVES_SESSION_SECRET="your-secret-key-at-least-32-characters-long" \
@@ -90,29 +92,42 @@ docker run -d \
   ghcr.io/rustyguts/alcoves:latest
 ```
 
-Then open [http://localhost:3001](http://localhost:3001).
+The API serves on port 3001. Point your reverse proxy (or the Nuxt frontend's `ALCOVES_API_URL`) at it, and route browser traffic to the Nuxt server on port 3000.
 
 ### Docker Compose (Production)
 
-For production deployments, create a `docker-compose.prod.yml`:
+For production deployments, run the API + a separately-built frontend image alongside Postgres and Dragonfly. Build the frontend image once from `frontend/Dockerfile` (e.g. `docker build -t alcoves-frontend ./frontend`) and reference it below as `image: alcoves-frontend`. Put both `frontend` (port 3000) and `api` (port 3001) behind one reverse proxy in front, with `/api/**` and `/s/**` routed to `api` and everything else to `frontend`.
 
 ```yaml
 services:
-  app:
+  api:
     image: ghcr.io/rustyguts/alcoves:latest
     environment:
       - ALCOVES_DATABASE_URL=postgres://postgres:change-me@postgres:5432/alcoves?sslmode=disable
       - ALCOVES_SESSION_SECRET=change-me-to-a-random-string-at-least-32-chars
       - ALCOVES_QUEUE_HOST=dragonfly
+      - ALCOVES_BASE_URL=https://alcoves.example.com
     volumes:
       - alcoves_data:/app/data
-    ports:
-      - 3001:3001
+    expose:
+      - "3001"
     depends_on:
       postgres:
         condition: service_healthy
       dragonfly:
         condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: alcoves-frontend # built locally from ./frontend/Dockerfile
+    environment:
+      - NITRO_HOST=0.0.0.0
+      - NITRO_PORT=3000
+      - ALCOVES_API_URL=http://api:3001
+    expose:
+      - "3000"
+    depends_on:
+      - api
     restart: unless-stopped
 
   postgres:
@@ -250,20 +265,18 @@ docker compose up -d postgres dragonfly
 cd backend
 go run cmd/server/main.go
 
-# In a second terminal — start the frontend dev server (port 5173)
+# In a second terminal — start the Nuxt dev server (port 3000)
 cd frontend
 bun install
 bun run dev
 ```
 
-The frontend dev server proxies `/api/*` to the Go backend and is available at [http://localhost:5173](http://localhost:5173).
+The Nuxt dev server proxies `/api/**` and `/s/**` to the Go backend and is available at [http://localhost:3000](http://localhost:3000).
 
-Alternatively, start everything with Docker Compose (including Air hot-reload for the backend):
+Alternatively, start everything with Docker Compose (Nuxt + Go + Postgres + Dragonfly, with Air hot-reload for the Go backend and Bun dev for the frontend):
 
 ```bash
 docker compose up
-# Add --profile frontend to also start the Vite dev server in Docker
-docker compose --profile frontend up
 ```
 
 ### Backend Commands
@@ -283,7 +296,7 @@ Run from the `frontend/` directory:
 
 | Command                    | Description                             |
 | -------------------------- | --------------------------------------- |
-| `bun run dev`              | Start Vite dev server with hot reload   |
+| `bun run dev`              | Start Nuxt dev server (port 3000) with hot reload |
 | `bun run build`            | Create production build                 |
 | `bun run typecheck`        | TypeScript type checking                |
 | `bun run lint`             | Run linter (OXlint)                     |
@@ -295,16 +308,15 @@ Run from the `frontend/` directory:
 
 ```
 alcoves/
-├── backend/                    # Go API server
+├── backend/                    # Go API server (port 3001)
 │   ├── cmd/server/             # Entry point (main.go)
 │   ├── internal/
 │   │   ├── handlers/           # HTTP request handlers
 │   │   ├── middleware/         # Auth & access-control middleware
 │   │   ├── models/             # GORM entity definitions
-│   │   ├── services/           # Business logic (auth, storage, image/video proxy, AI)
-│   │   └── spa/                # Embeds compiled frontend for single-binary deploy
+│   │   └── services/           # Business logic (auth, storage, image/video proxy, AI workers)
 │   └── migrations/             # Goose SQL migrations
-├── frontend/                   # Vue 3 + Vite SPA
+├── frontend/                   # Nuxt 4 (Vue 3 + Nitro server, port 3000)
 │   ├── app/
 │   │   ├── components/         # Vue components
 │   │   ├── composables/        # Shared composables (useAuth, useApiFetch, etc.)
@@ -312,9 +324,11 @@ alcoves/
 │   │   ├── pages/              # File-based routing
 │   │   └── utils/              # Shared utilities
 │   ├── shared/types/           # API response type definitions
-│   └── test/                   # Unit (Vitest) + E2E (Playwright) tests
-├── docker-compose.yml          # Development environment
-└── Dockerfile                  # Multi-stage Docker build
+│   ├── test/                   # Unit (Vitest) + E2E (Playwright) tests
+│   └── Dockerfile              # Production frontend image (separate from backend)
+├── helm/alcoves/               # Helm chart (frontend + backend-api + backend-worker)
+├── docker-compose.yml          # Development environment (frontend + backend + db + queue)
+└── Dockerfile                  # Backend-only production image (Go API + workers)
 ```
 
 ## Contributing
@@ -333,4 +347,4 @@ This project is open source. See the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-Built with [Go](https://go.dev), [Echo](https://echo.labstack.com), [GORM](https://gorm.io), [Vue 3](https://vuejs.org), [Vite](https://vitejs.dev), [Nuxt UI](https://ui.nuxt.com), [Tailwind CSS](https://tailwindcss.com), [Asynq](https://github.com/hibiken/asynq), and [PostgreSQL](https://www.postgresql.org).
+Built with [Go](https://go.dev), [Echo](https://echo.labstack.com), [GORM](https://gorm.io), [Nuxt 4](https://nuxt.com), [Vue 3](https://vuejs.org), [Nuxt UI](https://ui.nuxt.com), [Tailwind CSS](https://tailwindcss.com), [Asynq](https://github.com/hibiken/asynq), and [PostgreSQL](https://www.postgresql.org).

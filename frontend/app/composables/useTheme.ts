@@ -16,9 +16,7 @@ export function useTheme() {
     },
   });
 
-  const theme = computed<"light" | "dark">(() =>
-    colorMode.value === "dark" ? "dark" : "light",
-  );
+  const theme = computed<"light" | "dark">(() => (colorMode.value === "dark" ? "dark" : "light"));
 
   return { theme, preference };
 }

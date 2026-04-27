@@ -12,9 +12,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   seek: [seconds: number];
   "select-moment": [momentId: string];
-  "save-pending": [
-    changes: Array<{ id: string; startSeconds: number; endSeconds: number }>,
-  ];
+  "save-pending": [changes: Array<{ id: string; startSeconds: number; endSeconds: number }>];
   "create-moment": [];
   "open-shortcuts": [];
 }>();
@@ -115,9 +113,7 @@ watch(
 );
 
 const innerWidth = computed(() => Math.max(0, containerWidth.value * zoom.value));
-const pxPerSec = computed(() =>
-  props.duration > 0 ? innerWidth.value / props.duration : 0,
-);
+const pxPerSec = computed(() => (props.duration > 0 ? innerWidth.value / props.duration : 0));
 
 const playheadLeftPx = computed(() => props.currentTime * pxPerSec.value);
 
@@ -348,9 +344,7 @@ watch([() => props.currentTime, pxPerSec, containerWidth], () => {
 });
 
 // Pick a "nice" tick interval so tick labels are readable regardless of zoom.
-const NICE_STEPS = [
-  0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600,
-];
+const NICE_STEPS = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600];
 const MINOR_TICKS_PER_MAJOR = 5;
 
 const tickInterval = computed(() => {
@@ -416,9 +410,7 @@ function formatTime(seconds: number): string {
       <span class="text-xs text-muted tabular-nums">
         {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
       </span>
-      <span class="text-xs text-muted tabular-nums">
-        {{ (zoom * 100).toFixed(0) }}%
-      </span>
+      <span class="text-xs text-muted tabular-nums"> {{ (zoom * 100).toFixed(0) }}% </span>
       <div class="flex-1" />
       <UTooltip text="Keyboard shortcuts">
         <UButton
@@ -430,12 +422,7 @@ function formatTime(seconds: number): string {
           @click="emit('open-shortcuts')"
         />
       </UTooltip>
-      <UButton
-        color="primary"
-        size="xs"
-        icon="i-lucide-plus"
-        @click="emit('create-moment')"
-      >
+      <UButton color="primary" size="xs" icon="i-lucide-plus" @click="emit('create-moment')">
         New moment
       </UButton>
       <UButton
@@ -543,11 +530,7 @@ function formatTime(seconds: number): string {
                     transform="rotate(-90 8 8)"
                   />
                 </svg>
-                <UIcon
-                  v-else
-                  name="i-lucide-loader-2"
-                  class="size-3 animate-spin"
-                />
+                <UIcon v-else name="i-lucide-loader-2" class="size-3 animate-spin" />
               </template>
               <UIcon
                 v-else-if="momentStatus(m).kind === 'processed'"
@@ -559,11 +542,7 @@ function formatTime(seconds: number): string {
                 name="i-lucide-alert-circle"
                 class="size-3 text-error-400"
               />
-              <UIcon
-                v-else
-                name="i-lucide-circle-dashed"
-                class="size-3 text-white/70"
-              />
+              <UIcon v-else name="i-lucide-circle-dashed" class="size-3 text-white/70" />
               <span>{{ momentStatus(m).label }}</span>
             </div>
 

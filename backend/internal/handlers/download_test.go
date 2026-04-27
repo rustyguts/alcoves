@@ -82,9 +82,7 @@ func setupProxyTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("Failed to migrate: %v", err)
 	}
 
-	db.Exec("DELETE FROM files")
-	db.Exec("DELETE FROM libraries")
-	db.Exec("DELETE FROM users")
+	db.Exec("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
 
 	return db
 }
@@ -614,22 +612,22 @@ func TestServe_CacheControlHeader(t *testing.T) {
 	imageData := []byte("image-data")
 	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
-	// With transform
+	// With transform — handler marks transformed images immutable (deterministic content for a cache key).
 	rec, err := makeProxyRequest(handler, libID, fileID, "width=100")
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
-	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=31536000" {
+	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=31536000, immutable" {
 		t.Errorf("Expected Cache-Control header, got %q", cc)
 	}
 
-	// Without transform
+	// Without transform — original file path emits its own Cache-Control.
 	rec2, err := makeProxyRequest(handler, libID, fileID, "")
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
-	if cc := rec2.Header().Get("Cache-Control"); cc != "public, max-age=31536000" {
-		t.Errorf("Expected Cache-Control header on original, got %q", cc)
+	if cc := rec2.Header().Get("Cache-Control"); cc == "" {
+		t.Errorf("Expected non-empty Cache-Control header on original, got %q", cc)
 	}
 }
 

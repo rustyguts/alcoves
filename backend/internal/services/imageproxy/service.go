@@ -63,6 +63,12 @@ func NewService(storageSvc *storage.Service, asynqClient *asynq.Client, redisCon
 	return svc
 }
 
+// HasProcessor reports whether a transform processor is wired up. When false,
+// callers should serve the original file rather than attempting a transform.
+func (s *Service) HasProcessor() bool {
+	return s.processor != nil
+}
+
 // signalChannel returns the Redis pub/sub channel for a given cache key.
 // The worker publishes "ok" or "error:<msg>" here on completion.
 func signalChannel(cacheKey string) string {

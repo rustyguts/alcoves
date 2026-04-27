@@ -68,7 +68,11 @@ const emit = defineEmits<{
         @dragleave="emit('dragLeave', entry, $event)"
         @drop="emit('drop', entry, $event)"
       >
-        <div v-if="props.isRenaming(entry)" :data-rename-input-entry-id="entry.id" class="px-2 pt-2 pb-2">
+        <div
+          v-if="props.isRenaming(entry)"
+          :data-rename-input-entry-id="entry.id"
+          class="px-2 pt-2 pb-2"
+        >
           <UInput
             :model-value="renameValue"
             size="sm"
@@ -98,6 +102,12 @@ const emit = defineEmits<{
           <span v-else class="text-sm font-semibold text-left truncate w-full" :title="entry.name">
             {{ entry.name }}
           </span>
+          <UTooltip
+            v-if="entry.kind === 'file' && entry.hasDuplicates"
+            text="Duplicate of another file in this library"
+          >
+            <UIcon name="i-lucide-copy" class="size-4 mt-0.5 shrink-0 text-warning" />
+          </UTooltip>
           <div v-if="entry.tags?.length" class="flex items-center gap-1 shrink-0">
             <span
               v-for="tag in entry.tags"
@@ -109,9 +119,7 @@ const emit = defineEmits<{
           </div>
         </div>
 
-        <div
-          class="h-40 bg-elevated/40 flex items-center justify-center overflow-hidden"
-        >
+        <div class="h-40 bg-elevated/40 flex items-center justify-center overflow-hidden">
           <template v-if="entry.kind === 'folder'">
             <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
           </template>
@@ -171,7 +179,6 @@ const emit = defineEmits<{
             />
           </template>
         </div>
-
       </div>
     </template>
   </div>

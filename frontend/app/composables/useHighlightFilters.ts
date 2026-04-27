@@ -110,11 +110,7 @@ interface TermHit {
   evidence: string;
 }
 
-function hitsForTerm(
-  term: Term,
-  audioDetections: AudioDetection[],
-  cues: VttCue[],
-): TermHit[] {
+function hitsForTerm(term: Term, audioDetections: AudioDetection[], cues: VttCue[]): TermHit[] {
   const value = term.value;
   if (!value) return [];
   if (term.type === "audio") {

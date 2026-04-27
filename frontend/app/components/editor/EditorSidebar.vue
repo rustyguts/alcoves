@@ -67,9 +67,10 @@ function formatRange(m: Moment): string {
   return `${m.startSeconds.toFixed(1)}s – ${m.endSeconds.toFixed(1)}s`;
 }
 
-function statusBadge(
-  m: Moment,
-): { color: "primary" | "success" | "error" | "warning" | "neutral"; label: string } {
+function statusBadge(m: Moment): {
+  color: "primary" | "success" | "error" | "warning" | "neutral";
+  label: string;
+} {
   switch (m.exportStatus) {
     case "queued":
       return { color: "warning", label: "queued" };
@@ -117,35 +118,37 @@ const sortedMoments = computed(() =>
       </div>
       <ul v-else class="flex flex-col gap-1">
         <li v-for="m in sortedMoments" :key="m.id">
-          <button
-            type="button"
-            class="w-full flex flex-col gap-0.5 px-2 py-1.5 rounded-md border text-left transition-colors"
-            :class="
+          <UCard
+            variant="subtle"
+            role="button"
+            tabindex="0"
+            :class="[
+              'cursor-pointer transition-colors outline-none',
               m.id === selectedId
-                ? 'border-primary bg-primary/10'
-                : 'border-default hover:border-accented hover:bg-elevated'
-            "
+                ? 'ring-2 ring-primary bg-primary/10'
+                : 'hover:bg-elevated focus-visible:ring-2 focus-visible:ring-primary',
+            ]"
+            :ui="{ body: 'p-2 sm:p-2' }"
             @click="emit('select', m.id)"
+            @keydown.enter.prevent="emit('select', m.id)"
+            @keydown.space.prevent="emit('select', m.id)"
           >
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-xs font-medium truncate">
-                {{ m.name || "Untitled" }}
-              </span>
-              <UBadge
-                :color="statusBadge(m).color"
-                variant="subtle"
-                size="xs"
-                class="shrink-0"
-              >
-                {{ statusBadge(m).label }}
-              </UBadge>
+            <div class="flex flex-col gap-0.5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-medium truncate">
+                  {{ m.name || "Untitled" }}
+                </span>
+                <UBadge :color="statusBadge(m).color" variant="subtle" size="xs" class="shrink-0">
+                  {{ statusBadge(m).label }}
+                </UBadge>
+              </div>
+              <div class="flex items-center gap-2 text-[10px] text-muted tabular-nums">
+                <span>{{ formatRange(m) }}</span>
+                <span>·</span>
+                <span>{{ formatDuration(m) }}</span>
+              </div>
             </div>
-            <div class="flex items-center gap-2 text-[10px] text-muted tabular-nums">
-              <span>{{ formatRange(m) }}</span>
-              <span>·</span>
-              <span>{{ formatDuration(m) }}</span>
-            </div>
-          </button>
+          </UCard>
         </li>
       </ul>
     </div>

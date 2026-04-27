@@ -46,15 +46,12 @@ export function useDownloadZip(libraryId: Ref<string> | ComputedRef<string>) {
         }
       }
 
-      const response = await fetch(
-        apiUrl(`/api/libraries/${libraryId.value}/download`),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileIds, folderIds, skipSizeCheck }),
-          credentials: "include",
-        },
-      );
+      const response = await fetch(apiUrl(`/api/libraries/${libraryId.value}/download`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileIds, folderIds, skipSizeCheck }),
+        credentials: "include",
+      });
 
       if (!response.ok) {
         const error = await response.json().catch(() => null);

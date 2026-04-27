@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,6 +15,12 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
+)
+
+const (
+	oauthStateCookie    = "alcoves-oauth-state"
+	oauthStateMaxAgeSec = 600 // 10 minutes
+	oauthStateBytes     = 32
 )
 
 type OAuthHandler struct {
@@ -46,15 +55,54 @@ func (h *OAuthHandler) GoogleLogin(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Google OAuth is not configured")
 	}
 
-	// Generate state token
-	state := "oauth-state" // TODO: generate and store CSRF state token
+	state, err := generateOAuthState()
+	if err != nil {
+		return c.Redirect(http.StatusFound, "/login?error=oauth_failed")
+	}
+
+	c.SetCookie(&http.Cookie{
+		Name:     oauthStateCookie,
+		Value:    state,
+		Path:     "/api/auth",
+		HttpOnly: true,
+		Secure:   c.Scheme() == "https",
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   oauthStateMaxAgeSec,
+	})
+
 	url := h.oauthConfig.AuthCodeURL(state)
 	return c.Redirect(http.StatusFound, url)
+}
+
+func generateOAuthState() (string, error) {
+	b := make([]byte, oauthStateBytes)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func clearOAuthStateCookie(c echo.Context) {
+	c.SetCookie(&http.Cookie{
+		Name:     oauthStateCookie,
+		Value:    "",
+		Path:     "/api/auth",
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
 }
 
 func (h *OAuthHandler) GoogleCallback(c echo.Context) error {
 	if !h.enabled {
 		return echo.NewHTTPError(http.StatusNotFound, "Google OAuth is not configured")
+	}
+
+	stateParam := c.QueryParam("state")
+	stateCookie, cookieErr := c.Cookie(oauthStateCookie)
+	clearOAuthStateCookie(c)
+	if cookieErr != nil || stateParam == "" || stateCookie.Value == "" ||
+		subtle.ConstantTimeCompare([]byte(stateParam), []byte(stateCookie.Value)) != 1 {
+		return c.Redirect(http.StatusFound, "/login?error=oauth_state")
 	}
 
 	code := c.QueryParam("code")

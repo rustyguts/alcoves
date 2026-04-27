@@ -329,10 +329,10 @@ const highlightFilters = {
 
   /** PATCH /api/libraries/:id/highlight-filters/:filterId */
   update(libraryId: string, filterId: string, body: HighlightFilterPatch) {
-    return apiFetch<HighlightFilter>(
-      `/api/libraries/${libraryId}/highlight-filters/${filterId}`,
-      { method: "PATCH", body },
-    );
+    return apiFetch<HighlightFilter>(`/api/libraries/${libraryId}/highlight-filters/${filterId}`, {
+      method: "PATCH",
+      body,
+    });
   },
 
   /** DELETE /api/libraries/:id/highlight-filters/:filterId */
@@ -555,25 +555,22 @@ const moments = {
 
   /** GET /api/libraries/:id/files/:fileId/moments/:momentId */
   get(libraryId: string, fileId: string, momentId: string) {
-    return apiFetch<Moment>(
-      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}`,
-    );
+    return apiFetch<Moment>(`/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}`);
   },
 
   /** PATCH /api/libraries/:id/files/:fileId/moments/:momentId */
   update(libraryId: string, fileId: string, momentId: string, body: MomentPatch) {
-    return apiFetch<Moment>(
-      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}`,
-      { method: "PATCH", body },
-    );
+    return apiFetch<Moment>(`/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}`, {
+      method: "PATCH",
+      body,
+    });
   },
 
   /** DELETE /api/libraries/:id/files/:fileId/moments/:momentId */
   delete(libraryId: string, fileId: string, momentId: string) {
-    return apiFetch<void>(
-      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}`,
-      { method: "DELETE" },
-    );
+    return apiFetch<void>(`/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}`, {
+      method: "DELETE",
+    });
   },
 
   /** PUT /api/libraries/:id/files/:fileId/moments/:momentId/tags */
@@ -594,9 +591,7 @@ const moments = {
 
   /** Download URL (browser navigates to this) */
   downloadUrl(libraryId: string, fileId: string, momentId: string): string {
-    return apiUrl(
-      `/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}/download`,
-    );
+    return apiUrl(`/api/libraries/${libraryId}/files/${fileId}/moments/${momentId}/download`);
   },
 
   /** POST /api/libraries/:id/files/:fileId/moments/:momentId/shares */

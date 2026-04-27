@@ -67,10 +67,7 @@ function formatTime(seconds: number): string {
 function barStyle(window: AudioDetection) {
   if (props.duration <= 0) return { left: "0%", width: "100%" };
   const left = Math.max(0, (window.startSeconds / props.duration) * 100);
-  const width = Math.max(
-    0.5,
-    ((window.endSeconds - window.startSeconds) / props.duration) * 100,
-  );
+  const width = Math.max(0.5, ((window.endSeconds - window.startSeconds) / props.duration) * 100);
   return { left: `${left}%`, width: `${width}%` };
 }
 </script>
@@ -111,9 +108,7 @@ function barStyle(window: AudioDetection) {
             <UBadge :color="scoreColor(b.bestScore)" variant="soft" size="xs" class="shrink-0">
               {{ (b.bestScore * 100).toFixed(0) }}%
             </UBadge>
-            <span class="text-[11px] text-muted tabular-nums shrink-0">
-              {{ b.count }}×
-            </span>
+            <span class="text-[11px] text-muted tabular-nums shrink-0"> {{ b.count }}× </span>
           </div>
         </button>
 
@@ -136,10 +131,7 @@ function barStyle(window: AudioDetection) {
           />
         </div>
 
-        <ul
-          v-if="expanded.has(b.label)"
-          class="mt-2 flex flex-wrap gap-1 pl-5"
-        >
+        <ul v-if="expanded.has(b.label)" class="mt-2 flex flex-wrap gap-1 pl-5">
           <li v-for="w in b.windows" :key="w.id">
             <button
               type="button"
@@ -148,9 +140,7 @@ function barStyle(window: AudioDetection) {
             >
               <UIcon name="i-lucide-play" class="size-2.5" />
               {{ formatTime(w.startSeconds) }}
-              <span class="text-muted">
-                · {{ (w.score * 100).toFixed(0) }}%
-              </span>
+              <span class="text-muted"> · {{ (w.score * 100).toFixed(0) }}% </span>
             </button>
           </li>
         </ul>

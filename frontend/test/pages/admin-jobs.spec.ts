@@ -23,6 +23,24 @@ vi.mock("vue-router", async (importOriginal) => {
 
 vi.mock("~/utils/api-fetch", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+  apiUrl: (path: string) => path,
+  ApiError: class ApiError extends Error {},
+}));
+vi.mock("#imports", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    RouterLink: {
+      template: "<a :href='to'><slot /></a>",
+      props: ["to"],
+    },
+  };
+});
+
+vi.mock("~/utils/api-fetch", () => ({
+  apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+  apiUrl: (path: string) => path,
+  ApiError: class ApiError extends Error {},
 }));
 
 // Mock EventSource

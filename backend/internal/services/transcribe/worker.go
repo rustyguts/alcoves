@@ -106,6 +106,11 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		return err
 	}
 
+	// Derive duration from the extracted WAV (always 16-bit mono 16kHz PCM, so
+	// 32000 bytes per second of audio after the 44-byte WAV header). Used for
+	// smooth progress reporting based on per-segment timestamps.
+	audioSec := wavDurationSeconds(wavPath)
+
 	// 3. Ensure whisper model available (auto-download when missing).
 	modelPath, err := ensureModel(ctx, h.cfg.WhisperModelsDir, h.cfg.WhisperModel, h.cfg.WhisperModelBaseURL)
 	if err != nil {
@@ -115,7 +120,7 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 
 	// 4. Run whisper.
 	outBase := filepath.Join(tmpDir, "out")
-	if err := runWhisper(ctx, h.cfg.WhisperBinaryPath, modelPath, wavPath, outBase, h.cfg.WhisperLanguage, func(pct int) {
+	if err := runWhisper(ctx, h.cfg.WhisperBinaryPath, modelPath, wavPath, outBase, h.cfg.WhisperLanguage, audioSec, func(pct int) {
 		h.setState(fileID, stringPtr("processing"), intPtr(pct), nil, nil)
 	}); err != nil {
 		h.fail(fileID, fmt.Errorf("whisper: %w", err))
@@ -229,10 +234,7 @@ func ensureModel(ctx context.Context, modelsDir, modelName, baseURL string) (str
 		if !(strings.Contains(s, "http 5") || strings.Contains(s, "connection reset") || strings.Contains(s, "unexpected EOF") || strings.Contains(s, "EOF")) {
 			return "", err
 		}
-		backoff := time.Duration(1<<uint(attempt-1)) * time.Second
-		if backoff > 30*time.Second {
-			backoff = 30 * time.Second
-		}
+		backoff := min(time.Duration(1<<uint(attempt-1))*time.Second, 30*time.Second)
 		log.Printf("transcribe: transient error (%v), retrying in %s", err, backoff)
 		select {
 		case <-ctx.Done():
@@ -275,17 +277,29 @@ func whisperFetch(ctx context.Context, url, fullPath string) error {
 	return os.Rename(tmpPath, fullPath)
 }
 
-var progressRegex = regexp.MustCompile(`progress\s*=\s*(\d+)%?`)
+var (
+	// `whisper_print_progress_callback: progress = X%` — fires every 5% by
+	// default, so on long audio with a slow model it can be tens of minutes
+	// between ticks. Used as a fallback signal.
+	progressRegex = regexp.MustCompile(`progress\s*=\s*(\d+)%?`)
+
+	// Per-segment line: `[hh:mm:ss.SSS --> hh:mm:ss.SSS]`. We use the end
+	// timestamp + the known audio duration to derive smooth progress, which
+	// updates roughly per chunk (every few seconds of wall clock).
+	timestampRegex = regexp.MustCompile(`-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})`)
+)
 
 // runWhisper invokes whisper-cli and streams progress updates to onProgress.
-func runWhisper(ctx context.Context, binary, modelPath, wavPath, outBase, language string, onProgress func(int)) error {
+// `audioSec` is the duration of the input wav (used for per-segment progress);
+// pass 0 to disable timestamp-based progress and rely on `-pp` only.
+func runWhisper(ctx context.Context, binary, modelPath, wavPath, outBase, language string, audioSec float64, onProgress func(int)) error {
 	if _, err := exec.LookPath(binary); err != nil {
 		return fmt.Errorf(
 			"whisper binary %q not found in PATH. Install whisper.cpp (https://github.com/ggerganov/whisper.cpp) and ensure the binary is on PATH, or set ALCOVES_WHISPER_BINARY to an absolute path",
 			binary,
 		)
 	}
-	args := []string{
+	whisperArgs := []string{
 		"-m", modelPath,
 		"-f", wavPath,
 		"-otxt",
@@ -294,9 +308,22 @@ func runWhisper(ctx context.Context, binary, modelPath, wavPath, outBase, langua
 		"-pp",
 	}
 	if language != "" && language != "auto" {
-		args = append(args, "-l", language)
+		whisperArgs = append(whisperArgs, "-l", language)
 	}
-	cmd := exec.CommandContext(ctx, binary, args...)
+
+	// libc switches stdout/stderr to fully-buffered mode when they are pipes
+	// (not a TTY). Whisper writes per-segment timestamp lines via fprintf, so
+	// without an explicit flush they accumulate in the 4KB pipe buffer and we
+	// don't see progress for many minutes on long audio. `stdbuf -oL -eL`
+	// forces line buffering so each `\n` flushes immediately. Falls back to a
+	// direct invocation if stdbuf isn't on PATH.
+	var cmd *exec.Cmd
+	if stdbuf, lookupErr := exec.LookPath("stdbuf"); lookupErr == nil {
+		stdbufArgs := append([]string{"-oL", "-eL", binary}, whisperArgs...)
+		cmd = exec.CommandContext(ctx, stdbuf, stdbufArgs...)
+	} else {
+		cmd = exec.CommandContext(ctx, binary, whisperArgs...)
+	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -309,19 +336,20 @@ func runWhisper(ctx context.Context, binary, modelPath, wavPath, outBase, langua
 		return err
 	}
 
-	var wg sync.WaitGroup
-	var lastErrLine string
+	var (
+		wg          sync.WaitGroup
+		lastErrLine string
+		mu          sync.Mutex
+		lastPct     int
+	)
+	tracker := &progressTracker{audioSec: audioSec, onProgress: onProgress, mu: &mu, lastPct: &lastPct}
 	readPipe := func(r io.Reader) {
 		defer wg.Done()
 		scanner := bufio.NewScanner(r)
 		scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 		for scanner.Scan() {
 			line := scanner.Text()
-			if m := progressRegex.FindStringSubmatch(line); m != nil {
-				if n, err := strconv.Atoi(m[1]); err == nil && onProgress != nil {
-					onProgress(n)
-				}
-			}
+			tracker.consume(line)
 			if strings.Contains(strings.ToLower(line), "error") {
 				lastErrLine = line
 			}
@@ -340,4 +368,80 @@ func runWhisper(ctx context.Context, binary, modelPath, wavPath, outBase, langua
 		return err
 	}
 	return nil
+}
+
+// progressTracker parses whisper-cli output lines into monotonic progress
+// percentages and forwards them via onProgress. Pulled out of runWhisper so
+// the pipe-parsing logic can be unit-tested without spawning a real binary.
+type progressTracker struct {
+	audioSec   float64
+	onProgress func(int)
+	mu         *sync.Mutex
+	lastPct    *int
+}
+
+// consume inspects a single line from whisper-cli stdout/stderr and emits a
+// progress callback if the line contains a recognizable signal:
+//   - `[hh:mm:ss.SSS --> hh:mm:ss.SSS]` segment line — derives % from end time
+//     against the audio duration. Fires per-segment (every few seconds wall).
+//   - `progress = N%` line emitted by whisper's `-pp` mode — fallback signal,
+//     ticks every 5% by default.
+//
+// emit is monotonic: skips any value ≤ the last value sent.
+func (p *progressTracker) consume(line string) {
+	if p.audioSec > 0 {
+		if m := timestampRegex.FindStringSubmatch(line); m != nil {
+			hh, _ := strconv.Atoi(m[1])
+			mm, _ := strconv.Atoi(m[2])
+			ss, _ := strconv.Atoi(m[3])
+			ms, _ := strconv.Atoi(m[4])
+			endSec := float64(hh*3600+mm*60+ss) + float64(ms)/1000
+			p.emit(int(endSec / p.audioSec * 100))
+		}
+	}
+	if m := progressRegex.FindStringSubmatch(line); m != nil {
+		if n, err := strconv.Atoi(m[1]); err == nil {
+			p.emit(n)
+		}
+	}
+}
+
+func (p *progressTracker) emit(pct int) {
+	if p.onProgress == nil {
+		return
+	}
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 99 {
+		// 100 is reserved for "fully done" — written once after outputs are read.
+		pct = 99
+	}
+	p.mu.Lock()
+	if pct > *p.lastPct {
+		*p.lastPct = pct
+		p.mu.Unlock()
+		p.onProgress(pct)
+		return
+	}
+	p.mu.Unlock()
+}
+
+// wavDurationSeconds estimates audio length from a 16-bit mono 16kHz PCM WAV
+// file (the format `extractAudio` always produces). Returns 0 on stat error;
+// callers should treat 0 as "duration unknown" and skip duration-based math.
+func wavDurationSeconds(path string) float64 {
+	const (
+		wavHeaderBytes = 44
+		bytesPerSecond = 16000 * 2 // 16 kHz * 16-bit mono
+	)
+	st, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	dataBytes := st.Size() - wavHeaderBytes
+	if dataBytes <= 0 {
+		return 0
+	}
+	return float64(dataBytes) / float64(bytesPerSecond)
 }

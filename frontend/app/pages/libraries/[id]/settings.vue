@@ -443,7 +443,10 @@ async function deleteLibrary() {
               v-for="member in libraryMembers"
               :key="member.id"
               :member="member"
-              :role-draft="(memberRoleDrafts[member.userId] ?? (member.role === 'owner' ? 'admin' : member.role)) as 'admin' | 'viewer'"
+              :role-draft="
+                (memberRoleDrafts[member.userId] ??
+                  (member.role === 'owner' ? 'admin' : member.role)) as 'admin' | 'viewer'
+              "
               :updating-role="updatingMemberUserId === member.userId"
               :removing="removingMemberUserId === member.userId"
               :role-options="inviteRoleOptions"

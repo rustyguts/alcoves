@@ -1,6 +1,7 @@
 import { ref, computed } from "vue";
 import * as tus from "tus-js-client";
 import { getMimeTypeFromFilename } from "~/utils/mime-icons";
+import { useToast } from "~/composables/useToast";
 
 export interface QueuedFile {
   id: string;
@@ -14,6 +15,7 @@ export interface QueuedFile {
   total: number;
   error?: string;
   retries: number;
+  duplicateCount?: number;
 }
 
 const MAX_RETRIES = 3;
@@ -31,6 +33,7 @@ const uploadSpeed = ref(0);
 const activeCount = ref(0);
 
 export function useUploadQueue() {
+  const toast = useToast();
   const tusUploads = new Map<string, tus.Upload>();
 
   let speedBytes = 0;
@@ -149,6 +152,18 @@ export function useUploadQueue() {
         return true;
       },
 
+      onAfterResponse(_req, res) {
+        // Server signals dedup matches via X-Alcoves-Duplicate-Count on the
+        // final TUS response (the one whose offset reaches Upload-Length).
+        const raw = res.getHeader("X-Alcoves-Duplicate-Count");
+        if (raw) {
+          const parsed = Number(raw);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            item.duplicateCount = parsed;
+          }
+        }
+      },
+
       onChunkComplete(_chunkSize, bytesAccepted, bytesTotal) {
         item.loaded = bytesAccepted;
         item.total = bytesTotal;
@@ -173,6 +188,15 @@ export function useUploadQueue() {
         item.status = "done";
         item.progress = 100;
         tusUploads.delete(item.id);
+
+        if (item.duplicateCount && item.duplicateCount > 0) {
+          const n = item.duplicateCount;
+          toast.add({
+            title: `Duplicate detected: ${item.file.name}`,
+            description: `${n} existing file${n === 1 ? "" : "s"} in this library share the same content.`,
+            color: "warning",
+          });
+        }
 
         notifyLibraryUploadSuccess(item.libraryId);
 

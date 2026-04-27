@@ -1007,8 +1007,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
             {
               label: "Editor",
               icon: "i-lucide-video",
-              onSelect: () =>
-                router.push(`/libraries/${libraryId.value}/edit/${entry.id}`),
+              onSelect: () => router.push(`/libraries/${libraryId.value}/edit/${entry.id}`),
             },
           ]
         : []),
@@ -1158,107 +1157,104 @@ const emptyStateDescription = computed(() => {
     </div>
 
     <div class="relative overflow-y-auto flex-1 min-h-0">
-      <UContextMenu
-        :items="contextMenuGroups"
-        :ui="{ content: 'w-56' }"
-      >
-      <div
-        v-if="filesPending && (entries?.length ?? 0) === 0"
-        class="flex min-h-64 items-center justify-center"
-      >
+      <UContextMenu :items="contextMenuGroups" :ui="{ content: 'w-56' }">
         <div
-          class="inline-flex items-center gap-2 rounded-xl border border-default bg-elevated/70 px-3 py-2 text-sm text-muted shadow-sm"
+          v-if="filesPending && (entries?.length ?? 0) === 0"
+          class="flex min-h-64 items-center justify-center"
         >
-          <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
-          Loading {{ showTrashed ? "trash" : "files" }}
+          <div
+            class="inline-flex items-center gap-2 rounded-xl border border-default bg-elevated/70 px-3 py-2 text-sm text-muted shadow-sm"
+          >
+            <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+            Loading {{ showTrashed ? "trash" : "files" }}
+          </div>
         </div>
-      </div>
 
-      <div
-        v-if="filesPending && (entries?.length ?? 0) > 0"
-        class="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-default/35 pt-6"
-      >
-        <UBadge
-          color="primary"
-          variant="soft"
-          size="md"
-          class="gap-2 px-3 py-3"
-          icon="i-lucide-loader-2"
-          :ui="{ leadingIcon: 'animate-spin' }"
+        <div
+          v-if="filesPending && (entries?.length ?? 0) > 0"
+          class="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-default/35 pt-6"
         >
-          Loading
-        </UBadge>
-      </div>
+          <UBadge
+            color="primary"
+            variant="soft"
+            size="md"
+            class="gap-2 px-3 py-3"
+            icon="i-lucide-loader-2"
+            :ui="{ leadingIcon: 'animate-spin' }"
+          >
+            Loading
+          </UBadge>
+        </div>
 
-      <LibraryEntriesTable
-        v-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0"
-        :entries="entries ?? []"
-        :show-trashed="showTrashed"
-        :drag-enabled="dragEnabled"
-        :dragged-file-ids="draggedFileIds"
-        :drop-target-folder-id="dropTargetFolderId"
-        :rename-value="renameValue"
-        :is-entry-selected="isEntrySelected"
-        :is-renaming="isRenaming"
-        @row-click="handleRowClick"
-        @row-double-click="openEntry"
-        @row-context-menu="showContextMenu"
-        @drag-start="handleFileDragStart"
-        @drag-end="handleFileDragEnd"
-        @drag-enter="handleFolderDragEnter"
-        @drag-over="handleFolderDragOver"
-        @drag-leave="handleFolderDragLeave"
-        @drop="handleFolderDrop"
-        @save-rename="saveEntryRename"
-        @cancel-rename="renamingEntry = null"
-        @update-rename-value="renameValue = $event"
-      />
+        <LibraryEntriesTable
+          v-if="entryViewMode === 'file' && (entries?.length ?? 0) > 0"
+          :entries="entries ?? []"
+          :show-trashed="showTrashed"
+          :drag-enabled="dragEnabled"
+          :dragged-file-ids="draggedFileIds"
+          :drop-target-folder-id="dropTargetFolderId"
+          :rename-value="renameValue"
+          :is-entry-selected="isEntrySelected"
+          :is-renaming="isRenaming"
+          @row-click="handleRowClick"
+          @row-double-click="openEntry"
+          @row-context-menu="showContextMenu"
+          @drag-start="handleFileDragStart"
+          @drag-end="handleFileDragEnd"
+          @drag-enter="handleFolderDragEnter"
+          @drag-over="handleFolderDragOver"
+          @drag-leave="handleFolderDragLeave"
+          @drop="handleFolderDrop"
+          @save-rename="saveEntryRename"
+          @cancel-rename="renamingEntry = null"
+          @update-rename-value="renameValue = $event"
+        />
 
-      <LibraryEntriesGrid
-        v-else-if="entryViewMode === 'card' && (entries?.length ?? 0) > 0"
-        :entries="entries ?? []"
-        :library-id="libraryId || ''"
-        :show-trashed="showTrashed"
-        :drag-enabled="dragEnabled"
-        :dragged-file-ids="draggedFileIds"
-        :drop-target-folder-id="dropTargetFolderId"
-        :rename-value="renameValue"
-        :is-entry-selected="isEntrySelected"
-        :is-renaming="isRenaming"
-        :failed-thumbnails="failedThumbnails"
-        :is-image-file="isImageFile"
-        :is-small-image="isSmallImage"
-        :card-thumb-width="cardThumbWidth"
-        :card-thumb-height="cardThumbHeight"
-        @row-click="handleRowClick"
-        @row-double-click="openEntry"
-        @row-context-menu="showContextMenu"
-        @drag-start="handleFileDragStart"
-        @drag-end="handleFileDragEnd"
-        @drag-enter="handleFolderDragEnter"
-        @drag-over="handleFolderDragOver"
-        @drag-leave="handleFolderDragLeave"
-        @drop="handleFolderDrop"
-        @save-rename="saveEntryRename"
-        @cancel-rename="renamingEntry = null"
-        @update-rename-value="renameValue = $event"
-        @thumbnail-error="failedThumbnails.add($event)"
-      />
+        <LibraryEntriesGrid
+          v-else-if="entryViewMode === 'card' && (entries?.length ?? 0) > 0"
+          :entries="entries ?? []"
+          :library-id="libraryId || ''"
+          :show-trashed="showTrashed"
+          :drag-enabled="dragEnabled"
+          :dragged-file-ids="draggedFileIds"
+          :drop-target-folder-id="dropTargetFolderId"
+          :rename-value="renameValue"
+          :is-entry-selected="isEntrySelected"
+          :is-renaming="isRenaming"
+          :failed-thumbnails="failedThumbnails"
+          :is-image-file="isImageFile"
+          :is-small-image="isSmallImage"
+          :card-thumb-width="cardThumbWidth"
+          :card-thumb-height="cardThumbHeight"
+          @row-click="handleRowClick"
+          @row-double-click="openEntry"
+          @row-context-menu="showContextMenu"
+          @drag-start="handleFileDragStart"
+          @drag-end="handleFileDragEnd"
+          @drag-enter="handleFolderDragEnter"
+          @drag-over="handleFolderDragOver"
+          @drag-leave="handleFolderDragLeave"
+          @drop="handleFolderDrop"
+          @save-rename="saveEntryRename"
+          @cancel-rename="renamingEntry = null"
+          @update-rename-value="renameValue = $event"
+          @thumbnail-error="failedThumbnails.add($event)"
+        />
 
-      <LibraryEmptyState
-        v-if="(entries?.length ?? 0) === 0 && !filesPending"
-        :show-trashed="showTrashed"
-        :title="emptyStateTitle"
-        :description="emptyStateDescription"
-        :can-manage-library="canManageLibrary"
-        @create-folder="openCreateFolderModal"
-        @upload-files="uploadOpen = true"
-      />
+        <LibraryEmptyState
+          v-if="(entries?.length ?? 0) === 0 && !filesPending"
+          :show-trashed="showTrashed"
+          :title="emptyStateTitle"
+          :description="emptyStateDescription"
+          :can-manage-library="canManageLibrary"
+          @create-folder="openCreateFolderModal"
+          @upload-files="uploadOpen = true"
+        />
 
-      <div ref="sentinel" class="h-px" />
-      <div v-if="loadingMore" class="flex items-center justify-center py-4">
-        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
-      </div>
+        <div ref="sentinel" class="h-px" />
+        <div v-if="loadingMore" class="flex items-center justify-center py-4">
+          <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        </div>
       </UContextMenu>
     </div>
 
@@ -1278,7 +1274,6 @@ const emptyStateDescription = computed(() => {
       @navigate="previewFile = $event"
       @update:file="handleFileUpdate"
     />
-
 
     <!-- Create Folder Modal -->
     <UModal v-model:open="createFolderOpen" title="Create Folder">
@@ -1469,6 +1464,5 @@ const emptyStateDescription = computed(() => {
         </div>
       </template>
     </UModal>
-
   </div>
 </template>

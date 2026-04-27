@@ -85,6 +85,8 @@ vi.mock("~/composables/useToast", () => ({
 vi.mock("~/composables/useAuth", () => ({
   useAuth: () => ({
     user: mockRef(() => mocks.user),
+    loggedIn: { value: true },
+    fetchSession: vi.fn().mockResolvedValue(null),
   }),
 }));
 
@@ -133,6 +135,8 @@ vi.mock("~/composables/useLibraryMembers", () => ({
 
 vi.mock("~/utils/api-fetch", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+  apiUrl: (path: string) => path,
+  ApiError: class ApiError extends Error {},
 }));
 
 vi.mock("vue-router", async (importOriginal) => {
@@ -144,6 +148,7 @@ vi.mock("vue-router", async (importOriginal) => {
       params: { id: mocks.routeParamsId },
       query: {},
       fullPath: `/libraries/${mocks.routeParamsId}/settings`,
+      meta: {},
     }),
     useRouter: () => ({
       push: mocks.routerPush,

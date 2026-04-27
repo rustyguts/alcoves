@@ -49,8 +49,9 @@ test.describe("Video editor @screenshot", () => {
 
     await page.goto("/libraries/lib-photos/edit/file-vid-1");
 
-    // Sidebar list renders the moment name.
-    await expect(page.getByText("Opening shot")).toBeVisible();
+    // Moment name appears both on the timeline label and in the sidebar list,
+    // so target the sidebar role=button to keep the assertion unambiguous.
+    await expect(page.getByRole("button", { name: /Opening shot/i })).toBeVisible();
     // Duration "6.00s".
     await expect(page.getByText(/6\.00s/).first()).toBeVisible();
     await snap(page, FLOW, "editor-with-moment");

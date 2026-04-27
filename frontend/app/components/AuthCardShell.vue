@@ -11,9 +11,7 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div
-    class="flex min-h-svh items-center justify-center p-4 bg-neutral-50 dark:bg-neutral-950"
-  >
+  <div class="flex min-h-svh items-center justify-center p-4 bg-neutral-50 dark:bg-neutral-950">
     <div class="w-full max-w-md">
       <UCard>
         <div class="flex flex-col items-center gap-3 mb-6">

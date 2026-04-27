@@ -26,7 +26,8 @@ describe("TagColorPickerDropdown", () => {
     const wrapper = mountPicker();
     const swatch = wrapper.find("[data-color-dropdown] > button span");
     expect(swatch.exists()).toBe(true);
-    expect(swatch.attributes("style")).toContain("background-color: rgb(255, 0, 0)");
+    const style = (swatch.attributes("style") ?? "").toLowerCase();
+    expect(style).toMatch(/background-color:\s*(#ff0000|rgb\(255,\s*0,\s*0\))/);
   });
 
   it("emits toggle on summary click", async () => {

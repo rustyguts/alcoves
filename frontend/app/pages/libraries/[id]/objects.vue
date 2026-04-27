@@ -4,7 +4,6 @@ import AppIcon from "~/components/AppIcon.vue";
 
 definePageMeta({ layout: "library" });
 
-
 interface ObjectLabel {
   label: string;
   fileCount: number;

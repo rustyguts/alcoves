@@ -138,7 +138,8 @@ func (h *FileHandler) Upload(c echo.Context) error {
 	h.maybeEnqueueVideoProxy(libraryID, fileID, mimeType)
 	h.maybeEnqueueVideoThumbnail(libraryID, fileID, mimeType)
 
-	return c.JSON(http.StatusOK, fileToJSON(&file))
+	dupes, _ := filehash.FindDuplicates(h.db, libraryID, fileID, hashStr)
+	return c.JSON(http.StatusOK, fileToJSON(&file, dupes))
 }
 
 func (h *FileHandler) Get(c echo.Context) error {
@@ -157,7 +158,11 @@ func (h *FileHandler) Get(c echo.Context) error {
 	}
 
 	// Otherwise return metadata
-	return c.JSON(http.StatusOK, fileToJSON(&file))
+	var dupes []uuid.UUID
+	if file.Hash != nil && file.SourceFileID == nil {
+		dupes, _ = filehash.FindDuplicates(h.db, file.LibraryID, file.ID, *file.Hash)
+	}
+	return c.JSON(http.StatusOK, fileToJSON(&file, dupes))
 }
 
 func (h *FileHandler) serveFileData(c echo.Context, file *models.File) error {
@@ -266,7 +271,7 @@ func (h *FileHandler) Update(c echo.Context) error {
 	var file models.File
 	h.db.Where("id = ? AND library_id = ?", fileID, libraryID).First(&file)
 
-	return c.JSON(http.StatusOK, fileToJSON(&file))
+	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(&file))
 }
 
 type deleteFileRequest struct {
@@ -661,7 +666,7 @@ func (h *FileHandler) GenerateProxy(c echo.Context) error {
 	file.ProxyProgress = &zero
 	file.ProxyEtaSeconds = nil
 
-	return c.JSON(http.StatusOK, fileToJSON(&file))
+	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(&file))
 }
 
 func (h *FileHandler) GenerateTranscript(c echo.Context) error {
@@ -711,7 +716,7 @@ func (h *FileHandler) GenerateTranscript(c echo.Context) error {
 	file.TranscribeError = nil
 	file.TranscribeVersion = newVersion
 
-	return c.JSON(http.StatusAccepted, fileToJSON(&file))
+	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(&file))
 }
 
 func (h *FileHandler) GetTranscript(c echo.Context) error {
@@ -783,7 +788,7 @@ func (h *FileHandler) GenerateAudioDetections(c echo.Context) error {
 	file.AudioDetectError = nil
 	file.AudioDetectVersion = newVersion
 
-	return c.JSON(http.StatusAccepted, fileToJSON(&file))
+	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(&file))
 }
 
 func (h *FileHandler) ListAudioDetections(c echo.Context) error {
@@ -915,7 +920,21 @@ func (h *FileHandler) Thumbnail(c echo.Context) error {
 	return c.Blob(http.StatusOK, "image/webp", data)
 }
 
-func fileToJSON(f *models.File) map[string]interface{} {
+// fileToJSONWithLookup serializes a File and computes duplicateOfFileIds via
+// a per-library hash query. Use for single-file responses where dedup info
+// matters (Get, Update, Upload finalize, etc.).
+func (h *FileHandler) fileToJSONWithLookup(f *models.File) map[string]interface{} {
+	var dupes []uuid.UUID
+	if f.Hash != nil && f.SourceFileID == nil {
+		dupes, _ = filehash.FindDuplicates(h.db, f.LibraryID, f.ID, *f.Hash)
+	}
+	return fileToJSON(f, dupes)
+}
+
+// fileToJSON serializes a File for single-resource responses.
+// Pass duplicateOfFileIds to surface dedup matches in the same library
+// (other non-trashed source files sharing this hash). Pass nil to omit.
+func fileToJSON(f *models.File, duplicateOfFileIds []uuid.UUID) map[string]interface{} {
 	result := map[string]interface{}{
 		"id":              f.ID.String(),
 		"libraryId":       f.LibraryID.String(),
@@ -956,6 +975,16 @@ func fileToJSON(f *models.File) map[string]interface{} {
 		result["originalCreatedAt"] = nil
 	}
 	result["hash"] = f.Hash
+	if duplicateOfFileIds == nil {
+		result["duplicateOfFileIds"] = nil
+	} else {
+		ids := make([]string, len(duplicateOfFileIds))
+		for i, id := range duplicateOfFileIds {
+			ids[i] = id.String()
+		}
+		result["duplicateOfFileIds"] = ids
+	}
+	result["hasDuplicates"] = len(duplicateOfFileIds) > 0
 	return result
 }
 

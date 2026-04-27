@@ -1,5 +1,7 @@
 vi.mock("~/utils/api-fetch", () => ({
   apiFetch: vi.fn(),
+  apiUrl: (path: string) => path,
+  ApiError: class ApiError extends Error {},
 }));
 
 const mocks = vi.hoisted(() => ({

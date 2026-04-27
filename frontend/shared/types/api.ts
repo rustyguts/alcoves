@@ -93,6 +93,8 @@ export interface LibraryFile {
   sourceFileId: string | null;
   originalCreatedAt: string | null;
   hash: string | null;
+  hasDuplicates?: boolean;
+  duplicateOfFileIds?: string[] | null;
   trashedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -309,12 +311,7 @@ export interface DownloadEstimate {
 
 // ─── Moments ───────────────────────────────────────────
 
-export type MomentExportStatus =
-  | "queued"
-  | "processing"
-  | "ready"
-  | "failed"
-  | null;
+export type MomentExportStatus = "queued" | "processing" | "ready" | "failed" | null;
 
 export interface MomentTagRef {
   id: string;

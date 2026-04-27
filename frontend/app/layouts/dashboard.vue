@@ -85,7 +85,10 @@ const userMenuItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
       label: user.value?.displayName ?? "User",
-      avatar: { src: user.value?.avatarUrl ? apiUrl(user.value.avatarUrl) : undefined, text: user.value?.displayName?.charAt(0).toUpperCase() ?? "U" },
+      avatar: {
+        src: user.value?.avatarUrl ? apiUrl(user.value.avatarUrl) : undefined,
+        text: user.value?.displayName?.charAt(0).toUpperCase() ?? "U",
+      },
       type: "label",
     },
   ],
@@ -112,7 +115,6 @@ async function createLibrary() {
   await api.libraries.create({ name: "Untitled Library" });
   await refreshLibraries();
 }
-
 </script>
 
 <template>
@@ -120,7 +122,9 @@ async function createLibrary() {
     <!-- Mobile sidebar slideover -->
     <USlideover v-model:open="sidebarOpen" side="left" :ui="{ content: 'w-72' }">
       <template #content>
-        <aside class="flex h-full w-full flex-col bg-white dark:bg-neutral-900 border-r border-default">
+        <aside
+          class="flex h-full w-full flex-col bg-white dark:bg-neutral-900 border-r border-default"
+        >
           <div class="px-5 py-4 flex items-center gap-3">
             <img src="/logo.webp" alt="Alcoves" width="32" height="32" class="rounded-lg" />
             <span class="text-lg font-bold tracking-tight">Alcoves</span>

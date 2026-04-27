@@ -50,14 +50,7 @@ func setupPurgeTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("Failed to migrate test schema: %v", err)
 	}
 
-	// Clean in dependency order.
-	db.Exec("DELETE FROM file_tags")
-	db.Exec("DELETE FROM folder_tags")
-	db.Exec("DELETE FROM files")
-	db.Exec("DELETE FROM folders")
-	db.Exec("DELETE FROM tags")
-	db.Exec("DELETE FROM libraries")
-	db.Exec("DELETE FROM users")
+	db.Exec("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
 
 	return db
 }

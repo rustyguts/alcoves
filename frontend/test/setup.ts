@@ -21,6 +21,63 @@ if (!globalThis.matchMedia) {
   }));
 }
 
+// happy-dom (the Nuxt test env runtime) sometimes returns a Storage object
+// whose methods aren't real functions (color-mode plugin crashes on
+// `window.localStorage?.setItem`). Install a minimal in-memory shim — by
+// `defineProperty` not `vi.stubGlobal`, since `unstubAllGlobals` in afterEach
+// would otherwise tear it down between tests.
+function makeStorageShim(): Storage {
+  const store: Record<string, string> = {};
+  return {
+    get length() {
+      return Object.keys(store).length;
+    },
+    clear() {
+      for (const k of Object.keys(store)) delete store[k];
+    },
+    getItem: (key) => (key in store ? store[key] : null),
+    key: (i) => Object.keys(store)[i] ?? null,
+    removeItem: (key) => {
+      delete store[key];
+    },
+    setItem: (key, value) => {
+      store[key] = String(value);
+    },
+  };
+}
+
+function installStorage(target: object | undefined, prop: "localStorage" | "sessionStorage") {
+  if (!target) return;
+  try {
+    Object.defineProperty(target, prop, {
+      value: makeStorageShim(),
+      configurable: true,
+      writable: true,
+    });
+  } catch {
+    /* property may be non-configurable in some envs */
+  }
+}
+
+installStorage(globalThis, "localStorage");
+installStorage(globalThis, "sessionStorage");
+if (typeof window !== "undefined") {
+  installStorage(window, "localStorage");
+  installStorage(window, "sessionStorage");
+}
+
+if (typeof navigator !== "undefined") {
+  try {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+      writable: true,
+    });
+  } catch {
+    /* property may be locked */
+  }
+}
+
 // Global stubs for Nuxt UI components — the Vite plugin that auto-registers
 // them is not active in vitest, so we provide lightweight stand-ins so tests
 // don't blow up on unresolved components. Individual tests can override.
@@ -159,6 +216,23 @@ const nuxtUiStubs = {
   Teleport: { template: "<div class='teleport-stub'><slot/></div>" },
   Transition: { template: "<div class='transition-stub'><slot/></div>" },
   TransitionGroup: { template: "<div class='transition-group-stub'><slot/></div>" },
+  // Nuxt's <NuxtLayout> normally consults the layout registry. In the unit
+  // test env the registry is empty, so the slot would never render. Replace
+  // with a transparent passthrough so layout/page composition still works.
+  NuxtLayout: { template: "<div class='nuxt-layout-stub'><slot/></div>" },
+  NuxtPage: { template: "<div class='nuxt-page-stub'><slot/></div>" },
+  NuxtLink: {
+    template:
+      '<a :href=\'typeof to === "string" ? to : "#"\' @click="$emit(\'click\', $event)"><slot/></a>',
+    props: ["to", "external", "target", "rel"],
+    emits: ["click"],
+  },
+  RouterLink: {
+    template:
+      '<a :href=\'typeof to === "string" ? to : "#"\' @click="$emit(\'click\', $event)"><slot/></a>',
+    props: ["to"],
+    emits: ["click"],
+  },
 };
 
 // Attach a `name` to each stub so `findComponent({ name: 'UButton' })` resolves

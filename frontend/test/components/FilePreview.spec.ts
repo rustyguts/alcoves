@@ -13,6 +13,7 @@ vi.mock("~/utils/api-fetch", () => ({
       this.data = d;
     }
   },
+  apiUrl: (path: string) => path,
 }));
 
 const stubs = {

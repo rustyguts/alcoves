@@ -8,7 +8,8 @@ vars below to pull from that repo instead of upstream sources.
 
 | File | Size | Purpose | Current upstream |
 |------|------|---------|------------------|
-| `ggml-base.bin` | 142M | whisper.cpp base multilingual — transcription | `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin` |
+| `ggml-base.bin` | 142M | whisper.cpp base multilingual — transcription (current default; reliable on commodity CPU) | `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin` |
+| `ggml-large-v3-turbo-q5_0.bin` | 574M | whisper.cpp large-v3-turbo Q5_0 multilingual — opt-in upgrade for hardware that can sustain it (OOM-killed on commodity CPU on long files) | `https://huggingface.co/Pomni/whisper-large-v3-turbo-ggml-allquants/resolve/main/ggml-large-v3-turbo-q5_0.bin` |
 | `yolo26x_fp16.onnx` | 107M | YOLO26x FP16 — object detection | `https://huggingface.co/onnx-community/yolo26x-ONNX/resolve/main/onnx/model_fp16.onnx` |
 | `det_10g.onnx` | 17M | InsightFace buffalo_l — face detection | `https://huggingface.co/public-data/insightface/resolve/main/models/buffalo_l/det_10g.onnx` |
 | `w600k_r50.onnx` | 167M | InsightFace buffalo_l — face recognition | `https://huggingface.co/public-data/insightface/resolve/main/models/buffalo_l/w600k_r50.onnx` |
@@ -32,3 +33,8 @@ For YOLO26x + face models the download URLs are currently hard-coded in
 lift them to config) once your HF repo is published.
 
 These binary files are git-ignored by `.gitignore` so the repo stays small.
+
+## Publishing
+
+To mirror a new model into `https://s3.rustyguts.net/models` via rclone, see
+[`docs/publishing-models.md`](../docs/publishing-models.md).

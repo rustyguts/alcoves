@@ -12,6 +12,8 @@ vi.mock("~/composables/useToast", () => ({
 
 vi.mock("~/utils/api-fetch", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+  apiUrl: (path: string) => path,
+  ApiError: class ApiError extends Error {},
 }));
 
 class MockEventSource {

@@ -45,12 +45,9 @@ func setupTusTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("Failed to migrate: %v", err)
 	}
 
-	// Clean tables before each test
-	db.Exec("DELETE FROM files")
-	db.Exec("DELETE FROM folders")
-	db.Exec("DELETE FROM library_members")
-	db.Exec("DELETE FROM libraries")
-	db.Exec("DELETE FROM users")
+	// CASCADE drops dependent rows in any tables migrated by sibling test
+	// files so the unique-email constraint never collides across runs.
+	db.Exec("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
 
 	return db
 }
@@ -753,4 +750,78 @@ func TestTusStop(t *testing.T) {
 	handler, _, _ := setupTusTestHandler(t)
 	// Verify Stop doesn't panic and can be called
 	handler.Stop()
+}
+
+// uploadOneShot drives a creation-with-upload TUS request that finalizes in a
+// single round-trip, returning the response recorder so the caller can inspect
+// status + headers (in particular X-Alcoves-Duplicate-Count).
+func uploadOneShot(t *testing.T, handler *TusHandler, e *echo.Echo, userID, libraryID uuid.UUID, filename string, data []byte) *httptest.ResponseRecorder {
+	t.Helper()
+
+	metadata := strings.Join([]string{
+		encodeMetadata("libraryId", libraryID.String()),
+		encodeMetadata("filename", filename),
+		encodeMetadata("mimeType", "text/plain"),
+	}, ",")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/tus", bytes.NewReader(data))
+	req.Header.Set("Tus-Resumable", tusResumableVersion)
+	req.Header.Set("Upload-Length", fmt.Sprintf("%d", len(data)))
+	req.Header.Set("Upload-Metadata", metadata)
+	req.Header.Set("Content-Type", "application/offset+octet-stream")
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	ctx.Set(middleware.ContextKeyUserID, userID.String())
+
+	if err := handler.Create(ctx); err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	return rec
+}
+
+func TestTusFinishUploadDuplicateHeader(t *testing.T) {
+	handler, db, _ := setupTusTestHandler(t)
+	userID, libraryID := createTestUserAndLibrary(t, db)
+
+	// Second library owned by same user — used to verify dedup is per-library.
+	otherLibrary := models.Library{ID: uuid.New(), OwnerID: userID, Name: "Other"}
+	if err := db.Create(&otherLibrary).Error; err != nil {
+		t.Fatalf("create other library: %v", err)
+	}
+
+	e := echo.New()
+	payload := []byte("identical-bytes")
+
+	rec1 := uploadOneShot(t, handler, e, userID, libraryID, "first.txt", payload)
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("first upload: expected 201, got %d", rec1.Code)
+	}
+	if got := rec1.Header().Get("X-Alcoves-Duplicate-Count"); got != "" {
+		t.Fatalf("first upload should not flag dupes, got %q", got)
+	}
+
+	rec2 := uploadOneShot(t, handler, e, userID, libraryID, "second.txt", payload)
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("second upload: expected 201, got %d", rec2.Code)
+	}
+	if got := rec2.Header().Get("X-Alcoves-Duplicate-Count"); got != "1" {
+		t.Fatalf("second upload should flag 1 dupe, got %q", got)
+	}
+
+	rec3 := uploadOneShot(t, handler, e, userID, libraryID, "third.txt", payload)
+	if got := rec3.Header().Get("X-Alcoves-Duplicate-Count"); got != "2" {
+		t.Fatalf("third upload should flag 2 dupes, got %q", got)
+	}
+
+	// Same payload, different library — should NOT flag.
+	rec4 := uploadOneShot(t, handler, e, userID, otherLibrary.ID, "in-other-lib.txt", payload)
+	if got := rec4.Header().Get("X-Alcoves-Duplicate-Count"); got != "" {
+		t.Fatalf("upload in other library should not flag dupes, got %q", got)
+	}
+
+	// Different payload in the original library — should NOT flag.
+	rec5 := uploadOneShot(t, handler, e, userID, libraryID, "other-bytes.txt", []byte("different"))
+	if got := rec5.Header().Get("X-Alcoves-Duplicate-Count"); got != "" {
+		t.Fatalf("upload with unique content should not flag dupes, got %q", got)
+	}
 }
