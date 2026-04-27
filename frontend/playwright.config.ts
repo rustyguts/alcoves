@@ -10,7 +10,7 @@ export default defineConfig({
   },
   fullyParallel: false,
   retries: isCI ? 2 : 0,
-  workers: isCI ? 1 : undefined,
+  workers: isCI ? 4 : undefined,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: "http://127.0.0.1:4173",
