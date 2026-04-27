@@ -77,6 +77,7 @@ COPY --from=whisper-build /src/build/ggml/src/ /tmp/whisper-ggml/
 RUN find /tmp/whisper-src -name 'libwhisper.so*' -exec cp -a {} /usr/local/lib/ \; && \
     find /tmp/whisper-ggml -name 'libggml*.so*' -exec cp -a {} /usr/local/lib/ \; && \
     rm -rf /tmp/whisper-src /tmp/whisper-ggml && \
+    ln -sf /usr/local/lib/libonnxruntime.so /usr/local/lib/onnxruntime.so && \
     ldconfig
 
 WORKDIR /app
