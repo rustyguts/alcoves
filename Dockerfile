@@ -41,6 +41,7 @@ COPY backend/ .
 ARG COMMIT_SHA=""
 ARG BUILD_TIME=""
 RUN CGO_ENABLED=1 GOOS=linux go build \
+    -buildvcs=false \
     -ldflags="-s -w \
       -X github.com/alcoves/alcoves-backend/internal/version.commit=${COMMIT_SHA} \
       -X github.com/alcoves/alcoves-backend/internal/version.buildTime=${BUILD_TIME}" \
@@ -50,7 +51,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build \
 # they are fetched on demand by the transcribe worker.
 FROM debian:bookworm-slim AS whisper-build
 
-ARG WHISPER_VERSION=v1.7.4
+ARG WHISPER_VERSION=v1.8.4
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -89,6 +90,17 @@ RUN find /tmp/whisper-src -name 'libwhisper.so*' -exec cp -a {} /usr/local/lib/ 
     rm -rf /tmp/whisper-src /tmp/whisper-ggml && \
     ln -sf /usr/local/lib/libonnxruntime.so /usr/local/lib/onnxruntime.so && \
     ldconfig
+
+# The Go ONNX bindings call dlopen("onnxruntime.so", ...) without an
+# absolute path. Resolution order is LD_LIBRARY_PATH -> ld.so.cache ->
+# /lib(64) and /usr/lib(64). The ldconfig cache keys are SONAMEs (e.g.
+# libonnxruntime.so.1), so the bare onnxruntime.so symlink we created
+# above is invisible to it. /usr/local/lib is not in dlopen's default
+# fallback set either. Setting LD_LIBRARY_PATH lets dlopen find the
+# symlink without us having to maintain a SONAME-shaped wrapper.
+# docker-compose.yml sets the same value for the dev image; this ENV
+# makes the published prod image self-contained.
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
 WORKDIR /app
 COPY --from=backend-build /alcoves ./alcoves
