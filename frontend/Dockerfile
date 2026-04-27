@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# Stage 1: Install deps + build the Nuxt app
+# Stage 1: Install deps + build the Nuxt app with the Bun nitro preset.
 FROM oven/bun:1 AS build
 
 WORKDIR /app
@@ -11,8 +11,8 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
-# Stage 2: Minimal runtime image with Node to run the Nitro server.
-FROM node:22-bookworm-slim AS runtime
+# Stage 2: Minimal Bun runtime serving the Nitro Bun preset bundle.
+FROM oven/bun:1-slim AS runtime
 
 WORKDIR /app
 
@@ -24,4 +24,4 @@ COPY --from=build /app/.output ./.output
 
 EXPOSE 3000
 
-CMD ["node", ".output/server/index.mjs"]
+CMD ["bun", "run", ".output/server/index.mjs"]

@@ -65,6 +65,7 @@ export default defineNuxtConfig({
   },
 
   nitro: {
+    preset: "bun",
     // Nitro's devProxy strips the matched prefix before appending the rest to
     // the target URL. The Go backend mounts routes under `/api/*`, so target
     // must include the `/api` suffix to rebuild the original path.
