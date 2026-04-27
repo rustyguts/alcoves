@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import type { Library, LibraryFile } from "~~/shared/types/api";
+import type { LibraryFile } from "~~/shared/types/api";
 import type { JobStatusButton } from "~/utils/job-status-button";
 
 defineProps<{
   file: LibraryFile | null | undefined;
-  library: Library | null | undefined;
-  duration: number;
   transcribing: boolean;
   transcribeButton: JobStatusButton;
   audioDetecting: boolean;
@@ -37,10 +35,6 @@ function isPlayable(mimeType: string | undefined | null): boolean {
     </UButton>
     <div class="min-w-0 flex-1">
       <p class="text-lg font-semibold truncate">{{ file?.name ?? "Loading…" }}</p>
-      <p class="text-xs text-muted">
-        {{ library?.name ?? "Library" }} · Editor ·
-        <span v-if="duration">{{ duration.toFixed(1) }}s</span>
-      </p>
     </div>
     <UButton
       v-if="file && isPlayable(file.mimeType)"

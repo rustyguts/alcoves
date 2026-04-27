@@ -700,6 +700,43 @@ function downloadSelection(fileIds: string[], folderIds: string[]) {
   startZipDownload(fileIds, folderIds);
 }
 
+// Surfaces the {enqueued, skipped} response from bulk-transcribe /
+// bulk-audio-detect as a single toast. Distinct from per-file toasts so
+// users running on dozens of files don't get a wall of notifications.
+async function runBulkAction(
+  kind: "transcribe" | "audio-detect",
+  fileIds: string[] | undefined,
+) {
+  const verb = kind === "transcribe" ? "Transcribe" : "Audio detection";
+  const apiCall =
+    kind === "transcribe"
+      ? api.files.bulkTranscribe(libraryId.value, fileIds)
+      : api.files.bulkAudioDetect(libraryId.value, fileIds);
+  try {
+    const res = await apiCall;
+    const skippedCount = Object.keys(res.skipped).length;
+    if (res.enqueued.length === 0) {
+      toast.add({
+        title: `${verb}: nothing to queue`,
+        description: skippedCount ? `${skippedCount} file(s) skipped.` : undefined,
+        color: "warning",
+      });
+      return;
+    }
+    toast.add({
+      title: `${verb}: queued ${res.enqueued.length} file(s)`,
+      description: skippedCount ? `Skipped ${skippedCount}` : undefined,
+      color: "success",
+    });
+  } catch (e) {
+    toast.add({
+      title: `${verb} failed`,
+      description: e instanceof Error ? e.message : "Unknown error",
+      color: "error",
+    });
+  }
+}
+
 async function trashFiles(ids: string[]) {
   await api.files.delete(libraryId.value, ids[0]!, { fileIds: ids });
   ids.forEach((id) => selectedFiles.delete(id));
@@ -905,6 +942,16 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
                 icon: "i-lucide-folder-input",
                 onSelect: () => openMoveFilesModal(targetFileIds),
               },
+              {
+                label: `Transcribe ${targetFileIds.length} file(s)`,
+                icon: "i-lucide-captions",
+                onSelect: () => runBulkAction("transcribe", targetFileIds),
+              },
+              {
+                label: `Detect audio in ${targetFileIds.length} file(s)`,
+                icon: "i-lucide-audio-waveform",
+                onSelect: () => runBulkAction("audio-detect", targetFileIds),
+              },
             ]
           : []),
         {
@@ -1007,7 +1054,29 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
             {
               label: "Editor",
               icon: "i-lucide-video",
-              onSelect: () => router.push(`/libraries/${libraryId.value}/edit/${entry.id}`),
+              onSelect: () =>
+                router.push({
+                  path: `/libraries/${libraryId.value}/edit/${entry.id}`,
+                  // Carry the originating folder so the editor's back
+                  // button returns the user to where they were
+                  // browsing instead of the library root.
+                  query: currentFolderId.value ? { from: currentFolderId.value } : {},
+                }),
+            },
+          ]
+        : []),
+      ...(entry.kind === "file" &&
+      (entry.mimeType.startsWith("video/") || entry.mimeType.startsWith("audio/"))
+        ? [
+            {
+              label: "Transcribe",
+              icon: "i-lucide-captions",
+              onSelect: () => runBulkAction("transcribe", [entry.id]),
+            },
+            {
+              label: "Detect audio",
+              icon: "i-lucide-audio-waveform",
+              onSelect: () => runBulkAction("audio-detect", [entry.id]),
             },
           ]
         : []),

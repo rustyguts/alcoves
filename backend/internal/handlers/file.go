@@ -54,6 +54,8 @@ func (h *FileHandler) RegisterRoutes(g *echo.Group) {
 	g.GET("/:id/files/:fileId/transcript", h.GetTranscript)
 	g.POST("/:id/files/:fileId/audio-detect", h.GenerateAudioDetections)
 	g.GET("/:id/files/:fileId/audio-detections", h.ListAudioDetections)
+	g.POST("/:id/files/bulk-transcribe", h.BulkTranscribe)
+	g.POST("/:id/files/bulk-audio-detect", h.BulkAudioDetect)
 	g.POST("/:id/files/video-thumbnails/reprocess", h.ReprocessVideoThumbnails)
 	g.GET("/:id/files/:fileId/proxy", h.Proxy)
 	g.GET("/:id/files/:fileId/thumbnail", h.Thumbnail)
@@ -1078,6 +1080,145 @@ func (h *FileHandler) maybeEnqueueVideoThumbnail(libraryID, fileID uuid.UUID, mi
 	if err := h.videoSvc.EnqueueVideoThumbnail(libraryID.String(), fileID.String()); err != nil {
 		log.Printf("failed to enqueue video thumbnail for file %s: %v", fileID, err)
 	}
+}
+
+// bulkActionRequest is the shared shape for bulk-transcribe / bulk-audio-detect.
+// Empty FileIDs means "every video/audio file in the library" (the
+// "transcribe-everything" library-page button).
+type bulkActionRequest struct {
+	FileIDs []string `json:"fileIds,omitempty"`
+}
+
+// bulkActionResponse reports which files were enqueued vs. skipped so the
+// frontend can toast a useful summary instead of a binary success/fail.
+type bulkActionResponse struct {
+	Enqueued []string          `json:"enqueued"`
+	Skipped  map[string]string `json:"skipped"`
+}
+
+// BulkTranscribe queues transcription for many files at once. With an empty
+// fileIds array it queues every video/audio file in the library that isn't
+// a proxy. Dedup is handled by asynq.Unique on the enqueue side, so a user
+// double-clicking the button cannot fan out duplicate workers.
+func (h *FileHandler) BulkTranscribe(c echo.Context) error {
+	if h.transcribeSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Transcribe service unavailable")
+	}
+	libraryID := c.Param("id")
+	files, err := h.bulkResolveFiles(c, libraryID)
+	if err != nil {
+		return err
+	}
+
+	resp := bulkActionResponse{Enqueued: []string{}, Skipped: map[string]string{}}
+	now := time.Now()
+	for _, f := range files {
+		fid := f.ID.String()
+		if f.SourceFileID != nil {
+			resp.Skipped[fid] = "proxy file"
+			continue
+		}
+		if !strings.HasPrefix(f.MimeType, "video/") && !strings.HasPrefix(f.MimeType, "audio/") {
+			resp.Skipped[fid] = "not audio/video"
+			continue
+		}
+		queued := "queued"
+		zero := 0
+		newVersion := f.TranscribeVersion + 1
+		if err := h.db.Model(&models.File{}).Where("id = ?", f.ID).Updates(map[string]interface{}{
+			"transcribe_status":      queued,
+			"transcribe_progress":    zero,
+			"transcribe_eta_seconds": nil,
+			"transcribe_error":       nil,
+			"transcribe_version":     newVersion,
+			"updated_at":             now,
+		}).Error; err != nil {
+			resp.Skipped[fid] = "update failed: " + err.Error()
+			continue
+		}
+		if err := h.transcribeSvc.EnqueueTranscribe(libraryID, fid); err != nil {
+			resp.Skipped[fid] = "enqueue failed: " + err.Error()
+			continue
+		}
+		resp.Enqueued = append(resp.Enqueued, fid)
+	}
+	return c.JSON(http.StatusAccepted, resp)
+}
+
+// BulkAudioDetect queues PANNs audio-event detection across many files.
+// Skips files whose transcript isn't ready (matches the per-file endpoint
+// invariant) so the bulk button on a freshly-imported library still
+// produces useful feedback instead of a wall of errors.
+func (h *FileHandler) BulkAudioDetect(c echo.Context) error {
+	if h.audioDetectSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Audio detection service unavailable")
+	}
+	libraryID := c.Param("id")
+	files, err := h.bulkResolveFiles(c, libraryID)
+	if err != nil {
+		return err
+	}
+
+	resp := bulkActionResponse{Enqueued: []string{}, Skipped: map[string]string{}}
+	now := time.Now()
+	for _, f := range files {
+		fid := f.ID.String()
+		if f.SourceFileID != nil {
+			resp.Skipped[fid] = "proxy file"
+			continue
+		}
+		if !strings.HasPrefix(f.MimeType, "video/") && !strings.HasPrefix(f.MimeType, "audio/") {
+			resp.Skipped[fid] = "not audio/video"
+			continue
+		}
+		if f.TranscribeStatus == nil || *f.TranscribeStatus != "ready" {
+			resp.Skipped[fid] = "transcript not ready"
+			continue
+		}
+		queued := "queued"
+		zero := 0
+		newVersion := f.AudioDetectVersion + 1
+		if err := h.db.Model(&models.File{}).Where("id = ?", f.ID).Updates(map[string]interface{}{
+			"audio_detect_status":      queued,
+			"audio_detect_progress":    zero,
+			"audio_detect_eta_seconds": nil,
+			"audio_detect_error":       nil,
+			"audio_detect_version":     newVersion,
+			"updated_at":               now,
+		}).Error; err != nil {
+			resp.Skipped[fid] = "update failed: " + err.Error()
+			continue
+		}
+		if err := h.audioDetectSvc.EnqueueDetect(libraryID, fid); err != nil {
+			resp.Skipped[fid] = "enqueue failed: " + err.Error()
+			continue
+		}
+		resp.Enqueued = append(resp.Enqueued, fid)
+	}
+	return c.JSON(http.StatusAccepted, resp)
+}
+
+// bulkResolveFiles loads the target file set for a bulk action. With an
+// explicit fileIds list it scopes to those IDs (after enforcing they belong
+// to the library); otherwise it returns every non-trashed video/audio file
+// in the library that isn't a transcoded proxy.
+func (h *FileHandler) bulkResolveFiles(c echo.Context, libraryID string) ([]models.File, error) {
+	var req bulkActionRequest
+	if err := c.Bind(&req); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	q := h.db.Where("library_id = ? AND trashed_at IS NULL AND source_file_id IS NULL", libraryID).
+		Where("mime_type LIKE 'video/%' OR mime_type LIKE 'audio/%'")
+	if len(req.FileIDs) > 0 {
+		q = q.Where("id IN ?", req.FileIDs)
+	}
+
+	var files []models.File
+	if err := q.Find(&files).Error; err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to load files")
+	}
+	return files, nil
 }
 
 // Ensure errors import is used (for future use)

@@ -18,10 +18,15 @@ import (
 // Overridable at link time:
 //
 //	go build -ldflags "-X github.com/alcoves/alcoves-backend/internal/version.commit=$(git rev-parse HEAD) \
-//	                   -X github.com/alcoves/alcoves-backend/internal/version.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+//	                   -X github.com/alcoves/alcoves-backend/internal/version.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+//	                   -X github.com/alcoves/alcoves-backend/internal/version.appVersion=$(cat VERSION)"
+//
+// `appVersion` is the human-readable semver from /VERSION at the repo root.
+// When unset (e.g. `go run` during local dev) App() returns "dev".
 var (
-	commit    string
-	buildTime string
+	commit     string
+	buildTime  string
+	appVersion string
 )
 
 var (
@@ -76,4 +81,14 @@ func BuildTime() string {
 func Dirty() bool {
 	resolve()
 	return dirty
+}
+
+// App returns the human-readable semver embedded at build time (from the
+// repo-root VERSION file). Returns "dev" when not set, e.g. `go run` outside
+// a release build.
+func App() string {
+	if appVersion == "" {
+		return "dev"
+	}
+	return appVersion
 }

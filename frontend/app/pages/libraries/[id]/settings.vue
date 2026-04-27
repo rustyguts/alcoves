@@ -117,6 +117,12 @@ const objDetReprocessing = ref(false);
 const videoThumbReprocessOpen = ref(false);
 const videoThumbReprocessing = ref(false);
 
+const transcribeReprocessOpen = ref(false);
+const transcribeReprocessing = ref(false);
+
+const audioDetectReprocessOpen = ref(false);
+const audioDetectReprocessing = ref(false);
+
 const sharingToggling = ref(false);
 const savingLibraryName = ref(false);
 const deleteLibraryOpen = ref(false);
@@ -243,6 +249,46 @@ async function reprocessObjectDetection() {
     toast.add({ title: message, color: "error" });
   } finally {
     objDetReprocessing.value = false;
+  }
+}
+
+// Reprocess every video/audio file in the library. Asynq dedup on the
+// enqueue side prevents duplicate worker runs if the user clicks twice.
+async function reprocessTranscripts() {
+  transcribeReprocessing.value = true;
+  transcribeReprocessOpen.value = false;
+  try {
+    const result = await api.files.bulkTranscribe(libraryId.value);
+    const skippedCount = Object.keys(result.skipped).length;
+    toast.add({
+      title: "Transcription queued",
+      description: `${result.enqueued.length} file${result.enqueued.length === 1 ? "" : "s"} queued${skippedCount ? `, ${skippedCount} skipped` : ""}.`,
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to queue bulk transcription";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    transcribeReprocessing.value = false;
+  }
+}
+
+async function reprocessAudioDetections() {
+  audioDetectReprocessing.value = true;
+  audioDetectReprocessOpen.value = false;
+  try {
+    const result = await api.files.bulkAudioDetect(libraryId.value);
+    const skippedCount = Object.keys(result.skipped).length;
+    toast.add({
+      title: "Audio detection queued",
+      description: `${result.enqueued.length} file${result.enqueued.length === 1 ? "" : "s"} queued${skippedCount ? `, ${skippedCount} skipped` : ""}.`,
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to queue bulk audio detection";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    audioDetectReprocessing.value = false;
   }
 }
 
@@ -599,6 +645,71 @@ async function deleteLibrary() {
       </div>
     </UCard>
 
+    <!-- Transcription Card -->
+    <UCard>
+      <template #header>
+        <div>
+          <p class="text-sm font-semibold">Transcription</p>
+          <p class="text-xs text-muted">
+            Generate searchable text + WebVTT cues from video and audio files using whisper.cpp.
+          </p>
+        </div>
+      </template>
+
+      <div class="flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-sm font-medium">Re-transcribe all videos</p>
+          <p class="text-xs text-muted">
+            Queues transcription for every video and audio file in this library, overwriting
+            existing transcripts. Useful after a model upgrade or hallucination-fix rollout.
+          </p>
+        </div>
+        <UButton
+          color="warning"
+          variant="soft"
+          icon="i-lucide-captions"
+          :loading="transcribeReprocessing"
+          :disabled="transcribeReprocessing"
+          @click="transcribeReprocessOpen = true"
+        >
+          Reprocess Transcripts
+        </UButton>
+      </div>
+    </UCard>
+
+    <!-- Audio Event Detection Card -->
+    <UCard>
+      <template #header>
+        <div>
+          <p class="text-sm font-semibold">Audio Event Detection</p>
+          <p class="text-xs text-muted">
+            Tag audio segments with PANNs CNN14 (music, speech, applause, …). Requires the file's
+            transcript to be ready.
+          </p>
+        </div>
+      </template>
+
+      <div class="flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-sm font-medium">Re-run audio detection on all videos</p>
+          <p class="text-xs text-muted">
+            Queues PANNs detection for every video and audio file with a ready transcript,
+            overwriting existing audio-event tags.
+          </p>
+        </div>
+        <UButton
+          color="warning"
+          variant="soft"
+          icon="i-lucide-audio-waveform"
+          :loading="audioDetectReprocessing"
+          :disabled="audioDetectReprocessing"
+          @click="audioDetectReprocessOpen = true"
+        >
+          Reprocess Audio Detections
+        </UButton>
+      </div>
+    </UCard>
+
     <!-- Sharing Card -->
     <UCard>
       <template #header>
@@ -697,6 +808,28 @@ async function deleteLibrary() {
       confirm-icon="i-lucide-refresh-cw"
       :pending="faceRecReprocessing"
       @confirm="reprocessFaceRecognition"
+    />
+
+    <ConfirmModal
+      v-model:open="transcribeReprocessOpen"
+      title="Reprocess Transcripts"
+      message="This queues transcription for every video and audio file in the library. Existing transcripts will be overwritten when each job completes."
+      confirm-label="Queue Reprocessing"
+      confirm-class="btn-soft btn-warning"
+      confirm-icon="i-lucide-captions"
+      :pending="transcribeReprocessing"
+      @confirm="reprocessTranscripts"
+    />
+
+    <ConfirmModal
+      v-model:open="audioDetectReprocessOpen"
+      title="Reprocess Audio Detections"
+      message="This queues PANNs audio-event detection for every video and audio file with a ready transcript. Existing audio-event tags will be overwritten when each job completes."
+      confirm-label="Queue Reprocessing"
+      confirm-class="btn-soft btn-warning"
+      confirm-icon="i-lucide-audio-waveform"
+      :pending="audioDetectReprocessing"
+      @confirm="reprocessAudioDetections"
     />
 
     <!-- Disable Object Detection Modal -->

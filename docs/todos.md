@@ -54,6 +54,54 @@ E2e currently green (94 pass / 5 skip / 0 fail). Watch for snapshot drift after 
 
 ---
 
+## 3. Bulk transcribe + audio-detect for admins (Feature)
+
+- **What:**
+  - File-list multi-selection: right-click on selected files → "Transcribe N file(s)" / "Detect audio in N file(s)". Single video/audio file → same actions for one file.
+  - Library Settings page: "Reprocess Transcripts" + "Reprocess Audio Detections" cards (matches the Facial Recognition / Object Detection reprocess pattern). Confirm modal before queuing every video/audio file in the library.
+- **Why:** Re-running transcription/extraction across many files used to require opening each file's editor and clicking the per-file button. Tedious after model swaps or bug fixes (e.g. the VAD repetition fix on 2026-04-27 invalidated every previously-generated transcript on capable users).
+- **Backend:** `POST /api/libraries/:id/files/bulk-transcribe` + `bulk-audio-detect` accept an optional `fileIds` array (omit = all videos in library). Loop over candidates, call existing `EnqueueTranscribe` / `EnqueueDetect`. Dedup already in place (asynq.Unique).
+- **Frontend:** context-menu items in the file grid for selected files, dedicated UCards in the library settings page for library-wide reprocessing.
+
+
+## 4. Editor back button respects current folder (UX bug)
+
+- **What:** "Back" from the video editor (`/libraries/:id/edit/:fileId`) currently routes to the library root, ignoring whatever folder the user was browsing. Should return to the folder they came from.
+- **Why:** Power users browse deep folder hierarchies; bouncing back to root forces re-navigation every time they edit a file.
+- **Implementation:** carry the originating folder ID through the navigation. Either (a) store in route query/hash on entry and pop on exit, or (b) read `useLibraryExplorer` last-folder state. Prefer (a) — survives reloads and cross-tab.
+- **Effort:** S.
+- **Risk:** Low.
+
+
+## 5. File-list border too strong in both themes (Polish)
+
+- **What:** The card/file-list border is too saturated. Light mode = too dark/black; dark mode = too bright. Both modes need a softer divider.
+- **Why:** Visual heaviness; doesn't match Nuxt UI v4 default neutral dividers elsewhere in the app.
+- **Implementation:** find the offending Tailwind border classes (likely `border-default` / `divide-default` / a hard `border-neutral-900`). Move to `border-muted` or a custom token at ~10% alpha.
+- **Effort:** S — class swap + visual sanity check in both modes.
+- **Risk:** Trivial.
+
+
+## 6. Library cards: 16:9 aspect, capped width (Polish)
+
+- **What:** Library cards are too wide on large viewports. Constrain to 16:9 aspect ratio and a sensible max width regardless of breakpoint.
+- **Why:** Cards stretch unattractively on ultrawide monitors.
+- **Implementation:** Tailwind `aspect-video` on the thumbnail container, plus a `max-w-*` (probably `max-w-md` or `max-w-sm`) on the grid item. Verify with the existing library list page across breakpoints.
+- **Effort:** S.
+- **Risk:** Trivial.
+
+
+## 7. Editor video frame: 16:9 with max-height, fits without overflow or crop (UX bug)
+
+- **What:** The video element in the editor must live inside a 16:9 frame with `max-height: 400px` (or similar). The video must always fit fully inside (letterbox/pillarbox) regardless of the source aspect ratio. No overflow, no crop.
+- **Why:** Vertical / square / oddly-shaped sources currently overflow or stretch, blowing up the editor layout.
+- **Implementation:** wrap `<video>` in a `aspect-video max-h-[400px]` flex container; on the video apply `object-contain w-full h-full max-h-full`. May need a small JS measurer to size the wrapper based on viewport when sources are very tall (older code used `vidfit-js`-style logic — re-implement minimally if pure CSS isn't enough).
+- **Effort:** S–M.
+- **Risk:** Low. UI-only.
+
+
+---
+
 ## Completed
 
 - **OAuth CSRF state fix** (2026-04-25) — 32-byte crypto-random state, HttpOnly cookie, constant-time compare, 5 unit tests.

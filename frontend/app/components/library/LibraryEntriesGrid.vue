@@ -42,8 +42,14 @@ const emit = defineEmits<{
 </script>
 
 <template>
+  <!--
+    auto-fill + minmax keeps card width inside a sensible 220-320px band
+    regardless of viewport width, instead of stretching to "viewport / N"
+    on ultrawide monitors. Combined with the 16:9 thumbnail below this
+    gives the consistent card shape the design calls for.
+  -->
   <div
-    class="p-3 grid auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+    class="p-3 grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,320px))]"
   >
     <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
       <div
@@ -119,7 +125,7 @@ const emit = defineEmits<{
           </div>
         </div>
 
-        <div class="h-40 bg-elevated/40 flex items-center justify-center overflow-hidden">
+        <div class="aspect-video w-full bg-elevated/40 flex items-center justify-center overflow-hidden">
           <template v-if="entry.kind === 'folder'">
             <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
           </template>

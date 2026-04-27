@@ -216,6 +216,7 @@ func main() {
 	// link in the admin panel.
 	api.GET("/version", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]any{
+			"version":   version.App(),
 			"commit":    version.Commit(),
 			"buildTime": version.BuildTime(),
 			"dirty":     version.Dirty(),

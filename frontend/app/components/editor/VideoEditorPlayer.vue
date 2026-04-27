@@ -37,6 +37,39 @@ const currentTime = ref(0);
 const duration = ref(props.file.duration ?? 0);
 const paused = ref(true);
 
+// Aspect ratio of the frame box. Vidstack's default video layout draws
+// chrome (controls, gradients) inside the player surface, so we letterbox
+// the actual <video> via object-contain inside a 16:9 frame.
+const FRAME_ASPECT = 16 / 9;
+
+// Outer container fills its grid cell; we then size an inner frame to the
+// largest 16:9 box that fits inside that cell. Pure-CSS approaches with
+// aspect-ratio + max-w/max-h end up either clipping or breaking the ratio
+// when the cell is short and wide vs tall and narrow, so we measure with
+// ResizeObserver and write px dimensions back to an inline style.
+const wrapperEl = ref<HTMLElement | null>(null);
+const frameWidth = ref(0);
+const frameHeight = ref(0);
+
+function recomputeFrame() {
+  const el = wrapperEl.value;
+  if (!el) return;
+  const w = el.clientWidth;
+  const h = el.clientHeight;
+  if (!w || !h) return;
+  if (w / h > FRAME_ASPECT) {
+    // cell wider than 16:9 → height-bound, derive width
+    frameHeight.value = h;
+    frameWidth.value = h * FRAME_ASPECT;
+  } else {
+    // cell taller-or-equal to 16:9 → width-bound, derive height
+    frameWidth.value = w;
+    frameHeight.value = w / FRAME_ASPECT;
+  }
+}
+
+let resizeObserver: ResizeObserver | null = null;
+
 const fileUrl = computed(() =>
   apiUrl(`/api/libraries/${props.libraryId}/files/${props.file.id}?inline=true`),
 );
@@ -72,6 +105,11 @@ async function refreshPlaybackSources() {
 }
 
 onMounted(async () => {
+  if (import.meta.client && wrapperEl.value && typeof ResizeObserver !== "undefined") {
+    resizeObserver = new ResizeObserver(recomputeFrame);
+    resizeObserver.observe(wrapperEl.value);
+    recomputeFrame();
+  }
   await import("vidstack/player");
   await import("vidstack/player/layouts");
   await import("vidstack/player/ui");
@@ -165,6 +203,8 @@ watch(
 onBeforeUnmount(() => {
   unsubs.forEach((fn) => fn());
   unsubs = [];
+  resizeObserver?.disconnect();
+  resizeObserver = null;
 });
 
 function seek(seconds: number) {
@@ -183,32 +223,56 @@ defineExpose({ seek, togglePlay, currentTime, duration, paused });
 </script>
 
 <template>
-  <div class="relative w-full bg-black flex items-center justify-center rounded-lg">
-    <media-player
-      v-if="playerReady"
-      ref="playerEl"
-      class="player w-full"
-      :src="mediaSrc"
-      :title="file.name"
-      crossorigin="use-credentials"
-      playsinline
-    >
-      <media-provider />
-      <media-video-layout />
-    </media-player>
-    <div v-else class="flex items-center justify-center py-16">
-      <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-white/60" />
-    </div>
+  <!--
+    Outer wrapper fills its grid cell. ResizeObserver measures the
+    cell's content box on every layout change and writes pixel
+    dimensions onto the inner frame so the largest possible 16:9 box
+    fits without clipping. The video itself uses object-contain inside
+    that frame so vertical / square / odd sources letterbox instead of
+    being cropped or stretched.
+  -->
+  <div ref="wrapperEl" class="relative w-full flex items-center justify-center">
     <div
-      v-show="active"
-      class="pointer-events-none absolute inset-0 rounded-lg border-4 border-primary z-10 transition-opacity"
-    />
+      class="relative bg-black rounded-lg overflow-hidden flex items-center justify-center"
+      :style="{
+        width: frameWidth ? `${frameWidth}px` : '100%',
+        height: frameHeight ? `${frameHeight}px` : 'auto',
+      }"
+    >
+      <media-player
+        v-if="playerReady"
+        ref="playerEl"
+        class="player h-full w-full"
+        :src="mediaSrc"
+        :title="file.name"
+        crossorigin="use-credentials"
+        playsinline
+      >
+        <media-provider />
+        <media-video-layout />
+      </media-player>
+      <div v-else class="flex items-center justify-center py-16">
+        <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-white/60" />
+      </div>
+      <div
+        v-show="active"
+        class="pointer-events-none absolute inset-0 rounded-lg border-4 border-primary z-10 transition-opacity"
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .player {
   --media-border-radius: 0;
-  max-height: calc(100svh - 16rem);
+}
+/* Force the inner <video> to letterbox inside the frame regardless of
+ * source aspect ratio. Vidstack's default fits to the player element,
+ * which is already 16:9, but a vertical source would stretch without
+ * an explicit object-fit override. */
+.player :deep(video) {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 </style>

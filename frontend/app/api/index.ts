@@ -206,6 +206,35 @@ const files = {
     );
   },
 
+  /**
+   * POST /api/libraries/:id/files/bulk-transcribe
+   * Empty fileIds = every video/audio file in the library.
+   */
+  bulkTranscribe(libraryId: string, fileIds?: string[]) {
+    return apiFetch<{ enqueued: string[]; skipped: Record<string, string> }>(
+      `/api/libraries/${libraryId}/files/bulk-transcribe`,
+      {
+        method: "POST",
+        body: { fileIds: fileIds ?? [] },
+      },
+    );
+  },
+
+  /**
+   * POST /api/libraries/:id/files/bulk-audio-detect
+   * Empty fileIds = every video/audio file in the library that has a
+   * ready transcript.
+   */
+  bulkAudioDetect(libraryId: string, fileIds?: string[]) {
+    return apiFetch<{ enqueued: string[]; skipped: Record<string, string> }>(
+      `/api/libraries/${libraryId}/files/bulk-audio-detect`,
+      {
+        method: "POST",
+        body: { fileIds: fileIds ?? [] },
+      },
+    );
+  },
+
   /** POST /api/libraries/:id/files/video-thumbnails/reprocess */
   reprocessVideoThumbnails(libraryId: string) {
     return apiFetch<{ queuedCount: number }>(

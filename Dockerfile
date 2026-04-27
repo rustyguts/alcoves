@@ -34,17 +34,19 @@ RUN go mod download
 
 COPY backend/ .
 
-# Embed the source git commit + build time so the running binary can
-# surface them at /api/version (rendered by the admin panel as a link
-# back to GitHub). CI passes these as --build-arg; if missing the
-# version endpoint just returns "" and the UI hides the link.
+# Embed the source git commit + build time + app semver so the running
+# binary can surface them at /api/version (rendered by the admin panel as
+# a link back to GitHub). CI passes these as --build-arg; if missing the
+# version endpoint returns "dev" / "" and the UI hides the link.
 ARG COMMIT_SHA=""
 ARG BUILD_TIME=""
+ARG APP_VERSION=""
 RUN CGO_ENABLED=1 GOOS=linux go build \
     -buildvcs=false \
     -ldflags="-s -w \
       -X github.com/alcoves/alcoves-backend/internal/version.commit=${COMMIT_SHA} \
-      -X github.com/alcoves/alcoves-backend/internal/version.buildTime=${BUILD_TIME}" \
+      -X github.com/alcoves/alcoves-backend/internal/version.buildTime=${BUILD_TIME} \
+      -X github.com/alcoves/alcoves-backend/internal/version.appVersion=${APP_VERSION}" \
     -o /alcoves ./cmd/server
 
 # whisper.cpp build stage — produces whisper-cli. Models are not bundled;

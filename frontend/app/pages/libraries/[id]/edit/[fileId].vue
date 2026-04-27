@@ -18,7 +18,7 @@ import { api } from "~/api";
 import VideoEditorPlayer from "~/components/editor/VideoEditorPlayer.vue";
 import MomentTimeline from "~/components/editor/MomentTimeline.vue";
 import MomentEditForm from "~/components/editor/MomentEditForm.vue";
-import EditorSidebar from "~/components/editor/EditorSidebar.vue";
+import MomentsList from "~/components/editor/MomentsList.vue";
 import EditorHeader from "~/components/editor/EditorHeader.vue";
 import EditorKeyboardHelpModal from "~/components/editor/EditorKeyboardHelpModal.vue";
 import AudioDetectionsPanel from "~/components/editor/AudioDetectionsPanel.vue";
@@ -116,7 +116,15 @@ const activeMoment = computed<Moment | null>(
 );
 
 function goBack() {
-  router.push(`/libraries/${libraryId.value}`);
+  // The library page sets `?from=<folderId>` when the user opens the
+  // editor from inside a folder. Restore that folder on the way back so
+  // they don't land at the library root and have to re-navigate.
+  const from = route.query.from;
+  const folderId = typeof from === "string" && from.length > 0 ? from : null;
+  router.push({
+    path: `/libraries/${libraryId.value}`,
+    query: folderId ? { folder: folderId } : {},
+  });
 }
 
 async function createAtPlayhead() {
@@ -241,8 +249,6 @@ useEditorShortcuts({
   <div class="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
     <EditorHeader
       :file="file"
-      :library="library"
-      :duration="duration"
       :transcribing="transcribing"
       :transcribe-button="transcribeButton"
       :audio-detecting="audioDetecting"
@@ -253,18 +259,46 @@ useEditorShortcuts({
       @audio-detect="onAudioDetect"
     />
 
-    <div class="flex flex-1 min-h-0 gap-4 overflow-hidden">
-      <div class="flex flex-col gap-4 flex-1 min-w-0 overflow-y-auto">
-        <VideoEditorPlayer
-          v-if="file"
-          ref="playerRef"
-          :file="file"
-          :library-id="libraryId"
-          :active="activeMoment !== null"
-          @update:current-time="currentTime = $event"
-          @update:duration="duration = $event"
-        />
+    <!--
+      Editor layout grid. Two columns at lg+: video on the left half,
+      moments list on the right half. Below, every other panel
+      (timeline, edit form, highlight filters, transcript, audio events)
+      spans both columns at full width. On mobile the grid collapses to
+      one column and everything stacks with video on top.
+    -->
+    <div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 flex-1 min-h-0 overflow-y-auto content-start">
+      <!--
+        Row 1 cells get a defined height so the video player and
+        moments list have something to fill. h-[60svh] on mobile is
+        comfortable; desktop matches. The video frame then uses a
+        ResizeObserver inside this cell to compute the largest 16:9
+        rectangle that fits without clipping.
+      -->
+      <VideoEditorPlayer
+        v-if="file"
+        ref="playerRef"
+        class="h-[60svh] min-h-[260px] max-h-[600px]"
+        :file="file"
+        :library-id="libraryId"
+        :active="activeMoment !== null"
+        @update:current-time="currentTime = $event"
+        @update:duration="duration = $event"
+      />
 
+      <MomentsList
+        class="h-[60svh] min-h-[260px] max-h-[600px]"
+        :moments="moments"
+        :selected-id="selectedId"
+        @select="selectedId = $event"
+      />
+
+      <!--
+        All panels below row 1 stack flush with no extra gap. Wrapping
+        them in a single lg:col-span-2 flex-col stops `gap-4` on the
+        outer grid from inserting space between them, while preserving
+        the gap above (between video/moments row and this stack).
+      -->
+      <div class="lg:col-span-2 flex flex-col gap-4">
         <MomentTimeline
           :duration="duration"
           :current-time="currentTime"
@@ -307,10 +341,12 @@ useEditorShortcuts({
 
         <TranscriptPanel :cues="transcriptCues" :current-time="currentTime" @seek="onSeek" />
 
-        <AudioDetectionsPanel :detections="audioDetections" :duration="duration" @seek="onSeek" />
+        <AudioDetectionsPanel
+          :detections="audioDetections"
+          :duration="duration"
+          @seek="onSeek"
+        />
       </div>
-
-      <EditorSidebar :moments="moments" :selected-id="selectedId" @select="selectedId = $event" />
     </div>
 
     <MomentShareModal

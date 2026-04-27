@@ -156,6 +156,43 @@ When the user says "turn off the lights", follow the full workflow defined in [t
 - Avoid destructive git commands and do not revert unrelated local changes
 - When adding DOM/`window`/`localStorage` access to a new component or composable, guard with `import.meta.client` or wrap in `onMounted` — pages are SSR'd by default
 
+## Versioning
+
+Alcoves is **alpha**. The single source of truth is the plain-text `/VERSION`
+file at the repo root (currently `0.13.0`). The full release history lives in
+`/CHANGELOG.md` (Keep-a-Changelog format).
+
+**Bump policy:**
+
+- **Prefer patch (`0.x.y` → `0.x.y+1`).** Patch covers bugfixes, small
+  features, refactors, dep bumps, internal-only changes, docs, CI tweaks. The
+  default while we are alpha — when in doubt, patch.
+- **Use minor (`0.x.y` → `0.x+1.0`)** only for: a new top-level page or
+  route, a new background worker type, a new external integration (S3 / OAuth
+  provider / queue backend), a schema migration that renames or removes
+  columns, or anything that breaks a saved URL / API contract.
+- **Never bump to `1.0.0`** without an explicit decision from the user. Cap
+  at `0.x.y` indefinitely.
+
+**When you bump `VERSION`, in the same commit:**
+
+1. Add a new section to `/CHANGELOG.md` under `## [Unreleased]` (move the
+   pending bullets into the new dated section, leave `[Unreleased]` empty).
+2. Update `helm/alcoves/Chart.yaml` — bump both `version` and `appVersion`
+   to match `/VERSION`.
+3. After merge, push a `v0.x.y` git tag. The existing `publish.yml` workflow
+   tags published images `0.x.y` and `0.x` from that tag (via the
+   `type=semver` rule in `docker/metadata-action`).
+
+**Verifying the embedded version:**
+
+The backend reads `appVersion` from ldflags at build time
+(`backend/internal/version/version.go`). After a fresh build, `curl
+localhost:3001/api/version` should return `{"version":"0.x.y", ...}`. Local
+`go run` returns `"version":"dev"` because ldflags are not set. CI passes
+`APP_VERSION=$(cat VERSION)` as a docker build-arg — see
+`.github/workflows/publish.yml`.
+
 ## Test discipline (REQUIRED for every code change)
 
 These rules are non-optional. Skipping them is what produced the multi-month
