@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   backend-test:
     runs-on: ubuntu-latest
@@ -48,7 +51,7 @@ jobs:
       - name: Install libvips
         run: |
           sudo apt-get update
-          sudo apt-get install -y libvips-dev
+          sudo apt-get install -y libvips-dev libheif-plugin-aomenc libheif-plugin-x265
 
       - name: Install ONNX Runtime
         run: |
