@@ -73,7 +73,11 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./... -race -count=1
+        # -p 1 forces sequential package execution. Multiple packages
+        # (internal/handlers, internal/services/files) share the single test
+        # postgres and TRUNCATE/DELETE the same tables; running them in parallel
+        # causes FK violations and deadlocks between concurrent test runs.
+        run: go test ./... -race -count=1 -p 1
 
   unit-and-coverage:
     runs-on: ubuntu-latest
