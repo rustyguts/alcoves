@@ -538,7 +538,9 @@ function refreshAfterUploadDebounced() {
   );
 }
 
-const canDropUpload = computed(() => canManageLibrary.value && !showTrashed.value);
+const canDropUpload = computed(
+  () => canManageLibrary.value && !showTrashed.value && draggedFileIds.value.length === 0,
+);
 
 const { isOverDropZone: isFileDragActive, dropZoneProps: fileDropZoneProps } = useFileDrop({
   enabled: canDropUpload,

@@ -150,6 +150,7 @@ const emit = defineEmits<{
                 class="w-full h-full object-cover"
                 loading="lazy"
                 decoding="async"
+                draggable="false"
                 crossorigin="use-credentials"
                 @error="emit('thumbnailError', entry.id)"
               />

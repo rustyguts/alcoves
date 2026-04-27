@@ -44,6 +44,7 @@ const proxySrc = computed(() => {
     :class="$props.class"
     loading="lazy"
     decoding="async"
+    draggable="false"
     crossorigin="use-credentials"
     @error="emit('error', $event)"
     @load="emit('load', $event)"

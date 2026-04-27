@@ -12,6 +12,18 @@ SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-04-27
+
+### Fixed
+
+- Card-mode file drag no longer activates the upload dropzone overlay.
+  Thumbnail `<img>` elements were independently draggable, letting the
+  browser fall back to its default image drag, which Chrome populates
+  with `Files` in `dataTransfer.types`. Added `draggable="false"` on
+  thumbnail imgs (`AlcovesImage`, fallback `<img>` in
+  `LibraryEntriesGrid`) and gated the library upload dropzone on
+  `draggedFileIds.length === 0` for defense-in-depth.
+
 ## [0.14.0] — 2026-04-27
 
 ### Added
