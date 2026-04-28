@@ -10,6 +10,8 @@ import { useTranscript } from "~/composables/useTranscript";
 import { useAudioDetections } from "~/composables/useAudioDetections";
 import { useTranscribeJob } from "~/composables/useTranscribeJob";
 import { useAudioDetectJob } from "~/composables/useAudioDetectJob";
+import { useWaveform } from "~/composables/useWaveform";
+import { useWaveformJob } from "~/composables/useWaveformJob";
 import { useEditorHighlights } from "~/composables/useEditorHighlights";
 import { useMomentDownloads } from "~/composables/useMomentDownloads";
 import { useEditorShortcuts } from "~/composables/useEditorShortcuts";
@@ -82,6 +84,17 @@ const {
   button: audioDetectButton,
   run: onAudioDetect,
 } = useAudioDetectJob(libraryId, fileId, file, refreshFile, refreshAudioDetections);
+
+const { peaks: waveformPeaks, peaksPerSecond: waveformPeaksPerSecond } = useWaveform(
+  libraryId,
+  fileId,
+  file,
+);
+const {
+  generating: waveformGenerating,
+  button: waveformButton,
+  run: onWaveform,
+} = useWaveformJob(libraryId, fileId, file, refreshFile);
 
 const canDetectAudio = computed(() => file.value?.transcribeStatus === "ready");
 
@@ -254,9 +267,12 @@ useEditorShortcuts({
       :audio-detecting="audioDetecting"
       :audio-detect-button="audioDetectButton"
       :can-detect-audio="canDetectAudio"
+      :waveform-generating="waveformGenerating"
+      :waveform-button="waveformButton"
       @back="goBack"
       @transcribe="onTranscribe"
       @audio-detect="onAudioDetect"
+      @waveform="onWaveform"
     />
 
     <!--
@@ -266,7 +282,7 @@ useEditorShortcuts({
       spans both columns at full width. On mobile the grid collapses to
       one column and everything stacks with video on top.
     -->
-    <div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 flex-1 min-h-0 overflow-y-auto content-start">
+    <div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 flex-1 min-h-0 overflow-y-auto content-start px-0.5">
       <!--
         Row 1 cells get a defined height so the video player and
         moments list have something to fill. h-[60svh] on mobile is
@@ -304,6 +320,8 @@ useEditorShortcuts({
           :current-time="currentTime"
           :moments="moments"
           :selected-id="selectedId"
+          :waveform-peaks="waveformPeaks"
+          :waveform-peaks-per-second="waveformPeaksPerSecond"
           @seek="onSeek"
           @select-moment="selectedId = $event"
           @save-pending="onSavePending"

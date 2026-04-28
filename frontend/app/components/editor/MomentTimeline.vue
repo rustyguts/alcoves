@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch, toRef } from "vue";
 import type { Moment } from "~~/shared/types/api";
+import { useWaveformRenderer } from "~/composables/useWaveformRenderer";
 
 const props = defineProps<{
   duration: number;
   currentTime: number;
   moments: Moment[];
   selectedId?: string | null;
+  waveformPeaks?: number[] | null;
+  waveformPeaksPerSecond?: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -20,8 +23,19 @@ const emit = defineEmits<{
 const scrollEl = ref<HTMLElement | null>(null);
 const trackEl = ref<HTMLElement | null>(null);
 const rulerEl = ref<HTMLElement | null>(null);
+const waveformCanvas = ref<HTMLCanvasElement | null>(null);
+const waveformRowEl = ref<HTMLElement | null>(null);
 const containerWidth = ref(0);
+const scrollLeft = ref(0);
 const zoom = ref(1);
+
+const WAVEFORM_HEIGHT = 56;
+const hasWaveform = computed(
+  () =>
+    Array.isArray(props.waveformPeaks) &&
+    props.waveformPeaks.length > 0 &&
+    (props.waveformPeaksPerSecond ?? 0) > 0,
+);
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 50;
@@ -116,6 +130,16 @@ const innerWidth = computed(() => Math.max(0, containerWidth.value * zoom.value)
 const pxPerSec = computed(() => (props.duration > 0 ? innerWidth.value / props.duration : 0));
 
 const playheadLeftPx = computed(() => props.currentTime * pxPerSec.value);
+
+useWaveformRenderer({
+  canvas: waveformCanvas,
+  peaks: toRef(props, "waveformPeaks"),
+  peaksPerSecond: computed(() => props.waveformPeaksPerSecond ?? 50),
+  pxPerSec,
+  scrollLeft,
+  viewportWidth: containerWidth,
+  height: ref(WAVEFORM_HEIGHT),
+});
 
 function momentStylePx(m: Moment) {
   const eff = effective(m);
@@ -225,6 +249,17 @@ function onRulerClick(event: MouseEvent) {
   emit("seek", Math.max(0, Math.min(props.duration, seconds)));
 }
 
+function onWaveformClick(event: MouseEvent) {
+  const el = waveformRowEl.value;
+  if (!el || !props.duration || pxPerSec.value <= 0) return;
+  const rect = el.getBoundingClientRect();
+  // waveform row is sticky-pinned; its rect.left is viewport-left of scrollEl,
+  // so x is in viewport coords — add scrollLeft to recover timeline position.
+  const x = event.clientX - rect.left;
+  const seconds = (scrollLeft.value + x) / pxPerSec.value;
+  emit("seek", Math.max(0, Math.min(props.duration, seconds)));
+}
+
 function zoomAt(factor: number) {
   const sc = scrollEl.value;
   const prevPxPerSec = pxPerSec.value;
@@ -234,15 +269,17 @@ function zoomAt(factor: number) {
   if (next === zoom.value) return;
   zoom.value = next;
 
+  // Compute and apply the new scroll target synchronously so the waveform
+  // canvas redraws with matching pxPerSec + scrollLeft. The DOM-level
+  // scrollLeft set is deferred to nextTick because innerWidth's CSS update
+  // happens after Vue flushes.
+  const target = prevPxPerSec === 0 ? 0 : props.currentTime * pxPerSec.value - playheadScreenX;
+  scrollLeft.value = Math.max(0, target);
+
   void nextTick(() => {
     const scEl = scrollEl.value;
     if (!scEl) return;
-    if (prevPxPerSec === 0) {
-      scEl.scrollLeft = 0;
-      return;
-    }
-    const newPlayheadX = props.currentTime * pxPerSec.value;
-    scEl.scrollLeft = newPlayheadX - playheadScreenX;
+    scEl.scrollLeft = scrollLeft.value;
   });
 }
 
@@ -314,6 +351,10 @@ function onKeydown(e: KeyboardEvent) {
 
 let resizeObserver: ResizeObserver | null = null;
 
+function onScroll() {
+  if (scrollEl.value) scrollLeft.value = scrollEl.value.scrollLeft;
+}
+
 onMounted(() => {
   if (!scrollEl.value) return;
   containerWidth.value = scrollEl.value.clientWidth;
@@ -322,6 +363,7 @@ onMounted(() => {
   });
   resizeObserver.observe(scrollEl.value);
   scrollEl.value.addEventListener("wheel", onWheel, { passive: false });
+  scrollEl.value.addEventListener("scroll", onScroll, { passive: true });
   window.addEventListener("keydown", onKeydown);
 });
 
@@ -329,6 +371,7 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
   scrollEl.value?.removeEventListener("wheel", onWheel);
+  scrollEl.value?.removeEventListener("scroll", onScroll);
   window.removeEventListener("keydown", onKeydown);
 });
 
@@ -339,7 +382,9 @@ watch([() => props.currentTime, pxPerSec, containerWidth], () => {
   const screenX = playheadLeftPx.value - sc.scrollLeft;
   const margin = 40;
   if (screenX < margin || screenX > sc.clientWidth - margin) {
-    sc.scrollLeft = playheadLeftPx.value - sc.clientWidth / 2;
+    const target = Math.max(0, playheadLeftPx.value - sc.clientWidth / 2);
+    scrollLeft.value = target;
+    sc.scrollLeft = target;
   }
 });
 
@@ -467,10 +512,13 @@ function formatTime(seconds: number): string {
           />
         </div>
 
-        <!-- Track -->
+        <!-- Track + waveform — unified container -->
+        <div
+          class="rounded-b-lg ring ring-default bg-accented dark:bg-elevated/70 overflow-hidden cursor-pointer"
+        >
         <div
           ref="trackEl"
-          class="relative h-28 rounded-b-lg bg-accented dark:bg-elevated/70 ring ring-default cursor-pointer overflow-hidden"
+          class="relative h-28"
           role="slider"
           :aria-valuemin="0"
           :aria-valuemax="duration"
@@ -587,6 +635,30 @@ function formatTime(seconds: number): string {
             <div class="absolute -top-1 -left-1 size-2 rounded-full bg-blue-500" />
           </div>
         </div>
+
+        <!-- Waveform — viewport-pinned canvas (sticky), draws only the visible region -->
+        <div
+          v-if="hasWaveform"
+          ref="waveformRowEl"
+          class="waveform-row relative border-t border-default/60 bg-elevated/30"
+          :style="{
+            width: `${containerWidth}px`,
+            height: `${WAVEFORM_HEIGHT}px`,
+          }"
+          @click="onWaveformClick"
+        >
+          <canvas
+            ref="waveformCanvas"
+            class="waveform-canvas block"
+            :style="{ width: `${containerWidth}px`, height: `${WAVEFORM_HEIGHT}px` }"
+          />
+          <!-- Waveform playhead -->
+          <div
+            class="absolute top-0 bottom-0 w-0.5 bg-blue-500 pointer-events-none"
+            :style="{ left: `${playheadLeftPx - scrollLeft}px` }"
+          />
+        </div>
+        </div>
       </div>
     </div>
   </div>
@@ -600,5 +672,10 @@ function formatTime(seconds: number): string {
 
 .timeline-scroll::-webkit-scrollbar {
   display: none;
+}
+
+.waveform-row {
+  position: sticky;
+  left: 0;
 }
 </style>

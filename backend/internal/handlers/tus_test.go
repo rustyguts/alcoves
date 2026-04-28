@@ -63,7 +63,7 @@ func setupTusTestHandler(t *testing.T) (*TusHandler, *gorm.DB, string) {
 
 	driver := storage.NewLocalDriver(storageDir, storageDir, storageDir)
 	storageSvc := storage.NewService(driver)
-	handler := NewTusHandler(db, storageSvc, tempDir, nil, nil, nil)
+	handler := NewTusHandler(db, storageSvc, tempDir, nil, nil, nil, nil)
 
 	return handler, db, tempDir
 }

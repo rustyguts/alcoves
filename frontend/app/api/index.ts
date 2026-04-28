@@ -23,6 +23,7 @@ import type {
   MomentPatch,
   MomentShare,
   AudioDetection,
+  WaveformData,
   HighlightFilter,
   HighlightFilterCreate,
   HighlightFilterPatch,
@@ -190,6 +191,18 @@ const files = {
     return apiFetch<{ text: string; vtt: string; model: string }>(
       `/api/libraries/${libraryId}/files/${fileId}/transcript`,
     );
+  },
+
+  /** POST /api/libraries/:id/files/:fileId/waveform — (re)generate waveform */
+  generateWaveform(libraryId: string, fileId: string) {
+    return apiFetch<LibraryFile>(`/api/libraries/${libraryId}/files/${fileId}/waveform`, {
+      method: "POST",
+    });
+  },
+
+  /** GET /api/libraries/:id/files/:fileId/waveform */
+  waveform(libraryId: string, fileId: string) {
+    return apiFetch<WaveformData>(`/api/libraries/${libraryId}/files/${fileId}/waveform`);
   },
 
   /** POST /api/libraries/:id/files/:fileId/audio-detect */

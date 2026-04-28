@@ -9,12 +9,15 @@ defineProps<{
   audioDetecting: boolean;
   audioDetectButton: JobStatusButton;
   canDetectAudio: boolean;
+  waveformGenerating: boolean;
+  waveformButton: JobStatusButton;
 }>();
 
 const emit = defineEmits<{
   back: [];
   transcribe: [];
   "audio-detect": [];
+  waveform: [];
 }>();
 
 function isPlayable(mimeType: string | undefined | null): boolean {
@@ -59,6 +62,18 @@ function isPlayable(mimeType: string | undefined | null): boolean {
       @click="emit('audio-detect')"
     >
       {{ audioDetectButton.label }}
+    </UButton>
+    <UButton
+      v-if="file && isPlayable(file.mimeType)"
+      :color="waveformButton.color"
+      :variant="file?.waveformStatus === 'failed' ? 'solid' : 'soft'"
+      size="sm"
+      icon="i-lucide-waves"
+      :loading="waveformButton.loading || waveformGenerating"
+      :disabled="waveformButton.disabled || waveformGenerating"
+      @click="emit('waveform')"
+    >
+      {{ waveformButton.label }}
     </UButton>
   </div>
 </template>

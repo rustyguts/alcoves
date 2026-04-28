@@ -21,6 +21,13 @@ export interface LibraryUserSummary {
 
 export type TranscribeStatus = "queued" | "processing" | "ready" | "failed" | null;
 export type AudioDetectStatus = "queued" | "processing" | "ready" | "failed" | null;
+export type WaveformStatus = "queued" | "processing" | "ready" | "failed" | null;
+
+export interface WaveformData {
+  peaks: number[];
+  peaksPerSecond: number;
+  sampleRate?: number;
+}
 
 export interface AudioDetection {
   id: string;
@@ -89,6 +96,12 @@ export interface LibraryFile {
   audioDetectVersion?: number;
   audioDetectedVersion?: number | null;
   audioDetectModel?: string | null;
+  waveformStatus?: WaveformStatus;
+  waveformProgress?: number | null;
+  waveformError?: string | null;
+  waveformVersion?: number;
+  waveformedVersion?: number | null;
+  waveformPeaksPerSecond?: number;
   thumbnailFileId?: string | null;
   sourceFileId: string | null;
   originalCreatedAt: string | null;

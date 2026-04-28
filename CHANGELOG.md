@@ -12,6 +12,21 @@ SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-04-27
+
+### Added
+
+- Audio waveform generation for video uploads. A new background worker
+  extracts mono 16 kHz float32 PCM via ffmpeg, computes max-amplitude
+  peaks at 50 windows/sec, and stores the result as JSON in cache. The
+  video editor renders the waveform as a viewport-pinned canvas that
+  shares the timeline's zoom + scroll, click-to-seek, and a
+  Generate/Retry/Regenerate button next to the existing transcribe and
+  audio-detect controls. Schema adds `waveform_status`,
+  `waveform_progress`, `waveform_error`, `waveform_version`,
+  `waveformed_version`, `waveform_peaks_per_second` to `files`
+  (migration `00015_add_waveform_fields.sql`).
+
 ## [0.14.1] — 2026-04-27
 
 ### Fixed

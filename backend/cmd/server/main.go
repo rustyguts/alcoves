@@ -31,6 +31,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
+	"github.com/alcoves/alcoves-backend/internal/services/waveform"
 )
 
 func main() {
@@ -125,6 +126,9 @@ func main() {
 	// Audio event detection service (PANNs CNN14 via ONNX Runtime).
 	audioDetectSvc := audiodetection.NewService(db, storageSvc, asynqClient, cfg)
 
+	// Waveform service (ffmpeg PCM extraction + peak windowing).
+	waveformSvc := waveform.NewService(db, storageSvc, asynqClient, cfg)
+
 	// Moment export service (clip encoder for /moments/:id/export).
 	momentExportSvc := momentexport.NewService(db, storageSvc, asynqClient)
 
@@ -158,6 +162,7 @@ func main() {
 		mux.HandleFunc(momentexport.TaskTypeMomentExport, momentExportSvc.NewTaskHandler().ProcessTask)
 		mux.HandleFunc(transcribe.TaskTypeTranscribe, transcribeSvc.NewTaskHandler().ProcessTask)
 		mux.HandleFunc(audiodetection.TaskTypeAudioDetect, audioDetectSvc.NewTaskHandler().ProcessTask)
+		mux.HandleFunc(waveform.TaskTypeWaveform, waveformSvc.NewTaskHandler().ProcessTask)
 
 		go func() {
 			log.Println("Starting asynq worker...")
@@ -236,7 +241,7 @@ func main() {
 		libraryHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// File routes (under /api/libraries)
-		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc)
+		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc)
 		fileHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Folder routes (under /api/libraries)
@@ -287,7 +292,7 @@ func main() {
 		downloadHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Tus resumable upload routes (under /api/tus)
-		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc)
+		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc, waveformSvc)
 		tusHandler.RegisterRoutes(api)
 
 		// Avatar routes (under /api/auth)

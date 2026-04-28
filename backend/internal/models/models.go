@@ -123,6 +123,12 @@ type File struct {
 	AudioDetectVersion     int     `gorm:"column:audio_detect_version;type:integer;not null;default:0" json:"audioDetectVersion"`
 	AudioDetectedVersion   *int    `gorm:"column:audio_detected_version;type:integer" json:"audioDetectedVersion"`
 	AudioDetectModel       *string `gorm:"column:audio_detect_model;type:text" json:"audioDetectModel"`
+	WaveformStatus         *string `gorm:"column:waveform_status;type:text" json:"waveformStatus"`
+	WaveformProgress       *int    `gorm:"column:waveform_progress;type:integer" json:"waveformProgress"`
+	WaveformError          *string `gorm:"column:waveform_error;type:text" json:"waveformError"`
+	WaveformVersion        int     `gorm:"column:waveform_version;type:integer;not null;default:0" json:"waveformVersion"`
+	WaveformedVersion      *int    `gorm:"column:waveformed_version;type:integer" json:"waveformedVersion"`
+	WaveformPeaksPerSecond int     `gorm:"column:waveform_peaks_per_second;type:integer;not null;default:50" json:"waveformPeaksPerSecond"`
 	ThumbnailFileID   *uuid.UUID `gorm:"column:thumbnail_file_id;type:uuid" json:"thumbnailFileId"`
 	SourceFileID      *uuid.UUID `gorm:"column:source_file_id;type:uuid" json:"sourceFileId"`
 	OriginalCreatedAt *time.Time `gorm:"column:original_created_at" json:"originalCreatedAt"`

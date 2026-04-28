@@ -234,6 +234,33 @@ export async function createMockApi(page: Page, state: MockState): Promise<void>
       return;
     }
 
+    const waveformMatch = p.match(/^\/api\/libraries\/([\w-]+)\/files\/([\w-]+)\/waveform$/);
+    if (waveformMatch) {
+      const fileId = waveformMatch[2]!;
+      const file = state.files.find((f) => f.id === fileId);
+      if (request.method() === "GET") {
+        if (!file || file.waveformStatus !== "ready") {
+          await fulfillJson(route, 404, { message: "Waveform not ready" });
+          return;
+        }
+        await fulfillJson(route, 200, {
+          peaks: file.waveformPeaks ?? [],
+          peaksPerSecond: file.waveformPeaksPerSecond ?? 50,
+          sampleRate: 16000,
+        });
+        return;
+      }
+      if (request.method() === "POST") {
+        if (!file) {
+          await fulfillJson(route, 404, { message: "File not found" });
+          return;
+        }
+        file.waveformStatus = "queued";
+        await fulfillJson(route, 202, file);
+        return;
+      }
+    }
+
     const fileByIdMatch = p.match(/^\/api\/libraries\/([\w-]+)\/files\/([\w-]+)$/);
     if (fileByIdMatch) {
       const fileId = fileByIdMatch[2]!;

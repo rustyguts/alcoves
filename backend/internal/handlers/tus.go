@@ -24,6 +24,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
+	"github.com/alcoves/alcoves-backend/internal/services/waveform"
 )
 
 const tusResumableVersion = "1.0.0"
@@ -52,12 +53,13 @@ type tusUpload struct {
 // creation extension. Uploads are written to a staging directory
 // and moved to permanent storage on completion.
 type TusHandler struct {
-	db         *gorm.DB
-	storageSvc *storage.Service
-	faceSvc    *facedetection.Service
-	objSvc     *objectdetection.Service
-	videoSvc   *videoproxy.Service
-	dataDir    string // staging directory for incomplete uploads
+	db          *gorm.DB
+	storageSvc  *storage.Service
+	faceSvc     *facedetection.Service
+	objSvc      *objectdetection.Service
+	videoSvc    *videoproxy.Service
+	waveformSvc *waveform.Service
+	dataDir     string // staging directory for incomplete uploads
 
 	mu      sync.RWMutex
 	uploads map[string]*tusUpload
@@ -65,7 +67,7 @@ type TusHandler struct {
 	stopCleanup chan struct{}
 }
 
-func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service) *TusHandler {
+func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, waveformSvc *waveform.Service) *TusHandler {
 	tusDir := filepath.Join(dataDir, ".tus-uploads")
 	if err := os.MkdirAll(tusDir, 0o755); err != nil {
 		log.Printf("Failed to create tus staging directory %s: %v", tusDir, err)
@@ -77,6 +79,7 @@ func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, fac
 		faceSvc:     faceSvc,
 		objSvc:      objSvc,
 		videoSvc:    videoSvc,
+		waveformSvc: waveformSvc,
 		dataDir:     tusDir,
 		uploads:     make(map[string]*tusUpload),
 		stopCleanup: make(chan struct{}),
@@ -459,6 +462,12 @@ func (h *TusHandler) finishUpload(upload *tusUpload) (int, error) {
 				"proxy_progress":    nil,
 				"proxy_eta_seconds": nil,
 			})
+		}
+
+		if h.waveformSvc != nil {
+			if err := h.waveformSvc.EnqueueWaveform(upload.LibraryID, fileID.String()); err != nil {
+				log.Printf("failed to enqueue waveform for tus upload %s: %v", fileID, err)
+			}
 		}
 	}
 

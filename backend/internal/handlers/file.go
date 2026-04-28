@@ -25,6 +25,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
+	"github.com/alcoves/alcoves-backend/internal/services/waveform"
 )
 
 type FileHandler struct {
@@ -36,10 +37,11 @@ type FileHandler struct {
 	videoSvc       *videoproxy.Service
 	transcribeSvc  *transcribe.Service
 	audioDetectSvc *audiodetection.Service
+	waveformSvc    *waveform.Service
 }
 
-func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service) *FileHandler {
-	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc, transcribeSvc: transcribeSvc, audioDetectSvc: audioDetectSvc}
+func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service, waveformSvc *waveform.Service) *FileHandler {
+	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc, transcribeSvc: transcribeSvc, audioDetectSvc: audioDetectSvc, waveformSvc: waveformSvc}
 }
 
 func (h *FileHandler) RegisterRoutes(g *echo.Group) {
@@ -56,6 +58,8 @@ func (h *FileHandler) RegisterRoutes(g *echo.Group) {
 	g.GET("/:id/files/:fileId/audio-detections", h.ListAudioDetections)
 	g.POST("/:id/files/bulk-transcribe", h.BulkTranscribe)
 	g.POST("/:id/files/bulk-audio-detect", h.BulkAudioDetect)
+	g.POST("/:id/files/:fileId/waveform", h.GenerateWaveform)
+	g.GET("/:id/files/:fileId/waveform", h.GetWaveform)
 	g.POST("/:id/files/video-thumbnails/reprocess", h.ReprocessVideoThumbnails)
 	g.GET("/:id/files/:fileId/proxy", h.Proxy)
 	g.GET("/:id/files/:fileId/thumbnail", h.Thumbnail)
@@ -139,6 +143,7 @@ func (h *FileHandler) Upload(c echo.Context) error {
 	// Trigger video proxy generation for video files
 	h.maybeEnqueueVideoProxy(libraryID, fileID, mimeType)
 	h.maybeEnqueueVideoThumbnail(libraryID, fileID, mimeType)
+	h.maybeEnqueueWaveform(libraryID, fileID, mimeType)
 
 	dupes, _ := filehash.FindDuplicates(h.db, libraryID, fileID, hashStr)
 	return c.JSON(http.StatusOK, fileToJSON(&file, dupes))
@@ -671,6 +676,74 @@ func (h *FileHandler) GenerateProxy(c echo.Context) error {
 	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(&file))
 }
 
+func (h *FileHandler) GenerateWaveform(c echo.Context) error {
+	if h.waveformSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Waveform service unavailable")
+	}
+
+	libraryID := c.Param("id")
+	fileID := c.Param("fileId")
+
+	var file models.File
+	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+
+	if !strings.HasPrefix(file.MimeType, "video/") && !strings.HasPrefix(file.MimeType, "audio/") {
+		return echo.NewHTTPError(http.StatusBadRequest, "File is not audio/video")
+	}
+	if file.SourceFileID != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Cannot generate waveform for proxy file")
+	}
+
+	now := time.Now()
+	queued := "queued"
+	zero := 0
+	newVersion := file.WaveformVersion + 1
+	if err := h.db.Model(&models.File{}).
+		Where("id = ?", file.ID).
+		Updates(map[string]interface{}{
+			"waveform_status":       queued,
+			"waveform_progress":     zero,
+			"waveform_error":        nil,
+			"waveform_version":      newVersion,
+			"updated_at":            now,
+		}).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update file waveform status")
+	}
+
+	if err := h.waveformSvc.EnqueueWaveform(libraryID, fileID); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue waveform generation")
+	}
+
+	file.WaveformStatus = &queued
+	file.WaveformProgress = &zero
+	file.WaveformError = nil
+	file.WaveformVersion = newVersion
+
+	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(&file))
+}
+
+func (h *FileHandler) GetWaveform(c echo.Context) error {
+	libraryID := c.Param("id")
+	fileID := c.Param("fileId")
+
+	var file models.File
+	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	}
+	if file.WaveformStatus == nil || *file.WaveformStatus != "ready" {
+		return echo.NewHTTPError(http.StatusNotFound, "Waveform not ready")
+	}
+
+	cacheKey := fmt.Sprintf("%s/%s/waveform.json", libraryID, fileID)
+	data, err := h.storageSvc.ReadCacheBuffer(cacheKey)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Waveform data not found")
+	}
+	return c.JSONBlob(http.StatusOK, data)
+}
+
 func (h *FileHandler) GenerateTranscript(c echo.Context) error {
 	if h.transcribeSvc == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "Transcribe service unavailable")
@@ -965,6 +1038,12 @@ func fileToJSON(f *models.File, duplicateOfFileIds []uuid.UUID) map[string]inter
 		"audioDetectVersion":    f.AudioDetectVersion,
 		"audioDetectedVersion":  f.AudioDetectedVersion,
 		"audioDetectModel":      f.AudioDetectModel,
+		"waveformStatus":         f.WaveformStatus,
+		"waveformProgress":       f.WaveformProgress,
+		"waveformError":          f.WaveformError,
+		"waveformVersion":        f.WaveformVersion,
+		"waveformedVersion":      f.WaveformedVersion,
+		"waveformPeaksPerSecond": f.WaveformPeaksPerSecond,
 		"thumbnailFileId": uuidPtr(f.ThumbnailFileID),
 		"sourceFileId":    uuidPtr(f.SourceFileID),
 		"trashedAt":       timeStr(f.TrashedAt),
@@ -1079,6 +1158,15 @@ func (h *FileHandler) maybeEnqueueVideoThumbnail(libraryID, fileID uuid.UUID, mi
 
 	if err := h.videoSvc.EnqueueVideoThumbnail(libraryID.String(), fileID.String()); err != nil {
 		log.Printf("failed to enqueue video thumbnail for file %s: %v", fileID, err)
+	}
+}
+
+func (h *FileHandler) maybeEnqueueWaveform(libraryID, fileID uuid.UUID, mimeType string) {
+	if h.waveformSvc == nil || !strings.HasPrefix(mimeType, "video/") {
+		return
+	}
+	if err := h.waveformSvc.EnqueueWaveform(libraryID.String(), fileID.String()); err != nil {
+		log.Printf("failed to enqueue waveform for file %s: %v", fileID, err)
 	}
 }
 

@@ -71,6 +71,9 @@ export interface MockFile {
   updatedAt: string;
   owner: MockOwner | null;
   tags: MockTag[];
+  waveformStatus?: "queued" | "processing" | "ready" | "failed" | null;
+  waveformPeaksPerSecond?: number;
+  waveformPeaks?: number[];
 }
 
 export type MockEntry = MockFolder | MockFile;

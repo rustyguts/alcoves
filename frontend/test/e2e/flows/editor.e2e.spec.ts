@@ -56,4 +56,47 @@ test.describe("Video editor @screenshot", () => {
     await expect(page.getByText(/6\.00s/).first()).toBeVisible();
     await snap(page, FLOW, "editor-with-moment");
   });
+
+  test("editor renders waveform when status is ready @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    // Synthetic envelope-shaped peaks (600 samples = 12s @ 50 pps) so the
+    // canvas renders a recognisable shape, not flat.
+    const peaks: number[] = [];
+    for (let i = 0; i < 600; i++) {
+      const t = i / 600;
+      peaks.push(Math.abs(Math.sin(t * Math.PI * 4)) * (0.4 + 0.5 * Math.sin(t * Math.PI)));
+    }
+    const vid = state.files.find((f) => f.id === "file-vid-1");
+    if (vid) {
+      vid.waveformStatus = "ready";
+      vid.waveformPeaksPerSecond = 50;
+      vid.waveformPeaks = peaks;
+    }
+
+    await setupDeterminism(page);
+    await createMockApi(page, state);
+
+    await page.goto("/libraries/lib-photos/edit/file-vid-1");
+
+    await expect(page.getByRole("button", { name: /Regenerate waveform/i })).toBeVisible();
+    await expect(page.locator("canvas.waveform-canvas")).toBeVisible();
+    await snap(page, FLOW, "editor-with-waveform");
+  });
+
+  test("waveform button toggles to retry on failed status @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    const vid = state.files.find((f) => f.id === "file-vid-1");
+    if (vid) {
+      vid.waveformStatus = "failed";
+    }
+
+    await setupDeterminism(page);
+    await createMockApi(page, state);
+
+    await page.goto("/libraries/lib-photos/edit/file-vid-1");
+
+    await expect(page.getByRole("button", { name: /Retry waveform/i })).toBeVisible();
+    await expect(page.locator("canvas.waveform-canvas")).toHaveCount(0);
+    await snap(page, FLOW, "editor-waveform-failed");
+  });
 });
