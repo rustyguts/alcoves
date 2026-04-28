@@ -2,6 +2,7 @@ package videoproxy
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -587,70 +588,67 @@ func parseFFmpegSpeed(value string) (float64, error) {
 // through effectively unchanged. Requires ffmpeg built with zimg (zscale).
 const thumbnailColorFilter = "zscale=t=linear:npl=100,format=gbrpf32le,tonemap=tonemap=hable:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p"
 
-// generateThumbnail extracts a thumbnail frame from the video as WebP.
-func generateThumbnail(ctx context.Context, srcPath, thumbPath string) error {
-	vf := thumbnailColorFilter + ",scale=480:-2"
-	cmd := exec.CommandContext(ctx, "ffmpeg",
-		"-i", srcPath,
-		"-ss", thumbnailTime,
-		"-vframes", "1",
-		"-vf", vf,
-		"-color_primaries", "bt709",
-		"-color_trc", "bt709",
-		"-colorspace", "bt709",
-		"-c:v", "libwebp",
-		"-quality", "80",
-		"-y",
-		thumbPath,
-	)
-	if err := cmd.Run(); err != nil {
-		// Try at the very start if seeking to 1s fails (very short video)
-		cmd2 := exec.CommandContext(ctx, "ffmpeg",
-			"-i", srcPath,
-			"-vframes", "1",
-			"-vf", vf,
-			"-color_primaries", "bt709",
-			"-color_trc", "bt709",
-			"-colorspace", "bt709",
-			"-c:v", "libwebp",
-			"-quality", "80",
-			"-y",
-			thumbPath,
-		)
-		return cmd2.Run()
+// thumbnailFallbackSDR explicitly sets BT.709 SDR input and output params on
+// the first zscale filter for content that is missing colorspace metadata.
+// When auto-detection fails (common for videos encoded without color tags),
+// this tells zimg exactly what the source colorspace is.
+const thumbnailFallbackSDR = "zscale=pin=bt709:tin=bt709:min=bt709:rin=tv:p=bt709:t=linear:npl=100:m=bt709:r=tv,format=gbrpf32le,tonemap=tonemap=hable:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p"
+
+func runThumbFFmpeg(ctx context.Context, srcPath, thumbPath, vf, seek string, extraArgs ...string) (stderr string, err error) {
+	args := []string{"-i", srcPath, "-vframes", "1", "-vf", vf, "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-y"}
+	if seek != "" {
+		args = append(args, "-ss", seek)
 	}
-	return nil
+	args = append(args, extraArgs...)
+	args = append(args, thumbPath)
+
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	var buf bytes.Buffer
+	cmd.Stderr = &buf
+	err = cmd.Run()
+	return buf.String(), err
+}
+
+func generateThumbnail(ctx context.Context, srcPath, thumbPath string) error {
+	vfAuto := thumbnailColorFilter + ",scale=480:-2"
+	vfSDR := thumbnailFallbackSDR + ",scale=480:-2"
+
+	stderr, err := runThumbFFmpeg(ctx, srcPath, thumbPath, vfAuto, thumbnailTime, "-c:v", "libwebp", "-quality", "80")
+	if err == nil {
+		return nil
+	}
+	if stderr, err = runThumbFFmpeg(ctx, srcPath, thumbPath, vfSDR, thumbnailTime, "-c:v", "libwebp", "-quality", "80"); err == nil {
+		return nil
+	}
+	if stderr, err = runThumbFFmpeg(ctx, srcPath, thumbPath, vfSDR, "", "-c:v", "libwebp", "-quality", "80"); err == nil {
+		return nil
+	}
+	vfSimple := "scale=480:-2"
+	if stderr, err = runThumbFFmpeg(ctx, srcPath, thumbPath, vfSimple, thumbnailTime, "-c:v", "libwebp", "-quality", "80"); err == nil {
+		return nil
+	}
+	return fmt.Errorf("ffmpeg: all strategies failed, last stderr: %s: %w", stderr, err)
 }
 
 func generateJPEGThumbnail(ctx context.Context, srcPath, thumbPath string) error {
-	vf := thumbnailColorFilter + ",scale=1280:-2"
-	cmd := exec.CommandContext(ctx, "ffmpeg",
-		"-i", srcPath,
-		"-ss", thumbnailTime,
-		"-vframes", "1",
-		"-vf", vf,
-		"-color_primaries", "bt709",
-		"-color_trc", "bt709",
-		"-colorspace", "bt709",
-		"-q:v", "3",
-		"-y",
-		thumbPath,
-	)
-	if err := cmd.Run(); err != nil {
-		cmd2 := exec.CommandContext(ctx, "ffmpeg",
-			"-i", srcPath,
-			"-vframes", "1",
-			"-vf", vf,
-			"-color_primaries", "bt709",
-			"-color_trc", "bt709",
-			"-colorspace", "bt709",
-			"-q:v", "3",
-			"-y",
-			thumbPath,
-		)
-		return cmd2.Run()
+	vfAuto := thumbnailColorFilter + ",scale=1280:-2"
+	vfSDR := thumbnailFallbackSDR + ",scale=1280:-2"
+
+	stderr, err := runThumbFFmpeg(ctx, srcPath, thumbPath, vfAuto, thumbnailTime, "-q:v", "3")
+	if err == nil {
+		return nil
 	}
-	return nil
+	if stderr, err = runThumbFFmpeg(ctx, srcPath, thumbPath, vfSDR, thumbnailTime, "-q:v", "3"); err == nil {
+		return nil
+	}
+	if stderr, err = runThumbFFmpeg(ctx, srcPath, thumbPath, vfSDR, "", "-q:v", "3"); err == nil {
+		return nil
+	}
+	vfSimple := "scale=1280:-2"
+	if stderr, err = runThumbFFmpeg(ctx, srcPath, thumbPath, vfSimple, thumbnailTime, "-q:v", "3"); err == nil {
+		return nil
+	}
+	return fmt.Errorf("ffmpeg: all strategies failed, last stderr: %s: %w", stderr, err)
 }
 
 func (h *TaskHandler) setProxyState(fileID, status string, progress, etaSeconds *int) {
