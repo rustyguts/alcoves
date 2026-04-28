@@ -84,7 +84,7 @@ async function acceptInvite() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl py-6 overflow-y-auto flex-1 min-h-0">
+  <div class="mx-auto max-w-2xl py-6 overflow-y-auto flex-1 min-h-0 px-0.5">
     <UCard>
       <template #header>
         <div class="flex items-center gap-3">

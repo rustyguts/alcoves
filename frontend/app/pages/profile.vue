@@ -146,7 +146,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
 </script>
 
 <template>
-  <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 overflow-y-auto pb-6">
+  <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 overflow-y-auto px-0.5 pb-6">
     <UCard
       :ui="{
         root: 'overflow-hidden',

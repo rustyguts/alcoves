@@ -185,7 +185,7 @@ const columns: TableColumn<AdminUser>[] = [
 </script>
 
 <template>
-  <div class="flex flex-col gap-6 overflow-y-auto flex-1 min-h-0">
+  <div class="flex flex-col gap-6 overflow-y-auto flex-1 min-h-0 px-0.5">
     <div>
       <h1 class="text-2xl font-bold">Admin Dashboard</h1>
       <p class="text-sm text-muted mt-0.5">
@@ -222,7 +222,9 @@ const columns: TableColumn<AdminUser>[] = [
       <div v-if="usersStatus === 'pending'" class="flex justify-center py-12">
         <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
       </div>
-      <UTable v-else-if="users?.length" :data="users" :columns="columns" class="max-h-[30rem]" />
+      <div v-else-if="users?.length" class="overflow-auto max-h-[32rem]">
+        <UTable :data="users" :columns="columns" />
+      </div>
       <p v-else class="px-6 pb-6 text-sm text-muted">No users found.</p>
     </UCard>
 

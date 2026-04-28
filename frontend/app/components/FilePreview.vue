@@ -261,9 +261,37 @@ watch(
   },
 );
 
+// History management for mouse-back-button support
+const popCount = ref(0);
+
+function pushPreviewHistory() {
+  history.pushState({ filePreview: true }, "");
+  popCount.value++;
+}
+
+function closePreview() {
+  if (popCount.value > 0) {
+    history.back();
+  } else {
+    open.value = false;
+  }
+}
+
+function onPopstate() {
+  if (popCount.value > 0) {
+    popCount.value--;
+    if (open.value) {
+      open.value = false;
+    }
+  }
+}
+
 watch(
   [open, () => props.file.id, () => props.file.mimeType],
-  ([isOpen, _fileID, mimeType]) => {
+  ([isOpen, _fileID, mimeType], [wasOpen]) => {
+    if (isOpen && !wasOpen) {
+      pushPreviewHistory();
+    }
     if (!isOpen || !mimeType.startsWith("video/")) {
       stopProxyPolling();
       return;
@@ -343,16 +371,18 @@ function handleKeydown(event: KeyboardEvent) {
     goToNext();
   } else if (event.key === "Escape") {
     event.preventDefault();
-    open.value = false;
+    closePreview();
   }
 }
 
 onMounted(() => {
   window.addEventListener("keydown", handleKeydown);
+  window.addEventListener("popstate", onPopstate);
 });
 
 onUnmounted(() => {
   window.removeEventListener("keydown", handleKeydown);
+  window.removeEventListener("popstate", onPopstate);
   stopProxyPolling();
 });
 </script>
@@ -362,7 +392,7 @@ onUnmounted(() => {
     <div
       v-if="open"
       class="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-sm"
-      @click.self="open = false"
+      @click.self="closePreview"
     >
       <!-- Media content: fills the entire viewport -->
       <div
@@ -457,7 +487,7 @@ onUnmounted(() => {
         <div class="flex items-center gap-3 min-w-0 pointer-events-auto">
           <button
             class="inline-flex items-center justify-center size-10 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors"
-            @click="open = false"
+            @click="closePreview"
           >
             <AppIcon name="i-lucide-x" class="size-5" />
           </button>

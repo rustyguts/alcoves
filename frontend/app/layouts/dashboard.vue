@@ -125,10 +125,12 @@ async function createLibrary() {
         <aside
           class="flex h-full w-full flex-col bg-white dark:bg-neutral-900 border-r border-default"
         >
-          <div class="px-5 py-4 flex items-center gap-3">
-            <img src="/logo.webp" alt="Alcoves" width="32" height="32" class="rounded-lg" />
-            <span class="text-lg font-bold tracking-tight">Alcoves</span>
-          </div>
+          <NuxtLink to="/" class="block px-5 py-4" @click="sidebarOpen = false">
+            <div class="flex items-center gap-3">
+              <img src="/logo.webp" alt="Alcoves" width="32" height="32" class="rounded-lg" />
+              <span class="text-lg font-bold tracking-tight">Alcoves</span>
+            </div>
+          </NuxtLink>
           <div class="px-2">
             <UNavigationMenu
               orientation="vertical"
@@ -175,10 +177,12 @@ async function createLibrary() {
     <aside
       class="hidden lg:flex h-full w-64 flex-col bg-white dark:bg-neutral-900 border-r border-default overflow-hidden"
     >
-      <div class="px-5 py-4 flex items-center gap-3">
-        <img src="/logo.webp" alt="Alcoves" width="32" height="32" class="rounded-lg" />
-        <span class="text-lg font-bold tracking-tight">Alcoves</span>
-      </div>
+      <NuxtLink to="/" class="block px-5 py-4">
+        <div class="flex items-center gap-3">
+          <img src="/logo.webp" alt="Alcoves" width="32" height="32" class="rounded-lg" />
+          <span class="text-lg font-bold tracking-tight">Alcoves</span>
+        </div>
+      </NuxtLink>
 
       <div class="px-2">
         <UNavigationMenu

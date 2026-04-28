@@ -25,7 +25,7 @@ const totalDetections = computed(() => labels.value.reduce((sum, l) => sum + l.f
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
+  <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 px-0.5">
     <div v-if="status === 'pending'" class="flex items-center justify-center py-12">
       <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
     </div>

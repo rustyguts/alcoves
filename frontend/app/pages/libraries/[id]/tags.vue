@@ -233,7 +233,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex w-full flex-1 flex-col gap-4 overflow-y-auto pb-6">
+  <div class="flex w-full flex-1 flex-col gap-4 overflow-y-auto px-0.5 pb-6">
     <UCard>
       <template #header>
         <div class="flex items-center justify-between gap-3">

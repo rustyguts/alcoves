@@ -118,7 +118,7 @@ async function openPreview(result: GlobalSearchResult) {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-6xl space-y-6 overflow-y-auto flex-1 min-h-0">
+  <div class="mx-auto w-full max-w-6xl space-y-6 overflow-y-auto flex-1 min-h-0 px-0.5">
     <UCard
       :ui="{
         root: 'overflow-hidden bg-gradient-to-br from-primary-500/10 via-default to-secondary-500/10',

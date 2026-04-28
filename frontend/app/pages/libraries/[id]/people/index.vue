@@ -69,7 +69,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
+  <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 px-0.5">
     <div class="grid gap-4">
       <div v-if="selectedPeople.size >= 2" class="flex items-center gap-2">
         <UButton color="primary" size="sm" icon="i-lucide-merge" @click="mergePeople">

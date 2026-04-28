@@ -1227,7 +1227,7 @@ const emptyStateDescription = computed(() => {
       </div>
     </div>
 
-    <div class="relative overflow-y-auto flex-1 min-h-0">
+    <div class="relative overflow-y-auto flex-1 min-h-0 px-0.5">
       <UContextMenu :items="contextMenuGroups" :ui="{ content: 'w-56' }">
         <div
           v-if="filesPending && (entries?.length ?? 0) === 0"

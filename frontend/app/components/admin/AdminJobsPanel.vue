@@ -270,7 +270,7 @@ const statTiles = computed<StatTile[]>(() => [
       </UCard>
     </div>
 
-    <UCard v-if="queues.length" :ui="{ body: 'p-0 overflow-x-auto' }">
+    <UCard v-if="queues.length" :ui="{ body: 'p-0 overflow-auto max-h-[24rem]' }">
       <table class="w-full text-sm">
         <thead class="bg-elevated/60">
           <tr class="text-left">
@@ -321,7 +321,7 @@ const statTiles = computed<StatTile[]>(() => [
       </table>
     </UCard>
 
-    <UCard :ui="{ body: 'p-0' }">
+    <UCard :ui="{ body: 'p-0 overflow-auto max-h-[40rem]' }">
       <template #header>
         <div class="flex items-center gap-3 flex-wrap">
           <h3 class="text-lg font-semibold flex-1">Jobs</h3>

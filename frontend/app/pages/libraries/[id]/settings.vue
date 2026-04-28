@@ -359,7 +359,7 @@ async function deleteLibrary() {
 </script>
 
 <template>
-  <div class="space-y-4 overflow-y-auto flex-1 min-h-0">
+  <div class="space-y-4 overflow-y-auto flex-1 min-h-0 px-0.5">
     <!-- Library Name Card -->
     <UCard>
       <template #header>
