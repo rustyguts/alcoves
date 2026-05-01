@@ -11,15 +11,17 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
+	"github.com/alcoves/alcoves-backend/internal/services/settings"
 )
 
 type AdminHandler struct {
-	db      *gorm.DB
-	hashSvc *filehash.Service
+	db          *gorm.DB
+	hashSvc     *filehash.Service
+	settingsSvc *settings.Service
 }
 
-func NewAdminHandler(db *gorm.DB, hashSvc *filehash.Service) *AdminHandler {
-	return &AdminHandler{db: db, hashSvc: hashSvc}
+func NewAdminHandler(db *gorm.DB, hashSvc *filehash.Service, settingsSvc *settings.Service) *AdminHandler {
+	return &AdminHandler{db: db, hashSvc: hashSvc, settingsSvc: settingsSvc}
 }
 
 func (h *AdminHandler) RegisterRoutes(g *echo.Group) {
@@ -28,6 +30,30 @@ func (h *AdminHandler) RegisterRoutes(g *echo.Group) {
 	g.GET("/users", h.ListUsers)
 	g.PATCH("/users/:userId", h.UpdateUser)
 	g.POST("/backfill-hashes", h.BackfillHashes)
+	g.GET("/settings", h.GetSettings)
+	g.PATCH("/settings", h.UpdateSettings)
+}
+
+func (h *AdminHandler) GetSettings(c echo.Context) error {
+	return c.JSON(http.StatusOK, h.settingsSvc.Get())
+}
+
+type updateSettingsRequest struct {
+	RegistrationMode string `json:"registration_mode,omitempty"`
+}
+
+func (h *AdminHandler) UpdateSettings(c echo.Context) error {
+	var req updateSettingsRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+	userID, _ := middleware.RequireUserID(c)
+	patch := settings.Settings{RegistrationMode: req.RegistrationMode}
+	updated, err := h.settingsSvc.Update(patch, &userID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	return c.JSON(http.StatusOK, updated)
 }
 
 func (h *AdminHandler) requireOwnerMiddleware(next echo.HandlerFunc) echo.HandlerFunc {

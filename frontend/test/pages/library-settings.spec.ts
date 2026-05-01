@@ -103,29 +103,14 @@ vi.mock("~/composables/useApiFetch", () => ({
 vi.mock("~/composables/useLibraryMembers", () => ({
   useLibraryMembers: () => ({
     memberRoleDrafts: mocks.memberRoleDrafts,
-    inviteEmail: mockRef(
-      () => mocks.inviteEmail,
-      (v: string) => {
-        mocks.inviteEmail = v;
-      },
-    ),
-    inviteEmailRole: mockRef(
-      () => mocks.inviteEmailRole,
-      (v: string) => {
-        mocks.inviteEmailRole = v;
-      },
-    ),
-    inviteByEmailLoading: mockRef(() => mocks.inviteByEmailLoading),
     createInviteLinkLoading: mockRef(() => mocks.createInviteLinkLoading),
     updatingMemberUserId: mockRef(() => mocks.updatingMemberUserId),
     removingMemberUserId: mockRef(() => mocks.removingMemberUserId),
     revokingInviteId: mockRef(() => mocks.revokingInviteId),
     inviteRoleOptions: mocks.inviteRoleOptions,
     libraryMembers: mockRef(() => mocks.libraryMembers),
-    emailInvites: mockRef(() => mocks.emailInvites),
     inviteLinks: mockRef(() => mocks.inviteLinks),
     copyInviteLink: mocks.copyInviteLink,
-    inviteUserByEmail: mocks.inviteUserByEmail,
     createInviteLink: mocks.createInviteLink,
     updateMemberRole: mocks.updateMemberRole,
     removeMember: mocks.removeMember,
@@ -230,11 +215,11 @@ describe("library settings page", () => {
     expect(wrapper.text()).not.toContain("Library Members");
   });
 
-  it("shows invite by email section", async () => {
+  it("shows create invite link section with max uses + expires fields", async () => {
     const wrapper = mountPage();
     await flushPromises();
-    expect(wrapper.text()).toContain("Invite by Email");
-    expect(wrapper.find("input[type='email']").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Create Invite Link");
+    expect(wrapper.find("input[type='datetime-local']").exists()).toBe(true);
   });
 
   it("shows Create Link button when no invite links", async () => {

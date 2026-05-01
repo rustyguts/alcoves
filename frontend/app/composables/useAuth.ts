@@ -27,8 +27,8 @@ export function useAuth() {
     await fetchSession();
   }
 
-  async function register(name: string, email: string, password: string) {
-    await api.auth.register({ name, email, password });
+  async function register(name: string, email: string, password: string, inviteToken?: string) {
+    await api.auth.register({ name, email, password, inviteToken });
     await fetchSession();
   }
 

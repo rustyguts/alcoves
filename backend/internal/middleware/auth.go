@@ -73,6 +73,16 @@ func needsAuth(path string) bool {
 	if path == "/api/version" {
 		return false
 	}
+	// Public app metadata (registration mode, etc.)
+	if strings.HasPrefix(path, "/api/_meta/") {
+		return false
+	}
+	// Invite lookup — anon callers need to validate a token before signup.
+	// GET /api/invites/:token only; POST .../accept still requires auth via
+	// RequireUserID inside the handler.
+	if strings.HasPrefix(path, "/api/invites/") && !strings.HasSuffix(path, "/accept") {
+		return false
+	}
 	// Public file proxy
 	if strings.HasPrefix(path, "/api/files/proxy/") {
 		return false

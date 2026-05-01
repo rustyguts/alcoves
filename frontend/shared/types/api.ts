@@ -158,30 +158,49 @@ export interface LibraryMemberWithUser {
   };
 }
 
-export interface LibraryPendingInvite {
+export interface LibraryInviteUsage {
+  usedAt: string;
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    avatarUrl: string | null;
+  };
+}
+
+export interface LibraryInviteLink {
   id: string;
-  invitedEmail: string | null;
-  role: "admin" | "viewer";
+  token: string;
+  maxUses: number | null;
   useCount: number;
+  expiresAt: string | null;
   createdAt: string;
   inviteUrl: string;
   invitedBy: LibraryUserSummary;
+  uses: LibraryInviteUsage[] | null;
 }
 
 export interface LibraryUsersResponse {
   libraryId: string;
   canManageUsers: boolean;
   members: LibraryMemberWithUser[];
-  pendingInvites: LibraryPendingInvite[];
+  inviteLinks: LibraryInviteLink[];
+}
+
+export type RegistrationMode = "open" | "closed" | "invite_only";
+
+export interface AppSettings {
+  registration_mode: RegistrationMode;
 }
 
 export interface InviteLookupResponse {
   id: string;
-  role: "admin" | "viewer";
-  status: "pending" | "accepted" | "expired" | "revoked" | "already_member" | "not_allowed";
+  status: "pending" | "expired" | "revoked" | "exhausted" | "already_member";
   canAccept: boolean;
   createdAt: string;
-  invitedEmail: string | null;
+  expiresAt: string | null;
+  maxUses: number | null;
+  useCount: number;
   invitedBy: LibraryUserSummary;
   library: {
     id: string;

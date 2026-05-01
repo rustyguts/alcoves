@@ -12,6 +12,40 @@ SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-04-30
+
+### Added
+
+- Global registration mode (`open` / `closed` / `invite_only`), toggleable
+  from the admin dashboard. Persisted in a new single-row `app_settings`
+  table (migration `00016_app_settings.sql`) with an in-process cached
+  service. New endpoints: `GET/PATCH /api/admin/settings` (owner-gated)
+  and the public `GET /api/_meta/registration-mode` consumed by the
+  register page.
+- Per-redemption invite tracking via `library_invite_uses` (migration
+  `00017_invite_link_overhaul.sql`) plus a `max_uses` column on
+  `library_invites`. Library settings page now shows use count vs. max
+  and an expandable list of users who joined via each link.
+- Anonymous invite redemption: visiting `/invites/:token` while logged
+  out redirects to `/register?invite=…`; on successful registration the
+  backend auto-redeems the invite and lands the user in the target
+  library. Works in `invite_only` mode too.
+
+### Changed
+
+- Invite links are now always basic-member only (no role selector).
+  Promotion to admin happens after join via the existing per-member role
+  control.
+- Invite links carry `max_uses` (NULL = unlimited) and `expires_at`
+  (NULL = never) — both configurable in the create form.
+
+### Removed
+
+- Email-targeted library invites (`POST /users/invite-email`) and the
+  per-invite role selector. Dropped columns from `library_invites`:
+  `invited_email`, `role`, `accepted_by_user_id`, `accepted_at`
+  (replaced by `library_invite_uses`).
+
 ## [0.15.0] — 2026-04-27
 
 ### Added

@@ -1,15 +1,17 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
-	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/invites"
 )
 
 type InviteHandler struct {
@@ -25,48 +27,41 @@ func (h *InviteHandler) RegisterRoutes(g *echo.Group) {
 	g.POST("/:token/accept", h.Accept)
 }
 
+// Lookup returns invite metadata. Public endpoint — anon callers are allowed
+// so the register page can validate a token before sign-up.
 func (h *InviteHandler) Lookup(c echo.Context) error {
 	token := c.Param("token")
-	userID, _ := middleware.RequireUserID(c)
+	userID := middleware.GetUserID(c)
 
 	var invite models.LibraryInvite
 	if err := h.db.Where("token = ?", token).First(&invite).Error; err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Invite not found")
 	}
 
-	// Load library
 	var library models.Library
-	h.db.Select("id, name").Where("id = ?", invite.LibraryID).First(&library)
+	h.db.Select("id, name, owner_id").Where("id = ?", invite.LibraryID).First(&library)
 
-	// Load inviter
 	var inviter models.User
 	h.db.Select("id, display_name, avatar_url").Where("id = ?", invite.InvitedByUserID).First(&inviter)
 
-	// Determine status
 	status := "pending"
 	canAccept := false
 
-	if invite.RevokedAt != nil {
+	switch {
+	case invite.RevokedAt != nil:
 		status = "revoked"
-	} else if invite.AcceptedAt != nil {
-		status = "accepted"
-	} else if invite.ExpiresAt != nil && invite.ExpiresAt.Before(time.Now()) {
+	case invite.ExpiresAt != nil && invite.ExpiresAt.Before(time.Now()):
 		status = "expired"
-	} else {
-		// Check if user is already a member
-		var memberCount int64
-		h.db.Model(&models.LibraryMember{}).
-			Where("library_id = ? AND user_id = ?", invite.LibraryID, userID).
-			Count(&memberCount)
-
-		if library.OwnerID == userID || memberCount > 0 {
-			status = "already_member"
-		} else if invite.InvitedEmail != nil {
-			// Email invite — check if user email matches
-			var user models.User
-			h.db.Select("email").Where("id = ?", userID).First(&user)
-			if strings.ToLower(user.Email) != strings.ToLower(*invite.InvitedEmail) {
-				status = "not_allowed"
+	case invite.MaxUses != nil && invite.UseCount >= *invite.MaxUses:
+		status = "exhausted"
+	default:
+		if userID != uuid.Nil {
+			var memberCount int64
+			h.db.Model(&models.LibraryMember{}).
+				Where("library_id = ? AND user_id = ?", invite.LibraryID, userID).
+				Count(&memberCount)
+			if library.OwnerID == userID || memberCount > 0 {
+				status = "already_member"
 			} else {
 				canAccept = true
 			}
@@ -75,13 +70,20 @@ func (h *InviteHandler) Lookup(c echo.Context) error {
 		}
 	}
 
+	var maxUses *int
+	if invite.MaxUses != nil {
+		v := *invite.MaxUses
+		maxUses = &v
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"id":           invite.ID.String(),
-		"role":         invite.Role,
-		"status":       status,
-		"canAccept":    canAccept,
-		"createdAt":    invite.CreatedAt.Format(time.RFC3339Nano),
-		"invitedEmail": invite.InvitedEmail,
+		"id":        invite.ID.String(),
+		"status":    status,
+		"canAccept": canAccept,
+		"createdAt": invite.CreatedAt.Format(time.RFC3339Nano),
+		"expiresAt": invite.ExpiresAt,
+		"maxUses":   maxUses,
+		"useCount":  invite.UseCount,
 		"invitedBy": map[string]interface{}{
 			"id":          inviter.ID.String(),
 			"displayName": inviter.DisplayName,
@@ -94,6 +96,7 @@ func (h *InviteHandler) Lookup(c echo.Context) error {
 	})
 }
 
+// Accept consumes an invite for the currently logged-in user.
 func (h *InviteHandler) Accept(c echo.Context) error {
 	token := c.Param("token")
 	userID, err := middleware.RequireUserID(c)
@@ -101,61 +104,37 @@ func (h *InviteHandler) Accept(c echo.Context) error {
 		return err
 	}
 
-	var invite models.LibraryInvite
-	if err := h.db.Where("token = ?", token).First(&invite).Error; err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "Invite not found")
-	}
-
-	// Validate invite is acceptable
-	if invite.RevokedAt != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invite has been revoked")
-	}
-	if invite.ExpiresAt != nil && invite.ExpiresAt.Before(time.Now()) {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invite has expired")
-	}
-
-	// Check email match for email invites
-	if invite.InvitedEmail != nil {
-		var user models.User
-		h.db.Select("email").Where("id = ?", userID).First(&user)
-		if strings.ToLower(user.Email) != strings.ToLower(*invite.InvitedEmail) {
-			return echo.NewHTTPError(http.StatusForbidden, "This invite is for a different email address")
+	invite, err := invites.LookupRedeemable(h.db, token)
+	if err != nil {
+		switch {
+		case errors.Is(err, invites.ErrNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, "Invite not found")
+		case errors.Is(err, invites.ErrRevoked):
+			return echo.NewHTTPError(http.StatusGone, "Invite has been revoked")
+		case errors.Is(err, invites.ErrExpired):
+			return echo.NewHTTPError(http.StatusGone, "Invite has expired")
+		case errors.Is(err, invites.ErrExhausted):
+			return echo.NewHTTPError(http.StatusGone, "Invite has no remaining uses")
+		default:
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to look up invite")
 		}
 	}
 
-	// Check already a member
-	var memberCount int64
-	h.db.Model(&models.LibraryMember{}).
-		Where("library_id = ? AND user_id = ?", invite.LibraryID, userID).
-		Count(&memberCount)
-
-	var library models.Library
-	h.db.Select("owner_id").Where("id = ?", invite.LibraryID).First(&library)
-
-	if library.OwnerID == userID || memberCount > 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, "Already a member of this library")
+	if err := invites.Redeem(h.db, invite, userID); err != nil {
+		if errors.Is(err, invites.ErrAlreadyMember) {
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"libraryId": invite.LibraryID.String(),
+				"role":      "owner",
+			})
+		}
+		if errors.Is(err, invites.ErrExhausted) {
+			return echo.NewHTTPError(http.StatusGone, "Invite has no remaining uses")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to redeem invite")
 	}
-
-	// Create membership
-	member := models.LibraryMember{
-		LibraryID: invite.LibraryID,
-		UserID:    userID,
-		Role:      invite.Role,
-	}
-	if err := h.db.Create(&member).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to join library")
-	}
-
-	// Update invite
-	now := time.Now()
-	h.db.Model(&invite).Updates(map[string]interface{}{
-		"accepted_by_user_id": userID,
-		"accepted_at":         now,
-		"use_count":           gorm.Expr("use_count + 1"),
-	})
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"libraryId": invite.LibraryID.String(),
-		"role":      invite.Role,
+		"role":      "viewer",
 	})
 }

@@ -18,6 +18,8 @@ import type {
   InviteLookupResponse,
   AdminStats,
   AdminUser,
+  AppSettings,
+  RegistrationMode,
   Moment,
   MomentCreate,
   MomentPatch,
@@ -43,7 +45,7 @@ const auth = {
   },
 
   /** POST /api/auth/register */
-  register(body: { name: string; email: string; password: string }) {
+  register(body: { name: string; email: string; password: string; inviteToken?: string }) {
     return apiFetch<void>("/api/auth/register", { method: "POST", body });
   },
 
@@ -393,18 +395,20 @@ const members = {
     return apiFetch<LibraryUsersResponse>(`/api/libraries/${libraryId}/users`);
   },
 
-  /** POST /api/libraries/:id/users/invite-email */
-  inviteByEmail(libraryId: string, body: { email: string; role: "admin" | "viewer" }) {
-    return apiFetch<{
-      action: "added" | "invited" | "already_member";
-      invite?: { inviteUrl: string };
-    }>(`/api/libraries/${libraryId}/users/invite-email`, { method: "POST", body });
-  },
-
   /** POST /api/libraries/:id/users/invite-link */
-  createInviteLink(libraryId: string) {
-    return apiFetch<{ inviteUrl: string }>(`/api/libraries/${libraryId}/users/invite-link`, {
+  createInviteLink(
+    libraryId: string,
+    body?: { maxUses?: number | null; expiresAt?: string | null },
+  ) {
+    return apiFetch<{
+      id: string;
+      token: string;
+      inviteUrl: string;
+      maxUses: number | null;
+      expiresAt: string | null;
+    }>(`/api/libraries/${libraryId}/users/invite-link`, {
       method: "POST",
+      body: body ?? {},
     });
   },
 
@@ -561,6 +565,16 @@ const admin = {
     });
   },
 
+  /** GET /api/admin/settings */
+  getSettings() {
+    return apiFetch<AppSettings>("/api/admin/settings");
+  },
+
+  /** PATCH /api/admin/settings */
+  updateSettings(body: Partial<AppSettings>) {
+    return apiFetch<AppSettings>("/api/admin/settings", { method: "PATCH", body });
+  },
+
   /** POST /api/admin/jobs/:queueName/:jobId */
   controlJob(queueName: string, jobId: string, body: { action: "retry" | "remove" }) {
     return apiFetch<void>(`/api/admin/jobs/${encodeURIComponent(queueName)}/${jobId}`, {
@@ -660,6 +674,15 @@ const moments = {
   },
 } as const;
 
+// ─── Meta (public) ─────────────────────────────────────
+
+const meta = {
+  /** GET /api/_meta/registration-mode (public, no auth) */
+  registrationMode() {
+    return apiFetch<{ mode: RegistrationMode }>("/api/_meta/registration-mode");
+  },
+} as const;
+
 // ─── Combined export ───────────────────────────────────
 
 export const api = {
@@ -677,4 +700,5 @@ export const api = {
   invites,
   admin,
   moments,
+  meta,
 } as const;

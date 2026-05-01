@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
+import { useAuth } from "~/composables/useAuth";
 import { useToast } from "~/composables/useToast";
 import UserAvatar from "~/components/UserAvatar.vue";
 import type { InviteLookupResponse } from "~~/shared/types/api";
@@ -12,6 +13,20 @@ const route = useRoute();
 const token = computed(() => route.params.token as string);
 const toast = useToast();
 const accepting = ref(false);
+
+const { loggedIn, fetchSession } = useAuth();
+
+// Page is whitelisted by global auth middleware, so resolve the session
+// ourselves. Anon visitors get sent to register-with-invite; once they
+// finish registering the backend auto-accepts the invite and lands them
+// in the target library.
+onMounted(async () => {
+  if (loggedIn.value) return;
+  await fetchSession();
+  if (!loggedIn.value) {
+    navigateTo({ path: "/register", query: { invite: token.value } });
+  }
+});
 
 const {
   data: invite,
@@ -30,16 +45,14 @@ const statusMessage = computed(() => {
   switch (invite.value?.status) {
     case "pending":
       return "Accept this invitation to get access to the library.";
-    case "accepted":
-      return "This invitation has already been accepted.";
     case "already_member":
       return "You already have access to this library.";
     case "expired":
       return "This invitation has expired.";
     case "revoked":
       return "This invitation was revoked by a library admin.";
-    case "not_allowed":
-      return "This invitation is restricted to a different email address.";
+    case "exhausted":
+      return "This invitation has reached its maximum number of uses.";
     default:
       return "Invite details unavailable.";
   }
@@ -50,12 +63,11 @@ const statusColor = computed<"primary" | "success" | "error" | "warning" | "info
     switch (invite.value?.status) {
       case "pending":
         return "primary";
-      case "accepted":
       case "already_member":
         return "success";
       case "expired":
       case "revoked":
-      case "not_allowed":
+      case "exhausted":
         return "error";
       default:
         return "neutral";
@@ -69,7 +81,7 @@ async function acceptInvite() {
   try {
     const result = await api.invites.accept(token.value);
     await refreshLibraries();
-    toast.add({ title: `Joined ${result.libraryName}`, color: "success" });
+    toast.add({ title: "Joined library", color: "success" });
     router.push(`/libraries/${result.libraryId}`);
   } catch (err: unknown) {
     toast.add({
@@ -96,10 +108,7 @@ async function acceptInvite() {
           />
           <div>
             <h1 class="text-lg font-semibold">{{ inviteTitle }}</h1>
-            <p class="text-sm text-muted">
-              <template v-if="invite?.invitedEmail">Access level: {{ invite.role }}</template>
-              <template v-else>Access level can be adjusted after you join.</template>
-            </p>
+            <p class="text-sm text-muted">You'll join with member access.</p>
           </div>
         </div>
       </template>

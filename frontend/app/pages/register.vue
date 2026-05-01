@@ -6,6 +6,7 @@ definePageMeta({ layout: false });
 import OAuthGoogleButton from "~/components/OAuthGoogleButton.vue";
 import { useAuth } from "~/composables/useAuth";
 import { api } from "~/api";
+import type { RegistrationMode, InviteLookupResponse } from "~~/shared/types/api";
 
 const { register } = useAuth();
 const route = useRoute();
@@ -15,15 +16,40 @@ const error = ref("");
 const providersLoading = ref(true);
 const googleAuthEnabled = ref(false);
 
+const registrationMode = ref<RegistrationMode | null>(null);
+const inviteToken = computed(() => {
+  const t = route.query.invite;
+  return typeof t === "string" && t.length > 0 ? t : null;
+});
+const invite = ref<InviteLookupResponse | null>(null);
+const inviteError = ref<string | null>(null);
+const bootLoading = ref(true);
+
 onMounted(async () => {
   try {
-    const providers = await api.auth.providers();
+    const [providers, modeResp] = await Promise.all([
+      api.auth.providers(),
+      api.meta.registrationMode(),
+    ]);
     googleAuthEnabled.value = providers.google;
+    registrationMode.value = modeResp.mode;
   } catch (err) {
-    console.error("Failed to load auth providers:", err);
+    console.error("Failed to load registration metadata:", err);
   } finally {
     providersLoading.value = false;
   }
+
+  if (inviteToken.value) {
+    try {
+      invite.value = await api.invites.lookup(inviteToken.value);
+      if (!invite.value.canAccept && invite.value.status !== "already_member") {
+        inviteError.value = `This invite is ${invite.value.status}.`;
+      }
+    } catch {
+      inviteError.value = "Invite not found.";
+    }
+  }
+  bootLoading.value = false;
 });
 
 const redirectPath = computed(() => {
@@ -31,11 +57,36 @@ const redirectPath = computed(() => {
   if (typeof raw !== "string" || !raw.startsWith("/")) return "/";
   return raw;
 });
-const loginLink = computed(() =>
-  redirectPath.value === "/"
-    ? "/login"
-    : { path: "/login", query: { redirect: redirectPath.value } },
-);
+const loginLink = computed(() => {
+  const query: Record<string, string> = {};
+  if (redirectPath.value !== "/") query.redirect = redirectPath.value;
+  if (inviteToken.value) query.invite = inviteToken.value;
+  return Object.keys(query).length === 0 ? "/login" : { path: "/login", query };
+});
+
+const canRegister = computed(() => {
+  if (registrationMode.value === null) return false;
+  if (registrationMode.value === "open") return true;
+  if (registrationMode.value === "closed") return false;
+  // invite_only
+  return !!invite.value && invite.value.canAccept;
+});
+
+const disabledMessage = computed(() => {
+  if (registrationMode.value === "closed") {
+    return "Registration is disabled on this instance.";
+  }
+  if (registrationMode.value === "invite_only") {
+    if (!inviteToken.value) {
+      return "Registration is invite-only. You need an invite link to create an account.";
+    }
+    if (inviteError.value) return inviteError.value;
+    if (invite.value && !invite.value.canAccept) {
+      return `This invite is ${invite.value.status}.`;
+    }
+  }
+  return null;
+});
 
 const schema = z
   .object({
@@ -62,8 +113,13 @@ async function onSubmit() {
   error.value = "";
   submitting.value = true;
   try {
-    await register(state.name, state.email, state.password);
-    router.push(redirectPath.value);
+    await register(state.name, state.email, state.password, inviteToken.value || undefined);
+    // If they registered through an invite, send them to that library.
+    if (invite.value?.library?.id) {
+      router.push(`/libraries/${invite.value.library.id}`);
+    } else {
+      router.push(redirectPath.value);
+    }
   } catch (err: unknown) {
     const msg = (err as { data?: { message?: string } })?.data?.message;
     error.value = msg || "Registration failed";
@@ -75,7 +131,37 @@ async function onSubmit() {
 
 <template>
   <AuthCardShell title="Create an account" subtitle="Get started with Alcoves." :error="error">
-    <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
+    <div v-if="bootLoading" class="flex justify-center py-8">
+      <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+    </div>
+
+    <div v-else-if="!canRegister" class="space-y-3 py-2">
+      <UAlert
+        color="warning"
+        variant="subtle"
+        icon="i-lucide-lock"
+        title="Registration disabled"
+        :description="disabledMessage || 'Registration is not available right now.'"
+      />
+    </div>
+
+    <UForm v-else :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
+      <UAlert
+        v-if="invite && invite.library"
+        color="info"
+        variant="subtle"
+        icon="i-lucide-mail"
+        :title="`You've been invited to ${invite.library.name}`"
+      >
+        <template #description>
+          Create an account below to accept the invite. Already have one?
+          <NuxtLink :to="loginLink" class="text-primary font-medium hover:underline">
+            Sign in instead
+          </NuxtLink>
+          .
+        </template>
+      </UAlert>
+
       <UFormField label="Name" name="name" required>
         <UInput
           v-model="state.name"
@@ -142,7 +228,7 @@ async function onSubmit() {
           enter-from-class="opacity-0"
           enter-to-class="opacity-100"
         >
-          <div v-if="!providersLoading && googleAuthEnabled" class="space-y-4">
+          <div v-if="canRegister && !providersLoading && googleAuthEnabled" class="space-y-4">
             <USeparator label="or" />
             <OAuthGoogleButton />
           </div>

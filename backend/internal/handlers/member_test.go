@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -139,28 +140,6 @@ func TestMemberHandler_UpdateMemberRole_Updates(t *testing.T) {
 	}
 }
 
-func TestMemberHandler_CreateInviteLink_ValidatesRole(t *testing.T) {
-	db := libraryTestDB(t)
-	e := newLibEcho()
-	owner := mustUser(t, db, "inv-bad@example.com")
-	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
-
-	req := httptest.NewRequest(http.MethodPost,
-		"/api/libraries/"+lib.ID.String()+"/users/invite-link",
-		strings.NewReader(`{"role":"hacker"}`))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues(lib.ID.String())
-	c.Set(middleware.ContextKeyUserID, owner.ID.String())
-
-	if err := h.CreateInviteLink(c); err == nil {
-		t.Fatal("expected validation error for role=hacker")
-	}
-}
-
 func TestMemberHandler_CreateInviteLink_PersistsRow(t *testing.T) {
 	db := libraryTestDB(t)
 	e := newLibEcho()
@@ -170,7 +149,7 @@ func TestMemberHandler_CreateInviteLink_PersistsRow(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost,
 		"/api/libraries/"+lib.ID.String()+"/users/invite-link",
-		strings.NewReader(`{"role":"viewer"}`))
+		strings.NewReader(`{"maxUses":5}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -188,23 +167,25 @@ func TestMemberHandler_CreateInviteLink_PersistsRow(t *testing.T) {
 	if resp["token"].(string) == "" {
 		t.Fatal("expected non-empty token")
 	}
-	var count int64
-	db.Model(&models.LibraryInvite{}).Where("library_id = ?", lib.ID).Count(&count)
-	if count != 1 {
-		t.Fatalf("expected 1 invite row, got %d", count)
+	var inv models.LibraryInvite
+	if err := db.Where("library_id = ?", lib.ID).First(&inv).Error; err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if inv.MaxUses == nil || *inv.MaxUses != 5 {
+		t.Fatalf("expected maxUses=5, got %v", inv.MaxUses)
 	}
 }
 
-func TestMemberHandler_CreateEmailInvite_NormalizesEmail(t *testing.T) {
+func TestMemberHandler_CreateInviteLink_RejectsBadMaxUses(t *testing.T) {
 	db := libraryTestDB(t)
 	e := newLibEcho()
-	owner := mustUser(t, db, "inv-email@example.com")
+	owner := mustUser(t, db, "inv-bad-max@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
 	h := NewMemberHandler(db, access.NewService(db))
 
 	req := httptest.NewRequest(http.MethodPost,
-		"/api/libraries/"+lib.ID.String()+"/users/invite-email",
-		strings.NewReader(`{"email":"Foo@Bar.COM","role":"viewer"}`))
+		"/api/libraries/"+lib.ID.String()+"/users/invite-link",
+		strings.NewReader(`{"maxUses":0}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -212,15 +193,70 @@ func TestMemberHandler_CreateEmailInvite_NormalizesEmail(t *testing.T) {
 	c.SetParamValues(lib.ID.String())
 	c.Set(middleware.ContextKeyUserID, owner.ID.String())
 
-	if err := h.CreateEmailInvite(c); err != nil {
-		t.Fatalf("CreateEmailInvite: %v", err)
+	if err := h.CreateInviteLink(c); err == nil {
+		t.Fatal("expected validation error for maxUses=0")
+	}
+}
+
+func TestMemberHandler_CreateInviteLink_ExpiresAtPersists(t *testing.T) {
+	db := libraryTestDB(t)
+	e := newLibEcho()
+	owner := mustUser(t, db, "inv-exp@example.com")
+	lib := mustLibrary(t, db, owner.ID, "L", false)
+	h := NewMemberHandler(db, access.NewService(db))
+
+	future := time.Now().Add(48 * time.Hour).Format(time.RFC3339Nano)
+	body := `{"expiresAt":"` + future + `"}`
+
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/libraries/"+lib.ID.String()+"/users/invite-link",
+		strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues(lib.ID.String())
+	c.Set(middleware.ContextKeyUserID, owner.ID.String())
+
+	if err := h.CreateInviteLink(c); err != nil {
+		t.Fatalf("CreateInviteLink: %v", err)
 	}
 	var inv models.LibraryInvite
 	if err := db.Where("library_id = ?", lib.ID).First(&inv).Error; err != nil {
 		t.Fatalf("reload: %v", err)
 	}
-	if inv.InvitedEmail == nil || *inv.InvitedEmail != "foo@bar.com" {
-		t.Fatalf("expected normalized email, got %v", inv.InvitedEmail)
+	if inv.ExpiresAt == nil {
+		t.Fatal("expected expires_at to persist")
+	}
+}
+
+func TestMemberHandler_CreateInviteLink_RejectsPastExpires(t *testing.T) {
+	db := libraryTestDB(t)
+	e := newLibEcho()
+	owner := mustUser(t, db, "inv-past@example.com")
+	lib := mustLibrary(t, db, owner.ID, "L", false)
+	h := NewMemberHandler(db, access.NewService(db))
+
+	past := time.Now().Add(-time.Hour).Format(time.RFC3339Nano)
+	body := `{"expiresAt":"` + past + `"}`
+
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/libraries/"+lib.ID.String()+"/users/invite-link",
+		strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues(lib.ID.String())
+	c.Set(middleware.ContextKeyUserID, owner.ID.String())
+
+	err := h.CreateInviteLink(c)
+	if err == nil {
+		t.Fatal("expected validation error for past expiresAt")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok || httpErr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %v", err)
 	}
 }
 

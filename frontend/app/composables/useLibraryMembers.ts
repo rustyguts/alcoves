@@ -1,7 +1,7 @@
 import type { Ref } from "vue";
 import type {
   LibraryMemberWithUser,
-  LibraryPendingInvite,
+  LibraryInviteLink,
   LibraryUsersResponse,
 } from "~~/shared/types/api";
 import { api } from "~/api";
@@ -9,6 +9,11 @@ import { useToast } from "~/composables/useToast";
 
 type LibraryUsersRef = Ref<LibraryUsersResponse | null | undefined>;
 type RefreshUsersFn = () => Promise<void>;
+
+export interface CreateInviteLinkInput {
+  maxUses?: number | null;
+  expiresAt?: string | null;
+}
 
 export function useLibraryMembers(
   libraryId: Ref<string>,
@@ -18,9 +23,6 @@ export function useLibraryMembers(
   const toast = useToast();
 
   const memberRoleDrafts = reactive<Record<string, "admin" | "viewer">>({});
-  const inviteEmail = ref("");
-  const inviteEmailRole = ref<"admin" | "viewer">("viewer");
-  const inviteByEmailLoading = ref(false);
   const createInviteLinkLoading = ref(false);
   const updatingMemberUserId = ref<string | null>(null);
   const removingMemberUserId = ref<string | null>(null);
@@ -32,15 +34,7 @@ export function useLibraryMembers(
   ];
 
   const libraryMembers = computed<LibraryMemberWithUser[]>(() => libraryUsers.value?.members ?? []);
-  const libraryPendingInvites = computed<LibraryPendingInvite[]>(
-    () => libraryUsers.value?.pendingInvites ?? [],
-  );
-  const emailInvites = computed(() =>
-    libraryPendingInvites.value.filter((invite) => Boolean(invite.invitedEmail)),
-  );
-  const inviteLinks = computed(() =>
-    libraryPendingInvites.value.filter((invite) => !invite.invitedEmail),
-  );
+  const inviteLinks = computed<LibraryInviteLink[]>(() => libraryUsers.value?.inviteLinks ?? []);
   const memberAvatars = computed(() =>
     libraryMembers.value.map((member) => ({
       id: member.user.id,
@@ -68,57 +62,71 @@ export function useLibraryMembers(
   );
 
   async function copyInviteLink(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.add({ title: "Invite link copied" });
-    } catch {
-      toast.add({ title: "Unable to copy invite link", color: "error" });
-    }
-  }
+    const absolute =
+      typeof window !== "undefined" && url.startsWith("/")
+        ? `${window.location.origin}${url}`
+        : url;
 
-  async function inviteUserByEmail() {
-    const email = inviteEmail.value.trim();
-    if (!email) return;
-
-    inviteByEmailLoading.value = true;
-    try {
-      const result = await api.members.inviteByEmail(libraryId.value, {
-        email,
-        role: inviteEmailRole.value,
-      });
-
-      if (result.action === "already_member") {
-        toast.add({ title: "User already has access" });
-      } else if (result.action === "added") {
-        toast.add({ title: "User added to library" });
-      } else {
-        toast.add({ title: "Invite created" });
-        if (result.invite?.inviteUrl) {
-          await copyInviteLink(result.invite.inviteUrl);
-        }
+    // Try the modern Clipboard API. Requires a secure context (HTTPS or
+    // localhost); falls back to a textarea + execCommand on plain HTTP.
+    const writeViaClipboardApi = async () => {
+      if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+        throw new Error("clipboard api unavailable");
       }
+      await navigator.clipboard.writeText(absolute);
+    };
 
-      inviteEmail.value = "";
-      await refreshLibraryUsers();
-    } catch (err: unknown) {
-      toast.add({
-        title: (err as { data?: { message?: string } })?.data?.message ?? "Failed to invite user",
-        color: "error",
-      });
-    } finally {
-      inviteByEmailLoading.value = false;
+    const writeViaTextarea = () => {
+      if (typeof document === "undefined") return false;
+      const ta = document.createElement("textarea");
+      ta.value = absolute;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      ta.style.pointerEvents = "none";
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
+      }
+      document.body.removeChild(ta);
+      return ok;
+    };
+
+    try {
+      await writeViaClipboardApi();
+      toast.add({ title: "Invite link copied" });
+      return;
+    } catch {
+      // fall through to textarea fallback
     }
+
+    if (writeViaTextarea()) {
+      toast.add({ title: "Invite link copied" });
+      return;
+    }
+
+    // Last resort: surface the URL so user can copy manually.
+    toast.add({
+      title: "Copy failed — link below",
+      description: absolute,
+      color: "error",
+    });
   }
 
-  async function createInviteLink() {
+  async function createInviteLink(input?: CreateInviteLinkInput) {
     createInviteLinkLoading.value = true;
     try {
-      const invite = await api.members.createInviteLink(libraryId.value);
-
+      const invite = await api.members.createInviteLink(libraryId.value, input);
       await refreshLibraryUsers();
       await copyInviteLink(invite.inviteUrl);
-    } catch {
-      toast.add({ title: "Failed to create invite link", color: "error" });
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string } })?.data?.message ?? "Failed to create invite link";
+      toast.add({ title: msg, color: "error" });
     } finally {
       createInviteLinkLoading.value = false;
     }
@@ -170,21 +178,15 @@ export function useLibraryMembers(
 
   return {
     memberRoleDrafts,
-    inviteEmail,
-    inviteEmailRole,
-    inviteByEmailLoading,
     createInviteLinkLoading,
     updatingMemberUserId,
     removingMemberUserId,
     revokingInviteId,
     inviteRoleOptions,
     libraryMembers,
-    libraryPendingInvites,
-    emailInvites,
     inviteLinks,
     memberAvatars,
     copyInviteLink,
-    inviteUserByEmail,
     createInviteLink,
     updateMemberRole,
     removeMember,

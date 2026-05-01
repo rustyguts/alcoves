@@ -27,7 +27,6 @@ func (h *MemberHandler) RegisterRoutes(g *echo.Group) {
 	g.PATCH("/:id/users/:memberUserId", h.UpdateMemberRole)
 	g.DELETE("/:id/users/:memberUserId", h.RemoveMember)
 	g.POST("/:id/users/invite-link", h.CreateInviteLink)
-	g.POST("/:id/users/invite-email", h.CreateEmailInvite)
 	g.DELETE("/:id/users/invites/:inviteId", h.RevokeInvite)
 }
 
@@ -64,10 +63,10 @@ func (h *MemberHandler) ListUsers(c echo.Context) error {
 	// Build member list with owner first
 	memberList := []map[string]interface{}{
 		{
-			"id":      "",
-			"userId":  owner.ID.String(),
-			"role":    "owner",
-			"isOwner": true,
+			"id":        "",
+			"userId":    owner.ID.String(),
+			"role":      "owner",
+			"isOwner":   true,
 			"createdAt": owner.CreatedAt.Format(time.RFC3339Nano),
 			"user": map[string]interface{}{
 				"id":          owner.ID.String(),
@@ -80,10 +79,10 @@ func (h *MemberHandler) ListUsers(c echo.Context) error {
 
 	for _, m := range members {
 		memberList = append(memberList, map[string]interface{}{
-			"id":      m.ID,
-			"userId":  m.UserID,
-			"role":    m.Role,
-			"isOwner": false,
+			"id":        m.ID,
+			"userId":    m.UserID,
+			"role":      m.Role,
+			"isOwner":   false,
 			"createdAt": m.CreatedAt.Format(time.RFC3339Nano),
 			"user": map[string]interface{}{
 				"id":          m.UserID,
@@ -96,46 +95,88 @@ func (h *MemberHandler) ListUsers(c echo.Context) error {
 
 	canManage := la != nil && la.IsAdmin && !la.IsDefault
 
-	// Get pending invites
+	// Invite links — visible only to managers.
 	type inviteRow struct {
-		ID             string    `gorm:"column:id"`
-		InvitedEmail   *string   `gorm:"column:invited_email"`
-		Role           string    `gorm:"column:role"`
-		UseCount       int       `gorm:"column:use_count"`
-		Token          string    `gorm:"column:token"`
-		CreatedAt      time.Time `gorm:"column:created_at"`
-		InviterID      string    `gorm:"column:invited_by_user_id"`
-		InviterName    string    `gorm:"column:display_name"`
-		InviterAvatar  *string   `gorm:"column:avatar_url"`
+		ID            string     `gorm:"column:id"`
+		Token         string     `gorm:"column:token"`
+		MaxUses       *int       `gorm:"column:max_uses"`
+		UseCount      int        `gorm:"column:use_count"`
+		ExpiresAt     *time.Time `gorm:"column:expires_at"`
+		CreatedAt     time.Time  `gorm:"column:created_at"`
+		InviterID     string     `gorm:"column:invited_by_user_id"`
+		InviterName   string     `gorm:"column:display_name"`
+		InviterAvatar *string    `gorm:"column:avatar_url"`
 	}
 
-	var invites []inviteRow
+	var rows []inviteRow
 	if canManage {
 		h.db.Raw(`
-			SELECT li.id, li.invited_email, li.role, li.use_count, li.token, li.created_at,
+			SELECT li.id, li.token, li.max_uses, li.use_count, li.expires_at, li.created_at,
 				   li.invited_by_user_id, u.display_name, u.avatar_url
 			FROM library_invites li
 			INNER JOIN users u ON u.id = li.invited_by_user_id
-			WHERE li.library_id = ? AND li.revoked_at IS NULL AND li.accepted_at IS NULL
-			  AND (li.expires_at IS NULL OR li.expires_at > NOW())
+			WHERE li.library_id = ? AND li.revoked_at IS NULL
 			ORDER BY li.created_at DESC
-		`, libraryID).Scan(&invites)
+		`, libraryID).Scan(&rows)
 	}
 
-	pendingInvites := make([]map[string]interface{}, len(invites))
-	for i, inv := range invites {
-		pendingInvites[i] = map[string]interface{}{
-			"id":           inv.ID,
-			"invitedEmail": inv.InvitedEmail,
-			"role":         inv.Role,
-			"useCount":     inv.UseCount,
-			"createdAt":    inv.CreatedAt.Format(time.RFC3339Nano),
-			"inviteUrl":    "/invite/" + inv.Token,
+	type useRow struct {
+		InviteID    string    `gorm:"column:invite_id"`
+		UserID      string    `gorm:"column:user_id"`
+		UsedAt      time.Time `gorm:"column:used_at"`
+		Email       string    `gorm:"column:email"`
+		DisplayName string    `gorm:"column:display_name"`
+		AvatarUrl   *string   `gorm:"column:avatar_url"`
+	}
+
+	usesByInvite := map[string][]map[string]interface{}{}
+	if canManage && len(rows) > 0 {
+		ids := make([]string, len(rows))
+		for i, r := range rows {
+			ids[i] = r.ID
+		}
+		var uses []useRow
+		h.db.Raw(`
+			SELECT liu.invite_id, liu.user_id, liu.used_at, u.email, u.display_name, u.avatar_url
+			FROM library_invite_uses liu
+			INNER JOIN users u ON u.id = liu.user_id
+			WHERE liu.invite_id IN ?
+			ORDER BY liu.used_at DESC
+		`, ids).Scan(&uses)
+		for _, u := range uses {
+			usesByInvite[u.InviteID] = append(usesByInvite[u.InviteID], map[string]interface{}{
+				"usedAt": u.UsedAt.Format(time.RFC3339Nano),
+				"user": map[string]interface{}{
+					"id":          u.UserID,
+					"email":       u.Email,
+					"displayName": u.DisplayName,
+					"avatarUrl":   u.AvatarUrl,
+				},
+			})
+		}
+	}
+
+	inviteLinks := make([]map[string]interface{}, len(rows))
+	for i, r := range rows {
+		var expires *string
+		if r.ExpiresAt != nil {
+			s := r.ExpiresAt.Format(time.RFC3339Nano)
+			expires = &s
+		}
+		inviteLinks[i] = map[string]interface{}{
+			"id":        r.ID,
+			"token":     r.Token,
+			"maxUses":   r.MaxUses,
+			"useCount":  r.UseCount,
+			"expiresAt": expires,
+			"createdAt": r.CreatedAt.Format(time.RFC3339Nano),
+			"inviteUrl": "/invites/" + r.Token,
 			"invitedBy": map[string]interface{}{
-				"id":          inv.InviterID,
-				"displayName": inv.InviterName,
-				"avatarUrl":   inv.InviterAvatar,
+				"id":          r.InviterID,
+				"displayName": r.InviterName,
+				"avatarUrl":   r.InviterAvatar,
 			},
+			"uses": usesByInvite[r.ID],
 		}
 	}
 
@@ -143,7 +184,7 @@ func (h *MemberHandler) ListUsers(c echo.Context) error {
 		"libraryId":      libraryID,
 		"canManageUsers": canManage,
 		"members":        memberList,
-		"pendingInvites": pendingInvites,
+		"inviteLinks":    inviteLinks,
 	})
 }
 
@@ -193,7 +234,8 @@ func (h *MemberHandler) RemoveMember(c echo.Context) error {
 }
 
 type createInviteLinkRequest struct {
-	Role string `json:"role" validate:"required,oneof=admin viewer"`
+	MaxUses   *int       `json:"maxUses,omitempty"`
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }
 
 func (h *MemberHandler) CreateInviteLink(c echo.Context) error {
@@ -210,16 +252,20 @@ func (h *MemberHandler) CreateInviteLink(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 	}
-	if err := c.Validate(req); err != nil {
-		return err
+	if req.MaxUses != nil && *req.MaxUses <= 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "maxUses must be positive")
+	}
+	if req.ExpiresAt != nil && req.ExpiresAt.Before(time.Now()) {
+		return echo.NewHTTPError(http.StatusBadRequest, "expiresAt must be in the future")
 	}
 
 	token := uuid.New().String()
 	invite := models.LibraryInvite{
 		LibraryID:       libraryID,
 		InvitedByUserID: userID,
-		Role:            req.Role,
 		Token:           token,
+		MaxUses:         req.MaxUses,
+		ExpiresAt:       req.ExpiresAt,
 	}
 
 	if err := h.db.Create(&invite).Error; err != nil {
@@ -229,54 +275,9 @@ func (h *MemberHandler) CreateInviteLink(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"id":        invite.ID.String(),
 		"token":     token,
-		"inviteUrl": "/invite/" + token,
-		"role":      req.Role,
-	})
-}
-
-type createEmailInviteRequest struct {
-	Email string `json:"email" validate:"required,email"`
-	Role  string `json:"role" validate:"required,oneof=admin viewer"`
-}
-
-func (h *MemberHandler) CreateEmailInvite(c echo.Context) error {
-	libraryID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
-	}
-	userID, err := middleware.RequireUserID(c)
-	if err != nil {
-		return err
-	}
-
-	var req createEmailInviteRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
-	}
-	if err := c.Validate(req); err != nil {
-		return err
-	}
-
-	email := normalizeEmail(req.Email)
-	token := uuid.New().String()
-
-	invite := models.LibraryInvite{
-		LibraryID:       libraryID,
-		InvitedByUserID: userID,
-		InvitedEmail:    &email,
-		Role:            req.Role,
-		Token:           token,
-	}
-
-	if err := h.db.Create(&invite).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create invite")
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"id":        invite.ID.String(),
-		"token":     token,
-		"inviteUrl": "/invite/" + token,
-		"role":      req.Role,
+		"inviteUrl": "/invites/" + token,
+		"maxUses":   invite.MaxUses,
+		"expiresAt": invite.ExpiresAt,
 	})
 }
 

@@ -29,24 +29,33 @@ const { data: libraryUsers, refresh: refreshLibraryUsers } = useApiFetch<Library
 
 const {
   memberRoleDrafts,
-  inviteEmail,
-  inviteEmailRole,
-  inviteByEmailLoading,
   createInviteLinkLoading,
   updatingMemberUserId,
   removingMemberUserId,
   revokingInviteId,
   inviteRoleOptions,
   libraryMembers,
-  emailInvites,
   inviteLinks,
   copyInviteLink,
-  inviteUserByEmail,
   createInviteLink,
   updateMemberRole,
   removeMember,
   revokeInvite,
 } = useLibraryMembers(libraryId, libraryUsers, refreshLibraryUsers);
+
+const newLinkMaxUses = ref<string>("");
+const newLinkExpiresAt = ref<string>("");
+
+async function submitCreateInviteLink() {
+  const max = newLinkMaxUses.value.trim();
+  const exp = newLinkExpiresAt.value.trim();
+  await createInviteLink({
+    maxUses: max ? Number(max) : null,
+    expiresAt: exp ? new Date(exp).toISOString() : null,
+  });
+  newLinkMaxUses.value = "";
+  newLinkExpiresAt.value = "";
+}
 
 const fileCounts = ref<{ totalCount: number; trashedCount: number } | null>(null);
 
@@ -265,8 +274,7 @@ async function reprocessTranscripts() {
       description: `${result.enqueued.length} file${result.enqueued.length === 1 ? "" : "s"} queued${skippedCount ? `, ${skippedCount} skipped` : ""}.`,
     });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to queue bulk transcription";
+    const message = err instanceof Error ? err.message : "Failed to queue bulk transcription";
     toast.add({ title: message, color: "error" });
   } finally {
     transcribeReprocessing.value = false;
@@ -284,8 +292,7 @@ async function reprocessAudioDetections() {
       description: `${result.enqueued.length} file${result.enqueued.length === 1 ? "" : "s"} queued${skippedCount ? `, ${skippedCount} skipped` : ""}.`,
     });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to queue bulk audio detection";
+    const message = err instanceof Error ? err.message : "Failed to queue bulk audio detection";
     toast.add({ title: message, color: "error" });
   } finally {
     audioDetectReprocessing.value = false;
@@ -406,29 +413,37 @@ async function deleteLibrary() {
 
       <div class="space-y-6">
         <div>
-          <p class="text-sm font-medium mb-2">Invite by Email</p>
+          <p class="text-sm font-medium mb-2">Create Invite Link</p>
           <p class="text-xs text-muted mb-3">
-            Add a specific user directly or send a targeted invite.
+            Anyone with the link can sign up and join this library as a member.
           </p>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <UInput
-              v-model="inviteEmail"
-              type="email"
-              placeholder="user@example.com"
-              icon="i-lucide-mail"
-              :ui="{ root: 'flex-1' }"
-              @keydown.enter="inviteUserByEmail"
-            />
-            <USelect v-model="inviteEmailRole" :items="inviteRoleOptions" class="w-full sm:w-32" />
+          <div class="flex flex-col sm:flex-row gap-2 items-end">
+            <UFormField label="Max uses" hint="Leave blank for unlimited" class="flex-1">
+              <UInput
+                v-model="newLinkMaxUses"
+                type="number"
+                min="1"
+                placeholder="Unlimited"
+                class="w-full"
+                :ui="{ root: 'w-full' }"
+              />
+            </UFormField>
+            <UFormField label="Expires at" hint="Leave blank for never" class="flex-1">
+              <UInput
+                v-model="newLinkExpiresAt"
+                type="datetime-local"
+                class="w-full"
+                :ui="{ root: 'w-full' }"
+              />
+            </UFormField>
             <UButton
               color="primary"
-              variant="soft"
-              icon="i-lucide-user-plus"
-              :loading="inviteByEmailLoading"
-              :disabled="!inviteEmail.trim() || inviteByEmailLoading"
-              @click="inviteUserByEmail"
+              icon="i-lucide-link"
+              :loading="createInviteLinkLoading"
+              :disabled="createInviteLinkLoading"
+              @click="submitCreateInviteLink"
             >
-              Invite
+              Create Link
             </UButton>
           </div>
         </div>
@@ -438,20 +453,14 @@ async function deleteLibrary() {
         <div v-if="inviteLinks.length">
           <div class="flex items-center justify-between gap-3 mb-3">
             <div>
-              <p class="text-sm font-medium">Invite Links</p>
-              <p class="text-xs text-muted">Reusable links for authenticated users.</p>
+              <p class="text-sm font-medium">Active Invite Links</p>
+              <p class="text-xs text-muted">
+                Track redemptions and revoke links you no longer need.
+              </p>
             </div>
-            <UButton
-              color="primary"
-              variant="soft"
-              size="sm"
-              icon="i-lucide-link"
-              :loading="createInviteLinkLoading"
-              :disabled="createInviteLinkLoading"
-              @click="createInviteLink"
-            >
-              Create Link
-            </UButton>
+            <UBadge color="neutral" variant="soft" size="sm">
+              {{ inviteLinks.length }}
+            </UBadge>
           </div>
           <div class="divide-y divide-default rounded-xl border border-default overflow-hidden">
             <InviteLinkRow
@@ -463,23 +472,6 @@ async function deleteLibrary() {
               @revoke="revokeInvite"
             />
           </div>
-        </div>
-        <div v-else class="flex items-center justify-between gap-3">
-          <div>
-            <p class="text-sm font-medium">Invite Links</p>
-            <p class="text-xs text-muted">Reusable links for authenticated users.</p>
-          </div>
-          <UButton
-            color="primary"
-            variant="soft"
-            size="sm"
-            icon="i-lucide-link"
-            :loading="createInviteLinkLoading"
-            :disabled="createInviteLinkLoading"
-            @click="createInviteLink"
-          >
-            Create Link
-          </UButton>
         </div>
 
         <div v-if="libraryMembers.length">
@@ -504,48 +496,6 @@ async function deleteLibrary() {
               "
               @remove="removeMember"
             />
-          </div>
-        </div>
-
-        <div v-if="emailInvites.length">
-          <div class="flex items-center justify-between gap-2 mb-3">
-            <p class="text-sm font-medium">Pending Email Invites</p>
-            <UBadge color="neutral" variant="soft" size="sm">
-              {{ emailInvites.length }} pending
-            </UBadge>
-          </div>
-          <div class="divide-y divide-default rounded-xl border border-default overflow-hidden">
-            <div
-              v-for="invite in emailInvites"
-              :key="invite.id"
-              class="px-3 py-3 flex flex-col md:flex-row md:items-center gap-3"
-            >
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium truncate">{{ invite.invitedEmail }}</p>
-                <p class="text-xs text-muted truncate">{{ invite.inviteUrl }}</p>
-              </div>
-              <div class="flex items-center gap-2">
-                <UBadge color="neutral" variant="outline" size="sm">{{ invite.role }}</UBadge>
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  square
-                  icon="i-lucide-copy"
-                  @click="copyInviteLink(invite.inviteUrl)"
-                />
-                <UButton
-                  color="error"
-                  variant="soft"
-                  size="sm"
-                  square
-                  icon="i-lucide-x"
-                  :loading="revokingInviteId === invite.id"
-                  :disabled="revokingInviteId === invite.id"
-                  @click="revokeInvite(invite.id)"
-                />
-              </div>
-            </div>
           </div>
         </div>
       </div>

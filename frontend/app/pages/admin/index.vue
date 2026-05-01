@@ -6,7 +6,7 @@ import { formatFileSize } from "~/utils/mime-icons";
 import { useToast } from "~/composables/useToast";
 import AdminJobsPanel from "~/components/admin/AdminJobsPanel.vue";
 import UserAvatar from "~/components/UserAvatar.vue";
-import type { AdminStats, AdminUser } from "~~/shared/types/api";
+import type { AdminStats, AdminUser, AppSettings, RegistrationMode } from "~~/shared/types/api";
 import type { TableColumn } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
 
@@ -17,6 +17,47 @@ const { user: currentUser } = useAuth();
 
 const { data: stats } = useApiFetch<AdminStats>("/api/admin/stats");
 const { data: users, status: usersStatus } = useApiFetch<AdminUser[]>("/api/admin/users");
+const { data: settings } = useApiFetch<AppSettings>("/api/admin/settings");
+
+const registrationModeDraft = ref<RegistrationMode | null>(null);
+watchEffect(() => {
+  if (settings.value && registrationModeDraft.value === null) {
+    registrationModeDraft.value = settings.value.registration_mode;
+  }
+});
+
+const registrationModes: { value: RegistrationMode; label: string; description: string }[] = [
+  { value: "open", label: "Open", description: "Anyone can create an account." },
+  {
+    value: "invite_only",
+    label: "Invite only",
+    description: "Registration requires a library invite link.",
+  },
+  {
+    value: "closed",
+    label: "Closed",
+    description: "Nobody can create an account. Library invites are disabled.",
+  },
+];
+
+const updatingRegistrationMode = ref(false);
+async function updateRegistrationMode(next: RegistrationMode) {
+  if (!settings.value || next === settings.value.registration_mode) return;
+  updatingRegistrationMode.value = true;
+  const previous = settings.value.registration_mode;
+  try {
+    const updated = await api.admin.updateSettings({ registration_mode: next });
+    settings.value = updated;
+    registrationModeDraft.value = updated.registration_mode;
+    toast.add({ title: "Registration mode updated", color: "success" });
+  } catch (error: unknown) {
+    registrationModeDraft.value = previous;
+    const message = error instanceof Error ? error.message : "Failed to update settings";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    updatingRegistrationMode.value = false;
+  }
+}
 
 interface VersionInfo {
   commit: string;
@@ -207,6 +248,37 @@ const columns: TableColumn<AdminUser>[] = [
         </div>
       </UCard>
     </div>
+
+    <UCard>
+      <template #header>
+        <div>
+          <h2 class="text-lg font-semibold">Registration</h2>
+          <p class="text-sm text-muted">Control who can create accounts on this instance.</p>
+        </div>
+      </template>
+
+      <div class="flex flex-col gap-3">
+        <label
+          v-for="mode in registrationModes"
+          :key="mode.value"
+          class="flex items-start gap-3 cursor-pointer rounded-md p-3 hover:bg-elevated/50"
+        >
+          <input
+            type="radio"
+            name="registration-mode"
+            class="mt-1"
+            :value="mode.value"
+            :checked="registrationModeDraft === mode.value"
+            :disabled="updatingRegistrationMode"
+            @change="updateRegistrationMode(mode.value)"
+          />
+          <div class="min-w-0">
+            <p class="text-sm font-medium">{{ mode.label }}</p>
+            <p class="text-xs text-muted">{{ mode.description }}</p>
+          </div>
+        </label>
+      </div>
+    </UCard>
 
     <UCard :ui="{ body: 'p-0' }">
       <template #header>

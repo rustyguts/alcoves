@@ -16,7 +16,7 @@ import { useLibraryMembers } from "~/composables/useLibraryMembers";
 import { apiFetch } from "~/utils/api-fetch";
 import type {
   LibraryMemberWithUser,
-  LibraryPendingInvite,
+  LibraryInviteLink,
   LibraryUsersResponse,
 } from "~~/shared/types/api";
 
@@ -40,29 +40,29 @@ function makeMember(
   };
 }
 
-function makeInvite(
-  overrides: Partial<LibraryPendingInvite> & { id: string },
-): LibraryPendingInvite {
+function makeInvite(overrides: Partial<LibraryInviteLink> & { id: string }): LibraryInviteLink {
   return {
-    invitedEmail: null,
-    role: "viewer",
+    token: `token-${overrides.id}`,
+    maxUses: null,
     useCount: 0,
+    expiresAt: null,
     createdAt: "2025-01-01T00:00:00Z",
     inviteUrl: `https://example.com/invites/token-${overrides.id}`,
     invitedBy: { id: "u-owner", displayName: "Owner", avatarUrl: null },
+    uses: [],
     ...overrides,
   };
 }
 
 function makeUsersResponse(
   members: LibraryMemberWithUser[] = [],
-  pendingInvites: LibraryPendingInvite[] = [],
+  inviteLinks: LibraryInviteLink[] = [],
 ): LibraryUsersResponse {
   return {
     libraryId: "lib-1",
     canManageUsers: true,
     members,
-    pendingInvites,
+    inviteLinks,
   };
 }
 
@@ -92,16 +92,14 @@ describe("useLibraryMembers", () => {
     expect(libraryMembers.value).toEqual([]);
   });
 
-  it("splits pending invites into email invites and invite links", () => {
-    const emailInvite = makeInvite({ id: "i1", invitedEmail: "user@example.com" });
-    const linkInvite = makeInvite({ id: "i2", invitedEmail: null });
-    const response = makeUsersResponse([], [emailInvite, linkInvite]);
-    const { emailInvites, inviteLinks } = create(response);
+  it("exposes inviteLinks from users response", () => {
+    const link1 = makeInvite({ id: "i1" });
+    const link2 = makeInvite({ id: "i2" });
+    const response = makeUsersResponse([], [link1, link2]);
+    const { inviteLinks } = create(response);
 
-    expect(emailInvites.value).toHaveLength(1);
-    expect(emailInvites.value[0]!.id).toBe("i1");
-    expect(inviteLinks.value).toHaveLength(1);
-    expect(inviteLinks.value[0]!.id).toBe("i2");
+    expect(inviteLinks.value).toHaveLength(2);
+    expect(inviteLinks.value[0]!.id).toBe("i1");
   });
 
   it("computes memberAvatars", () => {
@@ -145,79 +143,44 @@ describe("useLibraryMembers", () => {
     expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Invite link copied" });
   });
 
-  it("copyInviteLink shows error on failure", async () => {
+  it("copyInviteLink absolutizes relative paths", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    const { copyInviteLink } = create();
+    await copyInviteLink("/invites/abc");
+
+    // jsdom default origin is http://localhost:3000
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/invites/abc`);
+  });
+
+  it("copyInviteLink falls back to textarea when clipboard API rejects", async () => {
     const writeText = vi.fn().mockRejectedValue(new Error("denied"));
     Object.assign(navigator, { clipboard: { writeText } });
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.assign(document, { execCommand });
+
+    const { copyInviteLink } = create();
+    await copyInviteLink("https://example.com/invite");
+
+    expect(execCommand).toHaveBeenCalledWith("copy");
+    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Invite link copied" });
+  });
+
+  it("copyInviteLink surfaces URL when both paths fail", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.assign(navigator, { clipboard: { writeText } });
+    const execCommand = vi.fn().mockReturnValue(false);
+    Object.assign(document, { execCommand });
 
     const { copyInviteLink } = create();
     await copyInviteLink("https://example.com/invite");
 
     expect(mocks.toast.add).toHaveBeenCalledWith({
-      title: "Unable to copy invite link",
+      title: "Copy failed — link below",
+      description: "https://example.com/invite",
       color: "error",
     });
-  });
-
-  it("inviteUserByEmail posts and refreshes on success", async () => {
-    mockApiFetch.mockResolvedValueOnce({ action: "added" });
-
-    const { inviteUserByEmail, inviteEmail, inviteEmailRole } = create();
-    inviteEmail.value = "user@example.com";
-    inviteEmailRole.value = "admin";
-
-    await inviteUserByEmail();
-
-    expect(mockApiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/users/invite-email", {
-      method: "POST",
-      body: { email: "user@example.com", role: "admin" },
-    });
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "User added to library" });
-    expect(inviteEmail.value).toBe("");
-    expect(refreshLibraryUsers).toHaveBeenCalled();
-  });
-
-  it("inviteUserByEmail handles already_member", async () => {
-    mockApiFetch.mockResolvedValueOnce({ action: "already_member" });
-
-    const { inviteUserByEmail, inviteEmail } = create();
-    inviteEmail.value = "user@example.com";
-
-    await inviteUserByEmail();
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "User already has access" });
-  });
-
-  it("inviteUserByEmail handles invited with invite URL", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
-
-    mockApiFetch.mockResolvedValueOnce({
-      action: "invited",
-      invite: { inviteUrl: "https://example.com/invite" },
-    });
-
-    const { inviteUserByEmail, inviteEmail } = create();
-    inviteEmail.value = "user@example.com";
-
-    await inviteUserByEmail();
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Invite created" });
-  });
-
-  it("inviteUserByEmail does nothing with empty email", async () => {
-    const { inviteUserByEmail, inviteEmail } = create();
-    inviteEmail.value = "   ";
-
-    await inviteUserByEmail();
-    expect(mockApiFetch).not.toHaveBeenCalled();
-  });
-
-  it("inviteUserByEmail shows error on failure", async () => {
-    mockApiFetch.mockRejectedValueOnce({ data: { message: "Bad request" } });
-
-    const { inviteUserByEmail, inviteEmail } = create();
-    inviteEmail.value = "user@example.com";
-
-    await inviteUserByEmail();
-    expect(mocks.toast.add).toHaveBeenCalledWith({ title: "Bad request", color: "error" });
   });
 
   it("createInviteLink posts and copies URL", async () => {
@@ -231,8 +194,36 @@ describe("useLibraryMembers", () => {
 
     expect(mockApiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/users/invite-link", {
       method: "POST",
+      body: {},
     });
     expect(refreshLibraryUsers).toHaveBeenCalled();
+  });
+
+  it("createInviteLink absolutizes a relative inviteUrl before copying", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    mockApiFetch.mockResolvedValueOnce({ inviteUrl: "/invites/abc" });
+
+    const { createInviteLink } = create();
+    await createInviteLink();
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/invites/abc`);
+  });
+
+  it("createInviteLink forwards maxUses and expiresAt", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    mockApiFetch.mockResolvedValueOnce({ inviteUrl: "https://example.com/link" });
+
+    const { createInviteLink } = create();
+    await createInviteLink({ maxUses: 5, expiresAt: "2030-01-01T00:00:00Z" });
+
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/users/invite-link", {
+      method: "POST",
+      body: { maxUses: 5, expiresAt: "2030-01-01T00:00:00Z" },
+    });
   });
 
   it("createInviteLink shows toast on error", async () => {

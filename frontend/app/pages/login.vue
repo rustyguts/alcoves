@@ -6,6 +6,7 @@ definePageMeta({ layout: false });
 import OAuthGoogleButton from "~/components/OAuthGoogleButton.vue";
 import { useAuth } from "~/composables/useAuth";
 import { api } from "~/api";
+import type { InviteLookupResponse } from "~~/shared/types/api";
 
 const { login } = useAuth();
 const route = useRoute();
@@ -14,6 +15,12 @@ const error = ref("");
 
 const providersLoading = ref(true);
 const googleAuthEnabled = ref(false);
+
+const inviteToken = computed(() => {
+  const t = route.query.invite;
+  return typeof t === "string" && t.length > 0 ? t : null;
+});
+const invite = ref<InviteLookupResponse | null>(null);
 
 onMounted(async () => {
   try {
@@ -24,6 +31,14 @@ onMounted(async () => {
   } finally {
     providersLoading.value = false;
   }
+
+  if (inviteToken.value) {
+    try {
+      invite.value = await api.invites.lookup(inviteToken.value);
+    } catch {
+      invite.value = null;
+    }
+  }
 });
 
 const redirectPath = computed(() => {
@@ -31,11 +46,12 @@ const redirectPath = computed(() => {
   if (typeof raw !== "string" || !raw.startsWith("/")) return "/";
   return raw;
 });
-const registerLink = computed(() =>
-  redirectPath.value === "/"
-    ? "/register"
-    : { path: "/register", query: { redirect: redirectPath.value } },
-);
+const registerLink = computed(() => {
+  const query: Record<string, string> = {};
+  if (redirectPath.value !== "/") query.redirect = redirectPath.value;
+  if (inviteToken.value) query.invite = inviteToken.value;
+  return Object.keys(query).length === 0 ? "/register" : { path: "/register", query };
+});
 
 if (route.query.error === "google") {
   error.value = "Google sign-in failed. Please try again.";
@@ -58,6 +74,20 @@ async function onSubmit() {
   submitting.value = true;
   try {
     await login(state.email, state.password);
+
+    // If user arrived with an invite token, redeem it before navigating.
+    if (inviteToken.value) {
+      try {
+        const result = await api.invites.accept(inviteToken.value);
+        router.push(`/libraries/${result.libraryId}`);
+        return;
+      } catch {
+        // Fall through to redirect; invite landing will surface the failure.
+        router.push(`/invites/${inviteToken.value}`);
+        return;
+      }
+    }
+
     router.push(redirectPath.value);
   } catch (err: unknown) {
     const msg = (err as { data?: { message?: string } })?.data?.message;
@@ -75,6 +105,15 @@ async function onSubmit() {
     :error="error"
   >
     <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
+      <UAlert
+        v-if="invite && invite.library"
+        color="info"
+        variant="subtle"
+        icon="i-lucide-mail"
+        :title="`You've been invited to ${invite.library.name}`"
+        description="Sign in to accept the invite. New here? Create an account below."
+      />
+
       <UFormField label="Email" name="email" required>
         <UInput
           v-model="state.email"
@@ -125,9 +164,9 @@ async function onSubmit() {
         </Transition>
 
         <p class="text-center text-sm text-muted">
-          Don't have an account?
+          {{ invite ? "New here?" : "Don't have an account?" }}
           <NuxtLink :to="registerLink" class="text-primary font-medium hover:underline">
-            Sign up
+            {{ invite ? "Create an account" : "Sign up" }}
           </NuxtLink>
         </p>
       </div>

@@ -11,16 +11,19 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
+	"github.com/alcoves/alcoves-backend/internal/services/invites"
+	"github.com/alcoves/alcoves-backend/internal/services/settings"
 )
 
 type AuthHandler struct {
 	db                *gorm.DB
 	authSvc           *authservice.Service
+	settingsSvc       *settings.Service
 	googleAuthEnabled bool
 }
 
-func NewAuthHandler(db *gorm.DB, authSvc *authservice.Service, googleAuthEnabled bool) *AuthHandler {
-	return &AuthHandler{db: db, authSvc: authSvc, googleAuthEnabled: googleAuthEnabled}
+func NewAuthHandler(db *gorm.DB, authSvc *authservice.Service, settingsSvc *settings.Service, googleAuthEnabled bool) *AuthHandler {
+	return &AuthHandler{db: db, authSvc: authSvc, settingsSvc: settingsSvc, googleAuthEnabled: googleAuthEnabled}
 }
 
 // RegisterRoutes registers all auth routes.
@@ -50,9 +53,10 @@ func (h *AuthHandler) Providers(c echo.Context) error {
 }
 
 type registerRequest struct {
-	Name     string `json:"name" validate:"required,min=1"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8"`
+	Name        string `json:"name" validate:"required,min=1"`
+	Email       string `json:"email" validate:"required,email"`
+	Password    string `json:"password" validate:"required,min=8"`
+	InviteToken string `json:"inviteToken,omitempty"`
 }
 
 type userResponse struct {
@@ -90,12 +94,34 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusConflict, "Email already registered")
 	}
 
-	// First user becomes owner
+	// First user becomes owner; bootstrap exception bypasses registration mode.
 	var userCount int64
 	h.db.Model(&models.User{}).Count(&userCount)
+	isBootstrap := userCount == 0
 	role := "member"
-	if userCount == 0 {
+	if isBootstrap {
 		role = "owner"
+	}
+
+	// Resolve registration mode + optional invite token.
+	var pendingInvite *models.LibraryInvite
+	if !isBootstrap && h.settingsSvc != nil {
+		mode := h.settingsSvc.Get().RegistrationMode
+		switch mode {
+		case settings.RegistrationClosed:
+			return echo.NewHTTPError(http.StatusForbidden, "Registration is disabled")
+		case settings.RegistrationInviteOnly:
+			if req.InviteToken == "" {
+				return echo.NewHTTPError(http.StatusForbidden, "Registration requires an invite")
+			}
+		}
+		if req.InviteToken != "" {
+			inv, err := invites.LookupRedeemable(h.db, req.InviteToken)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusForbidden, "Invite is not valid: "+err.Error())
+			}
+			pendingInvite = inv
+		}
 	}
 
 	passwordHash, err := authservice.HashPassword(req.Password)
@@ -129,6 +155,14 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		OwnerID:   user.ID,
 	}
 	h.db.Create(&library)
+
+	// Redeem invite (if any) — best-effort: a redeem failure here does not
+	// roll back account creation, but we surface the error.
+	if pendingInvite != nil {
+		if err := invites.Redeem(h.db, pendingInvite, user.ID); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Account created but invite redemption failed: "+err.Error())
+		}
+	}
 
 	// Create session
 	sessionToken, err := h.authSvc.CreateSession(user.ID, c)

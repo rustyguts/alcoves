@@ -20,6 +20,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/alcoves/alcoves-backend/internal/services/access"
+	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
@@ -27,7 +28,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
 	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
-	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
+	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
@@ -62,6 +63,11 @@ func main() {
 
 	accessSvc := access.NewService(db)
 	fileSvc := files.NewService(db)
+
+	settingsSvc, err := settings.NewService(db)
+	if err != nil {
+		log.Fatalf("Failed to initialize settings service: %v", err)
+	}
 
 	storageDriver := storage.NewLocalDriver(cfg.StoragePath, cfg.AvatarStoragePath, cfg.CacheStoragePath)
 	storageSvc := storage.NewService(storageDriver)
@@ -147,7 +153,7 @@ func main() {
 			// default queue handles face/object detection and video transcoding.
 			Queues: map[string]int{
 				imageproxy.ImageProxyQueue: 10,
-				"default":                 1,
+				"default":                  1,
 			},
 		})
 
@@ -232,7 +238,7 @@ func main() {
 	// API routes — skipped in worker-only mode
 	if cfg.Mode != "worker" {
 		// Auth routes (public - skipped by auth middleware)
-		authHandler := handlers.NewAuthHandler(db, authSvc, cfg.GoogleAuthEnabled)
+		authHandler := handlers.NewAuthHandler(db, authSvc, settingsSvc, cfg.GoogleAuthEnabled)
 		authHandler.RegisterRoutes(api.Group("/auth"))
 		authHandler.RegisterSessionRoute(api)
 
@@ -272,8 +278,15 @@ func main() {
 		searchHandler.RegisterRoutes(api)
 
 		// Admin routes
-		adminHandler := handlers.NewAdminHandler(db, hashSvc)
+		adminHandler := handlers.NewAdminHandler(db, hashSvc, settingsSvc)
 		adminHandler.RegisterRoutes(api.Group("/admin"))
+
+		// Public meta — exposes registration mode for the register/invite UIs.
+		api.GET("/_meta/registration-mode", func(c echo.Context) error {
+			return c.JSON(http.StatusOK, map[string]string{
+				"mode": settingsSvc.Get().RegistrationMode,
+			})
+		})
 
 		// Admin job queue routes
 		adminJobsHandler := handlers.NewAdminJobsHandler(asynqInspector)
