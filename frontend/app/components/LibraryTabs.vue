@@ -9,6 +9,16 @@ const props = defineProps<{
 }>();
 
 const route = useRoute();
+const router = useRouter();
+
+// `/libraries/:id/trash` is registered as an alias of `/libraries/:id`, so
+// vue-router considers same-record navigation a no-op. Force a push so the
+// URL flips between Files and Trash even though both share the same page.
+function onTabClick(to: string, event: MouseEvent) {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+  event.preventDefault();
+  router.push({ path: to, force: true });
+}
 
 const currentTab = computed(() => {
   if (route.path.endsWith("/tags")) return "tags";
@@ -90,6 +100,7 @@ const tabs = computed(() => {
             ? 'border-primary text-primary'
             : 'border-transparent text-muted hover:text-default hover:border-default'
         "
+        @click="onTabClick(tab.to, $event)"
       >
         <AppIcon :name="tab.icon" class="size-4" />
         <span class="hidden sm:inline">{{ tab.label }}</span>
