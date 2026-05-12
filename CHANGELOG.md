@@ -12,6 +12,42 @@ SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-05-12
+
+### Added
+
+- Notification + activity feed feature. A canonical `library_activities`
+  table records every notable event in a library (file/folder/tag/moment
+  CRUD, member join/remove, system events for waveform/transcribe/video
+  proxy completion). The frontend surfaces this in two places:
+  - A bell icon in the dashboard header opens a global notification
+    dropdown showing cross-library activity. A new `/notifications`
+    page renders the full list grouped by library. Notifications are
+    individually dismissable; "Dismiss all" advances a per-user
+    `users.notifications_cleared_before` watermark.
+  - A new **Feed** tab on each library page shows the per-library
+    activity log (no read state; includes system events and the
+    viewer's own actions).
+- Real-time delivery via a WebSocket hub (`coder/websocket`) backed by
+  Redis Pub/Sub. Connect via `GET /api/ws`; auto-joins a user room
+  (`user:<userID>`) and accepts `subscribe`/`unsubscribe` frames for
+  library rooms (`library:<libraryID>`). Workers and API replicas
+  publish onto `activity:library:<libraryID>` so the same event
+  reaches every replica's local clients.
+- New endpoints: `GET /api/notifications`, `GET /api/notifications/unread-count`,
+  `POST /api/notifications/:id/dismiss`, `POST /api/notifications/dismiss-all`,
+  `GET /api/libraries/:id/feed`, `GET /api/ws`.
+- Migration `00018_add_activity_feed.sql` creates `library_activities` +
+  `user_notification_dismissals` and adds `notifications_cleared_before`
+  to `users`. Activity rows snapshot the subject's name into JSONB
+  metadata so deleted/renamed items still render in past entries.
+
+### Changed
+
+- `invites.Redeem` now returns `(RedeemResult, error)` (the extra
+  `AddedMember` flag lets the caller emit a `member.joined` activity).
+  Callers in `auth.go` and `invite.go` updated.
+
 ## [0.16.0] — 2026-04-30
 
 ### Added

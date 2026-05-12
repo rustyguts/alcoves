@@ -116,7 +116,7 @@ func TestRedeem_CreatesMembershipAndUsage(t *testing.T) {
 	lib := mkLibrary(t, db, owner.ID)
 	inv := mkInvite(t, db, lib, owner, nil)
 
-	if err := Redeem(db, &inv, joiner.ID); err != nil {
+	if _, err := Redeem(db, &inv, joiner.ID); err != nil {
 		t.Fatalf("Redeem: %v", err)
 	}
 
@@ -147,7 +147,7 @@ func TestRedeem_Idempotent(t *testing.T) {
 	inv := mkInvite(t, db, lib, owner, nil)
 
 	for i := 0; i < 2; i++ {
-		if err := Redeem(db, &inv, joiner.ID); err != nil {
+		if _, err := Redeem(db, &inv, joiner.ID); err != nil {
 			t.Fatalf("Redeem #%d: %v", i, err)
 		}
 	}
@@ -179,10 +179,10 @@ func TestRedeem_DifferentUsersBumpsCount(t *testing.T) {
 	lib := mkLibrary(t, db, owner.ID)
 	inv := mkInvite(t, db, lib, owner, nil)
 
-	if err := Redeem(db, &inv, a.ID); err != nil {
+	if _, err := Redeem(db, &inv, a.ID); err != nil {
 		t.Fatalf("redeem a: %v", err)
 	}
-	if err := Redeem(db, &inv, b.ID); err != nil {
+	if _, err := Redeem(db, &inv, b.ID); err != nil {
 		t.Fatalf("redeem b: %v", err)
 	}
 
@@ -199,7 +199,7 @@ func TestRedeem_OwnerReturnsErrAlreadyMember(t *testing.T) {
 	lib := mkLibrary(t, db, owner.ID)
 	inv := mkInvite(t, db, lib, owner, nil)
 
-	err := Redeem(db, &inv, owner.ID)
+	_, err := Redeem(db, &inv, owner.ID)
 	if !errors.Is(err, ErrAlreadyMember) {
 		t.Fatalf("want ErrAlreadyMember, got %v", err)
 	}
@@ -216,11 +216,11 @@ func TestRedeem_RaceUnderMaxUses(t *testing.T) {
 		i.MaxUses = &one
 	})
 
-	if err := Redeem(db, &inv, a.ID); err != nil {
+	if _, err := Redeem(db, &inv, a.ID); err != nil {
 		t.Fatalf("redeem a: %v", err)
 	}
 	// Second user must be rejected because slot is consumed.
-	err := Redeem(db, &inv, b.ID)
+	_, err := Redeem(db, &inv, b.ID)
 	if !errors.Is(err, ErrExhausted) {
 		t.Fatalf("expected ErrExhausted, got %v", err)
 	}

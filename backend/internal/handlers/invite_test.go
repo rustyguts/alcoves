@@ -202,7 +202,7 @@ func TestInvite_Lookup_ReturnsExhausted(t *testing.T) {
 		i.UseCount = 1
 	})
 
-	h := NewInviteHandler(db)
+	h := NewInviteHandler(db, nil)
 	e := newLibEcho()
 	c, rec := newInviteCtx(e, http.MethodGet, "/api/invites/"+inv.Token, "", uuid.Nil, "token", inv.Token)
 	if err := h.Lookup(c); err != nil {
@@ -227,7 +227,7 @@ func TestInvite_Lookup_ReturnsExpired(t *testing.T) {
 		i.ExpiresAt = &past
 	})
 
-	h := NewInviteHandler(db)
+	h := NewInviteHandler(db, nil)
 	e := newLibEcho()
 	c, rec := newInviteCtx(e, http.MethodGet, "/api/invites/"+inv.Token, "", uuid.Nil, "token", inv.Token)
 	if err := h.Lookup(c); err != nil {
@@ -250,7 +250,7 @@ func TestInvite_Lookup_AlreadyMember(t *testing.T) {
 	}
 	inv := mkInviteRow(t, db, lib, owner, nil)
 
-	h := NewInviteHandler(db)
+	h := NewInviteHandler(db, nil)
 	e := newLibEcho()
 	c, rec := newInviteCtx(e, http.MethodGet, "/api/invites/"+inv.Token, "", member.ID, "token", inv.Token)
 	if err := h.Lookup(c); err != nil {
@@ -269,7 +269,7 @@ func TestInvite_Lookup_AnonGetsCanAccept(t *testing.T) {
 	lib := mustLibrary(t, db, owner.ID, "L", false)
 	inv := mkInviteRow(t, db, lib, owner, nil)
 
-	h := NewInviteHandler(db)
+	h := NewInviteHandler(db, nil)
 	e := newLibEcho()
 	c, rec := newInviteCtx(e, http.MethodGet, "/api/invites/"+inv.Token, "", uuid.Nil, "token", inv.Token)
 	if err := h.Lookup(c); err != nil {
@@ -292,7 +292,7 @@ func TestInvite_Accept_Idempotent(t *testing.T) {
 	lib := mustLibrary(t, db, owner.ID, "L", false)
 	inv := mkInviteRow(t, db, lib, owner, nil)
 
-	h := NewInviteHandler(db)
+	h := NewInviteHandler(db, nil)
 	e := newLibEcho()
 
 	for i := 0; i < 2; i++ {
@@ -322,7 +322,7 @@ func TestInvite_Accept_410OnExpired(t *testing.T) {
 		i.ExpiresAt = &past
 	})
 
-	h := NewInviteHandler(db)
+	h := NewInviteHandler(db, nil)
 	e := newLibEcho()
 	c, _ := newInviteCtx(e, http.MethodPost, "/api/invites/"+inv.Token+"/accept", "", joiner.ID, "token", inv.Token)
 	err := h.Accept(c)
@@ -346,7 +346,7 @@ func TestInvite_Accept_410OnExhausted(t *testing.T) {
 		i.UseCount = 1
 	})
 
-	h := NewInviteHandler(db)
+	h := NewInviteHandler(db, nil)
 	e := newLibEcho()
 	c, _ := newInviteCtx(e, http.MethodPost, "/api/invites/"+inv.Token+"/accept", "", joiner.ID, "token", inv.Token)
 	err := h.Accept(c)

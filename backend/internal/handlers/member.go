@@ -11,15 +11,17 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/access"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 )
 
 type MemberHandler struct {
-	db        *gorm.DB
-	accessSvc *access.Service
+	db          *gorm.DB
+	accessSvc   *access.Service
+	activitySvc *activity.Service
 }
 
-func NewMemberHandler(db *gorm.DB, accessSvc *access.Service) *MemberHandler {
-	return &MemberHandler{db: db, accessSvc: accessSvc}
+func NewMemberHandler(db *gorm.DB, accessSvc *access.Service, activitySvc *activity.Service) *MemberHandler {
+	return &MemberHandler{db: db, accessSvc: accessSvc, activitySvc: activitySvc}
 }
 
 func (h *MemberHandler) RegisterRoutes(g *echo.Group) {
@@ -225,9 +227,31 @@ func (h *MemberHandler) RemoveMember(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Cannot remove yourself from the library")
 	}
 
+	// Snapshot the user's display name before the delete so the activity
+	// row still renders something meaningful.
+	var removed models.User
+	memberUUID, _ := uuid.Parse(memberUserID)
+	_ = h.db.Select("id, display_name").Where("id = ?", memberUUID).First(&removed).Error
+
 	result := h.db.Where("library_id = ? AND user_id = ?", libraryID, memberUserID).Delete(&models.LibraryMember{})
 	if result.RowsAffected == 0 {
 		return echo.NewHTTPError(http.StatusNotFound, "Member not found")
+	}
+
+	if h.activitySvc != nil {
+		libUUID, _ := uuid.Parse(libraryID)
+		actor := userID
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   libUUID,
+			ActorID:     &actor,
+			Action:      activity.ActionMemberRemoved,
+			SubjectType: activity.SubjectMember,
+			SubjectID:   &memberUUID,
+			Metadata: map[string]any{
+				"userId":      memberUserID,
+				"displayName": removed.DisplayName,
+			},
+		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"ok": true})

@@ -102,6 +102,35 @@ export async function createMockApi(page: Page, state: MockState): Promise<void>
       return;
     }
 
+    // Notifications endpoints: empty mocks so the bell + WS layer can mount
+    // on every authenticated page without an unrelated test failing.
+    if (p === "/api/notifications" && request.method() === "GET") {
+      await fulfillJson(route, 200, { entries: [], nextCursor: null, unreadCount: 0 });
+      return;
+    }
+    if (p === "/api/notifications/unread-count" && request.method() === "GET") {
+      await fulfillJson(route, 200, { unreadCount: 0 });
+      return;
+    }
+    if (p === "/api/notifications/dismiss-all" && request.method() === "POST") {
+      await fulfillEmpty(route, 204);
+      return;
+    }
+    {
+      const m = p.match(/^\/api\/notifications\/([\w-]+)\/dismiss$/);
+      if (m && request.method() === "POST") {
+        await fulfillEmpty(route, 204);
+        return;
+      }
+    }
+    {
+      const m = p.match(/^\/api\/libraries\/([\w-]+)\/feed$/);
+      if (m && request.method() === "GET") {
+        await fulfillJson(route, 200, { entries: [], nextCursor: null });
+        return;
+      }
+    }
+
     if (p === "/api/auth/me" && request.method() === "PATCH") {
       const body = request.postDataJSON() as Record<string, unknown>;
       state.currentUser = { ...state.currentUser, ...body };

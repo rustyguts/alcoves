@@ -35,15 +35,19 @@ func libraryTestDB(t *testing.T) *gorm.DB {
 		&models.LibraryMember{},
 		&models.LibraryInvite{},
 		&models.File{},
+		&models.Folder{},
+		&models.Tag{},
 		&models.Moment{},
 		&models.MomentShare{},
+		&models.LibraryActivity{},
+		&models.UserNotificationDismissal{},
 	); err != nil {
 		t.Fatalf("Failed to migrate: %v", err)
 	}
 
 	// CASCADE handles any FKs from tables migrated by other test files
 	// (sessions, accounts, etc.) without requiring this helper to know about them.
-	db.Exec("TRUNCATE TABLE users, libraries, files, moments, moment_shares, library_members, library_invites RESTART IDENTITY CASCADE")
+	db.Exec("TRUNCATE TABLE users, libraries, files, folders, tags, moments, moment_shares, library_members, library_invites, library_activities, user_notification_dismissals RESTART IDENTITY CASCADE")
 	return db
 }
 

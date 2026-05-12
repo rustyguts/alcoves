@@ -3,6 +3,7 @@ import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
 import UserAvatar from "~/components/UserAvatar.vue";
+import NotificationBell from "~/components/notifications/NotificationBell.vue";
 import type { Library } from "~~/shared/types/api";
 import type { DropdownMenuItem, NavigationMenuItem } from "@nuxt/ui";
 
@@ -255,6 +256,7 @@ async function createLibrary() {
           />
         </form>
         <div class="flex-1" />
+        <NotificationBell />
         <UDropdownMenu
           :items="userMenuItems"
           :content="{ align: 'end', sideOffset: 8 }"

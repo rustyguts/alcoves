@@ -9,7 +9,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
+	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 )
 
 // Tag color palette — matches shared/tag-colors.ts exactly.
@@ -20,11 +22,12 @@ var TagColorPalette = []string{
 }
 
 type TagHandler struct {
-	db *gorm.DB
+	db          *gorm.DB
+	activitySvc *activity.Service
 }
 
-func NewTagHandler(db *gorm.DB) *TagHandler {
-	return &TagHandler{db: db}
+func NewTagHandler(db *gorm.DB, activitySvc *activity.Service) *TagHandler {
+	return &TagHandler{db: db, activitySvc: activitySvc}
 }
 
 func (h *TagHandler) RegisterRoutes(g *echo.Group) {
@@ -87,6 +90,21 @@ func (h *TagHandler) Create(c echo.Context) error {
 
 	if err := h.db.Create(&tag).Error; err != nil {
 		return echo.NewHTTPError(http.StatusConflict, "Tag name already in use")
+	}
+
+	if h.activitySvc != nil {
+		actorID := middleware.GetUserID(c)
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   libraryID,
+			ActorID:     &actorID,
+			Action:      activity.ActionTagCreated,
+			SubjectType: activity.SubjectTag,
+			SubjectID:   &tag.ID,
+			Metadata: map[string]any{
+				"name":  tag.Name,
+				"color": tag.Color,
+			},
+		})
 	}
 
 	return c.JSON(http.StatusOK, tagToJSON(&tag))

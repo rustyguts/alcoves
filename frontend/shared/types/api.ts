@@ -394,3 +394,59 @@ export interface MomentShare {
   revokedAt: string | null;
   createdAt: string;
 }
+
+
+// ─── Activity feed / notifications ──────────────────────────────────────────
+// These mirror the backend services/activity package. The set of action
+// strings is frozen; new actions must be added to both files in lockstep.
+
+export type ActivityAction =
+  | "file.created"
+  | "file.deleted"
+  | "folder.created"
+  | "folder.renamed"
+  | "folder.deleted"
+  | "tag.created"
+  | "moment.created"
+  | "moment.shared"
+  | "member.joined"
+  | "member.removed"
+  | "system.waveform_ready"
+  | "system.transcribe_ready"
+  | "system.video_proxy_ready";
+
+export type ActivitySubjectType = "file" | "folder" | "tag" | "moment" | "share" | "member";
+
+export interface ActivityActor {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
+export interface Activity {
+  id: string;
+  libraryId: string;
+  libraryName?: string;
+  actor: ActivityActor | null;
+  action: ActivityAction;
+  subjectType: ActivitySubjectType;
+  subjectId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  dismissed: boolean;
+}
+
+export interface LibraryFeedResponse {
+  entries: Activity[];
+  nextCursor: string | null;
+}
+
+export interface NotificationsResponse {
+  entries: Activity[];
+  nextCursor: string | null;
+  unreadCount: number;
+}
+
+export interface UnreadCountResponse {
+  unreadCount: number;
+}

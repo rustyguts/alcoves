@@ -11,15 +11,17 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/invites"
 )
 
 type InviteHandler struct {
-	db *gorm.DB
+	db          *gorm.DB
+	activitySvc *activity.Service
 }
 
-func NewInviteHandler(db *gorm.DB) *InviteHandler {
-	return &InviteHandler{db: db}
+func NewInviteHandler(db *gorm.DB, activitySvc *activity.Service) *InviteHandler {
+	return &InviteHandler{db: db, activitySvc: activitySvc}
 }
 
 func (h *InviteHandler) RegisterRoutes(g *echo.Group) {
@@ -120,7 +122,8 @@ func (h *InviteHandler) Accept(c echo.Context) error {
 		}
 	}
 
-	if err := invites.Redeem(h.db, invite, userID); err != nil {
+	result, err := invites.Redeem(h.db, invite, userID)
+	if err != nil {
 		if errors.Is(err, invites.ErrAlreadyMember) {
 			return c.JSON(http.StatusOK, map[string]interface{}{
 				"libraryId": invite.LibraryID.String(),
@@ -131,6 +134,27 @@ func (h *InviteHandler) Accept(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusGone, "Invite has no remaining uses")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to redeem invite")
+	}
+
+	if result.AddedMember && h.activitySvc != nil {
+		// Actor is the joining user themselves — actor exclusion in the
+		// global feed query then hides this from their own bell, while
+		// other members + the owner see "X joined".
+		actor := userID
+		var u models.User
+		_ = h.db.Select("id, display_name").Where("id = ?", userID).First(&u).Error
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   invite.LibraryID,
+			ActorID:     &actor,
+			Action:      activity.ActionMemberJoined,
+			SubjectType: activity.SubjectMember,
+			SubjectID:   &userID,
+			Metadata: map[string]any{
+				"userId":      userID.String(),
+				"displayName": u.DisplayName,
+				"viaInviteId": invite.ID.String(),
+			},
+		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

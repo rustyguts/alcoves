@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -18,14 +19,16 @@ type Service struct {
 	db          *gorm.DB
 	storage     *storage.Service
 	asynqClient *asynq.Client
+	activitySvc *activity.Service
 }
 
 // NewService creates a new video proxy service.
-func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Client) *Service {
+func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Client, activitySvc *activity.Service) *Service {
 	return &Service{
 		db:          db,
 		storage:     storageSvc,
 		asynqClient: asynqClient,
+		activitySvc: activitySvc,
 	}
 }
 
@@ -102,5 +105,5 @@ func (s *Service) EnqueueExistingVideoThumbnails(libraryID string) (int, error) 
 
 // NewTaskHandler creates the asynq task handler for processing video proxy tasks.
 func (s *Service) NewTaskHandler() *TaskHandler {
-	return NewTaskHandler(s.db, s.storage)
+	return NewTaskHandler(s.db, s.storage, s.activitySvc)
 }

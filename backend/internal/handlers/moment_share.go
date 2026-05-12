@@ -14,6 +14,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 )
 
 // RegisterShareRoutes attaches share CRUD endpoints to the moment handler's route group.
@@ -103,6 +104,22 @@ func (h *MomentHandler) CreateShare(c echo.Context) error {
 	}
 	if err := h.db.Create(&share).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create share")
+	}
+
+	if h.activitySvc != nil {
+		aid := userID
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   moment.LibraryID,
+			ActorID:     &aid,
+			Action:      activity.ActionMomentShared,
+			SubjectType: activity.SubjectShare,
+			SubjectID:   &share.ID,
+			Metadata: map[string]any{
+				"momentId":   moment.ID.String(),
+				"momentName": moment.Name,
+				"token":      share.Token,
+			},
+		})
 	}
 
 	return c.JSON(http.StatusCreated, toMomentShareResponse(&share, h.baseURLFor(c)))

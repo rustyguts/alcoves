@@ -53,7 +53,7 @@ func setupTestEcho(db *gorm.DB) (*echo.Echo, *AuthHandler) {
 
 	authSvc, _ := authservice.NewService(db, "test-secret-key-at-least-32-chars-long")
 	settingsSvc, _ := settings.NewService(db)
-	handler := NewAuthHandler(db, authSvc, settingsSvc, false)
+	handler := NewAuthHandler(db, authSvc, settingsSvc, false, nil)
 	return e, handler
 }
 
@@ -222,7 +222,7 @@ func setMode(t *testing.T, db *gorm.DB, mode string) (*echo.Echo, *AuthHandler) 
 	e := echo.New()
 	e.Validator = NewValidator()
 	authSvc, _ := authservice.NewService(db, "test-secret-key-at-least-32-chars-long")
-	handler := NewAuthHandler(db, authSvc, settingsSvc, false)
+	handler := NewAuthHandler(db, authSvc, settingsSvc, false, nil)
 	return e, handler
 }
 

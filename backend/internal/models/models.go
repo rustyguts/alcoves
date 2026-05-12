@@ -23,14 +23,15 @@ func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
 
 // User maps to the "users" table.
 type User struct {
-	ID           uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Email        string    `gorm:"column:email;type:text;not null;uniqueIndex" json:"email"`
-	PasswordHash *string   `gorm:"column:password_hash;type:text" json:"-"`
-	DisplayName  string    `gorm:"column:display_name;type:text;not null" json:"displayName"`
-	AvatarUrl    *string   `gorm:"column:avatar_url;type:text" json:"avatarUrl"`
-	Role         string    `gorm:"column:role;type:text;not null;default:member" json:"role"`
-	CreatedAt    time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt    time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
+	ID                         uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Email                      string     `gorm:"column:email;type:text;not null;uniqueIndex" json:"email"`
+	PasswordHash               *string    `gorm:"column:password_hash;type:text" json:"-"`
+	DisplayName                string     `gorm:"column:display_name;type:text;not null" json:"displayName"`
+	AvatarUrl                  *string    `gorm:"column:avatar_url;type:text" json:"avatarUrl"`
+	Role                       string     `gorm:"column:role;type:text;not null;default:member" json:"role"`
+	NotificationsClearedBefore *time.Time `gorm:"column:notifications_cleared_before" json:"-"`
+	CreatedAt                  time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+	UpdatedAt                  time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 }
 
 func (User) TableName() string { return "users" }
@@ -452,3 +453,44 @@ func (h *HighlightFilter) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// LibraryActivity is the canonical activity log row. Inserted by
+// services/activity.Service.Emit. The bell feed is derived
+// (this table + UserNotificationDismissal + users.notifications_cleared_before).
+//
+// Metadata is JSONB. Schema varies per action; see services/activity/actions.go.
+// Subject names are snapshotted into metadata so renaming or deleting the
+// underlying entity doesn't break renderers.
+type LibraryActivity struct {
+	ID          uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	LibraryID   uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:library_activities_library_created_idx,priority:1" json:"libraryId"`
+	ActorID     *uuid.UUID `gorm:"column:actor_id;type:uuid;index:library_activities_actor_created_idx,priority:1" json:"actorId"`
+	Action      string     `gorm:"column:action;type:text;not null" json:"action"`
+	SubjectType string     `gorm:"column:subject_type;type:text;not null;index:library_activities_subject_idx,priority:1" json:"subjectType"`
+	SubjectID   *uuid.UUID `gorm:"column:subject_id;type:uuid;index:library_activities_subject_idx,priority:2" json:"subjectId"`
+	Metadata    []byte     `gorm:"column:metadata;type:jsonb;not null;default:'{}'::jsonb" json:"-"`
+	CreatedAt   time.Time  `gorm:"column:created_at;not null;default:now();index:library_activities_library_created_idx,priority:2,sort:desc;index:library_activities_actor_created_idx,priority:3,sort:desc" json:"createdAt"`
+
+	Library *Library `gorm:"foreignKey:LibraryID" json:"-"`
+	Actor   *User    `gorm:"foreignKey:ActorID" json:"-"`
+}
+
+func (LibraryActivity) TableName() string { return "library_activities" }
+
+func (a *LibraryActivity) BeforeCreate(tx *gorm.DB) error {
+	if a.ID == uuid.Nil {
+		a.ID = uuid.New()
+	}
+	return nil
+}
+
+// UserNotificationDismissal records that a user explicitly dismissed a
+// specific activity from their global bell view. Sparse — /dismiss-all
+// uses a per-user watermark (User.NotificationsClearedBefore) instead.
+type UserNotificationDismissal struct {
+	UserID      uuid.UUID `gorm:"column:user_id;type:uuid;not null;primaryKey" json:"userId"`
+	ActivityID  uuid.UUID `gorm:"column:activity_id;type:uuid;not null;primaryKey" json:"activityId"`
+	DismissedAt time.Time `gorm:"column:dismissed_at;not null;default:now()" json:"dismissedAt"`
+}
+
+func (UserNotificationDismissal) TableName() string { return "user_notification_dismissals" }

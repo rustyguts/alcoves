@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/config"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -19,10 +20,11 @@ type Service struct {
 	storage     *storage.Service
 	asynqClient *asynq.Client
 	cfg         *config.Config
+	activitySvc *activity.Service
 }
 
-func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Client, cfg *config.Config) *Service {
-	return &Service{db: db, storage: storageSvc, asynqClient: asynqClient, cfg: cfg}
+func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Client, cfg *config.Config, activitySvc *activity.Service) *Service {
+	return &Service{db: db, storage: storageSvc, asynqClient: asynqClient, cfg: cfg, activitySvc: activitySvc}
 }
 
 const completedTaskRetention = 24 * time.Hour
@@ -40,5 +42,5 @@ func (s *Service) EnqueueWaveform(libraryID, fileID string) error {
 }
 
 func (s *Service) NewTaskHandler() *TaskHandler {
-	return NewTaskHandler(s.db, s.storage, s.cfg)
+	return NewTaskHandler(s.db, s.storage, s.cfg, s.activitySvc)
 }

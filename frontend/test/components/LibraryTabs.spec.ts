@@ -113,9 +113,15 @@ describe("LibraryTabs", () => {
     const hrefs = links.map((l) => l.attributes("href"));
     expect(hrefs).toContain("/libraries/lib-1");
     expect(hrefs).toContain("/libraries/lib-1/tags");
+    expect(hrefs).toContain("/libraries/lib-1/feed");
     expect(hrefs).toContain("/libraries/lib-1/people");
     expect(hrefs).toContain("/libraries/lib-1/trash");
     expect(hrefs).toContain("/libraries/lib-1/settings");
+  });
+
+  it("includes Feed tab by default", () => {
+    const wrapper = mountTabs();
+    expect(wrapper.text()).toContain("Feed");
   });
 
   it("renders actions slot", () => {

@@ -10,14 +10,16 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 )
 
 type FolderHandler struct {
-	db *gorm.DB
+	db          *gorm.DB
+	activitySvc *activity.Service
 }
 
-func NewFolderHandler(db *gorm.DB) *FolderHandler {
-	return &FolderHandler{db: db}
+func NewFolderHandler(db *gorm.DB, activitySvc *activity.Service) *FolderHandler {
+	return &FolderHandler{db: db, activitySvc: activitySvc}
 }
 
 func (h *FolderHandler) RegisterRoutes(g *echo.Group) {
@@ -101,6 +103,21 @@ func (h *FolderHandler) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folder")
 	}
 
+	if h.activitySvc != nil {
+		aid := userID
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   libraryID,
+			ActorID:     &aid,
+			Action:      activity.ActionFolderCreated,
+			SubjectType: activity.SubjectFolder,
+			SubjectID:   &folder.ID,
+			Metadata: map[string]any{
+				"name":           folder.Name,
+				"parentFolderId": parentFolderID,
+			},
+		})
+	}
+
 	return c.JSON(http.StatusOK, folderToJSON(&folder))
 }
 
@@ -128,6 +145,10 @@ func (h *FolderHandler) Update(c echo.Context) error {
 
 	updates["updated_at"] = time.Now()
 
+	// Snapshot the old folder for the rename emit.
+	var snapshot models.Folder
+	_ = h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", folderID, libraryID).First(&snapshot).Error
+
 	result := h.db.Model(&models.Folder{}).
 		Where("id = ? AND library_id = ? AND trashed_at IS NULL", folderID, libraryID).
 		Updates(updates)
@@ -139,6 +160,22 @@ func (h *FolderHandler) Update(c echo.Context) error {
 	var folder models.Folder
 	h.db.Preload("Owner").Where("id = ?", folderID).First(&folder)
 
+	if h.activitySvc != nil && req.Name != nil && *req.Name != snapshot.Name {
+		actorID := middleware.GetUserID(c)
+		libUUID, _ := uuid.Parse(libraryID)
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   libUUID,
+			ActorID:     &actorID,
+			Action:      activity.ActionFolderRenamed,
+			SubjectType: activity.SubjectFolder,
+			SubjectID:   &folder.ID,
+			Metadata: map[string]any{
+				"oldName": snapshot.Name,
+				"newName": folder.Name,
+			},
+		})
+	}
+
 	return c.JSON(http.StatusOK, folderToJSON(&folder))
 }
 
@@ -148,6 +185,10 @@ func (h *FolderHandler) Delete(c echo.Context) error {
 
 	now := time.Now()
 
+	// Snapshot for the activity row.
+	var snapshot models.Folder
+	_ = h.db.Where("id = ? AND library_id = ?", folderID, libraryID).First(&snapshot).Error
+
 	// Soft-delete the folder
 	result := h.db.Model(&models.Folder{}).
 		Where("id = ? AND library_id = ? AND trashed_at IS NULL", folderID, libraryID).
@@ -155,6 +196,21 @@ func (h *FolderHandler) Delete(c echo.Context) error {
 
 	if result.RowsAffected == 0 {
 		return echo.NewHTTPError(http.StatusNotFound, "Folder not found")
+	}
+
+	if h.activitySvc != nil {
+		actorID := middleware.GetUserID(c)
+		libUUID, _ := uuid.Parse(libraryID)
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   libUUID,
+			ActorID:     &actorID,
+			Action:      activity.ActionFolderDeleted,
+			SubjectType: activity.SubjectFolder,
+			SubjectID:   &snapshot.ID,
+			Metadata: map[string]any{
+				"name": snapshot.Name,
+			},
+		})
 	}
 
 	// Cascade soft-delete to descendant folders

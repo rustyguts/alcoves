@@ -10,6 +10,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
 	"github.com/alcoves/alcoves-backend/internal/services/invites"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
@@ -20,10 +21,11 @@ type AuthHandler struct {
 	authSvc           *authservice.Service
 	settingsSvc       *settings.Service
 	googleAuthEnabled bool
+	activitySvc       *activity.Service
 }
 
-func NewAuthHandler(db *gorm.DB, authSvc *authservice.Service, settingsSvc *settings.Service, googleAuthEnabled bool) *AuthHandler {
-	return &AuthHandler{db: db, authSvc: authSvc, settingsSvc: settingsSvc, googleAuthEnabled: googleAuthEnabled}
+func NewAuthHandler(db *gorm.DB, authSvc *authservice.Service, settingsSvc *settings.Service, googleAuthEnabled bool, activitySvc *activity.Service) *AuthHandler {
+	return &AuthHandler{db: db, authSvc: authSvc, settingsSvc: settingsSvc, googleAuthEnabled: googleAuthEnabled, activitySvc: activitySvc}
 }
 
 // RegisterRoutes registers all auth routes.
@@ -159,8 +161,24 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	// Redeem invite (if any) — best-effort: a redeem failure here does not
 	// roll back account creation, but we surface the error.
 	if pendingInvite != nil {
-		if err := invites.Redeem(h.db, pendingInvite, user.ID); err != nil {
+		result, err := invites.Redeem(h.db, pendingInvite, user.ID)
+		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Account created but invite redemption failed: "+err.Error())
+		}
+		if result.AddedMember && h.activitySvc != nil {
+			actor := user.ID
+			h.activitySvc.EmitAsync(activity.EmitParams{
+				LibraryID:   pendingInvite.LibraryID,
+				ActorID:     &actor,
+				Action:      activity.ActionMemberJoined,
+				SubjectType: activity.SubjectMember,
+				SubjectID:   &user.ID,
+				Metadata: map[string]any{
+					"userId":      user.ID.String(),
+					"displayName": user.DisplayName,
+					"viaInviteId": pendingInvite.ID.String(),
+				},
+			})
 		}
 	}
 

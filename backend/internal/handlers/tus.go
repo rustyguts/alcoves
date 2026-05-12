@@ -19,6 +19,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
@@ -59,6 +60,7 @@ type TusHandler struct {
 	objSvc      *objectdetection.Service
 	videoSvc    *videoproxy.Service
 	waveformSvc *waveform.Service
+	activitySvc *activity.Service
 	dataDir     string // staging directory for incomplete uploads
 
 	mu      sync.RWMutex
@@ -67,7 +69,7 @@ type TusHandler struct {
 	stopCleanup chan struct{}
 }
 
-func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, waveformSvc *waveform.Service) *TusHandler {
+func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, waveformSvc *waveform.Service, activitySvc *activity.Service) *TusHandler {
 	tusDir := filepath.Join(dataDir, ".tus-uploads")
 	if err := os.MkdirAll(tusDir, 0o755); err != nil {
 		log.Printf("Failed to create tus staging directory %s: %v", tusDir, err)
@@ -80,6 +82,7 @@ func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, fac
 		objSvc:      objSvc,
 		videoSvc:    videoSvc,
 		waveformSvc: waveformSvc,
+		activitySvc: activitySvc,
 		dataDir:     tusDir,
 		uploads:     make(map[string]*tusUpload),
 		stopCleanup: make(chan struct{}),
@@ -404,6 +407,23 @@ func (h *TusHandler) finishUpload(upload *tusUpload) (int, error) {
 		// Clean up stored file on DB failure
 		h.storageSvc.DeleteFile(upload.LibraryID, fileID.String())
 		return 0, fmt.Errorf("failed to create file record: %w", err)
+	}
+
+	if h.activitySvc != nil {
+		actor := upload.UserID
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   libUUID,
+			ActorID:     &actor,
+			Action:      activity.ActionFileCreated,
+			SubjectType: activity.SubjectFile,
+			SubjectID:   &fileID,
+			Metadata: map[string]any{
+				"name":           upload.Filename,
+				"mimeType":       upload.MimeType,
+				"parentFolderId": upload.FolderID,
+				"size":           bytesWritten,
+			},
+		})
 	}
 
 	// Best-effort duplicate detection — surfaced via response header.

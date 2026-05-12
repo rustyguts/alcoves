@@ -19,6 +19,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/config"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -31,13 +32,14 @@ type Payload struct {
 }
 
 type TaskHandler struct {
-	db      *gorm.DB
-	storage *storage.Service
-	cfg     *config.Config
+	db          *gorm.DB
+	storage     *storage.Service
+	cfg         *config.Config
+	activitySvc *activity.Service
 }
 
-func NewTaskHandler(db *gorm.DB, storageSvc *storage.Service, cfg *config.Config) *TaskHandler {
-	return &TaskHandler{db: db, storage: storageSvc, cfg: cfg}
+func NewTaskHandler(db *gorm.DB, storageSvc *storage.Service, cfg *config.Config, activitySvc *activity.Service) *TaskHandler {
+	return &TaskHandler{db: db, storage: storageSvc, cfg: cfg, activitySvc: activitySvc}
 }
 
 func NewWaveformTask(libraryID, fileID string) (*asynq.Task, error) {
@@ -278,6 +280,25 @@ func (h *TaskHandler) complete(fileID string, version int, peaksPerSec int) {
 		"waveformed_version":        version,
 		"waveform_peaks_per_second": peaksPerSec,
 	})
+
+	if h.activitySvc != nil {
+		var f models.File
+		if err := h.db.Select("id, library_id, name").Where("id = ?", fileID).First(&f).Error; err == nil {
+			fid := f.ID
+			h.activitySvc.EmitAsync(activity.EmitParams{
+				LibraryID:   f.LibraryID,
+				ActorID:     nil, // system event
+				Action:      activity.ActionSystemWaveformReady,
+				SubjectType: activity.SubjectFile,
+				SubjectID:   &fid,
+				Metadata: map[string]any{
+					"fileId":   f.ID.String(),
+					"fileName": f.Name,
+				},
+			})
+		}
+	}
 }
+
 
 func stringPtr(s string) *string { return &s }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
@@ -25,10 +26,11 @@ type MomentHandler struct {
 	storage      *storage.Service
 	momentExport *momentexport.Service
 	baseURL      string
+	activitySvc  *activity.Service
 }
 
-func NewMomentHandler(db *gorm.DB, storageSvc *storage.Service, momentExportSvc *momentexport.Service, baseURL string) *MomentHandler {
-	return &MomentHandler{db: db, storage: storageSvc, momentExport: momentExportSvc, baseURL: baseURL}
+func NewMomentHandler(db *gorm.DB, storageSvc *storage.Service, momentExportSvc *momentexport.Service, baseURL string, activitySvc *activity.Service) *MomentHandler {
+	return &MomentHandler{db: db, storage: storageSvc, momentExport: momentExportSvc, baseURL: baseURL, activitySvc: activitySvc}
 }
 
 func (h *MomentHandler) RegisterRoutes(g *echo.Group) {
@@ -233,6 +235,24 @@ func (h *MomentHandler) Create(c echo.Context) error {
 	}
 	if err := h.db.Create(&moment).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create moment")
+	}
+
+	if h.activitySvc != nil {
+		aid := userID
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   libraryID,
+			ActorID:     &aid,
+			Action:      activity.ActionMomentCreated,
+			SubjectType: activity.SubjectMoment,
+			SubjectID:   &moment.ID,
+			Metadata: map[string]any{
+				"name":         moment.Name,
+				"fileId":       file.ID.String(),
+				"fileName":     file.Name,
+				"startSeconds": moment.StartSeconds,
+				"endSeconds":   moment.EndSeconds,
+			},
+		})
 	}
 
 	return c.JSON(http.StatusCreated, h.toMomentResponse(&moment, nil))

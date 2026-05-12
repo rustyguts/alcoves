@@ -21,6 +21,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -50,15 +51,17 @@ type VideoThumbnailPayload struct {
 
 // TaskHandler handles video proxy asynq tasks.
 type TaskHandler struct {
-	db      *gorm.DB
-	storage *storage.Service
+	db          *gorm.DB
+	storage     *storage.Service
+	activitySvc *activity.Service
 }
 
 // NewTaskHandler creates a new video proxy task handler.
-func NewTaskHandler(db *gorm.DB, storageSvc *storage.Service) *TaskHandler {
+func NewTaskHandler(db *gorm.DB, storageSvc *storage.Service, activitySvc *activity.Service) *TaskHandler {
 	return &TaskHandler{
-		db:      db,
-		storage: storageSvc,
+		db:          db,
+		storage:     storageSvc,
+		activitySvc: activitySvc,
 	}
 }
 
@@ -219,6 +222,24 @@ func (h *TaskHandler) processVideo(ctx context.Context, libraryID, fileID string
 	completeProgress := 100
 	h.setProxyState(fileID, "ready", &completeProgress, nil)
 	log.Printf("video:proxy — completed for file %s", fileID)
+
+	if h.activitySvc != nil {
+		var f models.File
+		if err := h.db.Select("id, library_id, name").Where("id = ?", fileID).First(&f).Error; err == nil {
+			fid := f.ID
+			h.activitySvc.EmitAsync(activity.EmitParams{
+				LibraryID:   f.LibraryID,
+				ActorID:     nil,
+				Action:      activity.ActionSystemVideoProxyReady,
+				SubjectType: activity.SubjectFile,
+				SubjectID:   &fid,
+				Metadata: map[string]any{
+					"fileId":   f.ID.String(),
+					"fileName": f.Name,
+				},
+			})
+		}
+	}
 
 	return nil
 }

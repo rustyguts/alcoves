@@ -20,7 +20,7 @@ func TestMemberHandler_RemoveMember_RejectsSelf(t *testing.T) {
 	e := newLibEcho()
 	owner := mustUser(t, db, "self-remove@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	req := httptest.NewRequest(http.MethodDelete,
 		"/api/libraries/"+lib.ID.String()+"/users/"+owner.ID.String(), nil)
@@ -43,7 +43,7 @@ func TestMemberHandler_RemoveMember_404OnMissing(t *testing.T) {
 	owner := mustUser(t, db, "rm-missing@example.com")
 	other := mustUser(t, db, "rm-other@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	req := httptest.NewRequest(http.MethodDelete,
 		"/api/libraries/"+lib.ID.String()+"/users/"+other.ID.String(), nil)
@@ -66,7 +66,7 @@ func TestMemberHandler_UpdateMemberRole_ValidatesRole(t *testing.T) {
 	owner := mustUser(t, db, "role-bad@example.com")
 	other := mustUser(t, db, "role-target@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	req := httptest.NewRequest(http.MethodPatch,
 		"/api/libraries/"+lib.ID.String()+"/users/"+other.ID.String(),
@@ -88,7 +88,7 @@ func TestMemberHandler_UpdateMemberRole_404WhenNoMember(t *testing.T) {
 	owner := mustUser(t, db, "role-noop@example.com")
 	other := mustUser(t, db, "role-target2@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	req := httptest.NewRequest(http.MethodPatch,
 		"/api/libraries/"+lib.ID.String()+"/users/"+other.ID.String(),
@@ -117,7 +117,7 @@ func TestMemberHandler_UpdateMemberRole_Updates(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("seed member: %v", err)
 	}
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	req := httptest.NewRequest(http.MethodPatch,
 		"/api/libraries/"+lib.ID.String()+"/users/"+other.ID.String(),
@@ -145,7 +145,7 @@ func TestMemberHandler_CreateInviteLink_PersistsRow(t *testing.T) {
 	e := newLibEcho()
 	owner := mustUser(t, db, "inv-ok@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	req := httptest.NewRequest(http.MethodPost,
 		"/api/libraries/"+lib.ID.String()+"/users/invite-link",
@@ -181,7 +181,7 @@ func TestMemberHandler_CreateInviteLink_RejectsBadMaxUses(t *testing.T) {
 	e := newLibEcho()
 	owner := mustUser(t, db, "inv-bad-max@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	req := httptest.NewRequest(http.MethodPost,
 		"/api/libraries/"+lib.ID.String()+"/users/invite-link",
@@ -203,7 +203,7 @@ func TestMemberHandler_CreateInviteLink_ExpiresAtPersists(t *testing.T) {
 	e := newLibEcho()
 	owner := mustUser(t, db, "inv-exp@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	future := time.Now().Add(48 * time.Hour).Format(time.RFC3339Nano)
 	body := `{"expiresAt":"` + future + `"}`
@@ -235,7 +235,7 @@ func TestMemberHandler_CreateInviteLink_RejectsPastExpires(t *testing.T) {
 	e := newLibEcho()
 	owner := mustUser(t, db, "inv-past@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	past := time.Now().Add(-time.Hour).Format(time.RFC3339Nano)
 	body := `{"expiresAt":"` + past + `"}`
@@ -265,7 +265,7 @@ func TestMemberHandler_RevokeInvite_404OnMissing(t *testing.T) {
 	e := newLibEcho()
 	owner := mustUser(t, db, "rev-miss@example.com")
 	lib := mustLibrary(t, db, owner.ID, "L", false)
-	h := NewMemberHandler(db, access.NewService(db))
+	h := NewMemberHandler(db, access.NewService(db), nil)
 
 	req := httptest.NewRequest(http.MethodDelete,
 		"/api/libraries/"+lib.ID.String()+"/users/invites/00000000-0000-0000-0000-000000000000", nil)

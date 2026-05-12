@@ -156,6 +156,14 @@ When the user says "turn off the lights", follow the full workflow defined in [t
 - Avoid destructive git commands and do not revert unrelated local changes
 - When adding DOM/`window`/`localStorage` access to a new component or composable, guard with `import.meta.client` or wrap in `onMounted` — pages are SSR'd by default
 
+## Git commit authorship
+
+- Commits are authored by the human (the configured `user.name` /
+  `user.email`). Do **not** add `Co-Authored-By: Claude …` trailers or
+  any other AI attribution to commit messages. Don't append generator
+  footers either (e.g. "🤖 Generated with Claude Code"). The commit
+  message is the message — nothing else.
+
 ## Versioning
 
 Alcoves is **alpha**. The single source of truth is the plain-text `/VERSION`

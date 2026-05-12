@@ -20,6 +20,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/alcoves/alcoves-backend/internal/services/access"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
@@ -33,6 +34,8 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 	"github.com/alcoves/alcoves-backend/internal/services/waveform"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -85,6 +88,21 @@ func main() {
 	asynqInspector := asynq.NewInspector(asynqRedisOpt)
 	defer asynqInspector.Close()
 
+	// Activity service — drives the notification feed. Hub is constructed
+	// only on API processes (workers publish but don't accept WS
+	// connections); the bus is the cross-process Redis Pub/Sub bridge.
+	notificationsRedis := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", cfg.QueueRedisHost, cfg.QueueRedisPort),
+		Password: cfg.QueueRedisPassword,
+	})
+	defer notificationsRedis.Close()
+	activityBus := activity.NewBus(notificationsRedis)
+	var activityHub *activity.Hub
+	if cfg.Mode != "worker" {
+		activityHub = activity.NewHub()
+	}
+	activitySvc := activity.NewService(db, activityHub, activityBus)
+
 	// Face detection service
 	faceConfig := facedetection.NewFaceConfig(
 		cfg.FaceDetectionMinScore,
@@ -124,16 +142,16 @@ func main() {
 	}
 
 	// Video proxy service
-	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient)
+	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient, activitySvc)
 
 	// Transcribe service (ffmpeg + whisper.cpp).
-	transcribeSvc := transcribe.NewService(db, storageSvc, asynqClient, cfg)
+	transcribeSvc := transcribe.NewService(db, storageSvc, asynqClient, cfg, activitySvc)
 
 	// Audio event detection service (PANNs CNN14 via ONNX Runtime).
 	audioDetectSvc := audiodetection.NewService(db, storageSvc, asynqClient, cfg)
 
 	// Waveform service (ffmpeg PCM extraction + peak windowing).
-	waveformSvc := waveform.NewService(db, storageSvc, asynqClient, cfg)
+	waveformSvc := waveform.NewService(db, storageSvc, asynqClient, cfg, activitySvc)
 
 	// Moment export service (clip encoder for /moments/:id/export).
 	momentExportSvc := momentexport.NewService(db, storageSvc, asynqClient)
@@ -238,7 +256,7 @@ func main() {
 	// API routes — skipped in worker-only mode
 	if cfg.Mode != "worker" {
 		// Auth routes (public - skipped by auth middleware)
-		authHandler := handlers.NewAuthHandler(db, authSvc, settingsSvc, cfg.GoogleAuthEnabled)
+		authHandler := handlers.NewAuthHandler(db, authSvc, settingsSvc, cfg.GoogleAuthEnabled, activitySvc)
 		authHandler.RegisterRoutes(api.Group("/auth"))
 		authHandler.RegisterSessionRoute(api)
 
@@ -247,31 +265,45 @@ func main() {
 		libraryHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// File routes (under /api/libraries)
-		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc)
+		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, activitySvc)
 		fileHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Folder routes (under /api/libraries)
-		folderHandler := handlers.NewFolderHandler(db)
+		folderHandler := handlers.NewFolderHandler(db, activitySvc)
 		folderHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Tag routes (under /api/libraries)
-		tagHandler := handlers.NewTagHandler(db)
+		tagHandler := handlers.NewTagHandler(db, activitySvc)
 		tagHandler.RegisterRoutes(api.Group("/libraries"))
 
 		highlightFilterHandler := handlers.NewHighlightFilterHandler(db)
 		highlightFilterHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Moment routes (under /api/libraries)
-		momentHandler := handlers.NewMomentHandler(db, storageSvc, momentExportSvc, cfg.BaseURL)
+		momentHandler := handlers.NewMomentHandler(db, storageSvc, momentExportSvc, cfg.BaseURL, activitySvc)
 		momentHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Member routes (under /api/libraries)
-		memberHandler := handlers.NewMemberHandler(db, accessSvc)
+		memberHandler := handlers.NewMemberHandler(db, accessSvc, activitySvc)
 		memberHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Invite routes
-		inviteHandler := handlers.NewInviteHandler(db)
+		inviteHandler := handlers.NewInviteHandler(db, activitySvc)
 		inviteHandler.RegisterRoutes(api.Group("/invites"))
+
+		// Notifications: global feed + bell + dismissals + websocket
+		notificationsHandler := handlers.NewNotificationsHandler(db, accessSvc, activitySvc)
+		notificationsHandler.RegisterGlobalRoutes(api)
+		notificationsHandler.RegisterLibraryRoutes(api.Group("/libraries"))
+
+		// Wire the bus → hub fan-out. Workers and other API replicas
+		// publish on Redis Pub/Sub; this loop receives + dispatches.
+		activityBus.SetMemberLookup(notificationsHandler.MemberLookup)
+		go func() {
+			if err := activityBus.Run(context.Background(), activityHub); err != nil && err != context.Canceled {
+				log.Printf("activity bus stopped: %v", err)
+			}
+		}()
 
 		// Search
 		searchHandler := handlers.NewSearchHandler(db)
@@ -305,7 +337,7 @@ func main() {
 		downloadHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Tus resumable upload routes (under /api/tus)
-		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc, waveformSvc)
+		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc, waveformSvc, activitySvc)
 		tusHandler.RegisterRoutes(api)
 
 		// Avatar routes (under /api/auth)

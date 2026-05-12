@@ -42,14 +42,22 @@ func LookupRedeemable(db *gorm.DB, token string) (*models.LibraryInvite, error) 
 	return &invite, nil
 }
 
+// RedeemResult reports what changed during a Redeem call. AddedMember is
+// true when the user was newly inserted into library_members (allowing
+// callers to emit a member.joined activity).
+type RedeemResult struct {
+	AddedMember bool
+}
+
 // Redeem consumes an invite for the given user inside a transaction:
 //   - inserts a LibraryInviteUse row (UNIQUE constraint => idempotent)
 //   - inserts a LibraryMember row if not already present
 //   - increments use_count when a new usage row was inserted
 //
 // The library owner is treated as already-a-member.
-func Redeem(db *gorm.DB, invite *models.LibraryInvite, userID uuid.UUID) error {
-	return db.Transaction(func(tx *gorm.DB) error {
+func Redeem(db *gorm.DB, invite *models.LibraryInvite, userID uuid.UUID) (RedeemResult, error) {
+	var result RedeemResult
+	err := db.Transaction(func(tx *gorm.DB) error {
 		// Owner check
 		var library models.Library
 		if err := tx.Select("id, owner_id").Where("id = ?", invite.LibraryID).First(&library).Error; err != nil {
@@ -100,6 +108,7 @@ func Redeem(db *gorm.DB, invite *models.LibraryInvite, userID uuid.UUID) error {
 			if err := tx.Create(&member).Error; err != nil {
 				return err
 			}
+			result.AddedMember = true
 		}
 
 		// Bump use_count only on first-time redemption.
@@ -112,4 +121,5 @@ func Redeem(db *gorm.DB, invite *models.LibraryInvite, userID uuid.UUID) error {
 		}
 		return nil
 	})
+	return result, err
 }

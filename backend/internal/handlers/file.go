@@ -17,6 +17,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
@@ -38,10 +39,11 @@ type FileHandler struct {
 	transcribeSvc  *transcribe.Service
 	audioDetectSvc *audiodetection.Service
 	waveformSvc    *waveform.Service
+	activitySvc    *activity.Service
 }
 
-func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service, waveformSvc *waveform.Service) *FileHandler {
-	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc, transcribeSvc: transcribeSvc, audioDetectSvc: audioDetectSvc, waveformSvc: waveformSvc}
+func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service, waveformSvc *waveform.Service, activitySvc *activity.Service) *FileHandler {
+	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc, transcribeSvc: transcribeSvc, audioDetectSvc: audioDetectSvc, waveformSvc: waveformSvc, activitySvc: activitySvc}
 }
 
 func (h *FileHandler) RegisterRoutes(g *echo.Group) {
@@ -132,6 +134,23 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		// Clean up storage on DB failure
 		h.storageSvc.DeleteFile(libraryID.String(), fileID.String())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create file record")
+	}
+
+	if h.activitySvc != nil {
+		uid := userID
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   libraryID,
+			ActorID:     &uid,
+			Action:      activity.ActionFileCreated,
+			SubjectType: activity.SubjectFile,
+			SubjectID:   &fileID,
+			Metadata: map[string]any{
+				"name":           fileName,
+				"mimeType":       mimeType,
+				"parentFolderId": parentFolderID,
+				"size":           bytesWritten,
+			},
+		})
 	}
 
 	// Trigger face detection if library has it enabled and file is an image
@@ -288,6 +307,8 @@ type deleteFileRequest struct {
 func (h *FileHandler) Delete(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
+	libUUID, _ := uuid.Parse(libraryID)
+	actorID := middleware.GetUserID(c)
 
 	now := time.Now()
 
@@ -300,8 +321,25 @@ func (h *FileHandler) Delete(c echo.Context) error {
 		result := h.db.Model(&models.File{}).
 			Where("id IN ? AND library_id = ? AND trashed_at IS NULL", req.FileIDs, libraryID).
 			Updates(map[string]interface{}{"trashed_at": now, "updated_at": now})
+		if h.activitySvc != nil && result.RowsAffected > 0 {
+			aid := actorID
+			h.activitySvc.EmitAsync(activity.EmitParams{
+				LibraryID:   libUUID,
+				ActorID:     &aid,
+				Action:      activity.ActionFileDeleted,
+				SubjectType: activity.SubjectFile,
+				Metadata: map[string]any{
+					"count": result.RowsAffected,
+				},
+			})
+		}
 		return c.JSON(http.StatusOK, map[string]int64{"trashed": result.RowsAffected})
 	}
+
+	// Capture file name BEFORE the Update so the activity row has a snapshot.
+	var snapshot models.File
+	_ = h.db.Select("id, name, parent_folder_id").
+		Where("id = ? AND library_id = ?", fileID, libraryID).First(&snapshot).Error
 
 	// Single file soft-delete
 	result := h.db.Model(&models.File{}).
@@ -312,6 +350,21 @@ func (h *FileHandler) Delete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
 	}
 
+	if h.activitySvc != nil {
+		aid := actorID
+		h.activitySvc.EmitAsync(activity.EmitParams{
+			LibraryID:   libUUID,
+			ActorID:     &aid,
+			Action:      activity.ActionFileDeleted,
+			SubjectType: activity.SubjectFile,
+			SubjectID:   &snapshot.ID,
+			Metadata: map[string]any{
+				"name":           snapshot.Name,
+				"count":          1,
+				"parentFolderId": snapshot.ParentFolderID,
+			},
+		})
+	}
 	return c.JSON(http.StatusOK, map[string]int64{"trashed": result.RowsAffected})
 }
 

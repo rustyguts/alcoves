@@ -22,6 +22,7 @@ function onTabClick(to: string, event: MouseEvent) {
 
 const currentTab = computed(() => {
   if (route.path.endsWith("/tags")) return "tags";
+  if (route.path.endsWith("/feed")) return "feed";
   if (route.path.includes(`/libraries/${props.libraryId}/people`)) return "people";
   if (route.path.endsWith("/objects")) return "objects";
   if (route.path.endsWith("/settings")) return "settings";
@@ -42,6 +43,12 @@ const tabs = computed(() => {
       label: "Tags",
       icon: "i-lucide-tags",
       to: `/libraries/${props.libraryId}/tags`,
+    },
+    {
+      key: "feed",
+      label: "Feed",
+      icon: "i-lucide-rss",
+      to: `/libraries/${props.libraryId}/feed`,
     },
   ];
 
