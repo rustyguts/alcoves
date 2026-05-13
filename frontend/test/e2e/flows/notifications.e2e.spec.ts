@@ -42,8 +42,10 @@ test.describe("Notifications flow", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-personal");
 
-    // Badge appears (caps still allow "3").
-    await expect(page.getByLabel("Notifications")).toBeVisible();
+    // Badge appears (caps still allow "3"). Use a role-scoped query to avoid
+    // matching Chromium's injected `<div role="region" aria-label="Notifications (F8)">`
+    // accessibility shim, which `getByLabel("Notifications")` would also match.
+    await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
     await expect(page.locator('button[aria-label="Notifications"] span').filter({ hasText: "3" })).toBeVisible();
   });
 
@@ -67,7 +69,7 @@ test.describe("Notifications flow", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-personal");
 
-    await page.getByLabel("Notifications").click();
+    await page.getByRole("button", { name: "Notifications" }).click();
 
     await expect(page.getByText("Alice created tag vacation")).toBeVisible();
     await expect(page.getByText("Alice added photo.jpg")).toBeVisible();
@@ -98,7 +100,7 @@ test.describe("Notifications flow", () => {
     });
     await createMockApi(page, state);
     await page.goto("/libraries/lib-personal");
-    await page.getByLabel("Notifications").click();
+    await page.getByRole("button", { name: "Notifications" }).click();
     await expect(page.getByText("Alice created tag vacation")).toBeVisible();
     await page.getByRole("button", { name: "Dismiss all" }).first().click();
     await expect(page.getByText("Alice created tag vacation")).toHaveCount(0);

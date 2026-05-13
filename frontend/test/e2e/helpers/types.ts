@@ -122,6 +122,13 @@ export interface MockAdminStats {
   totalSize: number;
 }
 
+export interface MockAppSettings {
+  registration_mode: "open" | "closed" | "invite_only";
+  whisper_model?: string;
+  whisper_language?: string;
+  audio_detect_model?: string;
+}
+
 export interface MockQueue {
   name: string;
   waiting: number;
@@ -168,6 +175,7 @@ export interface MockState {
   invites: MockInvite[];
   adminUsers: MockUser[];
   adminStats: MockAdminStats;
+  appSettings: MockAppSettings;
   queues: MockQueue[];
   jobs: MockJob[];
   people: MockPerson[];

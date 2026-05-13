@@ -529,6 +529,12 @@ export function createDefaultState(overrides: DeepPartial<MockState> = {}): Mock
     invites: invites.map((i) => ({ ...i })),
     adminUsers: adminUsers.map((u) => ({ ...u })),
     adminStats: { users: 5, libraries: 3, files: 42, folders: 12, totalSize: 1_073_741_824 },
+    appSettings: {
+      registration_mode: "open",
+      whisper_model: "medium",
+      whisper_language: "auto",
+      audio_detect_model: "efficientat_mn10",
+    },
     queues: [
       { name: "{transcode}", waiting: 2, active: 1, completed: 48, failed: 1, delayed: 0 },
       { name: "{thumbnail}", waiting: 0, active: 0, completed: 120, failed: 0, delayed: 0 },

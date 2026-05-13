@@ -568,6 +568,25 @@ export async function createMockApi(page: Page, state: MockState): Promise<void>
       return;
     }
 
+    if (p === "/api/admin/settings" && request.method() === "GET") {
+      await fulfillJson(route, 200, state.appSettings);
+      return;
+    }
+
+    if (p === "/api/admin/settings" && request.method() === "PATCH") {
+      const patch = (request.postDataJSON() ?? {}) as Partial<typeof state.appSettings>;
+      Object.assign(state.appSettings, patch);
+      await fulfillJson(route, 200, state.appSettings);
+      return;
+    }
+
+    // Public registration-mode probe (no auth) — the /register page blocks
+    // form rendering until this resolves, so e2e tests need a stable mock.
+    if (p === "/api/_meta/registration-mode" && request.method() === "GET") {
+      await fulfillJson(route, 200, { mode: state.appSettings.registration_mode });
+      return;
+    }
+
     if (p === "/api/admin/users" && request.method() === "GET") {
       await fulfillJson(route, 200, state.adminUsers);
       return;
