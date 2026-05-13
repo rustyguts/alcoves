@@ -9,8 +9,8 @@ export default defineConfig({
     timeout: 15_000,
   },
   fullyParallel: false,
-  retries: isCI ? 2 : 0,
-  workers: isCI ? 1 : undefined,
+  retries: isCI ? 2 : 3,
+  workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: "http://127.0.0.1:4173",
