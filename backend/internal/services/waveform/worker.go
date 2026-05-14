@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/hibiken/asynq"
@@ -26,30 +25,6 @@ import (
 
 const defaultPeaksPerSecond = 50
 const sampleRateHz = 16000
-
-// Waveform display tuning. The pipeline is: per-window RMS → per-file
-// normalize against a robust reference (a high quantile, so a single clipped
-// sample doesn't squash the rest of the file) → dB curve mapped onto a fixed
-// visual range. This produces a visually balanced waveform regardless of the
-// source's mastering level.
-const (
-	// Reference quantile of per-window RMS used as the file's "peak" for
-	// normalization. Using p99 instead of max keeps occasional outliers
-	// (a stray clip, a single loud transient) from compressing the rest of
-	// the waveform.
-	normalizationQuantile = 0.99
-
-	// Files whose reference RMS is below this floor are treated as silent
-	// and emitted as all-zero peaks. Otherwise we'd amplify the noise floor
-	// of a truly-silent file all the way to full scale.
-	silenceFloorRMS = 1e-4
-
-	// dB floor for the visual mapping. Values quieter than this map to 0;
-	// 0dB (the file's reference level) maps to 1. -50dB gives ~50dB of
-	// usable visual range, which covers most dialog/music dynamics without
-	// devoting half the canvas to inaudible content.
-	waveformDBFloor = -50.0
-)
 
 type Payload struct {
 	LibraryID string `json:"libraryId"`
@@ -233,6 +208,13 @@ func (h *TaskHandler) extractPCM(ctx context.Context, src, dst string) error {
 	return nil
 }
 
+// computePeaks produces one [0,1] sample per window, where each value is the
+// maximum absolute amplitude in that window — the same convention used by
+// Audacity, Adobe Audition/Premiere, DaVinci Resolve, Pro Tools, REAPER,
+// FFmpeg's showwavespic, wavesurfer.js / peaks.js, and BBC audiowaveform.
+// The frontend renders height = peak × canvas_height directly; no per-file
+// normalization or dB curve runs server-side, so loud files look loud and
+// quiet ones look quiet.
 func (h *TaskHandler) computePeaks(pcmPath string, peaksPerSec int) ([]float64, error) {
 	data, err := os.ReadFile(pcmPath)
 	if err != nil {
@@ -248,81 +230,24 @@ func (h *TaskHandler) computePeaks(pcmPath string, peaksPerSec int) ([]float64, 
 		windowSize = 1
 	}
 
-	numWindows := sampleCount / windowSize
-	rms := make([]float64, 0, numWindows)
+	numPeaks := sampleCount / windowSize
+	peaks := make([]float64, 0, numPeaks)
 
 	for i := 0; i+windowSize <= sampleCount; i += windowSize {
-		var sumSq float64
+		maxAmp := float64(0)
 		for j := 0; j < windowSize; j++ {
 			offset := (i + j) * 4
 			bits := binary.LittleEndian.Uint32(data[offset : offset+4])
 			sample := float64(math.Float32frombits(bits))
-			sumSq += sample * sample
+			abs := math.Abs(sample)
+			if abs > maxAmp {
+				maxAmp = abs
+			}
 		}
-		rms = append(rms, math.Sqrt(sumSq/float64(windowSize)))
+		peaks = append(peaks, math.Min(maxAmp, 1.0))
 	}
 
-	return normalizeAndScale(rms), nil
-}
-
-// normalizeAndScale applies per-file loudness normalization and a dB curve
-// to a slice of per-window RMS values, producing the [0,1] heights the
-// frontend renders. The transform has three stages:
-//
-//  1. Pick a reference loudness as the file's high quantile of RMS (p99 by
-//     default). A single clipped sample no longer dictates the scale.
-//  2. Divide every value by the reference (clamped at the silence floor),
-//     then clamp results to [0,1] — values above the reference (the top 1%)
-//     pin to full scale.
-//  3. Convert to dB and map [waveformDBFloor, 0] → [0, 1]. Values quieter
-//     than the floor map to 0.
-//
-// Files whose reference is below silenceFloorRMS are treated as silent and
-// emit all-zero peaks; otherwise we'd amplify pure noise to full scale.
-func normalizeAndScale(rms []float64) []float64 {
-	if len(rms) == 0 {
-		return []float64{}
-	}
-
-	ref := quantile(rms, normalizationQuantile)
-	if ref < silenceFloorRMS {
-		return make([]float64, len(rms))
-	}
-
-	out := make([]float64, len(rms))
-	const visualSpan = -waveformDBFloor
-	for i, v := range rms {
-		if v <= 0 {
-			continue
-		}
-		norm := v / ref
-		if norm > 1 {
-			norm = 1
-		}
-		db := 20 * math.Log10(norm)
-		if db <= waveformDBFloor {
-			continue
-		}
-		out[i] = (db - waveformDBFloor) / visualSpan
-	}
-	return out
-}
-
-// quantile returns the q-quantile of values using the nearest-rank method.
-// q is clamped to [0,1]. The input is not modified.
-func quantile(values []float64, q float64) float64 {
-	if len(values) == 0 {
-		return 0
-	}
-	if q < 0 {
-		q = 0
-	} else if q > 1 {
-		q = 1
-	}
-	sorted := append([]float64(nil), values...)
-	sort.Float64s(sorted)
-	idx := int(math.Round(q * float64(len(sorted)-1)))
-	return sorted[idx]
+	return peaks, nil
 }
 
 func (h *TaskHandler) storeEmptyWaveform(libraryID, fileID string) {

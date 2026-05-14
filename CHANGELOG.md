@@ -20,6 +20,20 @@ SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
 ## [Unreleased]
 
+### Changed
+
+- **Waveform display reverted to industry-standard linear peak (max
+  absolute sample per window).** The v0.18.0 pipeline — per-window RMS,
+  p99 normalization, and a `[-50dB, 0dB] → [0,1]` curve — pinned most
+  windows near the top of the canvas (the dB mapping inflates a -20 dB
+  signal to ~60% height), so quiet passages no longer read as quiet. The
+  revert matches what Audacity, Adobe Audition/Premiere, DaVinci Resolve,
+  Pro Tools, REAPER, FFmpeg's `showwavespic`, wavesurfer.js / peaks.js,
+  and BBC `audiowaveform` all render by default. Existing waveforms in
+  the cache stay on the old algorithm until each file is re-generated
+  (POST `/api/libraries/:id/files/:fileId/waveform`); the frontend
+  already exposes this via the editor.
+
 ## [0.18.0] — 2026-05-12
 
 ### Added
