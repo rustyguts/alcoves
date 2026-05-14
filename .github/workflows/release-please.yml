@@ -1,0 +1,21 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Prefer a fine-grained PAT so the tag push from release-please
+          # triggers downstream workflows (publish.yml). Falls back to
+          # GITHUB_TOKEN — Release PRs still open, but the tag-driven
+          # Docker build won't fire until RELEASE_PLEASE_TOKEN is set.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}

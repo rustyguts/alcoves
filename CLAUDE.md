@@ -166,31 +166,43 @@ When the user says "turn off the lights", follow the full workflow defined in [t
 
 ## Versioning
 
-Alcoves is **alpha**. The single source of truth is the plain-text `/VERSION`
-file at the repo root (currently `0.13.0`). The full release history lives in
-`/CHANGELOG.md` (Keep-a-Changelog format).
+Alcoves is **alpha**. Releases are automated by **release-please** —
+do NOT manually edit `/VERSION`, `/CHANGELOG.md`, or `helm/alcoves/Chart.yaml`
+versions in feature PRs. The plain-text `/VERSION` file at the repo root
+remains the single source of truth at runtime; release-please owns updating it.
 
-**Bump policy:**
+**How releases happen:**
 
-- **Prefer patch (`0.x.y` → `0.x.y+1`).** Patch covers bugfixes, small
-  features, refactors, dep bumps, internal-only changes, docs, CI tweaks. The
-  default while we are alpha — when in doubt, patch.
-- **Use minor (`0.x.y` → `0.x+1.0`)** only for: a new top-level page or
-  route, a new background worker type, a new external integration (S3 / OAuth
-  provider / queue backend), a schema migration that renames or removes
-  columns, or anything that breaks a saved URL / API contract.
-- **Never bump to `1.0.0`** without an explicit decision from the user. Cap
-  at `0.x.y` indefinitely.
+1. Land feature PRs to `main` using **Conventional Commit** subjects:
+   `feat(scope):`, `fix(scope):`, `perf(scope):`, `refactor(scope):`,
+   `docs(scope):`, `test(scope):`, `build(scope):`, `ci(scope):`,
+   `chore(scope):`. The CC type drives both the version bump and the
+   CHANGELOG section the entry lands in (see `release-please-config.json`).
+2. `release-please.yml` runs on each push to `main` and opens (or updates) a
+   single Release PR titled `chore(main): release 0.x.y`. The PR diff:
+   `VERSION`, `helm/alcoves/Chart.yaml`, `.release-please-manifest.json`,
+   `CHANGELOG.md`.
+3. Review the Release PR. You can hand-edit the auto-generated CHANGELOG
+   section before merging if you want richer entries than the commit
+   subjects alone provide.
+4. Merge the Release PR. release-please then creates the annotated `v0.x.y`
+   tag + a GitHub Release; the existing `publish.yml` builds Docker images
+   tagged `0.x.y` and `0.x` from that tag.
 
-**When you bump `VERSION`, in the same commit:**
+**Bump policy** (encoded in `release-please-config.json`):
 
-1. Add a new section to `/CHANGELOG.md` under `## [Unreleased]` (move the
-   pending bullets into the new dated section, leave `[Unreleased]` empty).
-2. Update `helm/alcoves/Chart.yaml` — bump both `version` and `appVersion`
-   to match `/VERSION`.
-3. After merge, push a `v0.x.y` git tag. The existing `publish.yml` workflow
-   tags published images `0.x.y` and `0.x` from that tag (via the
-   `type=semver` rule in `docker/metadata-action`).
+- `feat:` → minor (`0.x.0`)
+- `fix:` / `perf:` / `refactor:` / `docs:` / `test:` / `build:` / `ci:` →
+  patch (`0.x.y+1`)
+- `chore:` / `style:` are hidden — they don't appear in the CHANGELOG and
+  don't open a Release PR by themselves
+- `feat!` or `BREAKING CHANGE:` footer → still minor while pre-1.0
+  (`bump-patch-for-minor-pre-major: false` keeps us inside `0.x.y`)
+- **Never bumps to `1.0.0`.** Cap at `0.x.y` indefinitely until an explicit
+  decision; remove `bump-minor-pre-major: true` only with sign-off.
+
+**Forcing a specific version** (rare): add `Release-As: 0.19.0` as a
+commit footer. release-please will use that version for the next release.
 
 **Verifying the embedded version:**
 
