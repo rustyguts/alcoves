@@ -5,9 +5,11 @@
   "bump-patch-for-minor-pre-major": false,
   "include-v-in-tag": true,
   "include-component-in-tag": false,
+  "last-release-sha": "bfcddea1599d4d76b381c416ce68fa0e07adedf5",
   "packages": {
     ".": {
       "release-type": "simple",
+      "version-file": "VERSION",
       "extra-files": [
         "helm/alcoves/Chart.yaml"
       ],
