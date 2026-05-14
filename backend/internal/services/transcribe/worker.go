@@ -24,6 +24,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/config"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
+	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -41,11 +42,35 @@ type TaskHandler struct {
 	storage     *storage.Service
 	cfg         *config.Config
 	activitySvc *activity.Service
+	// settingsSvc lets the worker honor admin-edited whisper_model /
+	// whisper_language at task start. nil is supported for tests — the
+	// handler falls back to cfg.WhisperModel / cfg.WhisperLanguage.
+	settingsSvc *settings.Service
 }
 
 // NewTaskHandler creates a transcribe task handler.
-func NewTaskHandler(db *gorm.DB, storageSvc *storage.Service, cfg *config.Config, activitySvc *activity.Service) *TaskHandler {
-	return &TaskHandler{db: db, storage: storageSvc, cfg: cfg, activitySvc: activitySvc}
+func NewTaskHandler(db *gorm.DB, storageSvc *storage.Service, cfg *config.Config, activitySvc *activity.Service, settingsSvc *settings.Service) *TaskHandler {
+	return &TaskHandler{db: db, storage: storageSvc, cfg: cfg, activitySvc: activitySvc, settingsSvc: settingsSvc}
+}
+
+// activeModel returns the whisper model name selected by admin settings,
+// falling back to the boot-time env-var default. Same shape for language.
+func (h *TaskHandler) activeModel() string {
+	if h.settingsSvc != nil {
+		if v := h.settingsSvc.Get().WhisperModel; v != "" {
+			return v
+		}
+	}
+	return h.cfg.WhisperModel
+}
+
+func (h *TaskHandler) activeLanguage() string {
+	if h.settingsSvc != nil {
+		if v := h.settingsSvc.Get().WhisperLanguage; v != "" {
+			return v
+		}
+	}
+	return h.cfg.WhisperLanguage
 }
 
 // NewTranscribeTask wraps a Payload into an asynq task.
@@ -113,8 +138,13 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 	// smooth progress reporting based on per-segment timestamps.
 	audioSec := wavDurationSeconds(wavPath)
 
-	// 3. Ensure whisper model available (auto-download when missing).
-	modelPath, err := ensureModel(ctx, h.cfg.WhisperModelsDir, h.cfg.WhisperModel, h.cfg.WhisperModelBaseURL)
+	// 3. Ensure whisper model available (auto-download when missing). The
+	// model name comes from admin settings when set; otherwise env-var
+	// fallback. Each task reads fresh so an admin swap takes effect on
+	// the next job without a worker restart — whisper-cli is spawned
+	// fresh per job, so there's no in-memory state to invalidate.
+	modelName := h.activeModel()
+	modelPath, err := ensureModel(ctx, h.cfg.WhisperModelsDir, modelName, h.cfg.WhisperModelBaseURL)
 	if err != nil {
 		h.fail(fileID, fmt.Errorf("ensure whisper model: %w", err))
 		return err
@@ -134,8 +164,9 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 	}
 
 	// 4. Run whisper.
+	language := h.activeLanguage()
 	outBase := filepath.Join(tmpDir, "out")
-	if err := runWhisper(ctx, h.cfg.WhisperBinaryPath, modelPath, vadModelPath, wavPath, outBase, h.cfg.WhisperLanguage, audioSec, func(pct int) {
+	if err := runWhisper(ctx, h.cfg.WhisperBinaryPath, modelPath, vadModelPath, wavPath, outBase, language, audioSec, func(pct int) {
 		h.setState(fileID, stringPtr("processing"), intPtr(pct), nil, nil)
 	}); err != nil {
 		h.fail(fileID, fmt.Errorf("whisper: %w", err))
@@ -155,7 +186,7 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		"transcribed_version":    targetVersion,
 		"transcript_text":        strings.TrimSpace(string(txtBytes)),
 		"transcript_vtt":         string(vttBytes),
-		"transcript_model":       h.cfg.WhisperModel,
+		"transcript_model":       modelName,
 	}
 	if err := h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(updates).Error; err != nil {
 		return fmt.Errorf("persist transcript: %w", err)
@@ -175,7 +206,7 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 				Metadata: map[string]any{
 					"fileId":   f.ID.String(),
 					"fileName": f.Name,
-					"model":    h.cfg.WhisperModel,
+					"model":    modelName,
 				},
 			})
 		}

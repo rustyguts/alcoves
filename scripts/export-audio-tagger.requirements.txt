@@ -1,0 +1,13 @@
+# Dependencies for scripts/export-audio-tagger.py.
+# Pin to versions known to export cleanly to ONNX opset 17.
+torch>=2.3,<2.5
+torchaudio>=2.3,<2.5
+onnx>=1.16
+# EfficientAT itself is a repo clone, not a pip package — see
+# https://github.com/fschmid56/EfficientAT — install via:
+#   git clone https://github.com/fschmid56/EfficientAT
+#   cd EfficientAT && pip install -e .
+transformers>=4.45
+accelerate>=0.32
+soundfile>=0.12
+librosa>=0.10

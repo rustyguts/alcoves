@@ -31,8 +31,23 @@ Flat. One object per file, no prefixes. Current contents:
 ```
 audioset_class_labels_indices.csv   14 KB
 det_10g.onnx                        17 MB   face detection
+ggml-tiny.bin                       75 MB   whisper tiny
 ggml-base.bin                      142 MB   whisper base
-panns_cnn14.onnx                   313 MB   audio events
+ggml-small.bin                     466 MB   whisper small
+ggml-medium.bin                  1,500 MB   whisper medium  (admin default)
+ggml-large-v3.bin                3,100 MB   whisper large-v3
+ggml-large-v3-q5_0.bin           1,080 MB   whisper large-v3 q5_0
+ggml-large-v3-turbo-q5_0.bin       574 MB   whisper large-v3-turbo q5_0
+ggml-large-v3-turbo-q4_0.bin       470 MB   whisper large-v3-turbo q4_0
+ggml-distil-large-v3.5-q5.bin     ~600 MB   distil-whisper large-v3.5 q5 (EN)
+ggml-silero-v6.2.0.bin             885 KB   Silero VAD for whisper
+efficientat_mn04_as.onnx             5 MB   audio tagger (tiny)
+efficientat_mn10_as.onnx            20 MB   audio tagger (default)
+efficientat_mn40_as_ext.onnx       280 MB   audio tagger (premium MobileNetV3)
+ced_tiny.onnx                       22 MB   audio tagger (transformer tiny)
+ced_small.onnx                      85 MB   audio tagger (transformer mid)
+ced_base.onnx                      330 MB   audio tagger (premium quality)
+panns_cnn14.onnx                   313 MB   audio tagger (legacy)
 panns_labels.json                  8.8 KB
 w600k_r50.onnx                     167 MB   face recognition
 yolo26x_fp16.onnx                  107 MB   object detection
@@ -41,6 +56,24 @@ yolo26x_fp16.onnx                  107 MB   object detection
 Naming rule: keep the upstream filename so swap-in is trivial. If multiple
 quants of the same family ship, prefix with the family
 (`whisper-large-v3-turbo-q5_0.bin`, not `model.bin`).
+
+**Bulk push of the inference catalog:** instead of `curl + rclone` per file,
+use the helper scripts under [`scripts/`](../scripts/):
+
+```bash
+# All whisper.cpp GGMLs in the admin allow-list (run from repo root).
+scripts/upload-whisper-models.sh
+
+# All EfficientAT + CED ONNX exports (requires Python venv with torch).
+pip install -r scripts/export-audio-tagger.requirements.txt
+python scripts/export-audio-tagger.py --out /tmp/alcoves-models --models all
+rclone copy /tmp/alcoves-models rustyguts:models/ \
+  --include 'efficientat_*.onnx' --include 'ced_*.onnx' \
+  --progress --s3-chunk-size=64M --s3-upload-concurrency=4
+```
+
+Both scripts are idempotent (rclone skips files whose size+mtime match the
+bucket) and dry-run-safe (`DRY_RUN=1`).
 
 ## Publish flow
 

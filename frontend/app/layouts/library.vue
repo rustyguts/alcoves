@@ -62,7 +62,7 @@ provide("canManageLibrary", canManageLibrary);
         />
       </LibraryHeader>
 
-      <div class="relative flex-1 min-h-0">
+      <div class="relative flex flex-col flex-1 min-h-0">
         <slot />
       </div>
     </div>

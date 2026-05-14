@@ -111,7 +111,7 @@ helm upgrade ... --set frontend.replicaCount=1 --set backend.api.replicaCount=1
 # Pin model URLs to your private mirror
 helm upgrade ... \
   --set models.whisperModelBaseUrl=https://models.internal/whisper \
-  --set models.audioDetectModelUrl=https://models.internal/panns_cnn14.onnx \
+  --set models.audioDetectModelBaseUrl=https://models.internal/audio \
   --set models.audioDetectLabelsUrl=https://models.internal/audioset_labels.csv
 ```
 

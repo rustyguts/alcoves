@@ -10,8 +10,10 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
+	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 )
 
 type AdminHandler struct {
@@ -40,6 +42,9 @@ func (h *AdminHandler) GetSettings(c echo.Context) error {
 
 type updateSettingsRequest struct {
 	RegistrationMode string `json:"registration_mode,omitempty"`
+	WhisperModel     string `json:"whisper_model,omitempty"`
+	WhisperLanguage  string `json:"whisper_language,omitempty"`
+	AudioDetectModel string `json:"audio_detect_model,omitempty"`
 }
 
 func (h *AdminHandler) UpdateSettings(c echo.Context) error {
@@ -47,8 +52,25 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 	}
+	// Domain-level allow-list validation. The settings service itself only
+	// validates registration_mode; everything else is gate-kept here so
+	// the settings package doesn't import the inference packages.
+	if req.WhisperModel != "" && !transcribe.IsValidWhisperModel(req.WhisperModel) {
+		return echo.NewHTTPError(http.StatusBadRequest, "Unknown whisper_model")
+	}
+	if req.WhisperLanguage != "" && !transcribe.IsValidWhisperLanguage(req.WhisperLanguage) {
+		return echo.NewHTTPError(http.StatusBadRequest, "Unknown whisper_language")
+	}
+	if req.AudioDetectModel != "" && !audiodetection.IsValidModelID(req.AudioDetectModel) {
+		return echo.NewHTTPError(http.StatusBadRequest, "Unknown audio_detect_model")
+	}
 	userID, _ := middleware.RequireUserID(c)
-	patch := settings.Settings{RegistrationMode: req.RegistrationMode}
+	patch := settings.Settings{
+		RegistrationMode: req.RegistrationMode,
+		WhisperModel:     req.WhisperModel,
+		WhisperLanguage:  req.WhisperLanguage,
+		AudioDetectModel: req.AudioDetectModel,
+	}
 	updated, err := h.settingsSvc.Update(patch, &userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())

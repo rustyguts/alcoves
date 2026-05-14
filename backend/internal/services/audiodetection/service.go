@@ -11,6 +11,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/config"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -27,10 +28,13 @@ type Service struct {
 	storage     *storage.Service
 	asynqClient *asynq.Client
 	cfg         *config.Config
+	settingsSvc *settings.Service
 }
 
-func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Client, cfg *config.Config) *Service {
-	return &Service{db: db, storage: storageSvc, asynqClient: asynqClient, cfg: cfg}
+// NewService creates an audio-detect service. settingsSvc may be nil in
+// tests; the worker falls back to the registry's DefaultModelID.
+func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Client, cfg *config.Config, settingsSvc *settings.Service) *Service {
+	return &Service{db: db, storage: storageSvc, asynqClient: asynqClient, cfg: cfg, settingsSvc: settingsSvc}
 }
 
 const completedTaskRetention = 24 * time.Hour
@@ -81,5 +85,5 @@ func (s *Service) ListByFile(libraryID, fileID string) ([]models.AudioDetection,
 }
 
 func (s *Service) NewTaskHandler() *TaskHandler {
-	return NewTaskHandler(s.db, s.storage, s.cfg)
+	return NewTaskHandler(s.db, s.storage, s.cfg, s.settingsSvc)
 }
