@@ -10,6 +10,13 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.18.2](https://github.com/rustyguts/alcoves/compare/v0.18.1...v0.18.2) (2026-05-14)
+
+
+### Fixed
+
+* **waveform:** revert to industry-standard linear peak ([bf0dd4f](https://github.com/rustyguts/alcoves/commit/bf0dd4feb95baeee04272651e65514ec9b8837f3))
+
 ## [0.18.1](https://github.com/rustyguts/alcoves/compare/v0.18.0...v0.18.1) (2026-05-14)
 
 
