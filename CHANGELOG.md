@@ -36,9 +36,22 @@ SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
   the rest), and admin-UI metadata. `scripts/export-audio-tagger.py`
   generates the ONNX bundles with mel-spectrogram preprocessing baked into
   the graph so the Go worker keeps feeding raw PCM regardless of family.
+- **Tus uploads now enqueue transcription + audio-event detection on
+  completion** alongside the existing face/object/waveform jobs. The
+  transcribe and audio-detect services join `TusHandler`'s constructor,
+  and the post-upload pipeline fans out to all five workers in one place.
 
 ### Changed
 
+- **Waveform display switched from per-window max-peak (linear) to RMS +
+  per-file normalization + dB curve.** The previous algorithm pinned every
+  20ms window with a transient to full-scale, so most clips looked like a
+  wall of peaking bars. The new pipeline computes per-window RMS, divides
+  by the file's 99th-percentile RMS as a robust reference (occasional clips
+  no longer compress the rest of the waveform), then maps `[-50dB, 0dB]`
+  onto `[0,1]` for visual output. Silent files (reference < ~-80dB) emit
+  zeros instead of amplifying the noise floor. No schema or frontend
+  changes — the renderer keeps consuming the same `[0,1]` peaks JSON.
 - **Default audio tagger switched from PANNs CNN14 → EfficientAT mn10_as.**
   ~16× smaller on disk (313 MB → 20 MB), faster CPU inference, +9% mAP
   (0.431 → 0.471). PANN CNN14 stays in the registry as a rollback option
