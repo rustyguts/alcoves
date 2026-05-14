@@ -144,11 +144,15 @@ func main() {
 	// Video proxy service
 	videoSvc := videoproxy.NewService(db, storageSvc, asynqClient, activitySvc)
 
-	// Transcribe service (ffmpeg + whisper.cpp).
-	transcribeSvc := transcribe.NewService(db, storageSvc, asynqClient, cfg, activitySvc)
+	// Transcribe service (ffmpeg + whisper.cpp). settingsSvc lets the
+	// worker honor admin-edited whisper_model + whisper_language at task
+	// start without a worker restart.
+	transcribeSvc := transcribe.NewService(db, storageSvc, asynqClient, cfg, activitySvc, settingsSvc)
 
-	// Audio event detection service (PANNs CNN14 via ONNX Runtime).
-	audioDetectSvc := audiodetection.NewService(db, storageSvc, asynqClient, cfg)
+	// Audio event detection service (AudioSet 527-class via ONNX Runtime).
+	// Active model is admin-selectable from audiodetection.Registry;
+	// settingsSvc carries the choice into per-task lookups.
+	audioDetectSvc := audiodetection.NewService(db, storageSvc, asynqClient, cfg, settingsSvc)
 
 	// Waveform service (ffmpeg PCM extraction + peak windowing).
 	waveformSvc := waveform.NewService(db, storageSvc, asynqClient, cfg, activitySvc)
@@ -337,7 +341,7 @@ func main() {
 		downloadHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Tus resumable upload routes (under /api/tus)
-		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc, waveformSvc, activitySvc)
+		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc, waveformSvc, transcribeSvc, audioDetectSvc, activitySvc)
 		tusHandler.RegisterRoutes(api)
 
 		// Avatar routes (under /api/auth)

@@ -5,15 +5,29 @@ and concrete upgrade candidates. All numbers assume CPU-only inference on a
 commodity x86_64 Linux pod (no GPU, ~8 GB RAM ceiling) — the production
 worker's actual constraints.
 
-Last reviewed: April 2026.
+Last reviewed: May 2026.
 
 Defaults — and override env vars — live in
 [`backend/internal/config/config.go`](../backend/internal/config/config.go).
+**Transcription model and audio-tagger are now admin-editable at runtime**
+via the Inference Models card on `/admin`; the env-var defaults only seed
+fresh installs. The selectors persist into `app_settings.settings` (JSONB);
+see
+[`backend/internal/services/settings/settings.go`](../backend/internal/services/settings/settings.go)
++
+[`backend/internal/services/transcribe/whisper_models.go`](../backend/internal/services/transcribe/whisper_models.go)
++
+[`backend/internal/services/audiodetection/registry.go`](../backend/internal/services/audiodetection/registry.go)
+for the allow-lists.
+
 Self-hosted asset URLs default to `https://s3.rustyguts.net/models` and can
 be swapped per-deployment via Helm `models.*` values
 ([helm/alcoves/values.yaml](../helm/alcoves/values.yaml)).
 See [publishing-models.md](publishing-models.md) for the rclone push flow
-when adding a new model to the bucket.
+when adding a new model to the bucket — the
+[`scripts/upload-whisper-models.sh`](../scripts/upload-whisper-models.sh) and
+[`scripts/export-audio-tagger.py`](../scripts/export-audio-tagger.py)
+scripts wrap that flow for the inference artifacts.
 
 ## 1. Transcription (whisper.cpp)
 
@@ -26,23 +40,26 @@ Pulled at runtime from `ALCOVES_WHISPER_MODEL_BASE_URL` /
 | ggml-tiny                   | 75      | ~0.4        | ~50×           | 7.5 / 16               | 99        | Fastest, weak accuracy                      |
 | base                        | 142     | ~0.5        | ~32×           | 5.0 / 12               | 99        | Fast fallback for low-RAM hosts             |
 | small                       | 466     | ~1.0        | ~16×           | 3.4 / 7.6              | 99        | Mid-tier                                    |
-| **medium (current)**        | **1500**| **~2.5**    | **~6×**        | **3.0 / 6.0**          | **99**    | **Default — strong accuracy, finishes within worker memory limits** |
-| large-v3                    | 3100    | ~3.3        | ~1×            | 2.7 / 5.2              | 99        | Slow on CPU                                 |
+| medium                      | 1500    | ~2.5        | ~6×            | 3.0 / 6.0              | 99        | Strong accuracy within homelab memory limits |
+| **large-v3 (current)**      | **3100**| **~3.9**    | **~1×**        | **2.7 / 5.2**          | **99**    | **Default — best WER; needs ≥4 GB RAM in the worker pod** |
 | large-v3-q5_0               | 1080    | ~1.3        | ~3×            | 2.9 / 5.4              | 99        | Reasonable accuracy/size                    |
 | large-v3-turbo-q5_0         | 574     | ~0.9        | ~10×           | 3.0 / 5.5              | 99        | 8× faster than v3, near-v3 WER — viable on capable CPU/GPU |
 | large-v3-turbo-q4_0         | 470     | ~0.8        | ~12×           | 3.2 / 5.8              | 99        | Smallest near-SOTA                          |
 | distil-large-v3.5-q5        | ~600    | ~1.0        | ~15×           | 3.0 / 5.6              | EN only   | Faster than turbo, English only             |
 
-**Status:** default switched to `medium` on 2026-04-27. Worker memory
-request bumped from 2Gi → 4Gi (limit 8Gi → 10Gi) to accommodate the larger
-KV cache + concurrent ffmpeg/ONNX work. The earlier `large-v3-turbo-q5_0`
-attempt (2026-04-25 → 2026-04-26) was rolled back because it ran far below
-its benchmarked 10× realtime on the production CPU and the kernel
-OOM-killed whisper-cli on long videos at the old 8Gi limit. With `-mc 0`
-(no decoder context carry-over, added 2026-04-27 to fix a repetition-loop
-hallucination bug) memory pressure is materially lower; medium fits.
-Override per-deploy with `ALCOVES_WHISPER_MODEL=base` on RAM-constrained
-hosts, or `ALCOVES_WHISPER_MODEL=large-v3-turbo-q5_0` on capable hardware.
+**Status:** default switched to `large-v3` on 2026-05-13 (alongside the
+runtime model selector — admins can swap from `/admin` → Inference Models
+without a redeploy). Rationale: the homelab pod has the RAM headroom after
+the `-mc 0` + Silero VAD changes dropped peak working set, and large-v3
+posts the lowest WER (2.7/5.2 vs. medium's 3.0/6.0). Override per-deploy
+with `ALCOVES_WHISPER_MODEL=medium` (or smaller) on RAM-constrained hosts,
+or `ALCOVES_WHISPER_MODEL=large-v3-turbo-q5_0` on capable hardware that
+wants faster wall-clock at near-v3 accuracy. The earlier
+`large-v3-turbo-q5_0` attempt (2026-04-25 → 2026-04-26) was rolled back
+because it ran far below its benchmarked 10× realtime on the production
+CPU and the kernel OOM-killed whisper-cli on long videos at the old 8Gi
+limit; that is no longer an issue at the current 10Gi limit with
+`-mc 0` + VAD active.
 
 **Repetition-loop fix history (2026-04-27).** `-mc 0` + `-sns` alone are
 insufficient on long non-speech audio (game streams, music-heavy
@@ -62,23 +79,52 @@ not recommended.
 ## 2. Audio event detection (AudioSet 527-class)
 
 Used by the `audiodetection` worker
-(`backend/internal/services/audiodetection`). Pulled from
-`ALCOVES_AUDIO_DETECT_MODEL_URL` + `ALCOVES_AUDIO_DETECT_LABELS_URL`. Input
-must be 32 kHz mono float32 PCM.
+(`backend/internal/services/audiodetection`). Active model is admin-selectable
+from the registry in
+[`registry.go`](../backend/internal/services/audiodetection/registry.go); the
+worker resolves the spec on each task and constructs the download URL by
+appending the registry filename to `$ALCOVES_AUDIO_DETECT_MODEL_BASE_URL`
+(default `https://s3.rustyguts.net/models`). Labels CSV is shared across the
+whole registry (every model targets the same AudioSet 527-class label space).
+Input is mono float32 PCM at the spec's sample rate (16 kHz for CED, 32 kHz
+for PANN + EfficientAT).
 
-| Model                              | Size MB | mAP   | CPU latency / 10 s | ONNX                      | Classes | Notes                                |
-| ---------------------------------- | ------- | ----- | ------------------ | ------------------------- | ------- | ------------------------------------ |
-| **PANNs CNN14 (current)**          | **313** | **0.431** | **~250 ms**    | **Yes (official)**        | **527** | **Baseline**                         |
-| PANNs Wavegram-Logmel-CNN14        | ~340    | 0.439 | ~400 ms            | Convertible               | 527     | Marginal mAP gain, more compute      |
-| AST (MIT ast-finetuned-audioset)   | ~340    | 0.485 | 600–900 ms         | Workable via Optimum      | 527     | Strongest off-the-shelf transformer  |
-| BEATs iter3                        | ~360    | 0.486 | 500–700 ms         | Manual export only        | 527     | DIY conversion required              |
-| BEATs iter3+                       | ~360    | 0.501 | ~700 ms            | Manual export             | 527     | Top of the iter3 family              |
-| EAT-base                           | ~360    | 0.487 | 400–500 ms         | Manual export             | 527     | Best mAP/CPU tradeoff if exported    |
-| SSLAM (ICLR 2025)                  | ~400    | 0.502 | unmeasured         | Reference impl only       | 527     | SOTA on paper, no ONNX yet           |
+| Model                              | Size MB | mAP (AS-2M) | CPU 10 s window | License    | Sample rate | Notes                                |
+| ---------------------------------- | ------- | ----------- | --------------- | ---------- | ----------- | ------------------------------------ |
+| PANNs CNN14 (legacy)               | 313     | 0.431       | ~250 ms         | Apache-2.0 | 32 kHz      | Old baseline. Rollback option.       |
+| EfficientAT mn04_as                | 5       | 0.432       | ~80 ms          | MIT        | 32 kHz      | Same mAP as CNN14 at ~80× smaller.   |
+| **EfficientAT mn10_as (default)**  | **20**  | **0.471**   | **~150 ms**     | **MIT**    | **32 kHz**  | **+9% mAP vs CNN14, faster on CPU.** |
+| EfficientAT mn40_as_ext            | 280     | 0.487       | ~600 ms         | MIT        | 32 kHz      | Same disk class as CNN14, +5.6 mAP.  |
+| CED-Tiny                           | 22      | 0.481       | ~250 ms         | Apache-2.0 | 16 kHz      | Transformer; CPU parity with mn10.   |
+| CED-Small                          | 85      | 0.496       | ~450 ms         | Apache-2.0 | 16 kHz      | Best mid-range quality.              |
+| CED-Base (premium)                 | 330     | 0.500       | ~700 ms         | Apache-2.0 | 16 kHz      | SOTA-class; same disk as CNN14.      |
 
-**Recommendation:** stay on PANNs CNN14. Only invest engineering time in
-exporting **EAT-base to ONNX** if mAP becomes a product blocker — best
-quality/CPU tradeoff with finite effort, but requires custom conversion work.
+**Status:** default switched from PANN CNN14 → **EfficientAT mn10_as** on
+2026-05-12. Rationale: ~16× smaller, ~40% faster on CPU, +9% mAP. The
+resource-constrained-devices evaluation paper (arXiv 2509.14049) singled
+out the MobileNetV3 family for the best size/latency/quality tradeoff;
+mn10_as sits at the sweet spot. PANN CNN14 stays in the registry so any
+admin can roll back from `/admin` → Inference Models without a code
+change. CED-Base is the "premium quality" entry for deploys with RAM
+headroom — `pann_cnn14` and `ced_base` occupy the same disk class but
+CED-Base beats CNN14 by 16% mAP.
+
+**Preprocessing.** PANN consumes raw 32 kHz float32 PCM directly; EfficientAT
+and CED consume log-mel features but the ONNX files we ship bundle the
+mel transform into the graph (see
+[`scripts/export-audio-tagger.py`](../scripts/export-audio-tagger.py)) so
+the worker pipeline is identical for every registry entry — feed raw PCM,
+get a 527-element probability vector back. The ffmpeg `-ar` flag is set
+per-spec at the worker (16 kHz vs 32 kHz).
+
+**Re-running detection after a swap.** New tagger applies to *future*
+detection jobs only. Bulk-rerun existing files via the per-library
+settings page → "Re-process audio events" (calls `BulkAudioDetect`),
+which enqueues one detection task per file at the new model. The
+existing `audio_detections` rows for each file are deleted in the same
+transaction that inserts the new run's rows, so there's never a mixed
+state — the `audio_detect_model` column on `files` reflects the model
+that produced the rows currently in `audio_detections`.
 
 ## 3. Object detection (COCO 80-class)
 
@@ -138,13 +184,14 @@ download for 0.07 percentage points of IJB-C — won't be felt at product level.
 
 ## Suggested upgrade path (one line each)
 
-- **Transcription:** stay on `base`. The 2026-04-25 swap to
-  `whisper-large-v3-turbo-q5_0` was rolled back on 2026-04-26 after OOM-kills
-  + sub-realtime throughput on the production CPU. Re-evaluate once we have
-  hardware that can sustain it (or switch to GPU inference); until then,
-  per-deploy opt-in via `ALCOVES_WHISPER_MODEL=large-v3-turbo-q5_0`.
-- **Audio events:** stay on PANNs CNN14; only invest in EAT-base ONNX export
-  if mAP becomes a product blocker.
+- **Transcription:** default `large-v3`; admin can pick any allow-list
+  entry from `/admin` → Inference Models at runtime (no deploy needed).
+  Per-pod RAM ceiling dictates which variant is viable; admin UI shows
+  the RAM peak inline. Drop to `medium` or `large-v3-q5_0` on
+  RAM-constrained hosts.
+- **Audio events:** default **EfficientAT mn10_as**. Premium: switch to
+  `ced_base` for SOTA quality (~330 MB, 16% better mAP than CNN14).
+  Constrained: `efficientat_mn04` matches CNN14 mAP at ~80× smaller.
 - **Object detection:** drop YOLO26x → YOLO26m for ~2× CPU throughput at
   -3.5 mAP, or keep 26x if accuracy is hard-required.
 - **Face detection:** keep SCRFD-10G; SCRFD-34G only for dense-crowd recall.
@@ -153,15 +200,21 @@ download for 0.07 percentage points of IJB-C — won't be felt at product level.
 
 ## How to swap
 
-Every model URL can be overridden without rebuilding the backend image:
+**Recommended (transcription, audio tagger):** sign in as an owner, open
+`/admin` → Inference Models, pick the model from the dropdown. Persists
+in `app_settings`; takes effect on the next worker task (no restart).
+
+**Env-var fallback** (used when `app_settings.whisper_model` /
+`audio_detect_model` are empty — fresh installs and tests):
 
 ```bash
-# Whisper — default is `base`; opt into the bigger turbo model per-deploy
-ALCOVES_WHISPER_MODEL=large-v3-turbo-q5_0
+# Whisper — admin selector overrides this at runtime.
+ALCOVES_WHISPER_MODEL=large-v3
+ALCOVES_WHISPER_LANGUAGE=auto
 ALCOVES_WHISPER_MODEL_BASE_URL=https://s3.rustyguts.net/models
 
-# Audio detection
-ALCOVES_AUDIO_DETECT_MODEL_URL=https://s3.rustyguts.net/models/eat_base.onnx
+# Audio detection — URL is composed from base + registry filename.
+ALCOVES_AUDIO_DETECT_MODEL_BASE_URL=https://s3.rustyguts.net/models
 ALCOVES_AUDIO_DETECT_LABELS_URL=https://s3.rustyguts.net/models/audioset_class_labels_indices.csv
 ```
 
@@ -169,9 +222,9 @@ For object/face models the URLs are still hardcoded in
 `objectdetection/models.go` + `facedetection/models.go`. Lift those to config
 when an actual swap lands.
 
-The first job after a model URL change re-downloads + caches the file under
-`ALCOVES_WHISPER_MODELS_DIR` / `ALCOVES_MODELS_PATH`, so existing pods can
-hot-swap on next worker restart.
+The first job after a swap re-downloads + caches the new file under
+`ALCOVES_WHISPER_MODELS_DIR` / `ALCOVES_MODELS_PATH`. Old model files stay
+on disk so rollbacks are instant.
 
 ## References
 

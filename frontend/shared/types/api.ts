@@ -191,6 +191,21 @@ export type RegistrationMode = "open" | "closed" | "invite_only";
 
 export interface AppSettings {
   registration_mode: RegistrationMode;
+  /**
+   * whisper.cpp GGML model name (without the `ggml-` prefix and `.bin`
+   * suffix). Allow-list lives in backend transcribe/whisper_models.go and
+   * the admin UI; defaults to "medium".
+   */
+  whisper_model?: string;
+  /**
+   * ISO-639-1 language hint for whisper.cpp, or "auto" to detect.
+   */
+  whisper_language?: string;
+  /**
+   * Active audio-tagging model ID (registry key from backend
+   * audiodetection/registry.go). Defaults to "efficientat_mn10".
+   */
+  audio_detect_model?: string;
 }
 
 export interface InviteLookupResponse {

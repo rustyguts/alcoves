@@ -40,6 +40,163 @@ const registrationModes: { value: RegistrationMode; label: string; description: 
   },
 ];
 
+// ─── Inference model catalogs ──────────────────────────────────────────
+// Static metadata for the admin selectors. The backend enforces the
+// allow-list (see backend/internal/services/transcribe/whisper_models.go
+// and backend/internal/services/audiodetection/registry.go); these
+// dictionaries only drive the descriptions / RAM callouts in the UI. If
+// the lists drift, the backend rejects unknown IDs and the admin sees a
+// toast — but keep them in sync to avoid that friction.
+
+interface WhisperModelOption {
+  id: string;
+  label: string;
+  diskMB: number;
+  ramPeakMB: number;
+  realtime: number; // x-realtime factor on CPU
+  werClean: number; // LibriSpeech test-clean WER %
+  werOther: number;
+  english: boolean;
+  notes: string;
+}
+
+const whisperModels: WhisperModelOption[] = [
+  { id: "tiny", label: "tiny", diskMB: 75, ramPeakMB: 390, realtime: 50, werClean: 7.5, werOther: 16, english: false, notes: "Fastest, weak accuracy." },
+  { id: "base", label: "base", diskMB: 142, ramPeakMB: 500, realtime: 32, werClean: 5.0, werOther: 12, english: false, notes: "Fast fallback for low-RAM hosts." },
+  { id: "small", label: "small", diskMB: 466, ramPeakMB: 1000, realtime: 16, werClean: 3.4, werOther: 7.6, english: false, notes: "Mid-tier." },
+  { id: "medium", label: "medium", diskMB: 1500, ramPeakMB: 2500, realtime: 6, werClean: 3.0, werOther: 6.0, english: false, notes: "Strong accuracy within homelab memory limits." },
+  { id: "large-v3", label: "large-v3 (default)", diskMB: 3100, ramPeakMB: 3900, realtime: 1, werClean: 2.7, werOther: 5.2, english: false, notes: "Best WER; ≥4 GB RAM recommended." },
+  { id: "large-v3-q5_0", label: "large-v3 q5_0", diskMB: 1080, ramPeakMB: 1300, realtime: 3, werClean: 2.9, werOther: 5.4, english: false, notes: "Quantized; reasonable accuracy/size tradeoff." },
+  { id: "large-v3-turbo-q5_0", label: "large-v3-turbo q5_0", diskMB: 574, ramPeakMB: 900, realtime: 10, werClean: 3.0, werOther: 5.5, english: false, notes: "8× faster than v3, near-v3 WER." },
+  { id: "large-v3-turbo-q4_0", label: "large-v3-turbo q4_0", diskMB: 470, ramPeakMB: 800, realtime: 12, werClean: 3.2, werOther: 5.8, english: false, notes: "Smallest near-SOTA option." },
+  { id: "distil-large-v3.5-q5", label: "distil-large-v3.5 q5 (EN)", diskMB: 600, ramPeakMB: 1000, realtime: 15, werClean: 3.0, werOther: 5.6, english: true, notes: "English-only; faster than turbo." },
+];
+
+const whisperLanguages: { id: string; label: string }[] = [
+  { id: "auto", label: "Auto-detect" },
+  { id: "en", label: "English" },
+  { id: "fr", label: "French" },
+  { id: "de", label: "German" },
+  { id: "es", label: "Spanish" },
+  { id: "it", label: "Italian" },
+  { id: "pt", label: "Portuguese" },
+  { id: "nl", label: "Dutch" },
+  { id: "ja", label: "Japanese" },
+  { id: "zh", label: "Chinese" },
+  { id: "ko", label: "Korean" },
+  { id: "ru", label: "Russian" },
+];
+
+interface AudioTaggerOption {
+  id: string;
+  label: string;
+  diskMB: number;
+  ramPeakMB: number;
+  mAP: number;
+  license: string;
+  notes: string;
+}
+
+const audioTaggers: AudioTaggerOption[] = [
+  { id: "efficientat_mn04", label: "EfficientAT mn04_as (tiny)", diskMB: 5, ramPeakMB: 60, mAP: 0.432, license: "MIT", notes: "Same mAP as CNN14 at ~80× smaller. Best for ultra-constrained pods." },
+  { id: "efficientat_mn10", label: "EfficientAT mn10_as (default)", diskMB: 20, ramPeakMB: 120, mAP: 0.471, license: "MIT", notes: "~16× smaller than CNN14, +9% mAP, faster on CPU." },
+  { id: "efficientat_mn40", label: "EfficientAT mn40_as_ext", diskMB: 280, ramPeakMB: 500, mAP: 0.487, license: "MIT", notes: "Same disk class as CNN14, +5.6 mAP. Slower CPU inference." },
+  { id: "ced_tiny", label: "CED-Tiny", diskMB: 22, ramPeakMB: 120, mAP: 0.481, license: "Apache-2.0", notes: "Transformer; CPU parity with MobileNetV3." },
+  { id: "ced_small", label: "CED-Small", diskMB: 85, ramPeakMB: 280, mAP: 0.496, license: "Apache-2.0", notes: "Best mid-range quality." },
+  { id: "ced_base", label: "CED-Base (premium)", diskMB: 330, ramPeakMB: 600, mAP: 0.500, license: "Apache-2.0", notes: "SOTA-class quality." },
+  { id: "pann_cnn14", label: "PANNs CNN14 (legacy)", diskMB: 313, ramPeakMB: 600, mAP: 0.431, license: "Apache-2.0", notes: "Original baseline. Kept as rollback option." },
+];
+
+function formatMB(mb: number): string {
+  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+  return `${mb} MB`;
+}
+
+// Drafts + apply handlers for the inference selectors. Same rollback-on-
+// error pattern as updateRegistrationMode above.
+const whisperModelDraft = ref<string | null>(null);
+const whisperLanguageDraft = ref<string | null>(null);
+const audioTaggerDraft = ref<string | null>(null);
+
+watchEffect(() => {
+  if (!settings.value) return;
+  if (whisperModelDraft.value === null) {
+    whisperModelDraft.value = settings.value.whisper_model ?? "large-v3";
+  }
+  if (whisperLanguageDraft.value === null) {
+    whisperLanguageDraft.value = settings.value.whisper_language ?? "auto";
+  }
+  if (audioTaggerDraft.value === null) {
+    audioTaggerDraft.value = settings.value.audio_detect_model ?? "efficientat_mn10";
+  }
+});
+
+const selectedWhisper = computed<WhisperModelOption | null>(() => {
+  const id = whisperModelDraft.value;
+  return whisperModels.find((m) => m.id === id) ?? null;
+});
+
+const selectedAudioTagger = computed<AudioTaggerOption | null>(() => {
+  const id = audioTaggerDraft.value;
+  return audioTaggers.find((m) => m.id === id) ?? null;
+});
+
+const updatingWhisper = ref(false);
+async function updateWhisperModel(next: string) {
+  if (!settings.value || next === (settings.value.whisper_model ?? "large-v3")) return;
+  updatingWhisper.value = true;
+  const previous = settings.value.whisper_model ?? "large-v3";
+  try {
+    const updated = await api.admin.updateSettings({ whisper_model: next });
+    settings.value = updated;
+    whisperModelDraft.value = updated.whisper_model ?? "large-v3";
+    toast.add({ title: `Transcription model: ${next}`, color: "success" });
+  } catch (error: unknown) {
+    whisperModelDraft.value = previous;
+    const message = error instanceof Error ? error.message : "Failed to update model";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    updatingWhisper.value = false;
+  }
+}
+
+async function updateWhisperLanguage(next: string) {
+  if (!settings.value || next === (settings.value.whisper_language ?? "auto")) return;
+  updatingWhisper.value = true;
+  const previous = settings.value.whisper_language ?? "auto";
+  try {
+    const updated = await api.admin.updateSettings({ whisper_language: next });
+    settings.value = updated;
+    whisperLanguageDraft.value = updated.whisper_language ?? "auto";
+    toast.add({ title: `Transcription language: ${next}`, color: "success" });
+  } catch (error: unknown) {
+    whisperLanguageDraft.value = previous;
+    const message = error instanceof Error ? error.message : "Failed to update language";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    updatingWhisper.value = false;
+  }
+}
+
+const updatingAudioTagger = ref(false);
+async function updateAudioTagger(next: string) {
+  if (!settings.value || next === (settings.value.audio_detect_model ?? "efficientat_mn10")) return;
+  updatingAudioTagger.value = true;
+  const previous = settings.value.audio_detect_model ?? "efficientat_mn10";
+  try {
+    const updated = await api.admin.updateSettings({ audio_detect_model: next });
+    settings.value = updated;
+    audioTaggerDraft.value = updated.audio_detect_model ?? "efficientat_mn10";
+    toast.add({ title: `Audio tagger: ${next}`, color: "success" });
+  } catch (error: unknown) {
+    audioTaggerDraft.value = previous;
+    const message = error instanceof Error ? error.message : "Failed to update audio tagger";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    updatingAudioTagger.value = false;
+  }
+}
+
 const updatingRegistrationMode = ref(false);
 async function updateRegistrationMode(next: RegistrationMode) {
   if (!settings.value || next === settings.value.registration_mode) return;
@@ -277,6 +434,95 @@ const columns: TableColumn<AdminUser>[] = [
             <p class="text-xs text-muted">{{ mode.description }}</p>
           </div>
         </label>
+      </div>
+    </UCard>
+
+    <UCard>
+      <template #header>
+        <div>
+          <h2 class="text-lg font-semibold">Inference models</h2>
+          <p class="text-sm text-muted">
+            Switch the transcription model and audio-tagger used by background
+            workers. Changes take effect on the next job; long-running jobs
+            already in flight finish on the previous model.
+          </p>
+        </div>
+      </template>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm font-medium">Transcription model (whisper.cpp)</p>
+            <p class="text-xs text-muted">
+              Lower WER = better accuracy. RAM peak is the inference high-water
+              mark for whisper-cli; budget headroom for ffmpeg + the rest of
+              the worker pod.
+            </p>
+          </div>
+          <USelect
+            :model-value="whisperModelDraft ?? 'large-v3'"
+            :items="whisperModels.map((m) => ({ label: m.label, value: m.id }))"
+            :disabled="updatingWhisper"
+            size="sm"
+            @update:model-value="(v: string) => { whisperModelDraft = v; updateWhisperModel(v); }"
+          />
+          <div v-if="selectedWhisper" class="rounded-md bg-elevated/50 p-3 text-xs space-y-1.5">
+            <p class="text-default">{{ selectedWhisper.notes }}</p>
+            <div class="grid grid-cols-2 gap-2 text-muted">
+              <p>Disk: <span class="text-default">{{ formatMB(selectedWhisper.diskMB) }}</span></p>
+              <p>RAM peak: <span class="text-default">{{ formatMB(selectedWhisper.ramPeakMB) }}</span></p>
+              <p>CPU speed: <span class="text-default">~{{ selectedWhisper.realtime }}× realtime</span></p>
+              <p>WER (clean/other): <span class="text-default">{{ selectedWhisper.werClean.toFixed(1) }}% / {{ selectedWhisper.werOther.toFixed(1) }}%</span></p>
+              <p v-if="selectedWhisper.english" class="col-span-2 text-warning">English-only</p>
+              <p v-if="selectedWhisper.ramPeakMB >= 3000" class="col-span-2 text-warning">
+                ⚠️ Needs ≥4 GB RAM in the worker pod.
+              </p>
+            </div>
+          </div>
+          <div class="pt-1">
+            <p class="text-xs text-muted mb-1">Language</p>
+            <USelect
+              :model-value="whisperLanguageDraft ?? 'auto'"
+              :items="whisperLanguages.map((l) => ({ label: l.label, value: l.id }))"
+              :disabled="updatingWhisper"
+              size="sm"
+              @update:model-value="(v: string) => { whisperLanguageDraft = v; updateWhisperLanguage(v); }"
+            />
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm font-medium">Audio tagger (AudioSet 527 classes)</p>
+            <p class="text-xs text-muted">
+              Powers the per-clip event labels (music, speech, applause, …).
+              Higher mAP = better tagging quality. Every model shares the same
+              527-class label space, so existing HighlightFilter expressions
+              keep working after a swap.
+            </p>
+          </div>
+          <USelect
+            :model-value="audioTaggerDraft ?? 'efficientat_mn10'"
+            :items="audioTaggers.map((m) => ({ label: m.label, value: m.id }))"
+            :disabled="updatingAudioTagger"
+            size="sm"
+            @update:model-value="(v: string) => { audioTaggerDraft = v; updateAudioTagger(v); }"
+          />
+          <div v-if="selectedAudioTagger" class="rounded-md bg-elevated/50 p-3 text-xs space-y-1.5">
+            <p class="text-default">{{ selectedAudioTagger.notes }}</p>
+            <div class="grid grid-cols-2 gap-2 text-muted">
+              <p>Disk: <span class="text-default">{{ formatMB(selectedAudioTagger.diskMB) }}</span></p>
+              <p>RAM peak: <span class="text-default">{{ formatMB(selectedAudioTagger.ramPeakMB) }}</span></p>
+              <p>mAP (AudioSet): <span class="text-default">{{ selectedAudioTagger.mAP.toFixed(3) }}</span></p>
+              <p>License: <span class="text-default">{{ selectedAudioTagger.license }}</span></p>
+            </div>
+          </div>
+          <p class="text-xs text-muted">
+            New tagger applies to <em>future</em> detection jobs. Re-run via
+            the bulk action on a library's settings page to backfill existing
+            files with the new model.
+          </p>
+        </div>
       </div>
     </UCard>
 

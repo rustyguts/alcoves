@@ -157,14 +157,22 @@ oauth:
 # privately if egress matters or the public bucket is unreachable.
 # =============================================================================
 models:
-  whisperModel: medium
+  # Boot-time fallback for the transcription model. Admins can override at
+  # runtime from /admin → Inference Models; the worker reads admin settings
+  # first and falls back here when unset (fresh installs, tests). Allow-list
+  # lives in backend/internal/services/transcribe/whisper_models.go.
+  whisperModel: large-v3
+  whisperLanguage: auto
   # Silero VAD model name. Required to suppress the repetition-loop
   # hallucination on long non-speech audio (game/music/silence).
   # Set to "" to disable (not recommended). Hosted alongside the whisper
   # model file under whisperModelBaseUrl as ggml-<name>.bin.
   whisperVadModel: silero-v6.2.0
   whisperModelBaseUrl: https://s3.rustyguts.net/models
-  audioDetectModelUrl: https://s3.rustyguts.net/models/panns_cnn14.onnx
+  # Base URL for the audio-tagger ONNX bucket. The worker composes the
+  # final URL by appending the registry entry's filename. Registry lives
+  # in backend/internal/services/audiodetection/registry.go.
+  audioDetectModelBaseUrl: https://s3.rustyguts.net/models
   audioDetectLabelsUrl: https://s3.rustyguts.net/models/audioset_class_labels_indices.csv
 
 # =============================================================================

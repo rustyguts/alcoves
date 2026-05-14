@@ -66,12 +66,16 @@ type Config struct {
 	WhisperLanguage     string
 	FFmpegBinaryPath    string
 
-	// Audio event detection (PANNs CNN14 via ONNX Runtime)
-	AudioDetectModelURL  string
-	AudioDetectLabelsURL string
-	AudioDetectWindowSec float64
-	AudioDetectThreshold float64
-	AudioDetectTopK      int
+	// Audio event detection (AudioSet 527 via ONNX Runtime). The active
+	// model is admin-selectable from a small registry — see
+	// backend/internal/services/audiodetection/registry.go. Each entry's
+	// ModelFile is appended to AudioDetectModelBaseURL to construct the
+	// download URL.
+	AudioDetectModelBaseURL string
+	AudioDetectLabelsURL    string
+	AudioDetectWindowSec    float64
+	AudioDetectThreshold    float64
+	AudioDetectTopK         int
 }
 
 func Load() (*Config, error) {
@@ -143,7 +147,7 @@ func Load() (*Config, error) {
 		ObjectDetectionNMSThresh: objNMSThresh,
 
 		WhisperBinaryPath: getEnv("ALCOVES_WHISPER_BINARY", "whisper-cli"),
-		WhisperModel:      getEnv("ALCOVES_WHISPER_MODEL", "medium"),
+		WhisperModel:      getEnv("ALCOVES_WHISPER_MODEL", "large-v3"),
 		// Silero VAD model used to drop non-speech regions before decoding.
 		// Empty string disables VAD. The default is the Silero v6.2 ggml
 		// build that ships at https://huggingface.co/ggml-org/whisper-vad,
@@ -156,11 +160,11 @@ func Load() (*Config, error) {
 		WhisperLanguage:     getEnv("ALCOVES_WHISPER_LANGUAGE", "auto"),
 		FFmpegBinaryPath:    getEnv("ALCOVES_FFMPEG_BINARY", "ffmpeg"),
 
-		AudioDetectModelURL:  getEnv("ALCOVES_AUDIO_DETECT_MODEL_URL", "https://s3.rustyguts.net/models/panns_cnn14.onnx"),
-		AudioDetectLabelsURL: getEnv("ALCOVES_AUDIO_DETECT_LABELS_URL", "https://s3.rustyguts.net/models/audioset_class_labels_indices.csv"),
-		AudioDetectWindowSec: parseFloatEnv("ALCOVES_AUDIO_DETECT_WINDOW_SEC", 10.0),
-		AudioDetectThreshold: parseFloatEnv("ALCOVES_AUDIO_DETECT_THRESHOLD", 0.2),
-		AudioDetectTopK:      parseIntEnv("ALCOVES_AUDIO_DETECT_TOP_K", 5),
+		AudioDetectModelBaseURL: getEnv("ALCOVES_AUDIO_DETECT_MODEL_BASE_URL", "https://s3.rustyguts.net/models"),
+		AudioDetectLabelsURL:    getEnv("ALCOVES_AUDIO_DETECT_LABELS_URL", "https://s3.rustyguts.net/models/audioset_class_labels_indices.csv"),
+		AudioDetectWindowSec:    parseFloatEnv("ALCOVES_AUDIO_DETECT_WINDOW_SEC", 10.0),
+		AudioDetectThreshold:    parseFloatEnv("ALCOVES_AUDIO_DETECT_THRESHOLD", 0.2),
+		AudioDetectTopK:         parseIntEnv("ALCOVES_AUDIO_DETECT_TOP_K", 5),
 	}
 
 	return cfg, nil

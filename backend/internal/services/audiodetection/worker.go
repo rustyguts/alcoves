@@ -22,21 +22,45 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/config"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
-const (
-	sampleRateHz = 32000
-)
-
 type TaskHandler struct {
-	db      *gorm.DB
-	storage *storage.Service
-	cfg     *config.Config
+	db          *gorm.DB
+	storage     *storage.Service
+	cfg         *config.Config
+	settingsSvc *settings.Service
 }
 
-func NewTaskHandler(db *gorm.DB, storageSvc *storage.Service, cfg *config.Config) *TaskHandler {
-	return &TaskHandler{db: db, storage: storageSvc, cfg: cfg}
+// NewTaskHandler creates an audio-detect task handler. settingsSvc may be
+// nil in tests; the worker falls back to the registry default
+// (efficientat_mn10).
+func NewTaskHandler(db *gorm.DB, storageSvc *storage.Service, cfg *config.Config, settingsSvc *settings.Service) *TaskHandler {
+	return &TaskHandler{db: db, storage: storageSvc, cfg: cfg, settingsSvc: settingsSvc}
+}
+
+// activeSpec returns the ModelSpec for the admin-selected tagger, with
+// fallback to the registry default. Unknown IDs (e.g. left over from a
+// rolled-back deploy) fall back rather than failing the job.
+func (h *TaskHandler) activeSpec() ModelSpec {
+	id := ""
+	if h.settingsSvc != nil {
+		id = h.settingsSvc.Get().AudioDetectModel
+	}
+	spec, _ := LookupSpec(id)
+	return spec
+}
+
+// modelURL constructs the download URL by appending the spec filename to
+// the configured base URL. Empty base URL falls back to the canonical
+// rustyguts mirror so a misconfigured pod still boots.
+func (h *TaskHandler) modelURL(spec ModelSpec) string {
+	base := h.cfg.AudioDetectModelBaseURL
+	if base == "" {
+		base = "https://s3.rustyguts.net/models"
+	}
+	return strings.TrimRight(base, "/") + "/" + spec.ModelFile
 }
 
 func newTask(p Payload) (*asynq.Task, error) {
@@ -74,6 +98,15 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 	zero := 0
 	h.setState(fileID, ptr("processing"), &zero, nil, nil)
 
+	// Resolve the active model spec once per job. The spec drives ffmpeg's
+	// target sample rate, the model file/URL, and the persisted
+	// audio_detect_model column on success.
+	spec := h.activeSpec()
+	sampleRate := spec.SampleRate
+	if sampleRate <= 0 {
+		sampleRate = 32000
+	}
+
 	tmpDir, err := os.MkdirTemp("", "alcoves-audiodetect-*")
 	if err != nil {
 		h.fail(fileID, fmt.Errorf("mktemp: %w", err))
@@ -88,7 +121,7 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 	}
 
 	pcmPath := filepath.Join(tmpDir, "audio.f32le")
-	if err := extractAudio(ctx, h.cfg.FFmpegBinaryPath, srcPath, pcmPath); err != nil {
+	if err := extractAudio(ctx, h.cfg.FFmpegBinaryPath, srcPath, pcmPath, sampleRate); err != nil {
 		h.fail(fileID, fmt.Errorf("ffmpeg: %w", err))
 		return err
 	}
@@ -98,12 +131,12 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		h.fail(fileID, fmt.Errorf("read pcm: %w", err))
 		return err
 	}
-	if len(samples) < sampleRateHz/2 {
+	if len(samples) < sampleRate/2 {
 		h.fail(fileID, fmt.Errorf("audio too short (%d samples)", len(samples)))
 		return nil
 	}
 
-	modelPath, labelsPath, err := EnsureAssets(h.cfg.ModelsPath, h.cfg.AudioDetectModelURL, h.cfg.AudioDetectLabelsURL)
+	modelPath, labelsPath, err := EnsureAssets(h.cfg.ModelsPath, spec.ModelFile, h.modelURL(spec), h.cfg.AudioDetectLabelsURL)
 	if err != nil {
 		h.fail(fileID, err)
 		return err
@@ -114,16 +147,16 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		return err
 	}
 
-	sess, err := LoadSession(modelPath)
+	sess, err := LoadSession(modelPath, sampleRate)
 	if err != nil {
 		h.fail(fileID, err)
 		return err
 	}
 	defer sess.session.Destroy()
 
-	windowLen := int(h.cfg.AudioDetectWindowSec * float64(sampleRateHz))
+	windowLen := int(h.cfg.AudioDetectWindowSec * float64(sampleRate))
 	if windowLen <= 0 {
-		windowLen = 10 * sampleRateHz
+		windowLen = 10 * sampleRate
 	}
 
 	var detections []models.AudioDetection
@@ -149,9 +182,9 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 			return err
 		}
 
-		windowStart := float32(startSample) / float32(sampleRateHz)
-		windowEnd := float32(endSample) / float32(sampleRateHz)
-		if actualDur := float32(len(samples)) / float32(sampleRateHz); windowEnd > actualDur {
+		windowStart := float32(startSample) / float32(sampleRate)
+		windowEnd := float32(endSample) / float32(sampleRate)
+		if actualDur := float32(len(samples)) / float32(sampleRate); windowEnd > actualDur {
 			windowEnd = actualDur
 		}
 
@@ -199,7 +232,7 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 			"audio_detect_error":       nil,
 			"audio_detect_version":     newVersion,
 			"audio_detected_version":   newVersion,
-			"audio_detect_model":       "panns_cnn14",
+			"audio_detect_model":       spec.ID,
 		}).Error
 	})
 	if err != nil {
@@ -245,8 +278,13 @@ func (h *TaskHandler) fail(fileID string, err error) {
 
 func ptr(s string) *string { return &s }
 
-// extractAudio emits 32kHz mono float32 PCM raw.
-func extractAudio(ctx context.Context, ffmpeg, src, dst string) error {
+// extractAudio emits mono float32 PCM raw at the requested sample rate.
+// CED models want 16 kHz, PANN + EfficientAT want 32 kHz; the active
+// model's spec drives sampleRate at call time.
+func extractAudio(ctx context.Context, ffmpeg, src, dst string, sampleRate int) error {
+	if sampleRate <= 0 {
+		sampleRate = 32000
+	}
 	cmd := exec.CommandContext(ctx, ffmpeg,
 		"-hide_banner",
 		"-loglevel", "error",
@@ -254,7 +292,7 @@ func extractAudio(ctx context.Context, ffmpeg, src, dst string) error {
 		"-i", src,
 		"-vn",
 		"-ac", "1",
-		"-ar", fmt.Sprintf("%d", sampleRateHz),
+		"-ar", fmt.Sprintf("%d", sampleRate),
 		"-f", "f32le",
 		"-acodec", "pcm_f32le",
 		dst,

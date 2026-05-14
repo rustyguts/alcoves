@@ -23,10 +23,22 @@ const (
 // Settings is the structured form of app_settings.settings JSONB.
 type Settings struct {
 	RegistrationMode string `json:"registration_mode"`
+
+	// Inference model selection. Empty string means "use the worker's
+	// boot-time fallback" (env var / config default); the admin UI persists
+	// an explicit value here when the admin picks one.
+	WhisperModel     string `json:"whisper_model,omitempty"`
+	WhisperLanguage  string `json:"whisper_language,omitempty"`
+	AudioDetectModel string `json:"audio_detect_model,omitempty"`
 }
 
 func defaults() Settings {
-	return Settings{RegistrationMode: RegistrationOpen}
+	return Settings{
+		RegistrationMode: RegistrationOpen,
+		WhisperModel:     "large-v3",
+		WhisperLanguage:  "auto",
+		AudioDetectModel: "efficientat_mn10",
+	}
 }
 
 // Service is a cached accessor for the single-row app_settings table.
@@ -78,7 +90,10 @@ func (s *Service) Get() Settings {
 }
 
 // Update merges a patch into the stored settings and refreshes cache.
-// Caller is responsible for authorization. updatedBy may be nil.
+// Caller is responsible for authorization AND domain-specific validation
+// of the inference model fields (allow-list lives in the admin handler so
+// the settings package stays free of transcribe/audiodetection imports).
+// updatedBy may be nil.
 func (s *Service) Update(patch Settings, updatedBy *uuid.UUID) (Settings, error) {
 	cur := s.Get()
 	if patch.RegistrationMode != "" {
@@ -86,6 +101,15 @@ func (s *Service) Update(patch Settings, updatedBy *uuid.UUID) (Settings, error)
 			return cur, fmt.Errorf("invalid registration_mode")
 		}
 		cur.RegistrationMode = patch.RegistrationMode
+	}
+	if patch.WhisperModel != "" {
+		cur.WhisperModel = patch.WhisperModel
+	}
+	if patch.WhisperLanguage != "" {
+		cur.WhisperLanguage = patch.WhisperLanguage
+	}
+	if patch.AudioDetectModel != "" {
+		cur.AudioDetectModel = patch.AudioDetectModel
 	}
 
 	raw, err := json.Marshal(cur)

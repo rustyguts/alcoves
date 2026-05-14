@@ -12,6 +12,82 @@ SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-05-12
+
+### Added
+
+- **Admin-selectable inference models.** A new "Inference Models" card on
+  `/admin` lets owners swap the transcription model (whisper.cpp) and the
+  audio-tagging model at runtime without a redeploy. Each selector renders
+  per-option disk + RAM peak + quality metadata so the admin can pick
+  against the pod's actual budget. Persists in `app_settings` JSONB; takes
+  effect on the next worker task. Env vars
+  (`ALCOVES_WHISPER_MODEL`, `ALCOVES_WHISPER_LANGUAGE`,
+  `ALCOVES_AUDIO_DETECT_MODEL_BASE_URL`) become boot-time fallbacks.
+- **Whisper allow-list** mirroring every variant from the model bucket:
+  `tiny`, `base`, `small`, `medium`, `large-v3` (default), `large-v3-q5_0`,
+  `large-v3-turbo-q5_0`, `large-v3-turbo-q4_0`, `distil-large-v3.5-q5`
+  (English-only). `scripts/upload-whisper-models.sh` mirrors them all to
+  `s3.rustyguts.net/models` via rclone.
+- **Audio tagger registry.** EfficientAT (mn04 / mn10 / mn40_as_ext) and
+  CED (tiny / small / base) join PANNs CNN14 in
+  `backend/internal/services/audiodetection/registry.go`. Each entry
+  carries its own ONNX filename, sample rate (16 kHz for CED, 32 kHz for
+  the rest), and admin-UI metadata. `scripts/export-audio-tagger.py`
+  generates the ONNX bundles with mel-spectrogram preprocessing baked into
+  the graph so the Go worker keeps feeding raw PCM regardless of family.
+- **Tus uploads now enqueue transcription + audio-event detection on
+  completion** alongside the existing face/object/waveform jobs. The
+  transcribe and audio-detect services join `TusHandler`'s constructor,
+  and the post-upload pipeline fans out to all five workers in one place.
+
+### Changed
+
+- **Waveform display switched from per-window max-peak (linear) to RMS +
+  per-file normalization + dB curve.** The previous algorithm pinned every
+  20ms window with a transient to full-scale, so most clips looked like a
+  wall of peaking bars. The new pipeline computes per-window RMS, divides
+  by the file's 99th-percentile RMS as a robust reference (occasional clips
+  no longer compress the rest of the waveform), then maps `[-50dB, 0dB]`
+  onto `[0,1]` for visual output. Silent files (reference < ~-80dB) emit
+  zeros instead of amplifying the noise floor. No schema or frontend
+  changes — the renderer keeps consuming the same `[0,1]` peaks JSON.
+- **Default audio tagger switched from PANNs CNN14 → EfficientAT mn10_as.**
+  ~16× smaller on disk (313 MB → 20 MB), faster CPU inference, +9% mAP
+  (0.431 → 0.471). PANN CNN14 stays in the registry as a rollback option
+  selectable from the admin page. The label space (AudioSet 527) is
+  unchanged, so existing `HighlightFilter` expressions continue to work.
+- `backend/internal/services/audiodetection/worker.go` is now spec-aware:
+  per-model sample rate flows to ffmpeg's `-ar`, the ONNX probe widens to
+  cover EfficientAT + CED conventions (`input_values`, `logits`, etc.), and
+  `audio_detect_model` on `files` records the registry ID of the run.
+- `ALCOVES_AUDIO_DETECT_MODEL_URL` replaced by
+  `ALCOVES_AUDIO_DETECT_MODEL_BASE_URL` — the worker composes the URL from
+  the base + registry filename rather than taking a single hardcoded URL.
+
+### Backend
+
+- `settings.Settings` extends with `whisper_model`, `whisper_language`,
+  `audio_detect_model`. Defaults seeded on fresh install
+  (`large-v3` / `auto` / `efficientat_mn10`); existing deployments
+  transparently pick up the defaults via the JSONB unmarshal pattern.
+- `PATCH /api/admin/settings` accepts the new keys with allow-list
+  validation. Unknown IDs return 400.
+- `transcribe.NewService` + `audiodetection.NewService` now accept a
+  `settings.Service`; the worker reads admin settings at task start with
+  env-var fallback. Whisper-cli stays per-task spawn (no in-memory model
+  state to invalidate), so admin swaps apply on the very next job.
+
+### Docs
+
+- `docs/models.md` refreshed: audio tagger table replaced with the
+  registry's seven entries, default highlight moved to EfficientAT mn10,
+  "How to swap" rewritten around the admin UI with env-var fallback.
+- `docs/publishing-models.md` inventory updated with the new Whisper +
+  audio tagger artifacts and bulk-push helper script references.
+- `.env.example` documents the inference env vars with admin-overrides
+  notes.
+
 ## [0.17.0] — 2026-05-12
 
 ### Added

@@ -10,6 +10,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/config"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
+	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -20,16 +21,19 @@ type Service struct {
 	asynqClient *asynq.Client
 	cfg         *config.Config
 	activitySvc *activity.Service
+	settingsSvc *settings.Service
 }
 
-// NewService creates a new transcribe service.
-func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Client, cfg *config.Config, activitySvc *activity.Service) *Service {
+// NewService creates a new transcribe service. settingsSvc may be nil in
+// tests; the worker falls back to cfg.WhisperModel / cfg.WhisperLanguage.
+func NewService(db *gorm.DB, storageSvc *storage.Service, asynqClient *asynq.Client, cfg *config.Config, activitySvc *activity.Service, settingsSvc *settings.Service) *Service {
 	return &Service{
 		db:          db,
 		storage:     storageSvc,
 		asynqClient: asynqClient,
 		cfg:         cfg,
 		activitySvc: activitySvc,
+		settingsSvc: settingsSvc,
 	}
 }
 
@@ -50,5 +54,5 @@ func (s *Service) EnqueueTranscribe(libraryID, fileID string) error {
 
 // NewTaskHandler builds the asynq task handler.
 func (s *Service) NewTaskHandler() *TaskHandler {
-	return NewTaskHandler(s.db, s.storage, s.cfg, s.activitySvc)
+	return NewTaskHandler(s.db, s.storage, s.cfg, s.activitySvc, s.settingsSvc)
 }

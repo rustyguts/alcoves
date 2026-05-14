@@ -26,7 +26,7 @@ Once the files are mirrored on your own HF repo, set these (examples):
 
 ```
 ALCOVES_WHISPER_MODEL_BASE_URL=https://huggingface.co/<you>/alcoves-models/resolve/main
-ALCOVES_AUDIO_DETECT_MODEL_URL=https://huggingface.co/<you>/alcoves-models/resolve/main/panns_cnn14.onnx
+ALCOVES_AUDIO_DETECT_MODEL_BASE_URL=https://huggingface.co/<you>/alcoves-models/resolve/main
 ALCOVES_AUDIO_DETECT_LABELS_URL=https://huggingface.co/<you>/alcoves-models/resolve/main/panns_labels.json
 ```
 
