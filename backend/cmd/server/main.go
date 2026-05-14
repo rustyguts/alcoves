@@ -341,7 +341,7 @@ func main() {
 		downloadHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Tus resumable upload routes (under /api/tus)
-		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc, waveformSvc, activitySvc)
+		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc, waveformSvc, transcribeSvc, audioDetectSvc, activitySvc)
 		tusHandler.RegisterRoutes(api)
 
 		// Avatar routes (under /api/auth)
