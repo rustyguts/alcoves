@@ -20,10 +20,12 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
+	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
+	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
 	"github.com/alcoves/alcoves-backend/internal/services/waveform"
 )
@@ -54,14 +56,16 @@ type tusUpload struct {
 // creation extension. Uploads are written to a staging directory
 // and moved to permanent storage on completion.
 type TusHandler struct {
-	db          *gorm.DB
-	storageSvc  *storage.Service
-	faceSvc     *facedetection.Service
-	objSvc      *objectdetection.Service
-	videoSvc    *videoproxy.Service
-	waveformSvc *waveform.Service
-	activitySvc *activity.Service
-	dataDir     string // staging directory for incomplete uploads
+	db             *gorm.DB
+	storageSvc     *storage.Service
+	faceSvc        *facedetection.Service
+	objSvc         *objectdetection.Service
+	videoSvc       *videoproxy.Service
+	waveformSvc    *waveform.Service
+	transcribeSvc  *transcribe.Service
+	audioDetectSvc *audiodetection.Service
+	activitySvc    *activity.Service
+	dataDir        string // staging directory for incomplete uploads
 
 	mu      sync.RWMutex
 	uploads map[string]*tusUpload
@@ -69,23 +73,25 @@ type TusHandler struct {
 	stopCleanup chan struct{}
 }
 
-func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, waveformSvc *waveform.Service, activitySvc *activity.Service) *TusHandler {
+func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, waveformSvc *waveform.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service, activitySvc *activity.Service) *TusHandler {
 	tusDir := filepath.Join(dataDir, ".tus-uploads")
 	if err := os.MkdirAll(tusDir, 0o755); err != nil {
 		log.Printf("Failed to create tus staging directory %s: %v", tusDir, err)
 	}
 
 	h := &TusHandler{
-		db:          db,
-		storageSvc:  storageSvc,
-		faceSvc:     faceSvc,
-		objSvc:      objSvc,
-		videoSvc:    videoSvc,
-		waveformSvc: waveformSvc,
-		activitySvc: activitySvc,
-		dataDir:     tusDir,
-		uploads:     make(map[string]*tusUpload),
-		stopCleanup: make(chan struct{}),
+		db:             db,
+		storageSvc:     storageSvc,
+		faceSvc:        faceSvc,
+		objSvc:         objSvc,
+		videoSvc:       videoSvc,
+		waveformSvc:    waveformSvc,
+		transcribeSvc:  transcribeSvc,
+		audioDetectSvc: audioDetectSvc,
+		activitySvc:    activitySvc,
+		dataDir:        tusDir,
+		uploads:        make(map[string]*tusUpload),
+		stopCleanup:    make(chan struct{}),
 	}
 
 	// Clean orphaned staging files from previous runs
@@ -487,6 +493,36 @@ func (h *TusHandler) finishUpload(upload *tusUpload) (int, error) {
 		if h.waveformSvc != nil {
 			if err := h.waveformSvc.EnqueueWaveform(upload.LibraryID, fileID.String()); err != nil {
 				log.Printf("failed to enqueue waveform for tus upload %s: %v", fileID, err)
+			}
+		}
+
+		if h.transcribeSvc != nil {
+			queued := "queued"
+			zero := 0
+			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+				"transcribe_status":      queued,
+				"transcribe_progress":    zero,
+				"transcribe_eta_seconds": nil,
+				"transcribe_error":       nil,
+				"transcribe_version":     1,
+			})
+			if err := h.transcribeSvc.EnqueueTranscribe(upload.LibraryID, fileID.String()); err != nil {
+				log.Printf("failed to enqueue transcribe for tus upload %s: %v", fileID, err)
+			}
+		}
+
+		if h.audioDetectSvc != nil {
+			queued := "queued"
+			zero := 0
+			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+				"audio_detect_status":      queued,
+				"audio_detect_progress":    zero,
+				"audio_detect_eta_seconds": nil,
+				"audio_detect_error":       nil,
+				"audio_detect_version":     1,
+			})
+			if err := h.audioDetectSvc.EnqueueDetect(upload.LibraryID, fileID.String()); err != nil {
+				log.Printf("failed to enqueue audio detection for tus upload %s: %v", fileID, err)
 			}
 		}
 	}
