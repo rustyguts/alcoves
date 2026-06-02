@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createDefaultState } from "../helpers/default-state";
 import { createMockApi } from "../helpers/mock-api";
-import { setupDeterminism, snap } from "../helpers/screenshot";
+import { setTheme, setupDeterminism, snap } from "../helpers/screenshot";
 
 const FLOW = "responsive";
 
@@ -16,6 +16,37 @@ test.describe("Mobile @screenshot", () => {
 
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
     await snap(page, FLOW, "mobile-login");
+  });
+
+  test("mobile login dark @screenshot", async ({ page }) => {
+    const state = createDefaultState({ loggedIn: false, googleAuthEnabled: true });
+    await setupDeterminism(page);
+    await setTheme(page, "dark");
+    await createMockApi(page, state);
+    await page.goto("/login");
+
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+    await snap(page, FLOW, "mobile-login dark");
+  });
+
+  test("mobile register @screenshot", async ({ page }) => {
+    const state = createDefaultState({ loggedIn: false });
+    await setupDeterminism(page);
+    await createMockApi(page, state);
+    await page.goto("/register");
+
+    await expect(page.getByRole("heading", { name: "Create an account" })).toBeVisible();
+    await snap(page, FLOW, "mobile-register");
+  });
+
+  test("mobile profile @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await createMockApi(page, state);
+    await page.goto("/profile");
+
+    await expect(page.getByRole("heading", { name: "Active sessions" })).toBeVisible();
+    await snap(page, FLOW, "mobile-profile");
   });
 
   test("mobile library grid @screenshot", async ({ page }) => {

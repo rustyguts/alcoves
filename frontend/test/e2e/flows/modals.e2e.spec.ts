@@ -195,4 +195,17 @@ test.describe("Modals dark @screenshot", () => {
     await page.getByTitle("Choose emoji icon").click();
     await snap(page, FLOW, "emoji-picker-open-dark");
   });
+
+  test("file preview image dark @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await setTheme(page, "dark");
+    await createMockApi(page, state);
+    await page.goto("/libraries/lib-photos");
+
+    await expect(page.getByText("sunset.jpg")).toBeVisible();
+    await page.getByText("sunset.jpg").dblclick();
+    await page.waitForTimeout(300);
+    await snap(page, FLOW, "file-preview-image-dark");
+  });
 });

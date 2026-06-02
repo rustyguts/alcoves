@@ -520,6 +520,7 @@ export function createDefaultState(overrides: DeepPartial<MockState> = {}): Mock
   const base: MockState = {
     loggedIn: true,
     googleAuthEnabled: false,
+    registrationMode: "open",
     currentUser: { ...owner },
     libraries: libraries.map((l) => ({ ...l })),
     tags: tags.map((t) => ({ ...t })),

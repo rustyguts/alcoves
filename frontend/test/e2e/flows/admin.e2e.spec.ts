@@ -128,4 +128,16 @@ test.describe("Admin dark @screenshot", () => {
     await expect(page.getByRole("heading", { name: "Admin dashboard" })).toBeVisible();
     await snap(page, FLOW, "admin-dashboard-stats-dark");
   });
+
+  test("admin jobs connected dark @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await setTheme(page, "dark");
+    await createMockApi(page, state);
+    await page.goto("/admin/jobs");
+
+    await expect(page.getByRole("heading", { name: "Background Jobs" })).toBeVisible();
+    await expect(page.getByText("transcode", { exact: false }).first()).toBeVisible();
+    await snap(page, FLOW, "admin-jobs-connected-dark");
+  });
 });
