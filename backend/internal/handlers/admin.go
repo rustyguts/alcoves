@@ -78,6 +78,12 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	return c.JSON(http.StatusOK, updated)
 }
 
+// RequireOwnerMiddleware returns the owner-check middleware so external callers
+// (e.g. AdminJobsHandler) can reuse it without duplicating the logic.
+func (h *AdminHandler) RequireOwnerMiddleware() echo.MiddlewareFunc {
+	return h.requireOwnerMiddleware
+}
+
 func (h *AdminHandler) requireOwnerMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID, err := middleware.RequireUserID(c)

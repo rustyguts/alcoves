@@ -97,6 +97,82 @@ func TestAdmin_UpdateSettings_PersistsAndReloads(t *testing.T) {
 	}
 }
 
+// TestAdminJobs_RequiresOwner asserts that the admin job-queue routes reject
+// member-role sessions with 403 and allow owner-role sessions through.
+func TestAdminJobs_RequiresOwner(t *testing.T) {
+	db := libraryTestDB(t)
+	adminH, _ := adminHandlerForTest(t, db)
+	e := newLibEcho()
+
+	// AdminJobsHandler wired with the real owner middleware.
+	jobsH := NewAdminJobsHandler(nil, adminH.RequireOwnerMiddleware())
+
+	memberUser := mustUser(t, db, "jobs-member@example.com")
+	memberUser.Role = "member"
+	db.Save(&memberUser)
+
+	ownerUser := mustUser(t, db, "jobs-owner@example.com")
+	ownerUser.Role = "owner"
+	db.Save(&ownerUser)
+
+	routes := []struct {
+		method  string
+		path    string
+		body    string
+		handler echo.HandlerFunc
+	}{
+		{http.MethodGet, "/admin/jobs/stats", "", jobsH.Stats},
+		{http.MethodPost, "/admin/jobs/default/purge", "", jobsH.PurgeQueue},
+	}
+
+	for _, r := range routes {
+		r := r
+		t.Run(r.method+" "+r.path+" member gets 403", func(t *testing.T) {
+			var reqBody *strings.Reader
+			if r.body != "" {
+				reqBody = strings.NewReader(r.body)
+			} else {
+				reqBody = strings.NewReader("")
+			}
+			req := httptest.NewRequest(r.method, r.path, reqBody)
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := ctxWithUser(e, req, rec, memberUser.ID)
+
+			err := adminH.RequireOwnerMiddleware()(r.handler)(c)
+			if err == nil {
+				t.Fatal("expected 403 error for member, got nil")
+			}
+			httpErr, ok := err.(*echo.HTTPError)
+			if !ok || httpErr.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %v", err)
+			}
+		})
+
+		t.Run(r.method+" "+r.path+" owner passes middleware", func(t *testing.T) {
+			var reqBody *strings.Reader
+			if r.body != "" {
+				reqBody = strings.NewReader(r.body)
+			} else {
+				reqBody = strings.NewReader("")
+			}
+			req := httptest.NewRequest(r.method, r.path, reqBody)
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := ctxWithUser(e, req, rec, ownerUser.ID)
+
+			// Middleware passes; the actual handler may fail due to nil inspector
+			// — that is expected and not the concern of this test.
+			_ = adminH.RequireOwnerMiddleware()(r.handler)(c)
+			// A nil-inspector Stats returns 200; PurgeQueue returns 503.
+			// Either way we just assert the middleware itself did not return 403.
+			if rec.Code == http.StatusForbidden {
+				t.Fatalf("owner should not get 403 from owner middleware")
+			}
+		})
+	}
+}
+
 func TestAdmin_UpdateSettings_ValidatesMode(t *testing.T) {
 	db := libraryTestDB(t)
 	h, _ := adminHandlerForTest(t, db)

@@ -135,6 +135,68 @@ func TestLoadConfigSuccess(t *testing.T) {
 	}
 }
 
+func TestParseCommaList(t *testing.T) {
+	cases := []struct {
+		input string
+		want  []string
+	}{
+		{"", nil},
+		{"  ", nil},
+		{"https://app.example.com", []string{"https://app.example.com"}},
+		{"https://a.example.com,https://b.example.com", []string{"https://a.example.com", "https://b.example.com"}},
+		{" https://a.example.com , https://b.example.com ", []string{"https://a.example.com", "https://b.example.com"}},
+		{",,,", nil},
+	}
+	for _, tc := range cases {
+		got := parseCommaList(tc.input)
+		if len(got) != len(tc.want) {
+			t.Errorf("parseCommaList(%q) = %v, want %v", tc.input, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Errorf("parseCommaList(%q)[%d] = %q, want %q", tc.input, i, got[i], tc.want[i])
+			}
+		}
+	}
+}
+
+func TestLoad_ExtraCORSOrigins(t *testing.T) {
+	os.Setenv("ALCOVES_SESSION_SECRET", "this-is-a-test-secret-at-least-32-chars-long")
+	defer os.Unsetenv("ALCOVES_SESSION_SECRET")
+
+	os.Setenv("ALCOVES_EXTRA_CORS_ORIGINS", "https://cdn.example.com, https://app2.example.com")
+	defer os.Unsetenv("ALCOVES_EXTRA_CORS_ORIGINS")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.ExtraCORSOrigins) != 2 {
+		t.Fatalf("expected 2 ExtraCORSOrigins, got %d: %v", len(cfg.ExtraCORSOrigins), cfg.ExtraCORSOrigins)
+	}
+	if cfg.ExtraCORSOrigins[0] != "https://cdn.example.com" {
+		t.Errorf("ExtraCORSOrigins[0] = %q", cfg.ExtraCORSOrigins[0])
+	}
+	if cfg.ExtraCORSOrigins[1] != "https://app2.example.com" {
+		t.Errorf("ExtraCORSOrigins[1] = %q", cfg.ExtraCORSOrigins[1])
+	}
+}
+
+func TestLoad_ExtraCORSOriginsEmpty(t *testing.T) {
+	os.Setenv("ALCOVES_SESSION_SECRET", "this-is-a-test-secret-at-least-32-chars-long")
+	defer os.Unsetenv("ALCOVES_SESSION_SECRET")
+	os.Unsetenv("ALCOVES_EXTRA_CORS_ORIGINS")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.ExtraCORSOrigins != nil {
+		t.Errorf("expected nil ExtraCORSOrigins, got %v", cfg.ExtraCORSOrigins)
+	}
+}
+
 func TestLoadConfigDefaults(t *testing.T) {
 	// Set only required env var
 	os.Setenv("ALCOVES_SESSION_SECRET", "this-is-a-test-secret-at-least-32-chars-long")
