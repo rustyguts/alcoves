@@ -182,7 +182,11 @@ func (h *ShareHandler) Video(c echo.Context) error {
 	return nil
 }
 
-// Thumbnail redirects to the file proxy for a reasonable thumbnail image.
+// Thumbnail streams the moment's poster image straight from storage. It must
+// stay publicly reachable (authorized by the share token) for OG/poster
+// rendering on the public /s/:token page — so it deliberately does NOT redirect
+// to /api/files/proxy, which now requires a logged-in session + library
+// membership.
 func (h *ShareHandler) Thumbnail(c echo.Context) error {
 	token := c.Param("token")
 	rs, err := h.resolve(token)
@@ -193,13 +197,38 @@ func (h *ShareHandler) Thumbnail(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
 	}
 
+	libraryID := rs.file.LibraryID
 	thumbID := rs.file.ID
+	mime := rs.file.MimeType
 	if rs.file.ThumbnailFileID != nil {
 		thumbID = *rs.file.ThumbnailFileID
+		// The thumbnail is a separately stored image; look up its own mime type.
+		var thumb models.File
+		if err := h.db.Select("mime_type").
+			Where("id = ? AND library_id = ?", thumbID, libraryID).First(&thumb).Error; err == nil && thumb.MimeType != "" {
+			mime = thumb.MimeType
+		} else {
+			mime = "image/jpeg"
+		}
 	}
-	url := fmt.Sprintf("/api/files/proxy/%s/%s?format=jpeg&width=1280&height=720&quality=75",
-		rs.file.LibraryID.String(), thumbID.String())
-	return c.Redirect(http.StatusFound, url)
+	if mime == "" {
+		mime = "image/jpeg"
+	}
+
+	size, err := h.storage.FileStat(libraryID.String(), thumbID.String())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Thumbnail not found")
+	}
+	reader, err := h.storage.OpenFileReadStream(libraryID.String(), thumbID.String(), nil)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read thumbnail")
+	}
+	defer reader.Close()
+
+	c.Response().Header().Set("Content-Type", mime)
+	c.Response().Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	c.Response().Header().Set("Cache-Control", "public, max-age=3600")
+	return c.Stream(http.StatusOK, mime, reader)
 }
 
 // resolveBase picks the user-facing origin used when building share URLs.

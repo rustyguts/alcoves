@@ -28,13 +28,15 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
-// Package-level ONNX session cache — loaded exactly once per process lifetime,
-// mirroring the objectdetection pattern.  The mutex guards concurrent inference
-// calls because ort.DynamicAdvancedSession.Run is not documented as goroutine-safe.
+// Package-level ONNX session cache keyed by the active model. The session is
+// loaded lazily and reused across tasks; it is reloaded only when the active
+// model/sample-rate changes (e.g. an admin swaps audio_detect_model at
+// runtime), so inference never runs through a stale model. The mutex also
+// guards concurrent inference calls because ort.DynamicAdvancedSession.Run is
+// not documented as goroutine-safe.
 var (
-	sessionOnce   sync.Once
 	cachedSession *sessionInfo
-	sessionErr    error
+	cachedKey     string
 	sessionMu     sync.Mutex
 )
 
@@ -75,16 +77,31 @@ func (h *TaskHandler) modelURL(spec ModelSpec) string {
 	return strings.TrimRight(base, "/") + "/" + spec.ModelFile
 }
 
-// getSession returns the cached ONNX session, loading it on the first call.
-// Subsequent calls return the same session without re-loading.
-// modelPath and sampleRate must be stable across calls (they are: both derive
-// from EnsureAssets + the active spec, which is fixed for the process lifetime
-// after first use).
+// getSession returns the ONNX session for the given model, loading it on the
+// first call and reusing it for subsequent calls with the same
+// (modelPath, sampleRate) key. When the key changes — e.g. an admin selects a
+// different audio_detect_model at runtime — a fresh session is loaded so
+// inference always runs through the active model rather than a stale one.
+//
+// The previous session is intentionally NOT Destroy()ed here: another in-flight
+// job may still hold its pointer (inference is serialized by sessionMu, but the
+// pointer is captured before the loop and outlives individual lock windows), so
+// freeing its C memory would risk a use-after-free. A model switch is a rare
+// admin action, so leaking one session per switch is an acceptable trade.
 func getSession(modelPath string, sampleRate int) (*sessionInfo, error) {
-	sessionOnce.Do(func() {
-		cachedSession, sessionErr = LoadSession(modelPath, sampleRate)
-	})
-	return cachedSession, sessionErr
+	key := fmt.Sprintf("%s|%d", modelPath, sampleRate)
+	sessionMu.Lock()
+	defer sessionMu.Unlock()
+	if cachedSession != nil && cachedKey == key {
+		return cachedSession, nil
+	}
+	sess, err := LoadSession(modelPath, sampleRate)
+	if err != nil {
+		return nil, err
+	}
+	cachedSession = sess
+	cachedKey = key
+	return sess, nil
 }
 
 func newTask(p Payload) (*asynq.Task, error) {
@@ -155,6 +172,14 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 	if err != nil {
 		h.fail(fileID, fmt.Errorf("stat pcm: %w", err))
 		return err
+	}
+	// f32le PCM must be a whole number of 4-byte float32 samples. A non-multiple
+	// size means a truncated/corrupt extraction; fail loudly rather than
+	// silently dropping the trailing bytes (the pre-streaming bulk reader did
+	// the same).
+	if pcmInfo.Size()%4 != 0 {
+		h.fail(fileID, fmt.Errorf("corrupt PCM: size %d not a multiple of 4 bytes", pcmInfo.Size()))
+		return fmt.Errorf("corrupt PCM size %d", pcmInfo.Size())
 	}
 	totalSamples := int(pcmInfo.Size() / 4)
 	if totalSamples < sampleRate/2 {
