@@ -100,6 +100,18 @@ func TestParseCursor_EmptySortName(t *testing.T) {
 	}
 }
 
+func TestParseCursor_OversizedSortName(t *testing.T) {
+	longName := strings.Repeat("a", maxSortNameLen+1)
+	payload := CursorPayload{KindRank: 0, SortName: longName, ID: "550e8400-e29b-41d4-a716-446655440000"}
+	data, _ := json.Marshal(payload)
+	encoded := base64.StdEncoding.EncodeToString(data)
+
+	_, err := parseCursor(encoded)
+	if err == nil {
+		t.Fatal("Expected error for oversized SortName")
+	}
+}
+
 func TestParseLimit_Default(t *testing.T) {
 	if v := parseLimit(""); v != DefaultLimit {
 		t.Fatalf("Expected %d, got %d", DefaultLimit, v)
@@ -132,40 +144,58 @@ func TestParseLimit_ValidValues(t *testing.T) {
 
 func TestNormalizeFolderID(t *testing.T) {
 	// Nil for empty
-	if v := normalizeFolderID(""); v != nil {
-		t.Fatal("Expected nil for empty string")
+	v, err := normalizeFolderID("")
+	if err != nil || v != nil {
+		t.Fatalf("Expected nil, nil for empty string; got %v, %v", v, err)
 	}
 
 	// Nil for whitespace
-	if v := normalizeFolderID("   "); v != nil {
-		t.Fatal("Expected nil for whitespace")
+	v, err = normalizeFolderID("   ")
+	if err != nil || v != nil {
+		t.Fatalf("Expected nil, nil for whitespace; got %v, %v", v, err)
 	}
 
 	// Nil for "null"
-	if v := normalizeFolderID("null"); v != nil {
-		t.Fatal("Expected nil for 'null'")
+	v, err = normalizeFolderID("null")
+	if err != nil || v != nil {
+		t.Fatalf("Expected nil, nil for 'null'; got %v, %v", v, err)
 	}
 
-	// Trims and returns valid folder IDs
-	v := normalizeFolderID("folder-123")
-	if v == nil || *v != "folder-123" {
-		t.Fatalf("Expected 'folder-123', got %v", v)
+	// Valid UUID is accepted and returned
+	validUUID := "550e8400-e29b-41d4-a716-446655440000"
+	v, err = normalizeFolderID(validUUID)
+	if err != nil || v == nil || *v != validUUID {
+		t.Fatalf("Expected %q, nil; got %v, %v", validUUID, v, err)
 	}
 
-	v = normalizeFolderID("  folder-123  ")
-	if v == nil || *v != "folder-123" {
-		t.Fatalf("Expected 'folder-123', got %v", v)
+	// UUID with surrounding whitespace is trimmed and accepted
+	v, err = normalizeFolderID("  " + validUUID + "  ")
+	if err != nil || v == nil || *v != validUUID {
+		t.Fatalf("Expected trimmed UUID; got %v, %v", v, err)
 	}
 
-	// Any non-empty value
-	v = normalizeFolderID("abc")
-	if v == nil || *v != "abc" {
-		t.Fatalf("Expected 'abc', got %v", v)
+	// Non-UUID values must return an error
+	for _, bad := range []string{"folder-123", "abc", "0", "../evil", "x'OR'1'='1"} {
+		v, err = normalizeFolderID(bad)
+		if err == nil {
+			t.Fatalf("Expected error for non-UUID %q, got v=%v", bad, v)
+		}
 	}
+}
 
-	v = normalizeFolderID("0")
-	if v == nil || *v != "0" {
-		t.Fatalf("Expected '0', got %v", v)
+func TestNormalizeFolderID_PathTraversalRejected(t *testing.T) {
+	// Explicit path-traversal / injection patterns must be rejected
+	injections := []string{
+		"../../etc/passwd",
+		"x'OR'1'='1",
+		"'; DROP TABLE folders; --",
+		"1 OR 1=1",
+	}
+	for _, s := range injections {
+		v, err := normalizeFolderID(s)
+		if err == nil {
+			t.Errorf("Expected error for injection %q, got v=%v", s, v)
+		}
 	}
 }
 
@@ -182,14 +212,14 @@ func TestEscapeSQLString(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Query builder tests (no DB required)
+// Query builder tests (no DB required) — new parameterized signatures
 // ---------------------------------------------------------------------------
 
 func TestBuildFolderQueries_TrashRequiresTrashedAtNotNull(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
 
-	query, countQuery := svc.buildFolderQueries(libID, true, nil, nil, 50)
+	query, _, countQuery, _ := svc.buildFolderQueries(libID, true, nil, nil, 50)
 
 	if !strings.Contains(query, "trashed_at IS NOT NULL") {
 		t.Fatalf("Trash folder query must require trashed_at IS NOT NULL.\nGot: %s", query)
@@ -206,7 +236,7 @@ func TestBuildFolderQueries_NonTrashRequiresTrashedAtNull(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
 
-	query, countQuery := svc.buildFolderQueries(libID, false, nil, nil, 50)
+	query, _, countQuery, _ := svc.buildFolderQueries(libID, false, nil, nil, 50)
 
 	if !strings.Contains(query, "trashed_at IS NULL") {
 		t.Fatalf("Non-trash folder query must require trashed_at IS NULL.\nGot: %s", query)
@@ -223,7 +253,7 @@ func TestBuildFolderQueries_TrashExcludesChildrenOfTrashedParent(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
 
-	query, _ := svc.buildFolderQueries(libID, true, nil, nil, 50)
+	query, _, _, _ := svc.buildFolderQueries(libID, true, nil, nil, 50)
 
 	// The query should exclude folders whose parent is also trashed
 	if !strings.Contains(query, "NOT EXISTS") {
@@ -231,11 +261,43 @@ func TestBuildFolderQueries_TrashExcludesChildrenOfTrashedParent(t *testing.T) {
 	}
 }
 
+func TestBuildFolderQueries_UsesPlaceholders(t *testing.T) {
+	svc := &Service{}
+	libID := "lib-123"
+
+	query, args, countQuery, countArgs := svc.buildFolderQueries(libID, false, nil, nil, 50)
+
+	// Must use ? placeholders, not interpolated values
+	if strings.Contains(query, "'lib-123'") || strings.Contains(countQuery, "'lib-123'") {
+		t.Fatal("Query must not interpolate libraryID directly; use ? placeholder")
+	}
+	if !strings.Contains(query, "?") {
+		t.Fatal("Query must contain ? placeholders")
+	}
+	if len(args) == 0 {
+		t.Fatal("Args slice must not be empty")
+	}
+	if len(countArgs) == 0 {
+		t.Fatal("Count args slice must not be empty")
+	}
+	// libraryID must appear as a bound argument
+	found := false
+	for _, a := range args {
+		if a == libID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("libraryID %q must be in args: %v", libID, args)
+	}
+}
+
 func TestBuildFileQueries_TrashRequiresTrashedAtNotNull(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
 
-	query, countQuery := svc.buildFileQueries(libID, true, nil, nil, 50)
+	query, _, countQuery, _ := svc.buildFileQueries(libID, true, nil, nil, 50)
 
 	if !strings.Contains(query, "trashed_at IS NOT NULL") {
 		t.Fatalf("Trash file query must require trashed_at IS NOT NULL.\nGot: %s", query)
@@ -252,7 +314,7 @@ func TestBuildFileQueries_NonTrashRequiresTrashedAtNull(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
 
-	query, countQuery := svc.buildFileQueries(libID, false, nil, nil, 50)
+	query, _, countQuery, _ := svc.buildFileQueries(libID, false, nil, nil, 50)
 
 	if !strings.Contains(query, "trashed_at IS NULL") {
 		t.Fatalf("Non-trash file query must require trashed_at IS NULL.\nGot: %s", query)
@@ -269,7 +331,7 @@ func TestBuildFileQueries_TrashExcludesFilesInTrashedFolders(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
 
-	query, _ := svc.buildFileQueries(libID, true, nil, nil, 50)
+	query, _, _, _ := svc.buildFileQueries(libID, true, nil, nil, 50)
 
 	// The query should exclude files whose parent folder is trashed
 	if !strings.Contains(query, "NOT EXISTS") {
@@ -280,18 +342,43 @@ func TestBuildFileQueries_TrashExcludesFilesInTrashedFolders(t *testing.T) {
 func TestBuildFileQueries_NonTrashWithFolder(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
-	folderID := "folder-abc"
+	folderID := "550e8400-e29b-41d4-a716-446655440000"
 
-	query, countQuery := svc.buildFileQueries(libID, false, &folderID, nil, 50)
+	query, args, countQuery, countArgs := svc.buildFileQueries(libID, false, &folderID, nil, 50)
 
-	if !strings.Contains(query, "parent_folder_id = 'folder-abc'") {
-		t.Fatalf("Non-trash file query with folder must filter by parent_folder_id.\nGot: %s", query)
+	// Must NOT embed the folder ID as a string literal
+	if strings.Contains(query, "'"+folderID+"'") {
+		t.Fatalf("Non-trash file query must not interpolate folderID.\nGot: %s", query)
+	}
+	if !strings.Contains(query, "parent_folder_id = ?") {
+		t.Fatalf("Non-trash file query with folder must use parameterized parent_folder_id filter.\nGot: %s", query)
 	}
 	if !strings.Contains(query, "trashed_at IS NULL") {
 		t.Fatalf("Non-trash file query must require trashed_at IS NULL.\nGot: %s", query)
 	}
-	if !strings.Contains(countQuery, "parent_folder_id = 'folder-abc'") {
-		t.Fatalf("Non-trash file count query must filter by parent_folder_id.\nGot: %s", countQuery)
+	if !strings.Contains(countQuery, "parent_folder_id = ?") {
+		t.Fatalf("Non-trash file count query must use parameterized parent_folder_id filter.\nGot: %s", countQuery)
+	}
+	// folderID must appear in args
+	found := false
+	for _, a := range args {
+		if a == folderID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("folderID %q must be in args: %v", folderID, args)
+	}
+	found = false
+	for _, a := range countArgs {
+		if a == folderID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("folderID %q must be in countArgs: %v", folderID, countArgs)
 	}
 }
 
@@ -299,7 +386,7 @@ func TestBuildFileQueries_NonTrashRootFolder(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
 
-	query, _ := svc.buildFileQueries(libID, false, nil, nil, 50)
+	query, _, _, _ := svc.buildFileQueries(libID, false, nil, nil, 50)
 
 	if !strings.Contains(query, "parent_folder_id IS NULL") {
 		t.Fatalf("Non-trash root file query must filter parent_folder_id IS NULL.\nGot: %s", query)
@@ -309,13 +396,15 @@ func TestBuildFileQueries_NonTrashRootFolder(t *testing.T) {
 func TestBuildFileQueries_TrashIgnoresFolderParam(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
-	folderID := "folder-abc"
+	folderID := "550e8400-e29b-41d4-a716-446655440000"
 
-	query, _ := svc.buildFileQueries(libID, true, &folderID, nil, 50)
+	query, args, _, _ := svc.buildFileQueries(libID, true, &folderID, nil, 50)
 
-	// In trash mode the folder param should be ignored
-	if strings.Contains(query, "folder-abc") {
-		t.Fatalf("Trash file query must not use the folder parameter.\nGot: %s", query)
+	// In trash mode the folder param should be ignored (not appear as arg)
+	for _, a := range args {
+		if a == folderID {
+			t.Fatalf("Trash file query must not use the folder parameter; found it in args: %v", args)
+		}
 	}
 	if !strings.Contains(query, "trashed_at IS NOT NULL") {
 		t.Fatalf("Trash file query must require trashed_at IS NOT NULL.\nGot: %s", query)
@@ -325,13 +414,39 @@ func TestBuildFileQueries_TrashIgnoresFolderParam(t *testing.T) {
 func TestBuildFolderQueries_TrashIgnoresFolderParam(t *testing.T) {
 	svc := &Service{}
 	libID := "lib-123"
-	folderID := "folder-abc"
+	folderID := "550e8400-e29b-41d4-a716-446655440000"
 
-	query, _ := svc.buildFolderQueries(libID, true, &folderID, nil, 50)
+	query, args, _, _ := svc.buildFolderQueries(libID, true, &folderID, nil, 50)
 
-	// In trash mode the folder param should be ignored
-	if strings.Contains(query, "folder-abc") {
-		t.Fatalf("Trash folder query must not use the folder parameter.\nGot: %s", query)
+	// In trash mode the folder param should be ignored (not appear as arg)
+	for _, a := range args {
+		if a == folderID {
+			t.Fatalf("Trash folder query must not use the folder parameter; found it in args: %v", args)
+		}
+	}
+	_ = query
+}
+
+func TestBuildFolderQueries_CursorUsesPlaceholders(t *testing.T) {
+	svc := &Service{}
+	libID := "lib-123"
+	cursor := &CursorPayload{KindRank: 0, SortName: "documents", ID: "550e8400-e29b-41d4-a716-446655440000"}
+
+	query, args, _, _ := svc.buildFolderQueries(libID, false, nil, cursor, 50)
+
+	if strings.Contains(query, "'documents'") {
+		t.Fatalf("Query must not interpolate cursor SortName; use ? placeholder.\nGot: %s", query)
+	}
+	// sortName must appear as a bound arg
+	found := false
+	for _, a := range args {
+		if a == cursor.SortName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("cursor SortName %q must be in args: %v", cursor.SortName, args)
 	}
 }
 
@@ -462,18 +577,18 @@ func TestTrashListing_OnlyReturnsTrashedFiles(t *testing.T) {
 	createTestFile(t, db, fix.LibraryID, fix.UserID, "trashed2.jpg", true, nil)
 
 	// Query trash files
-	_, countQuery := svc.buildFileQueries(fix.LibraryID.String(), true, nil, nil, 50)
+	_, _, countQuery, countArgs := svc.buildFileQueries(fix.LibraryID.String(), true, nil, nil, 50)
 	var count int
-	db.Raw(countQuery).Scan(&count)
+	db.Raw(countQuery, countArgs...).Scan(&count)
 
 	if count != 2 {
 		t.Fatalf("Expected 2 trashed files, got %d", count)
 	}
 
 	// Query active files
-	_, activeCountQuery := svc.buildFileQueries(fix.LibraryID.String(), false, nil, nil, 50)
+	_, _, activeCountQuery, activeCountArgs := svc.buildFileQueries(fix.LibraryID.String(), false, nil, nil, 50)
 	var activeCount int
-	db.Raw(activeCountQuery).Scan(&activeCount)
+	db.Raw(activeCountQuery, activeCountArgs...).Scan(&activeCount)
 
 	if activeCount != 2 {
 		t.Fatalf("Expected 2 active files, got %d", activeCount)
@@ -491,9 +606,9 @@ func TestTrashListing_OnlyReturnsTrashedFolders(t *testing.T) {
 	// Create trashed folders (should appear in trash)
 	createTestFolder(t, db, fix.LibraryID, "TrashedFolder", true, nil)
 
-	_, countQuery := svc.buildFolderQueries(fix.LibraryID.String(), true, nil, nil, 50)
+	_, _, countQuery, countArgs := svc.buildFolderQueries(fix.LibraryID.String(), true, nil, nil, 50)
 	var count int
-	db.Raw(countQuery).Scan(&count)
+	db.Raw(countQuery, countArgs...).Scan(&count)
 
 	if count != 1 {
 		t.Fatalf("Expected 1 trashed folder, got %d", count)
@@ -510,9 +625,9 @@ func TestTrashListing_ExcludesChildrenOfTrashedParent(t *testing.T) {
 	createTestFolder(t, db, fix.LibraryID, "ChildFolder", true, &parentID)
 
 	// Only the parent should appear at the top level of the trash
-	_, countQuery := svc.buildFolderQueries(fix.LibraryID.String(), true, nil, nil, 50)
+	_, _, countQuery, countArgs := svc.buildFolderQueries(fix.LibraryID.String(), true, nil, nil, 50)
 	var count int
-	db.Raw(countQuery).Scan(&count)
+	db.Raw(countQuery, countArgs...).Scan(&count)
 
 	if count != 1 {
 		t.Fatalf("Expected 1 top-level trashed folder (parent only), got %d", count)
@@ -532,9 +647,9 @@ func TestTrashListing_ExcludesFilesInTrashedFolders(t *testing.T) {
 	createTestFile(t, db, fix.LibraryID, fix.UserID, "standalone_trashed.jpg", true, nil)
 
 	// Only the standalone file should appear at top level (the other is inside the trashed folder)
-	_, countQuery := svc.buildFileQueries(fix.LibraryID.String(), true, nil, nil, 50)
+	_, _, countQuery, countArgs := svc.buildFileQueries(fix.LibraryID.String(), true, nil, nil, 50)
 	var count int
-	db.Raw(countQuery).Scan(&count)
+	db.Raw(countQuery, countArgs...).Scan(&count)
 
 	if count != 1 {
 		t.Fatalf("Expected 1 top-level trashed file (standalone only), got %d", count)
@@ -560,9 +675,9 @@ func TestTrashListing_ActiveFilesNeverAppearInTrash(t *testing.T) {
 	createTestFile(t, db, fix.LibraryID, fix.UserID, "trashed_in_trashed_folder.jpg", true, &trashedFolder)
 
 	// Execute the trash file listing query and scan actual rows
-	query, _ := svc.buildFileQueries(fix.LibraryID.String(), true, nil, nil, 50)
+	query, args, _, _ := svc.buildFileQueries(fix.LibraryID.String(), true, nil, nil, 50)
 	var rows []listingRow
-	db.Raw(query).Scan(&rows)
+	db.Raw(query, args...).Scan(&rows)
 
 	// Verify every returned row has trashed_at set
 	for _, row := range rows {
@@ -594,9 +709,9 @@ func TestTrashListing_ActiveFoldersNeverAppearInTrash(t *testing.T) {
 	createTestFolder(t, db, fix.LibraryID, "ActiveFolder", false, nil)
 	createTestFolder(t, db, fix.LibraryID, "TrashedFolder", true, nil)
 
-	query, _ := svc.buildFolderQueries(fix.LibraryID.String(), true, nil, nil, 50)
+	query, args, _, _ := svc.buildFolderQueries(fix.LibraryID.String(), true, nil, nil, 50)
 	var rows []listingRow
-	db.Raw(query).Scan(&rows)
+	db.Raw(query, args...).Scan(&rows)
 
 	for _, row := range rows {
 		if row.TrashedAt == nil {
@@ -663,5 +778,39 @@ func TestGetTrashedFolderFileCounts_EmptyFolder(t *testing.T) {
 
 	if counts[folderID.String()] != 0 {
 		t.Fatalf("Expected 0 for empty trashed folder, got %d", counts[folderID.String()])
+	}
+}
+
+func TestGetFolderBreadcrumbs_CTE_5Levels(t *testing.T) {
+	db := setupListingTestDB(t)
+	fix := seedListingLibrary(t, db)
+	svc := NewService(db)
+
+	// Build a 5-level hierarchy: L1 > L2 > L3 > L4 > L5
+	l1 := createTestFolder(t, db, fix.LibraryID, "L1", false, nil)
+	l2 := createTestFolder(t, db, fix.LibraryID, "L2", false, &l1)
+	l3 := createTestFolder(t, db, fix.LibraryID, "L3", false, &l2)
+	l4 := createTestFolder(t, db, fix.LibraryID, "L4", false, &l3)
+	l5 := createTestFolder(t, db, fix.LibraryID, "L5", false, &l4)
+
+	crumbs, err := svc.getFolderBreadcrumbs(fix.LibraryID.String(), l5.String())
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Expect root → leaf order: L1, L2, L3, L4, L5
+	wantNames := []string{"L1", "L2", "L3", "L4", "L5"}
+	wantIDs := []string{l1.String(), l2.String(), l3.String(), l4.String(), l5.String()}
+
+	if len(crumbs) != len(wantNames) {
+		t.Fatalf("Expected %d breadcrumbs, got %d: %+v", len(wantNames), len(crumbs), crumbs)
+	}
+	for i, want := range wantNames {
+		if crumbs[i].Name != want {
+			t.Errorf("breadcrumb[%d]: expected name %q, got %q", i, want, crumbs[i].Name)
+		}
+		if crumbs[i].ID != wantIDs[i] {
+			t.Errorf("breadcrumb[%d]: expected id %q, got %q", i, wantIDs[i], crumbs[i].ID)
+		}
 	}
 }

@@ -3,7 +3,6 @@ package files
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"math"
 	"net/http"
 	"sort"
@@ -17,8 +16,9 @@ import (
 )
 
 const (
-	DefaultLimit = 50
-	MaxLimit     = 200
+	DefaultLimit   = 50
+	MaxLimit       = 200
+	maxSortNameLen = 500 // guard against oversized cursor SortName
 )
 
 // CursorPayload matches the TypeScript cursor format exactly.
@@ -138,7 +138,10 @@ func NewService(db *gorm.DB) *Service {
 func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*PaginatedFiles, error) {
 	showTrashed := c.QueryParam("trashed") == "true"
 	limit := parseLimit(c.QueryParam("limit"))
-	requestedFolderID := normalizeFolderID(c.QueryParam("folder"))
+	requestedFolderID, err := normalizeFolderID(c.QueryParam("folder"))
+	if err != nil {
+		return nil, err
+	}
 
 	var currentFolderID *string
 	if !showTrashed {
@@ -148,7 +151,6 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 	// Get breadcrumbs
 	var breadcrumbs []FolderBreadcrumb
 	if !showTrashed && currentFolderID != nil {
-		var err error
 		breadcrumbs, err = s.getFolderBreadcrumbs(libraryID, *currentFolderID)
 		if err != nil {
 			return nil, err
@@ -165,21 +167,21 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 	}
 
 	// Build folder query
-	folderQuery, folderCountQuery := s.buildFolderQueries(libraryID, showTrashed, currentFolderID, cursor, limit)
+	folderQuery, folderArgs, folderCountQuery, folderCountArgs := s.buildFolderQueries(libraryID, showTrashed, currentFolderID, cursor, limit)
 
 	// Build file query
-	fileQuery, fileCountQuery := s.buildFileQueries(libraryID, showTrashed, currentFolderID, cursor, limit)
+	fileQuery, fileArgs, fileCountQuery, fileCountArgs := s.buildFileQueries(libraryID, showTrashed, currentFolderID, cursor, limit)
 
 	// Execute counts
 	var folderCount, fileCount int
-	s.db.Raw(folderCountQuery).Scan(&folderCount)
-	s.db.Raw(fileCountQuery).Scan(&fileCount)
+	s.db.Raw(folderCountQuery, folderCountArgs...).Scan(&folderCount)
+	s.db.Raw(fileCountQuery, fileCountArgs...).Scan(&fileCount)
 	totalCount := folderCount + fileCount
 
 	// Execute listing queries
 	var folderRows, fileRows []listingRow
-	s.db.Raw(folderQuery).Scan(&folderRows)
-	s.db.Raw(fileQuery).Scan(&fileRows)
+	s.db.Raw(folderQuery, folderArgs...).Scan(&folderRows)
+	s.db.Raw(fileQuery, fileArgs...).Scan(&fileRows)
 
 	// Merge and sort: folders first (kindRank=0), then files (kindRank=1), both by name ASC
 	combined := append(folderRows, fileRows...)
@@ -340,129 +342,144 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 	}, nil
 }
 
-func (s *Service) buildFolderQueries(libraryID string, showTrashed bool, currentFolderID *string, cursor *CursorPayload, limit int) (string, string) {
-	var where string
+// buildFolderQueries returns (listQuery, listArgs, countQuery, countArgs) using
+// parameterized placeholders (?) instead of interpolated strings.
+func (s *Service) buildFolderQueries(libraryID string, showTrashed bool, currentFolderID *string, cursor *CursorPayload, limit int) (string, []interface{}, string, []interface{}) {
+	var whereClause string
+	var whereArgs []interface{}
+
 	if showTrashed {
-		where = fmt.Sprintf(
-			"library_id = '%s' AND trashed_at IS NOT NULL AND (parent_folder_id IS NULL OR NOT EXISTS (SELECT 1 FROM folders pf WHERE pf.id = folders.parent_folder_id AND pf.trashed_at IS NOT NULL))",
-			libraryID,
-		)
+		whereClause = "library_id = ? AND trashed_at IS NOT NULL AND (parent_folder_id IS NULL OR NOT EXISTS (SELECT 1 FROM folders pf WHERE pf.id = folders.parent_folder_id AND pf.trashed_at IS NOT NULL))"
+		whereArgs = []interface{}{libraryID}
 	} else if currentFolderID != nil {
-		where = fmt.Sprintf("library_id = '%s' AND trashed_at IS NULL AND parent_folder_id = '%s'", libraryID, *currentFolderID)
+		whereClause = "library_id = ? AND trashed_at IS NULL AND parent_folder_id = ?"
+		whereArgs = []interface{}{libraryID, *currentFolderID}
 	} else {
-		where = fmt.Sprintf("library_id = '%s' AND trashed_at IS NULL AND parent_folder_id IS NULL", libraryID)
+		whereClause = "library_id = ? AND trashed_at IS NULL AND parent_folder_id IS NULL"
+		whereArgs = []interface{}{libraryID}
 	}
 
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM folders WHERE %s", where)
+	countQuery := "SELECT COUNT(*) FROM folders WHERE " + whereClause
+	countArgs := whereArgs
 
 	// Add cursor condition
-	cursorWhere := ""
+	var cursorClause string
+	var cursorArgs []interface{}
 	if cursor != nil {
 		if cursor.KindRank == 0 {
-			cursorWhere = fmt.Sprintf(
-				" AND (lower(name) > '%s' OR (lower(name) = '%s' AND id > '%s'))",
-				escapeSQLString(cursor.SortName), escapeSQLString(cursor.SortName), escapeSQLString(cursor.ID),
-			)
+			cursorClause = " AND (lower(name) > ? OR (lower(name) = ? AND id > ?))"
+			cursorArgs = []interface{}{cursor.SortName, cursor.SortName, cursor.ID}
 		} else {
 			// Cursor is past all folders
-			cursorWhere = " AND false"
+			cursorClause = " AND false"
 		}
 	}
 
-	query := fmt.Sprintf(
-		`SELECT id, library_id, parent_folder_id, owner_id, name,
+	listQuery := `SELECT id, library_id, parent_folder_id, owner_id, name,
 		'folder' as kind, 0 as kind_rank, lower(name) as sort_name,
 		NULL as mime_type, NULL as size, NULL as duration, NULL as width, NULL as height,
 		NULL as proxy_status, NULL as proxy_progress, NULL as proxy_eta_seconds,
 		NULL as thumbnail_file_id,
 		NULL as source_file_id, NULL as original_created_at,
 		trashed_at, created_at, updated_at
-		FROM folders WHERE %s%s
-		ORDER BY lower(name) ASC, id ASC LIMIT %d`,
-		where, cursorWhere, limit+1,
-	)
+		FROM folders WHERE ` + whereClause + cursorClause + `
+		ORDER BY lower(name) ASC, id ASC LIMIT ?`
 
-	return query, countQuery
+	listArgs := make([]interface{}, 0, len(whereArgs)+len(cursorArgs)+1)
+	listArgs = append(listArgs, whereArgs...)
+	listArgs = append(listArgs, cursorArgs...)
+	listArgs = append(listArgs, limit+1)
+
+	return listQuery, listArgs, countQuery, countArgs
 }
 
-func (s *Service) buildFileQueries(libraryID string, showTrashed bool, currentFolderID *string, cursor *CursorPayload, limit int) (string, string) {
-	var where string
+// buildFileQueries returns (listQuery, listArgs, countQuery, countArgs) using
+// parameterized placeholders (?) instead of interpolated strings.
+func (s *Service) buildFileQueries(libraryID string, showTrashed bool, currentFolderID *string, cursor *CursorPayload, limit int) (string, []interface{}, string, []interface{}) {
+	var whereClause string
+	var whereArgs []interface{}
+
 	if showTrashed {
-		where = fmt.Sprintf(
-			"library_id = '%s' AND source_file_id IS NULL AND trashed_at IS NOT NULL AND (parent_folder_id IS NULL OR NOT EXISTS (SELECT 1 FROM folders tp WHERE tp.id = files.parent_folder_id AND tp.trashed_at IS NOT NULL))",
-			libraryID,
-		)
+		whereClause = "library_id = ? AND source_file_id IS NULL AND trashed_at IS NOT NULL AND (parent_folder_id IS NULL OR NOT EXISTS (SELECT 1 FROM folders tp WHERE tp.id = files.parent_folder_id AND tp.trashed_at IS NOT NULL))"
+		whereArgs = []interface{}{libraryID}
 	} else if currentFolderID != nil {
-		where = fmt.Sprintf("library_id = '%s' AND source_file_id IS NULL AND trashed_at IS NULL AND parent_folder_id = '%s'", libraryID, *currentFolderID)
+		whereClause = "library_id = ? AND source_file_id IS NULL AND trashed_at IS NULL AND parent_folder_id = ?"
+		whereArgs = []interface{}{libraryID, *currentFolderID}
 	} else {
-		where = fmt.Sprintf("library_id = '%s' AND source_file_id IS NULL AND trashed_at IS NULL AND parent_folder_id IS NULL", libraryID)
+		whereClause = "library_id = ? AND source_file_id IS NULL AND trashed_at IS NULL AND parent_folder_id IS NULL"
+		whereArgs = []interface{}{libraryID}
 	}
 
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM files WHERE %s", where)
+	countQuery := "SELECT COUNT(*) FROM files WHERE " + whereClause
+	countArgs := whereArgs
 
-	cursorWhere := ""
+	var cursorClause string
+	var cursorArgs []interface{}
 	if cursor != nil {
 		if cursor.KindRank == 0 {
 			// Cursor is still in folders — include all files
-			cursorWhere = ""
 		} else {
-			cursorWhere = fmt.Sprintf(
-				" AND (lower(name) > '%s' OR (lower(name) = '%s' AND id > '%s'))",
-				escapeSQLString(cursor.SortName), escapeSQLString(cursor.SortName), escapeSQLString(cursor.ID),
-			)
+			cursorClause = " AND (lower(name) > ? OR (lower(name) = ? AND id > ?))"
+			cursorArgs = []interface{}{cursor.SortName, cursor.SortName, cursor.ID}
 		}
 	}
 
-	query := fmt.Sprintf(
-		`SELECT id, library_id, parent_folder_id, owner_id, name,
+	listQuery := `SELECT id, library_id, parent_folder_id, owner_id, name,
 		'file' as kind, 1 as kind_rank, lower(name) as sort_name,
 		mime_type, size, duration, width, height,
 		proxy_status, proxy_progress, proxy_eta_seconds, thumbnail_file_id,
 		source_file_id, original_created_at, hash,
 		trashed_at, created_at, updated_at
-		FROM files WHERE %s%s
-		ORDER BY lower(name) ASC, id ASC LIMIT %d`,
-		where, cursorWhere, limit+1,
-	)
+		FROM files WHERE ` + whereClause + cursorClause + `
+		ORDER BY lower(name) ASC, id ASC LIMIT ?`
 
-	return query, countQuery
+	listArgs := make([]interface{}, 0, len(whereArgs)+len(cursorArgs)+1)
+	listArgs = append(listArgs, whereArgs...)
+	listArgs = append(listArgs, cursorArgs...)
+	listArgs = append(listArgs, limit+1)
+
+	return listQuery, listArgs, countQuery, countArgs
 }
 
+// getFolderBreadcrumbs resolves the full ancestor chain for folderID using a
+// single recursive CTE, eliminating the previous N+1 query loop. A LIMIT 50
+// guards against corrupt circular hierarchies. Results are returned
+// root→leaf (shallowest ancestor first, target folder last).
 func (s *Service) getFolderBreadcrumbs(libraryID, folderID string) ([]FolderBreadcrumb, error) {
-	var breadcrumbs []FolderBreadcrumb
-	visited := map[string]bool{}
-	currentID := folderID
+	// WITH RECURSIVE: start at the target folder (depth=0) then walk up via
+	// parent_folder_id. ORDER BY depth DESC puts the root (highest depth
+	// number) first and the target folder (depth=0) last — i.e. root→leaf.
+	const cteQuery = `
+WITH RECURSIVE breadcrumb AS (
+  SELECT id, name, parent_folder_id, 0 AS depth
+  FROM folders
+  WHERE id = ? AND library_id = ? AND trashed_at IS NULL
+  UNION ALL
+  SELECT f.id, f.name, f.parent_folder_id, b.depth + 1
+  FROM folders f
+  JOIN breadcrumb b ON f.id = b.parent_folder_id
+  WHERE f.library_id = ? AND f.trashed_at IS NULL
+)
+SELECT id, name, depth FROM breadcrumb ORDER BY depth DESC LIMIT 50`
 
-	for currentID != "" {
-		if visited[currentID] {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid folder hierarchy")
-		}
-		visited[currentID] = true
-
-		var folder struct {
-			ID             string  `gorm:"column:id"`
-			Name           string  `gorm:"column:name"`
-			ParentFolderID *string `gorm:"column:parent_folder_id"`
-		}
-		err := s.db.Raw(
-			"SELECT id, name, parent_folder_id FROM folders WHERE id = ? AND library_id = ? AND trashed_at IS NULL",
-			currentID, libraryID,
-		).Scan(&folder).Error
-		if err != nil || folder.ID == "" {
-			return nil, echo.NewHTTPError(http.StatusNotFound, "Folder not found")
-		}
-
-		breadcrumbs = append(breadcrumbs, FolderBreadcrumb{ID: folder.ID, Name: folder.Name})
-		if folder.ParentFolderID != nil {
-			currentID = *folder.ParentFolderID
-		} else {
-			currentID = ""
-		}
+	type row struct {
+		ID    string `gorm:"column:id"`
+		Name  string `gorm:"column:name"`
+		Depth int    `gorm:"column:depth"`
 	}
 
-	// Reverse
-	for i, j := 0, len(breadcrumbs)-1; i < j; i, j = i+1, j-1 {
-		breadcrumbs[i], breadcrumbs[j] = breadcrumbs[j], breadcrumbs[i]
+	var rows []row
+	if err := s.db.Raw(cteQuery, folderID, libraryID, libraryID).Scan(&rows).Error; err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to load breadcrumbs")
+	}
+
+	if len(rows) == 0 {
+		return nil, echo.NewHTTPError(http.StatusNotFound, "Folder not found")
+	}
+
+	breadcrumbs := make([]FolderBreadcrumb, len(rows))
+	for i, r := range rows {
+		breadcrumbs[i] = FolderBreadcrumb{ID: r.ID, Name: r.Name}
 	}
 	return breadcrumbs, nil
 }
@@ -700,6 +717,11 @@ func parseCursor(cursorStr string) (*CursorPayload, error) {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid cursor")
 	}
 
+	// Guard against oversized SortName to prevent large parameter binding
+	if len(payload.SortName) > maxSortNameLen {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid cursor")
+	}
+
 	return &payload, nil
 }
 
@@ -714,12 +736,17 @@ func parseLimit(s string) int {
 	return int(math.Min(math.Max(float64(n), 1), MaxLimit))
 }
 
-func normalizeFolderID(s string) *string {
+// normalizeFolderID validates and normalizes the folder query parameter.
+// Returns nil for empty/null values. Returns an HTTP 400 error for non-UUID values.
+func normalizeFolderID(s string) (*string, error) {
 	s = strings.TrimSpace(s)
 	if s == "" || s == "null" {
-		return nil
+		return nil, nil
 	}
-	return &s
+	if _, err := uuid.Parse(s); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid folder ID")
+	}
+	return &s, nil
 }
 
 func timePtr(t *time.Time) *string {
@@ -736,6 +763,8 @@ func sortTags(tags []TagResponse) {
 	})
 }
 
+// escapeSQLString doubles single quotes in a string.
+// Retained for backward compatibility but no longer used in query construction.
 func escapeSQLString(s string) string {
 	return strings.ReplaceAll(s, "'", "''")
 }

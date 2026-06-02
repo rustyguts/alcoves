@@ -18,11 +18,11 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
+	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
-	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
@@ -70,7 +70,11 @@ func (h *FileHandler) RegisterRoutes(g *echo.Group) {
 }
 
 func (h *FileHandler) List(c echo.Context) error {
+	// Validate libraryID is a UUID before passing it to the listing service.
 	libraryID := c.Param("id")
+	if _, err := uuid.Parse(libraryID); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
+	}
 	result, err := h.fileSvc.ListLibraryFiles(libraryID, c)
 	if err != nil {
 		return err
@@ -756,11 +760,11 @@ func (h *FileHandler) GenerateWaveform(c echo.Context) error {
 	if err := h.db.Model(&models.File{}).
 		Where("id = ?", file.ID).
 		Updates(map[string]interface{}{
-			"waveform_status":       queued,
-			"waveform_progress":     zero,
-			"waveform_error":        nil,
-			"waveform_version":      newVersion,
-			"updated_at":            now,
+			"waveform_status":   queued,
+			"waveform_progress": zero,
+			"waveform_error":    nil,
+			"waveform_version":  newVersion,
+			"updated_at":        now,
 		}).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update file waveform status")
 	}
@@ -790,11 +794,13 @@ func (h *FileHandler) GetWaveform(c echo.Context) error {
 	}
 
 	cacheKey := fmt.Sprintf("%s/%s/waveform.json", libraryID, fileID)
-	data, err := h.storageSvc.ReadCacheBuffer(cacheKey)
+	// Stream the waveform JSON without loading it fully into RAM.
+	rc, err := h.storageSvc.OpenCacheReadStream(cacheKey)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Waveform data not found")
 	}
-	return c.JSONBlob(http.StatusOK, data)
+	defer rc.Close()
+	return c.Stream(http.StatusOK, "application/json", rc)
 }
 
 func (h *FileHandler) GenerateTranscript(c echo.Context) error {
@@ -979,16 +985,16 @@ func (h *FileHandler) Proxy(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Proxy file not found")
 	}
 
-	data, err := h.storageSvc.ReadCacheBuffer(cacheKey)
+	// Get total size without loading the file into memory.
+	totalSize, err := h.storageSvc.CacheStat(cacheKey)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read proxy")
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to stat proxy")
 	}
 
 	c.Response().Header().Set("Content-Type", "video/mp4")
 	c.Response().Header().Set("Accept-Ranges", "bytes")
 	c.Response().Header().Set("Cache-Control", "private, max-age=3600")
 
-	totalSize := int64(len(data))
 	rangeHeader := c.Request().Header.Get("Range")
 	if rangeHeader != "" {
 		matches := rangeRegex.FindStringSubmatch(rangeHeader)
@@ -1009,14 +1015,27 @@ func (h *FileHandler) Proxy(c echo.Context) error {
 				end = totalSize - 1
 			}
 
+			rc, err := h.storageSvc.OpenCacheReadStreamRange(cacheKey, &storage.ByteRange{Start: start, End: end})
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read proxy")
+			}
+			defer rc.Close()
+
 			c.Response().Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, totalSize))
 			c.Response().Header().Set("Content-Length", strconv.FormatInt(end-start+1, 10))
-			return c.Blob(http.StatusPartialContent, "video/mp4", data[start:end+1])
+			return c.Stream(http.StatusPartialContent, "video/mp4", rc)
 		}
 	}
 
+	// Full (non-range) response — stream without buffering.
+	rc, err := h.storageSvc.OpenCacheReadStream(cacheKey)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read proxy")
+	}
+	defer rc.Close()
+
 	c.Response().Header().Set("Content-Length", strconv.FormatInt(totalSize, 10))
-	return c.Blob(http.StatusOK, "video/mp4", data)
+	return c.Stream(http.StatusOK, "video/mp4", rc)
 }
 
 func (h *FileHandler) Thumbnail(c echo.Context) error {
@@ -1039,13 +1058,15 @@ func (h *FileHandler) Thumbnail(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Thumbnail not found")
 	}
 
-	data, err := h.storageSvc.ReadCacheBuffer(cacheKey)
+	// Stream the thumbnail without loading it fully into RAM.
+	rc, err := h.storageSvc.OpenCacheReadStream(cacheKey)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read thumbnail")
 	}
+	defer rc.Close()
 
 	c.Response().Header().Set("Cache-Control", "private, max-age=86400")
-	return c.Blob(http.StatusOK, "image/webp", data)
+	return c.Stream(http.StatusOK, "image/webp", rc)
 }
 
 // fileToJSONWithLookup serializes a File and computes duplicateOfFileIds via
@@ -1064,44 +1085,44 @@ func (h *FileHandler) fileToJSONWithLookup(f *models.File) map[string]interface{
 // (other non-trashed source files sharing this hash). Pass nil to omit.
 func fileToJSON(f *models.File, duplicateOfFileIds []uuid.UUID) map[string]interface{} {
 	result := map[string]interface{}{
-		"id":              f.ID.String(),
-		"libraryId":       f.LibraryID.String(),
-		"parentFolderId":  uuidPtr(f.ParentFolderID),
-		"name":            f.Name,
-		"kind":            "file",
-		"mimeType":        f.MimeType,
-		"size":            f.Size,
-		"duration":        f.Duration,
-		"width":           f.Width,
-		"height":          f.Height,
-		"proxyStatus":          f.ProxyStatus,
-		"proxyProgress":        f.ProxyProgress,
-		"proxyEtaSeconds":      f.ProxyEtaSeconds,
-		"transcribeStatus":     f.TranscribeStatus,
-		"transcribeProgress":   f.TranscribeProgress,
-		"transcribeEtaSeconds": f.TranscribeEtaSeconds,
-		"transcribeError":      f.TranscribeError,
-		"transcribeVersion":    f.TranscribeVersion,
-		"transcribedVersion":   f.TranscribedVersion,
-		"transcriptModel":      f.TranscriptModel,
-		"audioDetectStatus":     f.AudioDetectStatus,
-		"audioDetectProgress":   f.AudioDetectProgress,
-		"audioDetectEtaSeconds": f.AudioDetectEtaSeconds,
-		"audioDetectError":      f.AudioDetectError,
-		"audioDetectVersion":    f.AudioDetectVersion,
-		"audioDetectedVersion":  f.AudioDetectedVersion,
-		"audioDetectModel":      f.AudioDetectModel,
+		"id":                     f.ID.String(),
+		"libraryId":              f.LibraryID.String(),
+		"parentFolderId":         uuidPtr(f.ParentFolderID),
+		"name":                   f.Name,
+		"kind":                   "file",
+		"mimeType":               f.MimeType,
+		"size":                   f.Size,
+		"duration":               f.Duration,
+		"width":                  f.Width,
+		"height":                 f.Height,
+		"proxyStatus":            f.ProxyStatus,
+		"proxyProgress":          f.ProxyProgress,
+		"proxyEtaSeconds":        f.ProxyEtaSeconds,
+		"transcribeStatus":       f.TranscribeStatus,
+		"transcribeProgress":     f.TranscribeProgress,
+		"transcribeEtaSeconds":   f.TranscribeEtaSeconds,
+		"transcribeError":        f.TranscribeError,
+		"transcribeVersion":      f.TranscribeVersion,
+		"transcribedVersion":     f.TranscribedVersion,
+		"transcriptModel":        f.TranscriptModel,
+		"audioDetectStatus":      f.AudioDetectStatus,
+		"audioDetectProgress":    f.AudioDetectProgress,
+		"audioDetectEtaSeconds":  f.AudioDetectEtaSeconds,
+		"audioDetectError":       f.AudioDetectError,
+		"audioDetectVersion":     f.AudioDetectVersion,
+		"audioDetectedVersion":   f.AudioDetectedVersion,
+		"audioDetectModel":       f.AudioDetectModel,
 		"waveformStatus":         f.WaveformStatus,
 		"waveformProgress":       f.WaveformProgress,
 		"waveformError":          f.WaveformError,
 		"waveformVersion":        f.WaveformVersion,
 		"waveformedVersion":      f.WaveformedVersion,
 		"waveformPeaksPerSecond": f.WaveformPeaksPerSecond,
-		"thumbnailFileId": uuidPtr(f.ThumbnailFileID),
-		"sourceFileId":    uuidPtr(f.SourceFileID),
-		"trashedAt":       timeStr(f.TrashedAt),
-		"createdAt":       f.CreatedAt.Format(time.RFC3339Nano),
-		"updatedAt":       f.UpdatedAt.Format(time.RFC3339Nano),
+		"thumbnailFileId":        uuidPtr(f.ThumbnailFileID),
+		"sourceFileId":           uuidPtr(f.SourceFileID),
+		"trashedAt":              timeStr(f.TrashedAt),
+		"createdAt":              f.CreatedAt.Format(time.RFC3339Nano),
+		"updatedAt":              f.UpdatedAt.Format(time.RFC3339Nano),
 	}
 	if f.OriginalCreatedAt != nil {
 		result["originalCreatedAt"] = f.OriginalCreatedAt.Format(time.RFC3339Nano)
