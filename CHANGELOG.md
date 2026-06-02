@@ -10,6 +10,47 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.19.0](https://github.com/rustyguts/alcoves/compare/v0.18.2...v0.19.0) (2026-06-02)
+
+
+### Added
+
+* **grid:** compact folder cards with muted background ([6d7e6ef](https://github.com/rustyguts/alcoves/commit/6d7e6ef87ace58e4b76ff34290cf14e431d9df67))
+* **grid:** separate folders and files into sections in grid view (v0.16.1) ([81bbec6](https://github.com/rustyguts/alcoves/commit/81bbec6e8d4866ce554599fc9d70c248292f6a4a))
+
+
+### Fixed
+
+* **auth:** wrap user/account/library creation in a DB transaction ([0144609](https://github.com/rustyguts/alcoves/commit/01446096ebe894cce68588684b30b0bb4971209c))
+* **backend:** address PR [#540](https://github.com/rustyguts/alcoves/issues/540) review feedback ([230596b](https://github.com/rustyguts/alcoves/commit/230596b0dc98d40bfd36aad42665a5ffa949764a))
+* **docker:** isolate frontend .nuxt/.output from host bind mount ([54d7ba4](https://github.com/rustyguts/alcoves/commit/54d7ba4f91a1360ce4a6945754cbfd557a05ff7d))
+* **grid:** use bg-elevated for folder cards ([609fda1](https://github.com/rustyguts/alcoves/commit/609fda1fc786b7d73bd9a0cd27231d144f216ced))
+* **proxy:** require auth + library membership, clamp transform dimensions ([e0bb9d0](https://github.com/rustyguts/alcoves/commit/e0bb9d004f47d3b72a745cc196774e92096161fc))
+* **security:** CORS origin allowlist + owner-gate admin job-queue routes ([5278d43](https://github.com/rustyguts/alcoves/commit/5278d43bf26765120e6a8cfd0ee42b372202778b))
+
+
+### Performance
+
+* **audio:** stream PCM per window + cache ONNX session ([6cb565e](https://github.com/rustyguts/alcoves/commit/6cb565eefb7ae9e1dd424d04fd6e6414c9d6374d))
+* **facedetection:** add HNSW index + ef_search tuning for ANN clustering ([018fd3f](https://github.com/rustyguts/alcoves/commit/018fd3ffbfef3f32b52d50a8b7932e0ae118ad47))
+* **listing:** parameterize queries, validate UUIDs, stream proxy, CTE breadcrumbs ([b99e4d8](https://github.com/rustyguts/alcoves/commit/b99e4d8a334cfbc5fb0bcc1120a5ea71b90e0939))
+
+
+### Changed
+
+* **grid:** drop Folders/Files section headings ([54ca719](https://github.com/rustyguts/alcoves/commit/54ca719a95ecd45682a9e5307e95ab542196a0fa))
+
+
+### Documentation
+
+* add backend top-10 improvement plan ([3253228](https://github.com/rustyguts/alcoves/commit/3253228b6d9a50dfd28aafdba99cb153dd7ad6a3))
+
+
+### Tests
+
+* **e2e:** expand [@screenshot](https://github.com/screenshot) coverage to all UI surfaces, light + dark ([c45b099](https://github.com/rustyguts/alcoves/commit/c45b09983cd538999430c5d54fa3e591b0fc9256))
+* **e2e:** rebase onto main 0.18.3 + regenerate screenshot baselines ([7d8cb75](https://github.com/rustyguts/alcoves/commit/7d8cb75caf917fef889b27e7b3dec3a7ca2a603c))
+
 ## [0.18.3](https://github.com/rustyguts/alcoves/compare/v0.18.2...v0.18.3) (2026-06-02)
 
 
