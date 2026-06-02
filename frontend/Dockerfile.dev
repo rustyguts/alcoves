@@ -3,9 +3,11 @@ FROM oven/bun:1
 
 WORKDIR /app
 
-# Named volume mounts here; ensure compose's non-root user (UID 1000 by default)
-# can populate it on first run.
-RUN mkdir -p /app/node_modules && chown 1000:1000 /app /app/node_modules
+# Volumes mount over these paths; pre-create them owned by compose's non-root
+# user (UID 1000 by default) so the anonymous .nuxt/.output volumes and the
+# named node_modules volume inherit writable ownership on first run.
+RUN mkdir -p /app/node_modules /app/.nuxt /app/.output \
+  && chown 1000:1000 /app /app/node_modules /app/.nuxt /app/.output
 
 EXPOSE 3000
 
