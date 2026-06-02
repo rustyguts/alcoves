@@ -47,9 +47,7 @@ const emit = defineEmits<{
     :class="[
       props.isEntrySelected(props.entry)
         ? 'bg-primary/20 hover:bg-primary/28'
-        : props.entry.kind === 'folder'
-          ? 'bg-elevated hover:bg-primary/10'
-          : 'bg-default hover:bg-primary/10',
+        : 'bg-elevated hover:bg-primary/10',
       props.dropTargetFolderId === props.entry.id && props.entry.kind === 'folder'
         ? 'ring-2 ring-primary/60 bg-primary/10'
         : '',
@@ -137,7 +135,7 @@ const emit = defineEmits<{
 
     <div
       v-if="props.entry.kind === 'file'"
-      class="aspect-video w-full bg-elevated/40 flex items-center justify-center overflow-hidden"
+      class="aspect-video w-full bg-default flex items-center justify-center overflow-hidden"
     >
       <template v-if="props.entry.mimeType.startsWith('video/')">
         <div class="relative w-full h-full flex items-center justify-center">
