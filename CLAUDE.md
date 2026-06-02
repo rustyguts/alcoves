@@ -2,6 +2,49 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🧭 North Star — Read This First
+
+**[docs/vision.md](docs/vision.md) is the project's north-star vision document. ALWAYS read it before building, designing, or reviewing a feature.**
+
+It defines what Alcoves is, who it's for, what it explicitly is and is NOT, and
+the guiding principles every change must honor (privacy-first / CPU-only local
+inference, owner-gated control, async-by-default heavy work, graceful
+degradation, self-hosted-for-a-bounded-trusted-group). Before you build
+anything, confirm it aligns with the vision's pillars and passes its
+"how to use this as a compass" checklist. **If a change conflicts with
+[docs/vision.md](docs/vision.md), stop and surface the conflict instead of
+shipping it.** The vision document is the tie-breaker for any product decision.
+
+## Feature & Technical Documentation
+
+Each distinct subsystem has a dedicated product + technical doc in `docs/`.
+**When working on a subsystem, read its doc first** to align with the existing
+product intent and architecture before changing code — then update the doc in
+the same change if behavior shifts. These docs are derived from the codebase
+and meant to keep what you build consistent with the project vision.
+
+**Feature documentation** (what the product does, end to end):
+
+- [Authentication & Sessions](docs/authentication-and-sessions.md) — Registration, login, OAuth, session cookies, profile, and avatars.
+- [Libraries, Roles & Access Control](docs/libraries-and-access-control.md) — Library CRUD, owner/admin/viewer roles, invites, and the access-control model.
+- [Files, Folders, Tags & Resumable Uploads](docs/files-folders-and-uploads.md) — File/folder CRUD, trash/restore/purge, tagging, dedup, and TUS uploads.
+- [AI: Face Recognition & Object Detection](docs/face-and-object-detection.md) — Face detection/clustering into people and YOLO object labeling.
+- [AI: Audio Event Detection & Speech Transcription](docs/audio-detection-and-transcription.md) — AudioSet tagging and whisper.cpp transcription with admin-selectable models.
+- [Video Editor, Moments & Highlight Filters](docs/video-editor-and-moments.md) — Timeline editor, moment clips, export, and word/sound highlight filters.
+- [Public Moment Sharing](docs/moment-sharing.md) — Public share links for moment clips with OG/Twitter embeds and SSR landing.
+- [Search, Activity Feed & Notifications](docs/search-activity-and-notifications.md) — Cross-library search and the real-time activity/notification system.
+- [Admin Panel & Async Job Queue](docs/admin-and-job-queue.md) — Owner-gated admin stats, settings, ML-model selection, and the Asynq job dashboard.
+
+**Technical documentation** (how the system is built):
+
+- [Media Processing: Image Proxy, Video Proxy, Thumbnails & Waveforms](docs/media-processing-pipeline.md) — On-demand image transforms, video transcoding, thumbnails, and audio waveforms.
+- [Storage Backends (Local & S3)](docs/storage-backends.md) — Pluggable blob storage: scopes, key routing, range reads, and cache lifecycle.
+- [Backend Architecture (Go / Echo / GORM / Asynq)](docs/backend-architecture.md) — Server bootstrap, modes, route registration, middleware chain, and config.
+- [Database Schema & Migrations](docs/database-schema-and-migrations.md) — GORM models, Goose migrations, pgvector/HNSW, soft-delete and job-state patterns.
+- [Frontend Architecture (Nuxt 4)](docs/frontend-architecture.md) — Nuxt SSR topology, isomorphic fetch, layouts, middleware, and the typed API client.
+- [ML Models & Runtime Inference](docs/ml-models-and-runtime-inference.md) — The CPU-only ONNX/whisper model stack, on-demand download, and runtime selection.
+- [Deployment & Operations (Docker, Helm, CI/CD)](docs/deployment-and-operations.md) — Docker images, compose, the Helm chart, CI pipelines, and release-please.
+
 ## Project Summary
 
 Alcoves is a self-hosted collaborative file library with a Nuxt 4 (Vue 3) frontend and a Go API backend.
