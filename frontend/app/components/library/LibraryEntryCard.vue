@@ -43,11 +43,13 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="rounded-xl bg-default overflow-hidden cursor-pointer transition-colors select-none shadow-sm"
+    class="rounded-xl overflow-hidden cursor-pointer transition-colors select-none shadow-sm"
     :class="[
       props.isEntrySelected(props.entry)
         ? 'bg-primary/20 hover:bg-primary/28'
-        : 'hover:bg-primary/10',
+        : props.entry.kind === 'folder'
+          ? 'bg-muted hover:bg-primary/10'
+          : 'bg-default hover:bg-primary/10',
       props.dropTargetFolderId === props.entry.id && props.entry.kind === 'folder'
         ? 'ring-2 ring-primary/60 bg-primary/10'
         : '',
@@ -84,7 +86,11 @@ const emit = defineEmits<{
       />
     </div>
 
-    <div v-else class="px-2 pt-2 pb-2 flex items-start gap-2 min-w-0">
+    <div
+      v-else
+      class="px-2 flex items-start gap-2 min-w-0"
+      :class="props.entry.kind === 'folder' ? 'py-3' : 'pt-2 pb-2'"
+    >
       <AppIcon
         :name="props.entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(props.entry.mimeType)"
         class="size-4 mt-0.5 shrink-0 text-muted"
@@ -130,12 +136,10 @@ const emit = defineEmits<{
     </div>
 
     <div
+      v-if="props.entry.kind === 'file'"
       class="aspect-video w-full bg-elevated/40 flex items-center justify-center overflow-hidden"
     >
-      <template v-if="props.entry.kind === 'folder'">
-        <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
-      </template>
-      <template v-else-if="props.entry.kind === 'file' && props.entry.mimeType.startsWith('video/')">
+      <template v-if="props.entry.mimeType.startsWith('video/')">
         <div class="relative w-full h-full flex items-center justify-center">
           <AlcovesImage
             v-if="!props.failedThumbnails.has(props.entry.id) && props.entry.thumbnailFileId"
