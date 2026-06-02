@@ -12,13 +12,17 @@ import (
 
 type AdminJobsHandler struct {
 	inspector *asynq.Inspector
+	ownerMW   echo.MiddlewareFunc
 }
 
-func NewAdminJobsHandler(inspector *asynq.Inspector) *AdminJobsHandler {
-	return &AdminJobsHandler{inspector: inspector}
+// NewAdminJobsHandler creates the handler. ownerMW is the owner-only
+// middleware from AdminHandler; all job-queue routes are gated behind it.
+func NewAdminJobsHandler(inspector *asynq.Inspector, ownerMW echo.MiddlewareFunc) *AdminJobsHandler {
+	return &AdminJobsHandler{inspector: inspector, ownerMW: ownerMW}
 }
 
 func (h *AdminJobsHandler) RegisterRoutes(g *echo.Group) {
+	g.Use(h.ownerMW)
 	g.GET("/jobs/stats", h.Stats)
 	g.GET("/jobs/:queueName", h.ListJobs)
 	g.POST("/jobs/:queueName/purge", h.PurgeQueue)

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -205,15 +207,25 @@ func main() {
 	e.HideBanner = true
 	e.Validator = handlers.NewValidator()
 
+	// Build the CORS origin allowlist from BaseURL + any extra configured origins.
+	// AllowCredentials=true requires an explicit origin allowlist; reflecting
+	// every request origin would be a full session-hijack vector.
+	corsAllowedOrigins := buildCORSOrigins(cfg.BaseURL, cfg.ExtraCORSOrigins, cfg.Environment)
+	log.Printf("CORS allowed origins: %s", strings.Join(corsAllowedOrigins, ", "))
+
 	// Global middleware
 	e.Use(echomw.Logger())
 	e.Use(echomw.Recover())
 	e.Use(echomw.CORSWithConfig(echomw.CORSConfig{
-		// Echo any origin back. Wildcard "*" cannot be combined with
-		// AllowCredentials=true per the CORS spec, so we use a dynamic
-		// matcher that reflects the request origin.
-		AllowOriginFunc: func(origin string) (bool, error) { return true, nil },
-		AllowMethods:    []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions, http.MethodHead},
+		AllowOriginFunc: func(origin string) (bool, error) {
+			for _, allowed := range corsAllowedOrigins {
+				if origin == allowed {
+					return true, nil
+				}
+			}
+			return false, nil
+		},
+		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions, http.MethodHead},
 		AllowHeaders: []string{
 			echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization,
 			"Range", "If-Range",
@@ -313,9 +325,10 @@ func main() {
 		searchHandler := handlers.NewSearchHandler(db)
 		searchHandler.RegisterRoutes(api)
 
-		// Admin routes
+		// Admin routes — all under one owner-gated group.
 		adminHandler := handlers.NewAdminHandler(db, hashSvc, settingsSvc)
-		adminHandler.RegisterRoutes(api.Group("/admin"))
+		adminGroup := api.Group("/admin")
+		adminHandler.RegisterRoutes(adminGroup)
 
 		// Public meta — exposes registration mode for the register/invite UIs.
 		api.GET("/_meta/registration-mode", func(c echo.Context) error {
@@ -324,9 +337,10 @@ func main() {
 			})
 		})
 
-		// Admin job queue routes
-		adminJobsHandler := handlers.NewAdminJobsHandler(asynqInspector)
-		adminJobsHandler.RegisterRoutes(api.Group("/admin"))
+		// Admin job queue routes — share the same /admin group and are also
+		// owner-gated via the middleware passed from AdminHandler.
+		adminJobsHandler := handlers.NewAdminJobsHandler(asynqInspector, adminHandler.RequireOwnerMiddleware())
+		adminJobsHandler.RegisterRoutes(adminGroup)
 
 		// People routes (under /api/libraries)
 		peopleHandler := handlers.NewPeopleHandler(db, storageSvc, faceSvc)
@@ -388,4 +402,47 @@ func main() {
 		log.Fatalf("Server shutdown error: %v", err)
 	}
 	log.Println("Server stopped")
+}
+
+// buildCORSOrigins constructs the explicit origin allowlist used by the CORS
+// middleware. It always includes the origin derived from baseURL, plus any
+// entries from extraOrigins, plus localhost variants when env == "development".
+// Entries that cannot be parsed or are empty are silently skipped.
+func buildCORSOrigins(baseURL string, extraOrigins []string, env string) []string {
+	seen := map[string]struct{}{}
+	out := []string{}
+
+	add := func(origin string) {
+		origin = strings.TrimSpace(origin)
+		if origin == "" {
+			return
+		}
+		if _, ok := seen[origin]; ok {
+			return
+		}
+		seen[origin] = struct{}{}
+		out = append(out, origin)
+	}
+
+	// Primary origin from BaseURL.
+	if baseURL != "" {
+		if parsed, err := url.Parse(baseURL); err == nil && parsed.Host != "" {
+			add(parsed.Scheme + "://" + parsed.Host)
+		}
+	}
+
+	// Extra origins from config (ALCOVES_EXTRA_CORS_ORIGINS).
+	for _, o := range extraOrigins {
+		add(o)
+	}
+
+	// In development mode, also allow common localhost origins so the Nuxt
+	// dev server (:3000 / :5173) can reach the API without reconfiguring
+	// ALCOVES_BASE_URL.
+	if env == "development" {
+		add("http://localhost:3000")
+		add("http://localhost:5173")
+	}
+
+	return out
 }

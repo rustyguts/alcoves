@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -42,8 +43,13 @@ type Config struct {
 	OAuthGoogleClientSecret string
 	GoogleAuthEnabled       bool
 
-	// Base URL for OAuth callbacks
+	// Base URL for OAuth callbacks and CORS origin derivation.
 	BaseURL string
+
+	// ExtraCORSOrigins is an optional list of additional origins to allow in
+	// the CORS policy. Parsed from ALCOVES_EXTRA_CORS_ORIGINS (comma-separated).
+	// Use this when the Nuxt frontend is served from a different subdomain.
+	ExtraCORSOrigins []string
 
 	// Face detection / recognition tuning
 	FaceDetectionMinScore         float64
@@ -134,7 +140,8 @@ func Load() (*Config, error) {
 		OAuthGoogleClientSecret: getEnv("ALCOVES_OAUTH_GOOGLE_CLIENT_SECRET", ""),
 		GoogleAuthEnabled:       googleClientID != "",
 
-		BaseURL: getEnv("ALCOVES_BASE_URL", "http://localhost:5173"),
+		BaseURL:          getEnv("ALCOVES_BASE_URL", "http://localhost:5173"),
+		ExtraCORSOrigins: parseCommaList(getEnv("ALCOVES_EXTRA_CORS_ORIGINS", "")),
 
 		FaceDetectionMinScore:         faceMinScore,
 		FaceRecognitionMaxDistance:    faceMaxDist,
@@ -189,4 +196,23 @@ func parseIntEnv(key string, fallback int) int {
 		return v
 	}
 	return fallback
+}
+
+// parseCommaList splits a comma-separated string into a slice of trimmed,
+// non-empty strings. Returns nil if the input is empty.
+func parseCommaList(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
