@@ -442,13 +442,17 @@ func (s *Service) buildFileQueries(libraryID string, showTrashed bool, currentFo
 }
 
 // getFolderBreadcrumbs resolves the full ancestor chain for folderID using a
-// single recursive CTE, eliminating the previous N+1 query loop. A LIMIT 50
-// guards against corrupt circular hierarchies. Results are returned
-// root→leaf (shallowest ancestor first, target folder last).
+// single recursive CTE, eliminating the previous N+1 query loop. The recursion
+// depth is bounded inside the CTE (b.depth < 50) to guard against corrupt
+// circular hierarchies WITHOUT an outer LIMIT — an outer LIMIT ordered by depth
+// could drop the target folder (depth=0) for very deep chains. Results are
+// returned root→leaf (shallowest ancestor first, target folder last).
 func (s *Service) getFolderBreadcrumbs(libraryID, folderID string) ([]FolderBreadcrumb, error) {
 	// WITH RECURSIVE: start at the target folder (depth=0) then walk up via
-	// parent_folder_id. ORDER BY depth DESC puts the root (highest depth
-	// number) first and the target folder (depth=0) last — i.e. root→leaf.
+	// parent_folder_id, stopping after 50 ancestors. ORDER BY depth DESC puts
+	// the root (highest depth number) first and the target folder (depth=0)
+	// last — i.e. root→leaf. The target is always present because the depth
+	// bound is applied to the recursion, not to the final result set.
 	const cteQuery = `
 WITH RECURSIVE breadcrumb AS (
   SELECT id, name, parent_folder_id, 0 AS depth
@@ -458,9 +462,9 @@ WITH RECURSIVE breadcrumb AS (
   SELECT f.id, f.name, f.parent_folder_id, b.depth + 1
   FROM folders f
   JOIN breadcrumb b ON f.id = b.parent_folder_id
-  WHERE f.library_id = ? AND f.trashed_at IS NULL
+  WHERE f.library_id = ? AND f.trashed_at IS NULL AND b.depth < 50
 )
-SELECT id, name, depth FROM breadcrumb ORDER BY depth DESC LIMIT 50`
+SELECT id, name, depth FROM breadcrumb ORDER BY depth DESC`
 
 	type row struct {
 		ID    string `gorm:"column:id"`

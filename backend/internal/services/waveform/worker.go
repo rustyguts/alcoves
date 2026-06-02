@@ -247,7 +247,8 @@ func (h *TaskHandler) computePeaks(pcmPath string, peaksPerSec int) ([]float64, 
 	defer f.Close()
 
 	// 64 KiB read buffer — large enough to amortise syscall overhead while
-	// staying well within a single page of stack memory.
+	// keeping the (heap-allocated) buffer small and constant regardless of the
+	// PCM file size.
 	br := bufio.NewReaderSize(f, 64*1024)
 
 	// Reuse a single window-sized byte buffer across every iteration.

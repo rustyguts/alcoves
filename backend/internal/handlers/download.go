@@ -247,8 +247,10 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	return c.Stream(http.StatusOK, file.MimeType, reader)
 }
 
-// maxTransformDimension caps width/height to prevent unauthenticated DoS via
-// huge libvips allocation requests.
+// maxTransformDimension caps width/height as defensive hardening. The proxy now
+// requires a session + library membership, so this bounds an authenticated
+// member from triggering huge libvips allocations (memory-exhaustion DoS) via
+// crafted width/height query params.
 const maxTransformDimension = 4096
 
 // parseTransformOptions extracts image transform parameters from query string.

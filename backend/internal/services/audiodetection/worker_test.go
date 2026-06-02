@@ -152,17 +152,17 @@ func TestDecodePCMBytes_ZeroPadsPartialWindow(t *testing.T) {
 	}
 }
 
-// TestGetSession_CachesOnFirstCall verifies that getSession uses sync.Once so
-// the LoadSession function is invoked at most once, even when called
-// concurrently from multiple goroutines.  We use a non-existent model path so
-// LoadSession returns an error fast (no ONNX model on the CI runner); the
-// important invariant is that the same error is returned to every caller and
-// that the global sessionErr is set only once.
-func TestGetSession_CachesOnFirstCall(t *testing.T) {
+// TestGetSession_ConcurrentLoadIsSafe verifies that getSession is safe to call
+// concurrently from multiple goroutines and that a failed load is not cached
+// (so a transient failure does not poison the worker forever). We use a
+// non-existent model path so LoadSession returns an error fast (no ONNX model
+// on the CI runner).
+func TestGetSession_ConcurrentLoadIsSafe(t *testing.T) {
 	// Reset package-level state so this test is independent.
-	sessionOnce = sync.Once{}
+	sessionMu.Lock()
 	cachedSession = nil
-	sessionErr = nil
+	cachedKey = ""
+	sessionMu.Unlock()
 
 	const bogusPath = "/nonexistent/model.onnx"
 	const n = 5
@@ -179,18 +179,46 @@ func TestGetSession_CachesOnFirstCall(t *testing.T) {
 	}
 	wg.Wait()
 
-	// All calls must return an error (model does not exist).
+	// All calls must return an error (model does not exist) and must NOT be
+	// cached — a failed load must be retryable.
 	for i, e := range errs {
 		if e == nil {
 			t.Errorf("call %d: expected error for nonexistent model, got nil", i)
 		}
 	}
+	sessionMu.Lock()
+	cached := cachedSession
+	sessionMu.Unlock()
+	if cached != nil {
+		t.Errorf("failed load must not be cached, got %v", cached)
+	}
+}
 
-	// All calls must return the identical cached error (same pointer).
-	first := errs[0]
-	for i, e := range errs[1:] {
-		if e != first {
-			t.Errorf("call %d returned different error pointer — LoadSession called more than once", i+1)
-		}
+// TestGetSession_RekeysOnModelChange verifies that switching the model key
+// triggers a reload rather than returning the previously cached session — the
+// runtime-model-switch correctness guarantee. Both loads fail (no ONNX on CI),
+// so we assert on the cachedKey transition rather than a live session.
+func TestGetSession_RekeysOnModelChange(t *testing.T) {
+	sessionMu.Lock()
+	// Seed a fake cached session under key "modelA|16000".
+	cachedSession = &sessionInfo{}
+	cachedKey = "/modelA.onnx|16000"
+	seeded := cachedSession
+	sessionMu.Unlock()
+
+	// Same key → returns the cached session without reloading.
+	got, err := getSession("/modelA.onnx", 16000)
+	if err != nil || got != seeded {
+		t.Fatalf("same key should return cached session: got=%v err=%v", got, err)
+	}
+
+	// Different model → key mismatch forces a reload (which fails on the bogus
+	// path), and the stale session must no longer be returned.
+	got, err = getSession("/modelB.onnx", 16000)
+	if err == nil {
+		t.Fatalf("expected reload error for new bogus model")
+	}
+	if got == seeded {
+		t.Errorf("model switch must not return the stale cached session")
 	}
 }

@@ -95,7 +95,7 @@ func AssignFaceUsingCorePoint(db *gorm.DB, config *FaceConfig, libraryID string,
 	// No good match — check if we have enough unassigned faces nearby to form a new cluster
 	// Count unassigned faces that are close to this embedding
 	var nearbyUnassigned int64
-	_ = db.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SET LOCAL hnsw.ef_search = 40").Error; err != nil {
 			return fmt.Errorf("set hnsw.ef_search: %w", err)
 		}
@@ -107,7 +107,9 @@ func AssignFaceUsingCorePoint(db *gorm.DB, config *FaceConfig, libraryID string,
 			  AND fd.id != $2
 			  AND (fd.embedding <=> $3::vector) < $4
 		`, libraryID, faceDetectionID, embStr, config.MaxDistance).Scan(&nearbyUnassigned).Error
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("nearby-unassigned count query failed: %w", err)
+	}
 
 	if int(nearbyUnassigned)+1 >= config.MinFaces {
 		// Create a new person and assign this face + nearby unassigned faces
@@ -178,7 +180,7 @@ func ReconcileNewPerson(db *gorm.DB, config *FaceConfig, libraryID string, sourc
 
 	for _, s := range samples {
 		var candidates []mergeCandidate
-		_ = db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Transaction(func(tx *gorm.DB) error {
 			if err := tx.Exec("SET LOCAL hnsw.ef_search = 40").Error; err != nil {
 				return fmt.Errorf("set hnsw.ef_search: %w", err)
 			}
@@ -191,7 +193,9 @@ func ReconcileNewPerson(db *gorm.DB, config *FaceConfig, libraryID string, sourc
 				ORDER BY fd.embedding <=> $1::vector
 				LIMIT 10
 			`, s.Embedding, libraryID, sourcePersonID).Scan(&candidates).Error
-		})
+		}); err != nil {
+			return uuid.Nil, fmt.Errorf("merge-candidate query failed: %w", err)
+		}
 
 		for _, c := range candidates {
 			if c.Distance <= config.AutoMergeDistance {
