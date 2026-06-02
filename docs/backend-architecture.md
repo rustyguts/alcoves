@@ -14,7 +14,7 @@ process that proxies `/api/**` and `/s/**` to this service.
 
 ## Module and key dependencies
 
-Module path: `github.com/alcoves/alcoves-backend` (`backend/go.mod`, `go 1.25.7`).
+Module path: `github.com/alcoves/alcoves-backend` (`backend/go.mod`, `go 1.26`).
 
 | Dependency | Version | Role |
 |---|---|---|

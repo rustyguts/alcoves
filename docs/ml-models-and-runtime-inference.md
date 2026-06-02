@@ -432,7 +432,7 @@ Model binaries are git-ignored, but a few data files are checked in:
 `backend/Dockerfile` is a multi-stage build that assembles the ML runtime; it
 ships the engine but **not the weights**.
 
-- **Base / build stage** (`golang:1.25-bookworm`): apt installs `libvips-dev`
+- **Base / build stage** (`golang:1.26-bookworm`): apt installs `libvips-dev`
   (govips image preprocessing), `ffmpeg` (audio/video decode), `cmake`,
   `build-essential`, `libgomp1` (OpenMP for ONNX). Built with `CGO_ENABLED=1`.
 - **ONNX Runtime v1.24.1**: downloaded from GitHub releases, **arch-aware**
