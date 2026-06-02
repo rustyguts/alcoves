@@ -3,7 +3,7 @@
 # Root Dockerfile builds the Go backend only. The Nuxt frontend ships as a
 # separate image (see frontend/Dockerfile) and runs as its own service.
 
-FROM golang:1.26-bookworm AS backend-build
+FROM golang:1.25-bookworm AS backend-build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \

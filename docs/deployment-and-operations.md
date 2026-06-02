@@ -69,7 +69,7 @@ changes; `kubectl rollout restart deploy/<name>-api` is the upgrade trigger.
 The repo-root `Dockerfile` is a **multi-stage** build producing a single slim
 Go API image. The frontend has its own `Dockerfile`; this one is backend-only.
 
-### Stage 1 — `backend-build` (`golang:1.26-bookworm`)
+### Stage 1 — `backend-build` (`golang:1.25-bookworm`)
 
 - **System deps:** `libvips-dev` (for `govips`/libvips image processing),
   `ffmpeg` (video/audio probe + transcode + PCM extraction), `cmake`,

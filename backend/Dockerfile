@@ -1,4 +1,4 @@
-FROM golang:1.26-bookworm
+FROM golang:1.25-bookworm
 
 # Install build dependencies including libvips for image processing and ffmpeg for video transcoding
 RUN apt-get update && apt-get install -y \
