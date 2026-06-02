@@ -25,7 +25,7 @@ func TestNeedsAuth(t *testing.T) {
 		{"/api/auth/me", true},
 		{"/api/auth/sessions", true},
 		{"/api/_auth/session", false},
-		{"/api/files/proxy/abc", false},
+		{"/api/files/proxy/abc", true},
 		{"/api/libraries/123", true},
 		{"/api/users", true},
 		{"/api/admin", true},
