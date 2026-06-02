@@ -1,6 +1,7 @@
 package audiodetection
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -24,6 +26,16 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
+)
+
+// Package-level ONNX session cache — loaded exactly once per process lifetime,
+// mirroring the objectdetection pattern.  The mutex guards concurrent inference
+// calls because ort.DynamicAdvancedSession.Run is not documented as goroutine-safe.
+var (
+	sessionOnce   sync.Once
+	cachedSession *sessionInfo
+	sessionErr    error
+	sessionMu     sync.Mutex
 )
 
 type TaskHandler struct {
@@ -61,6 +73,18 @@ func (h *TaskHandler) modelURL(spec ModelSpec) string {
 		base = "https://s3.rustyguts.net/models"
 	}
 	return strings.TrimRight(base, "/") + "/" + spec.ModelFile
+}
+
+// getSession returns the cached ONNX session, loading it on the first call.
+// Subsequent calls return the same session without re-loading.
+// modelPath and sampleRate must be stable across calls (they are: both derive
+// from EnsureAssets + the active spec, which is fixed for the process lifetime
+// after first use).
+func getSession(modelPath string, sampleRate int) (*sessionInfo, error) {
+	sessionOnce.Do(func() {
+		cachedSession, sessionErr = LoadSession(modelPath, sampleRate)
+	})
+	return cachedSession, sessionErr
 }
 
 func newTask(p Payload) (*asynq.Task, error) {
@@ -126,13 +150,15 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		return err
 	}
 
-	samples, err := readFloat32PCM(pcmPath)
+	// Validate minimum length without loading the full file.
+	pcmInfo, err := os.Stat(pcmPath)
 	if err != nil {
-		h.fail(fileID, fmt.Errorf("read pcm: %w", err))
+		h.fail(fileID, fmt.Errorf("stat pcm: %w", err))
 		return err
 	}
-	if len(samples) < sampleRate/2 {
-		h.fail(fileID, fmt.Errorf("audio too short (%d samples)", len(samples)))
+	totalSamples := int(pcmInfo.Size() / 4)
+	if totalSamples < sampleRate/2 {
+		h.fail(fileID, fmt.Errorf("audio too short (%d samples)", totalSamples))
 		return nil
 	}
 
@@ -147,12 +173,12 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		return err
 	}
 
-	sess, err := LoadSession(modelPath, sampleRate)
+	// Use the cached session — LoadSession is called at most once per process.
+	sess, err := getSession(modelPath, sampleRate)
 	if err != nil {
 		h.fail(fileID, err)
 		return err
 	}
-	defer sess.session.Destroy()
 
 	windowLen := int(h.cfg.AudioDetectWindowSec * float64(sampleRate))
 	if windowLen <= 0 {
@@ -160,31 +186,55 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 	}
 
 	var detections []models.AudioDetection
-	nWindows := (len(samples) + windowLen - 1) / windowLen
+	nWindows := (totalSamples + windowLen - 1) / windowLen
+
+	// Open the PCM file and stream one window at a time — peak RSS is
+	// O(windowLen) not O(totalSamples).
+	pcmFile, err := os.Open(pcmPath)
+	if err != nil {
+		h.fail(fileID, fmt.Errorf("open pcm: %w", err))
+		return err
+	}
+	defer pcmFile.Close()
+
+	br := bufio.NewReaderSize(pcmFile, 64*1024)
+	// Reusable window buffer; padded with zeros for the final partial window.
+	window := make([]float32, windowLen)
+	windowBytes := windowLen * 4
+	rawBuf := make([]byte, windowBytes)
 
 	for wi := 0; wi < nWindows; wi++ {
 		startSample := wi * windowLen
-		endSample := startSample + windowLen
-		if endSample > len(samples) {
-			endSample = len(samples)
-		}
-		window := samples[startSample:endSample]
-		// pad to fixed windowLen for consistent inference
-		if len(window) < windowLen {
-			padded := make([]float32, windowLen)
-			copy(padded, window)
-			window = padded
+
+		n, rerr := io.ReadFull(br, rawBuf)
+		actualLen := n / 4 // complete float32 samples read
+		if rerr != nil && rerr != io.ErrUnexpectedEOF {
+			if rerr == io.EOF {
+				break
+			}
+			h.fail(fileID, fmt.Errorf("read pcm window %d: %w", wi, rerr))
+			return rerr
 		}
 
-		probs, err := runInference(sess, window)
-		if err != nil {
-			h.fail(fileID, fmt.Errorf("inference window %d: %w", wi, err))
-			return err
+		// Decode raw bytes into the reusable window slice; zero-pad remainder.
+		decodePCMBytes(rawBuf[:n], window)
+
+		endSample := startSample + actualLen
+
+		// Guard concurrent inference with the package-level mutex —
+		// ort.DynamicAdvancedSession.Run is not documented as goroutine-safe.
+		sessionMu.Lock()
+		probs, inferErr := runInference(sess, window)
+		sessionMu.Unlock()
+		if inferErr != nil {
+			h.fail(fileID, fmt.Errorf("inference window %d: %w", wi, inferErr))
+			return inferErr
 		}
 
 		windowStart := float32(startSample) / float32(sampleRate)
 		windowEnd := float32(endSample) / float32(sampleRate)
-		if actualDur := float32(len(samples)) / float32(sampleRate); windowEnd > actualDur {
+		actualDur := float32(totalSamples) / float32(sampleRate)
+		if windowEnd > actualDur {
 			windowEnd = actualDur
 		}
 
@@ -304,21 +354,18 @@ func extractAudio(ctx context.Context, ffmpeg, src, dst string, sampleRate int) 
 	return nil
 }
 
-func readFloat32PCM(path string) ([]float32, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+// decodePCMBytes decodes n bytes of little-endian float32 PCM from raw into
+// dst, zero-padding any trailing dst elements not covered by raw.
+// len(raw) must be a multiple of 4; len(dst) must be >= len(raw)/4.
+func decodePCMBytes(raw []byte, dst []float32) {
+	n := len(raw) / 4
+	for j := 0; j < n; j++ {
+		bits := binary.LittleEndian.Uint32(raw[j*4 : j*4+4])
+		dst[j] = math.Float32frombits(bits)
 	}
-	if len(data)%4 != 0 {
-		return nil, fmt.Errorf("pcm size %d not multiple of 4", len(data))
+	for j := n; j < len(dst); j++ {
+		dst[j] = 0
 	}
-	n := len(data) / 4
-	out := make([]float32, n)
-	for i := 0; i < n; i++ {
-		bits := binary.LittleEndian.Uint32(data[i*4 : i*4+4])
-		out[i] = math.Float32frombits(bits)
-	}
-	return out, nil
 }
 
 func runInference(sess *sessionInfo, window []float32) ([]float32, error) {
