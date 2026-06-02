@@ -1,6 +1,7 @@
 package waveform
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -120,9 +121,9 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 
 	// Store waveform JSON in cache
 	waveformData := map[string]interface{}{
-		"peaks":           peaks,
-		"peaksPerSecond":  peaksPerSec,
-		"sampleRate":      sampleRateHz,
+		"peaks":          peaks,
+		"peaksPerSecond": peaksPerSec,
+		"sampleRate":     sampleRateHz,
 	}
 	jsonBytes, err := json.Marshal(waveformData)
 	if err != nil {
@@ -215,29 +216,59 @@ func (h *TaskHandler) extractPCM(ctx context.Context, src, dst string) error {
 // The frontend renders height = peak × canvas_height directly; no per-file
 // normalization or dB curve runs server-side, so loud files look loud and
 // quiet ones look quiet.
+//
+// The implementation streams the PCM file one window at a time rather than
+// reading the entire file into memory; peak RSS is O(windowSize) not O(fileSize).
+// Partial final windows (file length not a multiple of windowSize) are dropped,
+// preserving identical numeric results to a full-file-read implementation.
 func (h *TaskHandler) computePeaks(pcmPath string, peaksPerSec int) ([]float64, error) {
-	data, err := os.ReadFile(pcmPath)
+	fi, err := os.Stat(pcmPath)
 	if err != nil {
 		return nil, err
 	}
-	if len(data)%4 != 0 {
-		return nil, fmt.Errorf("pcm size %d not multiple of 4", len(data))
+	totalBytes := fi.Size()
+	if totalBytes%4 != 0 {
+		return nil, fmt.Errorf("pcm size %d not multiple of 4", totalBytes)
 	}
 
-	sampleCount := len(data) / 4
 	windowSize := sampleRateHz / peaksPerSec
 	if windowSize < 1 {
 		windowSize = 1
 	}
 
+	sampleCount := int(totalBytes / 4)
 	numPeaks := sampleCount / windowSize
 	peaks := make([]float64, 0, numPeaks)
 
-	for i := 0; i+windowSize <= sampleCount; i += windowSize {
+	f, err := os.Open(pcmPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// 64 KiB read buffer — large enough to amortise syscall overhead while
+	// staying well within a single page of stack memory.
+	br := bufio.NewReaderSize(f, 64*1024)
+
+	// Reuse a single window-sized byte buffer across every iteration.
+	windowBytes := windowSize * 4
+	buf := make([]byte, windowBytes)
+
+	for {
+		_, err := io.ReadFull(br, buf)
+		if err != nil {
+			// io.ErrUnexpectedEOF means a partial window — drop it, matching
+			// the old implementation which used `i+windowSize <= sampleCount`.
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				break
+			}
+			return nil, fmt.Errorf("read pcm window: %w", err)
+		}
+
 		maxAmp := float64(0)
 		for j := 0; j < windowSize; j++ {
-			offset := (i + j) * 4
-			bits := binary.LittleEndian.Uint32(data[offset : offset+4])
+			offset := j * 4
+			bits := binary.LittleEndian.Uint32(buf[offset : offset+4])
 			sample := float64(math.Float32frombits(bits))
 			abs := math.Abs(sample)
 			if abs > maxAmp {
@@ -305,6 +336,5 @@ func (h *TaskHandler) complete(fileID string, version int, peaksPerSec int) {
 		}
 	}
 }
-
 
 func stringPtr(s string) *string { return &s }

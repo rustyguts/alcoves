@@ -2,9 +2,14 @@ package audiodetection
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"math"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
@@ -77,5 +82,115 @@ func TestEnqueueDetect_DedupsConcurrentRequests(t *testing.T) {
 	_, err := client.Enqueue(task, asynq.Unique(enqueueUniqueWindow))
 	if !errors.Is(err, asynq.ErrDuplicateTask) {
 		t.Fatalf("expected asynq.ErrDuplicateTask from raw client, got: %v", err)
+	}
+}
+
+// writePCMFloat32 writes a slice of float32 values as little-endian raw PCM to
+// a temp file and returns the path.
+func writePCMFloat32(t *testing.T, samples []float32) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audio.f32le")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create pcm: %v", err)
+	}
+	defer f.Close()
+	for _, s := range samples {
+		if err := binary.Write(f, binary.LittleEndian, s); err != nil {
+			t.Fatalf("write sample: %v", err)
+		}
+	}
+	return path
+}
+
+// TestDecodePCMBytes_NumericIdentity asserts that decodePCMBytes produces the
+// same float32 values as the original readFloat32PCM bulk approach, verifying
+// the streaming window decode is numerically correct.
+func TestDecodePCMBytes_NumericIdentity(t *testing.T) {
+	want := []float32{0.0, 0.5, -0.5, 1.0, -1.0, 0.25, 0.75, -0.75}
+	path := writePCMFloat32(t, want)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read pcm: %v", err)
+	}
+
+	got := make([]float32, len(want))
+	decodePCMBytes(data, got)
+
+	for i, g := range got {
+		if math.Abs(float64(g-want[i])) > 1e-7 {
+			t.Errorf("got[%d]=%v want %v", i, g, want[i])
+		}
+	}
+}
+
+// TestDecodePCMBytes_ZeroPadsPartialWindow verifies that when the raw byte
+// slice is shorter than len(dst)*4 the remaining dst elements are zeroed.
+func TestDecodePCMBytes_ZeroPadsPartialWindow(t *testing.T) {
+	// Write 3 samples; window buffer holds 5.
+	samples := []float32{0.1, 0.2, 0.3}
+	path := writePCMFloat32(t, samples)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read pcm: %v", err)
+	}
+
+	dst := make([]float32, 5)
+	decodePCMBytes(data, dst)
+
+	for i, s := range samples {
+		if math.Abs(float64(dst[i]-s)) > 1e-7 {
+			t.Errorf("dst[%d]=%v want %v", i, dst[i], s)
+		}
+	}
+	for i := len(samples); i < len(dst); i++ {
+		if dst[i] != 0 {
+			t.Errorf("padding dst[%d]=%v want 0", i, dst[i])
+		}
+	}
+}
+
+// TestGetSession_CachesOnFirstCall verifies that getSession uses sync.Once so
+// the LoadSession function is invoked at most once, even when called
+// concurrently from multiple goroutines.  We use a non-existent model path so
+// LoadSession returns an error fast (no ONNX model on the CI runner); the
+// important invariant is that the same error is returned to every caller and
+// that the global sessionErr is set only once.
+func TestGetSession_CachesOnFirstCall(t *testing.T) {
+	// Reset package-level state so this test is independent.
+	sessionOnce = sync.Once{}
+	cachedSession = nil
+	sessionErr = nil
+
+	const bogusPath = "/nonexistent/model.onnx"
+	const n = 5
+
+	var wg sync.WaitGroup
+	errs := make([]error, n)
+	for i := 0; i < n; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, errs[i] = getSession(bogusPath, 32000)
+		}()
+	}
+	wg.Wait()
+
+	// All calls must return an error (model does not exist).
+	for i, e := range errs {
+		if e == nil {
+			t.Errorf("call %d: expected error for nonexistent model, got nil", i)
+		}
+	}
+
+	// All calls must return the identical cached error (same pointer).
+	first := errs[0]
+	for i, e := range errs[1:] {
+		if e != first {
+			t.Errorf("call %d returned different error pointer — LoadSession called more than once", i+1)
+		}
 	}
 }
