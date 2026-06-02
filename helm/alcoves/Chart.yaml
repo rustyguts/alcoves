@@ -4,8 +4,10 @@ description: >-
   Alcoves — self-hosted collaborative file library (Nuxt frontend + Go API +
   async workers)
 type: application
-version: 0.18.2
-appVersion: 0.18.0
+# `version` is the chart version, `appVersion` is the running app version.
+# Both mirror /VERSION at the repo root — keep them in sync when bumping.
+version: 0.16.1
+appVersion: "0.16.1"
 home: https://github.com/yourorg/alcoves
 keywords:
   - media

@@ -298,6 +298,49 @@ describe("LibraryEntriesGrid", () => {
     expect(wrapper.find(".cursor-pointer").attributes("draggable")).toBe("false");
   });
 
+  it("separates folders into a top section and files into a section below", () => {
+    const folder = makeFolder({ id: "f1", name: "Alpha" });
+    const file = makeFile({ id: "fi1", name: "beta.jpg" });
+    // Interleaved input: folder, file, folder — grid must still group them.
+    const folder2 = makeFolder({ id: "f2", name: "Gamma" });
+    const wrapper = mount(LibraryEntriesGrid, {
+      props: defaultProps({ entries: [folder, file, folder2] }),
+      global: { stubs },
+    });
+    const sections = wrapper.findAll("section");
+    expect(sections).toHaveLength(2);
+    expect(sections[0]!.text()).toContain("Folders");
+    expect(sections[0]!.text()).toContain("Alpha");
+    expect(sections[0]!.text()).toContain("Gamma");
+    expect(sections[0]!.text()).not.toContain("beta.jpg");
+    expect(sections[1]!.text()).toContain("Files");
+    expect(sections[1]!.text()).toContain("beta.jpg");
+    expect(sections[1]!.text()).not.toContain("Alpha");
+  });
+
+  it("renders only the folder section when there are no files", () => {
+    const folder = makeFolder({ name: "Only" });
+    const wrapper = mount(LibraryEntriesGrid, {
+      props: defaultProps({ entries: [folder] }),
+      global: { stubs },
+    });
+    const sections = wrapper.findAll("section");
+    expect(sections).toHaveLength(1);
+    expect(sections[0]!.text()).toContain("Folders");
+  });
+
+  it("omits the Files heading when there are no folders", () => {
+    const file = makeFile({ name: "lonely.jpg" });
+    const wrapper = mount(LibraryEntriesGrid, {
+      props: defaultProps({ entries: [file] }),
+      global: { stubs },
+    });
+    const sections = wrapper.findAll("section");
+    expect(sections).toHaveLength(1);
+    expect(sections[0]!.text()).not.toContain("Files");
+    expect(sections[0]!.text()).toContain("lonely.jpg");
+  });
+
   it("emits thumbnailError when AlcovesImage has error", async () => {
     const file = makeFile({
       mimeType: "image/jpeg",

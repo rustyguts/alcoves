@@ -27,131 +27,14 @@ SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
 ## [Unreleased]
 
-### Changed
-
-- **Waveform display reverted to industry-standard linear peak (max
-  absolute sample per window).** The v0.18.0 pipeline — per-window RMS,
-  p99 normalization, and a `[-50dB, 0dB] → [0,1]` curve — pinned most
-  windows near the top of the canvas (the dB mapping inflates a -20 dB
-  signal to ~60% height), so quiet passages no longer read as quiet. The
-  revert matches what Audacity, Adobe Audition/Premiere, DaVinci Resolve,
-  Pro Tools, REAPER, FFmpeg's `showwavespic`, wavesurfer.js / peaks.js,
-  and BBC `audiowaveform` all render by default. Existing waveforms in
-  the cache stay on the old algorithm until each file is re-generated
-  (POST `/api/libraries/:id/files/:fileId/waveform`); the frontend
-  already exposes this via the editor.
-
-## [0.18.0] — 2026-05-12
-
-### Added
-
-- **Admin-selectable inference models.** A new "Inference Models" card on
-  `/admin` lets owners swap the transcription model (whisper.cpp) and the
-  audio-tagging model at runtime without a redeploy. Each selector renders
-  per-option disk + RAM peak + quality metadata so the admin can pick
-  against the pod's actual budget. Persists in `app_settings` JSONB; takes
-  effect on the next worker task. Env vars
-  (`ALCOVES_WHISPER_MODEL`, `ALCOVES_WHISPER_LANGUAGE`,
-  `ALCOVES_AUDIO_DETECT_MODEL_BASE_URL`) become boot-time fallbacks.
-- **Whisper allow-list** mirroring every variant from the model bucket:
-  `tiny`, `base`, `small`, `medium`, `large-v3` (default), `large-v3-q5_0`,
-  `large-v3-turbo-q5_0`, `large-v3-turbo-q4_0`, `distil-large-v3.5-q5`
-  (English-only). `scripts/upload-whisper-models.sh` mirrors them all to
-  `s3.rustyguts.net/models` via rclone.
-- **Audio tagger registry.** EfficientAT (mn04 / mn10 / mn40_as_ext) and
-  CED (tiny / small / base) join PANNs CNN14 in
-  `backend/internal/services/audiodetection/registry.go`. Each entry
-  carries its own ONNX filename, sample rate (16 kHz for CED, 32 kHz for
-  the rest), and admin-UI metadata. `scripts/export-audio-tagger.py`
-  generates the ONNX bundles with mel-spectrogram preprocessing baked into
-  the graph so the Go worker keeps feeding raw PCM regardless of family.
-- **Tus uploads now enqueue transcription + audio-event detection on
-  completion** alongside the existing face/object/waveform jobs. The
-  transcribe and audio-detect services join `TusHandler`'s constructor,
-  and the post-upload pipeline fans out to all five workers in one place.
+## [0.16.1] — 2026-06-01
 
 ### Changed
 
-- **Waveform display switched from per-window max-peak (linear) to RMS +
-  per-file normalization + dB curve.** The previous algorithm pinned every
-  20ms window with a transient to full-scale, so most clips looked like a
-  wall of peaking bars. The new pipeline computes per-window RMS, divides
-  by the file's 99th-percentile RMS as a robust reference (occasional clips
-  no longer compress the rest of the waveform), then maps `[-50dB, 0dB]`
-  onto `[0,1]` for visual output. Silent files (reference < ~-80dB) emit
-  zeros instead of amplifying the noise floor. No schema or frontend
-  changes — the renderer keeps consuming the same `[0,1]` peaks JSON.
-- **Default audio tagger switched from PANNs CNN14 → EfficientAT mn10_as.**
-  ~16× smaller on disk (313 MB → 20 MB), faster CPU inference, +9% mAP
-  (0.431 → 0.471). PANN CNN14 stays in the registry as a rollback option
-  selectable from the admin page. The label space (AudioSet 527) is
-  unchanged, so existing `HighlightFilter` expressions continue to work.
-- `backend/internal/services/audiodetection/worker.go` is now spec-aware:
-  per-model sample rate flows to ffmpeg's `-ar`, the ONNX probe widens to
-  cover EfficientAT + CED conventions (`input_values`, `logits`, etc.), and
-  `audio_detect_model` on `files` records the registry ID of the run.
-- `ALCOVES_AUDIO_DETECT_MODEL_URL` replaced by
-  `ALCOVES_AUDIO_DETECT_MODEL_BASE_URL` — the worker composes the URL from
-  the base + registry filename rather than taking a single hardcoded URL.
-
-### Backend
-
-- `settings.Settings` extends with `whisper_model`, `whisper_language`,
-  `audio_detect_model`. Defaults seeded on fresh install
-  (`large-v3` / `auto` / `efficientat_mn10`); existing deployments
-  transparently pick up the defaults via the JSONB unmarshal pattern.
-- `PATCH /api/admin/settings` accepts the new keys with allow-list
-  validation. Unknown IDs return 400.
-- `transcribe.NewService` + `audiodetection.NewService` now accept a
-  `settings.Service`; the worker reads admin settings at task start with
-  env-var fallback. Whisper-cli stays per-task spawn (no in-memory model
-  state to invalidate), so admin swaps apply on the very next job.
-
-### Docs
-
-- `docs/models.md` refreshed: audio tagger table replaced with the
-  registry's seven entries, default highlight moved to EfficientAT mn10,
-  "How to swap" rewritten around the admin UI with env-var fallback.
-- `docs/publishing-models.md` inventory updated with the new Whisper +
-  audio tagger artifacts and bulk-push helper script references.
-- `.env.example` documents the inference env vars with admin-overrides
-  notes.
-
-## [0.17.0] — 2026-05-12
-
-### Added
-
-- Notification + activity feed feature. A canonical `library_activities`
-  table records every notable event in a library (file/folder/tag/moment
-  CRUD, member join/remove, system events for waveform/transcribe/video
-  proxy completion). The frontend surfaces this in two places:
-  - A bell icon in the dashboard header opens a global notification
-    dropdown showing cross-library activity. A new `/notifications`
-    page renders the full list grouped by library. Notifications are
-    individually dismissable; "Dismiss all" advances a per-user
-    `users.notifications_cleared_before` watermark.
-  - A new **Feed** tab on each library page shows the per-library
-    activity log (no read state; includes system events and the
-    viewer's own actions).
-- Real-time delivery via a WebSocket hub (`coder/websocket`) backed by
-  Redis Pub/Sub. Connect via `GET /api/ws`; auto-joins a user room
-  (`user:<userID>`) and accepts `subscribe`/`unsubscribe` frames for
-  library rooms (`library:<libraryID>`). Workers and API replicas
-  publish onto `activity:library:<libraryID>` so the same event
-  reaches every replica's local clients.
-- New endpoints: `GET /api/notifications`, `GET /api/notifications/unread-count`,
-  `POST /api/notifications/:id/dismiss`, `POST /api/notifications/dismiss-all`,
-  `GET /api/libraries/:id/feed`, `GET /api/ws`.
-- Migration `00018_add_activity_feed.sql` creates `library_activities` +
-  `user_notification_dismissals` and adds `notifications_cleared_before`
-  to `users`. Activity rows snapshot the subject's name into JSONB
-  metadata so deleted/renamed items still render in past entries.
-
-### Changed
-
-- `invites.Redeem` now returns `(RedeemResult, error)` (the extra
-  `AddedMember` flag lets the caller emit a `member.joined` activity).
-  Callers in `auth.go` and `invite.go` updated.
+- Grid (card) view now groups folders into a "Folders" section pinned to
+  the top and loose files into a "Files" section below, instead of mixing
+  both in one flat grid. List/table view is unchanged. Card markup was
+  extracted into a reusable `LibraryEntryCard` component.
 
 ## [0.16.0] — 2026-04-30
 
