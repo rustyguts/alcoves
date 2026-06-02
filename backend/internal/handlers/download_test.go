@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
@@ -77,7 +78,7 @@ func setupProxyTestDB(t *testing.T) *gorm.DB {
 		t.Skipf("Skipping test: database not available: %v", err)
 	}
 
-	err = db.AutoMigrate(&models.User{}, &models.Library{}, &models.File{})
+	err = db.AutoMigrate(&models.User{}, &models.Library{}, &models.LibraryMember{}, &models.File{})
 	if err != nil {
 		t.Fatalf("Failed to migrate: %v", err)
 	}
@@ -104,7 +105,9 @@ func setupProxyTestHandler(t *testing.T, proc imageproxy.Processor) (*FileProxyH
 	return handler, db, storageSvc, storageDir
 }
 
-func createProxyTestData(t *testing.T, db *gorm.DB, storageSvc *storage.Service, mimeType string, fileContent []byte) (string, string) {
+// createProxyTestData creates a user (owner), library, file and stores the file bytes.
+// Returns (libraryID, fileID, ownerUserID).
+func createProxyTestData(t *testing.T, db *gorm.DB, storageSvc *storage.Service, mimeType string, fileContent []byte) (string, string, uuid.UUID) {
 	t.Helper()
 
 	userID := uuid.New()
@@ -144,10 +147,11 @@ func createProxyTestData(t *testing.T, db *gorm.DB, storageSvc *storage.Service,
 		t.Fatalf("Failed to store test file: %v", err)
 	}
 
-	return libraryID.String(), fileID.String()
+	return libraryID.String(), fileID.String(), userID
 }
 
-func makeProxyRequest(handler *FileProxyHandler, libraryID, fileID string, queryString string) (*httptest.ResponseRecorder, error) {
+// makeProxyRequest issues a proxy request as the given user.
+func makeProxyRequest(handler *FileProxyHandler, libraryID, fileID string, queryString string, userID uuid.UUID) (*httptest.ResponseRecorder, error) {
 	e := echo.New()
 	url := fmt.Sprintf("/api/files/proxy/%s/%s/image.jpg", libraryID, fileID)
 	if queryString != "" {
@@ -158,6 +162,26 @@ func makeProxyRequest(handler *FileProxyHandler, libraryID, fileID string, query
 	c := e.NewContext(req, rec)
 	c.SetParamNames("*")
 	c.SetParamValues(fmt.Sprintf("%s/%s/image.jpg", libraryID, fileID))
+	// Simulate what AuthMiddleware sets on a valid session.
+	c.Set(middleware.ContextKeyUserID, userID.String())
+
+	err := handler.Serve(c)
+	return rec, err
+}
+
+// makeProxyRequestAnon issues a proxy request without an authenticated session.
+func makeProxyRequestAnon(handler *FileProxyHandler, libraryID, fileID string, queryString string) (*httptest.ResponseRecorder, error) {
+	e := echo.New()
+	url := fmt.Sprintf("/api/files/proxy/%s/%s/image.jpg", libraryID, fileID)
+	if queryString != "" {
+		url += "?" + queryString
+	}
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("*")
+	c.SetParamValues(fmt.Sprintf("%s/%s/image.jpg", libraryID, fileID))
+	// No user ID set — simulates a request with no valid session.
 
 	err := handler.Serve(c)
 	return rec, err
@@ -371,9 +395,9 @@ func TestServe_WidthHeightQualityFormat_ReachProcessor(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	imageData := []byte("fake-image-bytes")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
-	rec, err := makeProxyRequest(handler, libID, fileID, "width=640&height=480&quality=75&format=webp")
+	rec, err := makeProxyRequest(handler, libID, fileID, "width=640&height=480&quality=75&format=webp", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -411,9 +435,9 @@ func TestServe_WidthOnly_ReachesProcessor(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	imageData := []byte("fake-image-bytes")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
-	_, err := makeProxyRequest(handler, libID, fileID, "width=320")
+	_, err := makeProxyRequest(handler, libID, fileID, "width=320", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -436,9 +460,9 @@ func TestServe_QualityOnly_ReachesProcessor(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	imageData := []byte("fake-image-bytes")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
-	_, err := makeProxyRequest(handler, libID, fileID, "quality=50")
+	_, err := makeProxyRequest(handler, libID, fileID, "quality=50", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -458,9 +482,9 @@ func TestServe_FormatAvif_ReachesProcessor(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	imageData := []byte("fake-image-bytes")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
-	rec, err := makeProxyRequest(handler, libID, fileID, "format=avif")
+	rec, err := makeProxyRequest(handler, libID, fileID, "format=avif", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -480,9 +504,9 @@ func TestServe_FormatPng_ReachesProcessor(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	imageData := []byte("fake-image-bytes")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/png", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/png", imageData)
 
-	rec, err := makeProxyRequest(handler, libID, fileID, "format=png&width=100")
+	rec, err := makeProxyRequest(handler, libID, fileID, "format=png&width=100", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -505,9 +529,9 @@ func TestServe_NoParams_SkipsProcessor(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	imageData := []byte("fake-image-bytes")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
-	rec, err := makeProxyRequest(handler, libID, fileID, "")
+	rec, err := makeProxyRequest(handler, libID, fileID, "", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -530,10 +554,10 @@ func TestServe_FormatJpegOnly_SkipsProcessor(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	imageData := []byte("fake-image-bytes")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
 	// format=jpeg alone does not trigger transform (NeedsTransform returns false)
-	_, err := makeProxyRequest(handler, libID, fileID, "format=jpeg")
+	_, err := makeProxyRequest(handler, libID, fileID, "format=jpeg", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -548,9 +572,9 @@ func TestServe_NonImageMime_SkipsProcessor(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	pdfData := []byte("fake-pdf-content")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "application/pdf", pdfData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "application/pdf", pdfData)
 
-	_, err := makeProxyRequest(handler, libID, fileID, "width=640&format=webp")
+	_, err := makeProxyRequest(handler, libID, fileID, "width=640&format=webp", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -564,9 +588,9 @@ func TestServe_NilProcessor_ServesOriginal(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, nil)
 
 	imageData := []byte("original-image-data")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
-	rec, err := makeProxyRequest(handler, libID, fileID, "width=640&format=webp")
+	rec, err := makeProxyRequest(handler, libID, fileID, "width=640&format=webp", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -585,9 +609,9 @@ func TestServe_ProcessorReceivesOriginalFileBytes(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	imageData := []byte("specific-content-12345")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
-	_, err := makeProxyRequest(handler, libID, fileID, "width=100")
+	_, err := makeProxyRequest(handler, libID, fileID, "width=100", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -610,10 +634,10 @@ func TestServe_CacheControlHeader(t *testing.T) {
 	handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 	imageData := []byte("image-data")
-	libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
 	// With transform — handler marks transformed images immutable (deterministic content for a cache key).
-	rec, err := makeProxyRequest(handler, libID, fileID, "width=100")
+	rec, err := makeProxyRequest(handler, libID, fileID, "width=100", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -622,7 +646,7 @@ func TestServe_CacheControlHeader(t *testing.T) {
 	}
 
 	// Without transform — original file path emits its own Cache-Control.
-	rec2, err := makeProxyRequest(handler, libID, fileID, "")
+	rec2, err := makeProxyRequest(handler, libID, fileID, "", ownerID)
 	if err != nil {
 		t.Fatalf("Serve returned error: %v", err)
 	}
@@ -662,8 +686,9 @@ func TestServe_NonexistentFile_Returns404(t *testing.T) {
 
 	fakeLib := uuid.New().String()
 	fakeFile := uuid.New().String()
+	someUserID := uuid.New()
 
-	_, err := makeProxyRequest(handler, fakeLib, fakeFile, "width=100")
+	_, err := makeProxyRequest(handler, fakeLib, fakeFile, "width=100", someUserID)
 	if err == nil {
 		t.Fatal("Expected error for nonexistent file")
 	}
@@ -693,9 +718,9 @@ func TestServe_MultipleFormats_CorrectMIME(t *testing.T) {
 			handler, db, storageSvc, _ := setupProxyTestHandler(t, proc)
 
 			imageData := []byte("img-bytes")
-			libID, fileID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+			libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
 
-			rec, err := makeProxyRequest(handler, libID, fileID, "format="+tt.format)
+			rec, err := makeProxyRequest(handler, libID, fileID, "format="+tt.format, ownerID)
 			if err != nil {
 				t.Fatalf("Serve returned error: %v", err)
 			}
@@ -710,6 +735,114 @@ func TestServe_MultipleFormats_CorrectMIME(t *testing.T) {
 			}
 			if opts.Format != tt.format {
 				t.Errorf("Expected format %s passed to processor, got %s", tt.format, opts.Format)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Auth + membership enforcement tests
+// ---------------------------------------------------------------------------
+
+// TestServe_NoSession_Returns401 verifies that an unauthenticated request
+// (no user ID in context) is rejected with 401.
+func TestServe_NoSession_Returns401(t *testing.T) {
+	handler, db, storageSvc, _ := setupProxyTestHandler(t, nil)
+
+	imageData := []byte("secret-file")
+	libID, fileID, _ := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+
+	_, err := makeProxyRequestAnon(handler, libID, fileID, "")
+	if err == nil {
+		t.Fatal("Expected error for unauthenticated request")
+	}
+
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("Expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 Unauthorized, got %d", httpErr.Code)
+	}
+}
+
+// TestServe_OwnerCanAccess_Returns200 verifies that the library owner gets 200.
+func TestServe_OwnerCanAccess_Returns200(t *testing.T) {
+	handler, db, storageSvc, _ := setupProxyTestHandler(t, nil)
+
+	imageData := []byte("owner-file")
+	libID, fileID, ownerID := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+
+	rec, err := makeProxyRequest(handler, libID, fileID, "", ownerID)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected 200 for owner, got %d", rec.Code)
+	}
+}
+
+// TestServe_NonMember_Returns404 verifies that a user who is not a member of
+// the library receives 404 (library not found from their perspective).
+func TestServe_NonMember_Returns404(t *testing.T) {
+	handler, db, storageSvc, _ := setupProxyTestHandler(t, nil)
+
+	imageData := []byte("private-file")
+	libID, fileID, _ := createProxyTestData(t, db, storageSvc, "image/jpeg", imageData)
+
+	// Create a second, unrelated user who has no membership in the library.
+	otherUserID := uuid.New()
+	otherUser := models.User{
+		ID:          otherUserID,
+		Email:       fmt.Sprintf("%s@other.com", otherUserID.String()[:8]),
+		DisplayName: "Other User",
+		Role:        "user",
+	}
+	if err := db.Create(&otherUser).Error; err != nil {
+		t.Fatalf("Failed to create other user: %v", err)
+	}
+
+	_, err := makeProxyRequest(handler, libID, fileID, "", otherUserID)
+	if err == nil {
+		t.Fatal("Expected error for non-member request")
+	}
+
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("Expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("Expected 404 for non-member, got %d", httpErr.Code)
+	}
+}
+
+// TestParseTransformOptions_DimensionClamped verifies that width and height
+// values exceeding maxTransformDimension are clamped to 4096.
+func TestParseTransformOptions_DimensionClamped(t *testing.T) {
+	tests := []struct {
+		query          string
+		expectedWidth  int
+		expectedHeight int
+	}{
+		{"width=5000", maxTransformDimension, 0},
+		{"height=99999", 0, maxTransformDimension},
+		{"width=4096", maxTransformDimension, 0},
+		{"width=4097", maxTransformDimension, 0},
+		{"width=1024&height=8192", 1024, maxTransformDimension},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.query, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/proxy?"+tt.query, nil)
+			c := e.NewContext(req, httptest.NewRecorder())
+
+			opts := parseTransformOptions(c)
+			if opts.Width != tt.expectedWidth {
+				t.Errorf("width: expected %d, got %d", tt.expectedWidth, opts.Width)
+			}
+			if opts.Height != tt.expectedHeight {
+				t.Errorf("height: expected %d, got %d", tt.expectedHeight, opts.Height)
 			}
 		})
 	}

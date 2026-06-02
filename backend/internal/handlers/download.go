@@ -9,10 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
+	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/access"
 	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
@@ -170,10 +173,34 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 
 	// Parse path components
 	// Expected: libraryId/fileId/filename
-	var libraryID, fileID string
-	n, _ := fmt.Sscanf(path, "%36s/%36s/", &libraryID, &fileID)
+	var libraryIDStr, fileIDStr string
+	n, _ := fmt.Sscanf(path, "%36s/%36s/", &libraryIDStr, &fileIDStr)
 	if n < 2 {
 		return echo.NewHTTPError(http.StatusNotFound, "Invalid path")
+	}
+
+	libraryID, err := uuid.Parse(libraryIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
+	}
+	fileID, err := uuid.Parse(fileIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid file ID")
+	}
+
+	// Require authenticated session.
+	userID, err := middleware.RequireUserID(c)
+	if err != nil {
+		return err
+	}
+
+	// Require library membership.
+	acc, err := access.NewService(h.db).GetLibraryAccess(userID, libraryID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to check library access")
+	}
+	if acc == nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Library not found")
 	}
 
 	var file models.File
@@ -189,7 +216,7 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	// image proxy service (NFS cache check → enqueue job → Redis pub/sub wait).
 	// When no processor is wired up (e.g. tests), fall through to the original.
 	if imageproxy.NeedsTransform(opts) && isImageMime(file.MimeType) && h.imgSvc.HasProcessor() {
-		outBytes, mime, err := h.imgSvc.ServeTransform(c.Request().Context(), libraryID, fileID, opts)
+		outBytes, mime, err := h.imgSvc.ServeTransform(c.Request().Context(), libraryID.String(), fileID.String(), opts)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to transform image")
 		}
@@ -202,12 +229,12 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	}
 
 	// No transform — stream the original file.
-	size, err := h.storageSvc.FileStat(libraryID, fileID)
+	size, err := h.storageSvc.FileStat(libraryID.String(), fileID.String())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found on storage")
 	}
 
-	reader, err := h.storageSvc.OpenFileReadStream(libraryID, fileID, nil)
+	reader, err := h.storageSvc.OpenFileReadStream(libraryID.String(), fileID.String(), nil)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read file")
 	}
@@ -220,17 +247,27 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	return c.Stream(http.StatusOK, file.MimeType, reader)
 }
 
+// maxTransformDimension caps width/height to prevent unauthenticated DoS via
+// huge libvips allocation requests.
+const maxTransformDimension = 4096
+
 // parseTransformOptions extracts image transform parameters from query string.
 func parseTransformOptions(c echo.Context) imageproxy.TransformOptions {
 	var opts imageproxy.TransformOptions
 
 	if w := c.QueryParam("width"); w != "" {
 		if v, err := strconv.Atoi(w); err == nil && v > 0 {
+			if v > maxTransformDimension {
+				v = maxTransformDimension
+			}
 			opts.Width = v
 		}
 	}
 	if h := c.QueryParam("height"); h != "" {
 		if v, err := strconv.Atoi(h); err == nil && v > 0 {
+			if v > maxTransformDimension {
+				v = maxTransformDimension
+			}
 			opts.Height = v
 		}
 	}

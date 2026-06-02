@@ -83,10 +83,6 @@ func needsAuth(path string) bool {
 	if strings.HasPrefix(path, "/api/invites/") && !strings.HasSuffix(path, "/accept") {
 		return false
 	}
-	// Public file proxy
-	if strings.HasPrefix(path, "/api/files/proxy/") {
-		return false
-	}
 	// Public moment share endpoints (Nuxt SSR loads metadata; video/thumbnail stream directly)
 	if strings.HasPrefix(path, "/api/share/") {
 		return false
