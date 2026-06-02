@@ -10,9 +10,9 @@ import (
 
 // FaceAssignmentResult describes the result of assigning a face to a person.
 type FaceAssignmentResult struct {
-	PersonID   uuid.UUID
-	IsNew      bool   // True if a new person was created
-	Distance   float64 // Best match distance (0 if new)
+	PersonID uuid.UUID
+	IsNew    bool    // True if a new person was created
+	Distance float64 // Best match distance (0 if new)
 }
 
 // AssignFaceUsingCorePoint assigns a face detection to an existing or new person
@@ -27,15 +27,20 @@ func AssignFaceUsingCorePoint(db *gorm.DB, config *FaceConfig, libraryID string,
 	}
 
 	var neighbors []neighborRow
-	err := db.Raw(`
-		SELECT fd.person_id, (fd.embedding <=> $1::vector) AS distance
-		FROM face_detections fd
-		WHERE fd.library_id = $2
-		  AND fd.id != $3
-		  AND fd.person_id IS NOT NULL
-		ORDER BY fd.embedding <=> $1::vector
-		LIMIT $4
-	`, embStr, libraryID, faceDetectionID, config.NeighborLookup).Scan(&neighbors).Error
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SET LOCAL hnsw.ef_search = 40").Error; err != nil {
+			return fmt.Errorf("set hnsw.ef_search: %w", err)
+		}
+		return tx.Raw(`
+			SELECT fd.person_id, (fd.embedding <=> $1::vector) AS distance
+			FROM face_detections fd
+			WHERE fd.library_id = $2
+			  AND fd.id != $3
+			  AND fd.person_id IS NOT NULL
+			ORDER BY fd.embedding <=> $1::vector
+			LIMIT $4
+		`, embStr, libraryID, faceDetectionID, config.NeighborLookup).Scan(&neighbors).Error
+	})
 	if err != nil {
 		return nil, fmt.Errorf("neighbor query failed: %w", err)
 	}
@@ -90,14 +95,19 @@ func AssignFaceUsingCorePoint(db *gorm.DB, config *FaceConfig, libraryID string,
 	// No good match — check if we have enough unassigned faces nearby to form a new cluster
 	// Count unassigned faces that are close to this embedding
 	var nearbyUnassigned int64
-	db.Raw(`
-		SELECT COUNT(*)
-		FROM face_detections fd
-		WHERE fd.library_id = $1
-		  AND fd.person_id IS NULL
-		  AND fd.id != $2
-		  AND (fd.embedding <=> $3::vector) < $4
-	`, libraryID, faceDetectionID, embStr, config.MaxDistance).Scan(&nearbyUnassigned)
+	_ = db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SET LOCAL hnsw.ef_search = 40").Error; err != nil {
+			return fmt.Errorf("set hnsw.ef_search: %w", err)
+		}
+		return tx.Raw(`
+			SELECT COUNT(*)
+			FROM face_detections fd
+			WHERE fd.library_id = $1
+			  AND fd.person_id IS NULL
+			  AND fd.id != $2
+			  AND (fd.embedding <=> $3::vector) < $4
+		`, libraryID, faceDetectionID, embStr, config.MaxDistance).Scan(&nearbyUnassigned).Error
+	})
 
 	if int(nearbyUnassigned)+1 >= config.MinFaces {
 		// Create a new person and assign this face + nearby unassigned faces
@@ -168,15 +178,20 @@ func ReconcileNewPerson(db *gorm.DB, config *FaceConfig, libraryID string, sourc
 
 	for _, s := range samples {
 		var candidates []mergeCandidate
-		db.Raw(`
-			SELECT fd.person_id, (fd.embedding <=> $1::vector) AS distance
-			FROM face_detections fd
-			WHERE fd.library_id = $2
-			  AND fd.person_id IS NOT NULL
-			  AND fd.person_id != $3
-			ORDER BY fd.embedding <=> $1::vector
-			LIMIT 10
-		`, s.Embedding, libraryID, sourcePersonID).Scan(&candidates)
+		_ = db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec("SET LOCAL hnsw.ef_search = 40").Error; err != nil {
+				return fmt.Errorf("set hnsw.ef_search: %w", err)
+			}
+			return tx.Raw(`
+				SELECT fd.person_id, (fd.embedding <=> $1::vector) AS distance
+				FROM face_detections fd
+				WHERE fd.library_id = $2
+				  AND fd.person_id IS NOT NULL
+				  AND fd.person_id != $3
+				ORDER BY fd.embedding <=> $1::vector
+				LIMIT 10
+			`, s.Embedding, libraryID, sourcePersonID).Scan(&candidates).Error
+		})
 
 		for _, c := range candidates {
 			if c.Distance <= config.AutoMergeDistance {
