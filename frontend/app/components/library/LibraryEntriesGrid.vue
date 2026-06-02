@@ -57,9 +57,6 @@ const fileEntries = computed(() =>
   -->
   <div class="p-3 flex flex-col gap-4">
     <section v-if="folderEntries.length > 0">
-      <h3 class="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-        Folders
-      </h3>
       <div class="grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,320px))]">
         <LibraryEntryCard
           v-for="entry in folderEntries"
@@ -96,12 +93,6 @@ const fileEntries = computed(() =>
     </section>
 
     <section v-if="fileEntries.length > 0">
-      <h3
-        v-if="folderEntries.length > 0"
-        class="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-muted"
-      >
-        Files
-      </h3>
       <div class="grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,320px))]">
         <LibraryEntryCard
           v-for="entry in fileEntries"

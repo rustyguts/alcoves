@@ -309,11 +309,10 @@ describe("LibraryEntriesGrid", () => {
     });
     const sections = wrapper.findAll("section");
     expect(sections).toHaveLength(2);
-    expect(sections[0]!.text()).toContain("Folders");
+    // Folder section holds only folders, file section only files.
     expect(sections[0]!.text()).toContain("Alpha");
     expect(sections[0]!.text()).toContain("Gamma");
     expect(sections[0]!.text()).not.toContain("beta.jpg");
-    expect(sections[1]!.text()).toContain("Files");
     expect(sections[1]!.text()).toContain("beta.jpg");
     expect(sections[1]!.text()).not.toContain("Alpha");
   });
@@ -326,10 +325,10 @@ describe("LibraryEntriesGrid", () => {
     });
     const sections = wrapper.findAll("section");
     expect(sections).toHaveLength(1);
-    expect(sections[0]!.text()).toContain("Folders");
+    expect(sections[0]!.text()).toContain("Only");
   });
 
-  it("omits the Files heading when there are no folders", () => {
+  it("renders only the file section when there are no folders", () => {
     const file = makeFile({ name: "lonely.jpg" });
     const wrapper = mount(LibraryEntriesGrid, {
       props: defaultProps({ entries: [file] }),
@@ -337,7 +336,6 @@ describe("LibraryEntriesGrid", () => {
     });
     const sections = wrapper.findAll("section");
     expect(sections).toHaveLength(1);
-    expect(sections[0]!.text()).not.toContain("Files");
     expect(sections[0]!.text()).toContain("lonely.jpg");
   });
 
