@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -146,39 +147,56 @@ func (h *OAuthHandler) GoogleCallback(c echo.Context) error {
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Check if user with this email exists
 		err = h.db.Where("email = ?", googleUser.Email).First(&user).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Create new user
-			var userCount int64
-			h.db.Model(&models.User{}).Count(&userCount)
-			role := "member"
-			if userCount == 0 {
-				role = "owner"
+		isNewUser := errors.Is(err, gorm.ErrRecordNotFound)
+
+		// Wrap user + library + account creation atomically so a failure in any
+		// step does not leave orphaned rows.
+		txErr := h.db.Transaction(func(tx *gorm.DB) error {
+			if isNewUser {
+				// Create new user
+				var userCount int64
+				tx.Model(&models.User{}).Count(&userCount)
+				role := "member"
+				if userCount == 0 {
+					role = "owner"
+				}
+
+				user = models.User{
+					Email:       googleUser.Email,
+					DisplayName: googleUser.Name,
+					Role:        role,
+				}
+				if googleUser.Picture != "" {
+					user.AvatarUrl = &googleUser.Picture
+				}
+				if err := tx.Create(&user).Error; err != nil {
+					return fmt.Errorf("create user: %w", err)
+				}
+
+				// Create default library
+				if err := tx.Create(&models.Library{
+					Name:      "My Library",
+					IsDefault: true,
+					OwnerID:   user.ID,
+				}).Error; err != nil {
+					return fmt.Errorf("create library: %w", err)
+				}
 			}
 
-			user = models.User{
-				Email:       googleUser.Email,
-				DisplayName: googleUser.Name,
-				Role:        role,
+			// Link Google account (runs for both new and email-matched users)
+			if err := tx.Create(&models.Account{
+				UserID:            user.ID,
+				Provider:          "google",
+				ProviderAccountID: googleUser.ID,
+			}).Error; err != nil {
+				return fmt.Errorf("create account: %w", err)
 			}
-			if googleUser.Picture != "" {
-				user.AvatarUrl = &googleUser.Picture
-			}
-			h.db.Create(&user)
 
-			// Create default library
-			h.db.Create(&models.Library{
-				Name:      "My Library",
-				IsDefault: true,
-				OwnerID:   user.ID,
-			})
-		}
-
-		// Link Google account
-		h.db.Create(&models.Account{
-			UserID:            user.ID,
-			Provider:          "google",
-			ProviderAccountID: googleUser.ID,
+			return nil
 		})
+		if txErr != nil {
+			return c.Redirect(http.StatusFound, "/login?error=oauth_failed")
+		}
 	} else {
 		return c.Redirect(http.StatusFound, "/login?error=oauth_failed")
 	}

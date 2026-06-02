@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -138,25 +139,38 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		Role:         role,
 	}
 
-	if err := h.db.Create(&user).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create user")
-	}
+	// Wrap user + account + library creation in a single transaction so a
+	// partial failure (e.g. account constraint violation) never leaves an
+	// orphaned user row with no credential or default library.
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&user).Error; err != nil {
+			return fmt.Errorf("create user: %w", err)
+		}
 
-	// Create credentials account record
-	account := models.Account{
-		UserID:            user.ID,
-		Provider:          "credentials",
-		ProviderAccountID: email,
-	}
-	h.db.Create(&account)
+		// Create credentials account record
+		account := models.Account{
+			UserID:            user.ID,
+			Provider:          "credentials",
+			ProviderAccountID: email,
+		}
+		if err := tx.Create(&account).Error; err != nil {
+			return fmt.Errorf("create account: %w", err)
+		}
 
-	// Create default library
-	library := models.Library{
-		Name:      "My Library",
-		IsDefault: true,
-		OwnerID:   user.ID,
+		// Create default library
+		library := models.Library{
+			Name:      "My Library",
+			IsDefault: true,
+			OwnerID:   user.ID,
+		}
+		if err := tx.Create(&library).Error; err != nil {
+			return fmt.Errorf("create library: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create user account")
 	}
-	h.db.Create(&library)
 
 	// Redeem invite (if any) — best-effort: a redeem failure here does not
 	// roll back account creation, but we surface the error.

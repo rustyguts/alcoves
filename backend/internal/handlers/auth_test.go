@@ -416,6 +416,54 @@ func TestRegister_RejectsRevokedInvite(t *testing.T) {
 	}
 }
 
+// TestRegister_AccountCreateFailure_NoOrphanedUser verifies that when account
+// creation fails (e.g. a unique-constraint violation on provider+email), the
+// wrapping transaction is rolled back and no user row is left in the database.
+func TestRegister_AccountCreateFailure_NoOrphanedUser(t *testing.T) {
+	db := testDB(t)
+	if err := db.AutoMigrate(&models.Account{}); err != nil {
+		t.Fatalf("migrate accounts: %v", err)
+	}
+
+	e, handler := setupTestEcho(db)
+
+	// Pre-seed an account row that will collide with the one Register tries to
+	// create: provider="credentials", provider_account_id=<same email>.
+	// We need a user to own the pre-seeded account so the FK is satisfied.
+	collision := models.User{Email: "dummy-seed@example.com", DisplayName: "Seed", Role: "member"}
+	if err := db.Create(&collision).Error; err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	if err := db.Create(&models.Account{
+		UserID:            collision.ID,
+		Provider:          "credentials",
+		ProviderAccountID: "orphan@example.com", // same as registration email below
+	}).Error; err != nil {
+		t.Fatalf("seed account: %v", err)
+	}
+
+	// Attempt to register with the same email. The account creation step
+	// inside the transaction will hit the unique constraint and roll back.
+	body := `{"name":"Orphan","email":"orphan@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	err := handler.Register(e.NewContext(req, rec))
+
+	// The handler must return an error (HTTP 500 or 409 — either is fine; the
+	// important invariant is the absence of an orphaned user row).
+	if err == nil && rec.Code == http.StatusOK {
+		t.Fatal("expected Register to fail when account creation violates unique constraint")
+	}
+
+	// No user row with this email should exist (the tx was rolled back).
+	var count int64
+	db.Model(&models.User{}).Where("email = ?", "orphan@example.com").Count(&count)
+	if count != 0 {
+		t.Fatalf("expected 0 user rows after rollback, got %d orphaned row(s)", count)
+	}
+}
+
 func TestRegisterValidation(t *testing.T) {
 	db := testDB(t)
 	e, handler := setupTestEcho(db)
