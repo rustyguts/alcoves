@@ -220,4 +220,17 @@ test.describe("Library browser dark @screenshot", () => {
     await expect(page.getByText("Vacation 2025")).toBeVisible();
     await snap(page, FLOW, "library-grid-view-dark");
   });
+
+  test("library list dark @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await setTheme(page, "dark");
+    await primeEntryView(page, "file");
+    await createMockApi(page, state);
+    await page.goto("/libraries/lib-photos");
+
+    await expect(page.getByText("Vacation 2025")).toBeVisible();
+    await expect(page.getByText("sunset.jpg")).toBeVisible();
+    await snap(page, FLOW, "library-list-view-dark");
+  });
 });

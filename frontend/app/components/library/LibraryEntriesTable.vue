@@ -38,27 +38,27 @@ const emit = defineEmits<{
     <thead class="sticky top-0 z-30 border-b border-default">
       <tr>
         <th class="w-12 px-4 py-3 bg-default/90 backdrop-blur-sm rounded-tl-xl" />
-        <th class="text-left text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm">
+        <th class="text-left text-xs font-semibold uppercase tracking-wide text-toned px-4 py-3 bg-default/90 backdrop-blur-sm">
           Name
         </th>
-        <th class="text-left text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm">
+        <th class="text-left text-xs font-semibold uppercase tracking-wide text-toned px-4 py-3 bg-default/90 backdrop-blur-sm">
           Tags
         </th>
         <th
-          class="text-left text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm hidden sm:table-cell">
+          class="text-left text-xs font-semibold uppercase tracking-wide text-toned px-4 py-3 bg-default/90 backdrop-blur-sm hidden sm:table-cell">
           Owner
         </th>
         <th
-          class="text-left text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm hidden sm:table-cell">
+          class="text-left text-xs font-semibold uppercase tracking-wide text-toned px-4 py-3 bg-default/90 backdrop-blur-sm hidden sm:table-cell">
           {{ showTrashed ? "Trashed" : "Modified" }}
         </th>
         <th
-          class="text-right text-xs font-medium text-muted px-4 py-3 bg-default/90 backdrop-blur-sm hidden sm:table-cell rounded-tr-xl">
+          class="text-right text-xs font-semibold uppercase tracking-wide text-toned px-4 py-3 bg-default/90 backdrop-blur-sm hidden sm:table-cell rounded-tr-xl">
           Size
         </th>
       </tr>
     </thead>
-    <tbody class="select-none">
+    <tbody class="select-none divide-y divide-default/60">
       <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
         <tr class="cursor-pointer transition-colors" :class="[
           props.isEntrySelected(entry)
@@ -111,21 +111,21 @@ const emit = defineEmits<{
                 :title="tag.name" :style="{ backgroundColor: tag.color }" />
             </div>
           </td>
-          <td class="px-4 py-3 text-sm text-muted hidden sm:table-cell">
+          <td class="px-4 py-3 text-sm text-toned hidden sm:table-cell">
             <div v-if="entry.owner" class="flex items-center">
               <UserAvatar :display-name="entry.owner.displayName" :avatar-url="entry.owner.avatarUrl" size-class="w-6"
                 text-size-class="text-[10px]" bg-class="bg-primary/20 text-primary" tooltip tooltip-position="right" />
             </div>
             <span v-else>-</span>
           </td>
-          <td class="px-4 py-3 text-sm text-muted whitespace-nowrap hidden sm:table-cell">
+          <td class="px-4 py-3 text-sm text-toned whitespace-nowrap hidden sm:table-cell">
             {{
               showTrashed && entry.trashedAt
                 ? formatDate(entry.trashedAt)
                 : formatDate(entry.updatedAt)
             }}
           </td>
-          <td class="px-4 py-3 text-sm text-muted text-right whitespace-nowrap hidden sm:table-cell">
+          <td class="px-4 py-3 text-sm text-toned text-right whitespace-nowrap hidden sm:table-cell">
             {{ entry.kind === "folder" ? "-" : formatFileSize(entry.size) }}
           </td>
         </tr>
