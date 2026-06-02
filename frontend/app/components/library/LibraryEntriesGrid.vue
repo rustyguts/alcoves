@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import type { LibraryEntry, LibraryFile } from "~~/shared/types/api";
-import { apiUrl } from "~/utils/api-fetch";
-import { getMimeIcon } from "~/utils/mime-icons";
-import AppIcon from "~/components/AppIcon.vue";
-import AlcovesImage from "~/components/AlcovesImage.vue";
+import { computed } from "vue";
+import type { LibraryEntry, LibraryFile, LibraryFolder } from "~~/shared/types/api";
+import LibraryEntryCard from "~/components/library/LibraryEntryCard.vue";
 
 interface Props {
   entries: LibraryEntry[];
@@ -39,6 +37,15 @@ const emit = defineEmits<{
   updateRenameValue: [value: string];
   thumbnailError: [fileId: string];
 }>();
+
+// Grid mode separates folders from loose files: folders pinned to the top,
+// files below in their own section. Order within each group is preserved.
+const folderEntries = computed(() =>
+  props.entries.filter((entry): entry is LibraryFolder => entry.kind === "folder"),
+);
+const fileEntries = computed(() =>
+  props.entries.filter((entry): entry is LibraryFile => entry.kind === "file"),
+);
 </script>
 
 <template>
@@ -48,145 +55,86 @@ const emit = defineEmits<{
     on ultrawide monitors. Combined with the 16:9 thumbnail below this
     gives the consistent card shape the design calls for.
   -->
-  <div
-    class="p-3 grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,320px))]"
-  >
-    <template v-for="entry in entries" :key="`${entry.kind}-${entry.id}`">
-      <div
-        class="rounded-xl bg-default overflow-hidden cursor-pointer transition-colors select-none shadow-sm"
-        :class="[
-          props.isEntrySelected(entry)
-            ? 'bg-primary/20 hover:bg-primary/28'
-            : 'hover:bg-primary/10',
-          props.dropTargetFolderId === entry.id && entry.kind === 'folder'
-            ? 'ring-2 ring-primary/60 bg-primary/10'
-            : '',
-          props.draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : '',
-        ]"
-        :draggable="props.dragEnabled && entry.kind === 'file' && !props.isRenaming(entry)"
-        @click="emit('rowClick', entry, $event)"
-        @dblclick="emit('rowDoubleClick', entry)"
-        @contextmenu="emit('rowContextMenu', entry, $event)"
-        @dragstart="emit('dragStart', entry, $event)"
-        @dragend="emit('dragEnd')"
-        @dragenter="emit('dragEnter', entry)"
-        @dragover="emit('dragOver', entry, $event)"
-        @dragleave="emit('dragLeave', entry, $event)"
-        @drop="emit('drop', entry, $event)"
-      >
-        <div
-          v-if="props.isRenaming(entry)"
-          :data-rename-input-entry-id="entry.id"
-          class="px-2 pt-2 pb-2"
-        >
-          <UInput
-            :model-value="renameValue"
-            size="sm"
-            autofocus
-            :ui="{ root: 'w-full' }"
-            @update:model-value="emit('updateRenameValue', String($event ?? ''))"
-            @blur="emit('saveRename', entry)"
-            @keydown.enter="emit('saveRename', entry)"
-            @keydown.escape="emit('cancelRename')"
-            @click.stop
-          />
-        </div>
-
-        <div v-else class="px-2 pt-2 pb-2 flex items-start gap-2 min-w-0">
-          <AppIcon
-            :name="entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(entry.mimeType)"
-            class="size-4 mt-0.5 shrink-0 text-muted"
-            :class="showTrashed && entry.kind === 'file' ? 'opacity-50' : ''"
-          />
-          <span
-            v-if="entry.kind === 'folder'"
-            class="text-sm font-semibold text-left truncate w-full"
-            :title="showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name"
-          >
-            {{ showTrashed ? `${entry.name} (${entry.trashFileCount ?? 0} files)` : entry.name }}
-          </span>
-          <span v-else class="text-sm font-semibold text-left truncate w-full" :title="entry.name">
-            {{ entry.name }}
-          </span>
-          <UTooltip
-            v-if="entry.kind === 'file' && entry.hasDuplicates"
-            text="Duplicate of another file in this library"
-          >
-            <UIcon name="i-lucide-copy" class="size-4 mt-0.5 shrink-0 text-warning" />
-          </UTooltip>
-          <div v-if="entry.tags?.length" class="flex items-center gap-1 shrink-0">
-            <span
-              v-for="tag in entry.tags"
-              :key="tag.id"
-              class="size-2 rounded-full border border-default/50"
-              :title="tag.name"
-              :style="{ backgroundColor: tag.color }"
-            />
-          </div>
-        </div>
-
-        <div class="aspect-video w-full bg-elevated/40 flex items-center justify-center overflow-hidden">
-          <template v-if="entry.kind === 'folder'">
-            <AppIcon name="i-lucide-folder" class="size-10 text-muted" />
-          </template>
-          <template v-else-if="entry.kind === 'file' && entry.mimeType.startsWith('video/')">
-            <div class="relative w-full h-full flex items-center justify-center">
-              <AlcovesImage
-                v-if="!props.failedThumbnails.has(entry.id) && entry.thumbnailFileId"
-                :library-id="libraryId"
-                :file-id="entry.thumbnailFileId"
-                :alt="entry.name"
-                :width="props.cardThumbWidth(entry)"
-                :height="props.cardThumbHeight(entry)"
-                format="jpeg"
-                :quality="82"
-                class="w-full h-full object-cover"
-                @error="emit('thumbnailError', entry.id)"
-              />
-              <img
-                v-else-if="!props.failedThumbnails.has(entry.id)"
-                :src="apiUrl(`/api/libraries/${libraryId}/files/${entry.id}/thumbnail`)"
-                :alt="entry.name"
-                class="w-full h-full object-cover"
-                loading="lazy"
-                decoding="async"
-                draggable="false"
-                crossorigin="use-credentials"
-                @error="emit('thumbnailError', entry.id)"
-              />
-              <AppIcon v-else name="i-lucide-film" class="size-10 text-muted" />
-              <div
-                v-if="entry.proxyStatus === 'processing'"
-                class="absolute inset-0 flex items-center justify-center bg-black/40"
-              >
-                <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white" />
-              </div>
-            </div>
-          </template>
-          <template v-else-if="entry.kind === 'file' && props.isImageFile(entry)">
-            <AlcovesImage
-              v-if="!props.failedThumbnails.has(entry.id)"
-              :library-id="libraryId"
-              :file-id="entry.id"
-              :alt="entry.name"
-              :width="props.cardThumbWidth(entry)"
-              :height="props.cardThumbHeight(entry)"
-              format="jpeg"
-              :quality="82"
-              :class="props.isSmallImage(entry) ? 'object-contain' : 'w-full h-full object-cover'"
-              @error="emit('thumbnailError', entry.id)"
-            />
-            <AppIcon v-else name="i-lucide-image" class="size-10 text-muted" />
-          </template>
-          <template v-else-if="entry.kind === 'file'">
-            <AppIcon
-              :name="getMimeIcon(entry.mimeType)"
-              class="size-10 text-muted"
-              :class="showTrashed ? 'opacity-50' : ''"
-            />
-          </template>
-        </div>
+  <div class="p-3 flex flex-col gap-4">
+    <section v-if="folderEntries.length > 0">
+      <h3 class="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+        Folders
+      </h3>
+      <div class="grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,320px))]">
+        <LibraryEntryCard
+          v-for="entry in folderEntries"
+          :key="`folder-${entry.id}`"
+          :entry="entry"
+          :library-id="libraryId"
+          :show-trashed="showTrashed"
+          :drag-enabled="dragEnabled"
+          :dragged-file-ids="draggedFileIds"
+          :drop-target-folder-id="dropTargetFolderId"
+          :rename-value="renameValue"
+          :is-entry-selected="isEntrySelected"
+          :is-renaming="isRenaming"
+          :failed-thumbnails="failedThumbnails"
+          :is-image-file="isImageFile"
+          :is-small-image="isSmallImage"
+          :card-thumb-width="cardThumbWidth"
+          :card-thumb-height="cardThumbHeight"
+          @row-click="(entry, event) => emit('rowClick', entry, event)"
+          @row-double-click="emit('rowDoubleClick', $event)"
+          @row-context-menu="(entry, event) => emit('rowContextMenu', entry, event)"
+          @drag-start="(entry, event) => emit('dragStart', entry, event)"
+          @drag-end="emit('dragEnd')"
+          @drag-enter="emit('dragEnter', $event)"
+          @drag-over="(entry, event) => emit('dragOver', entry, event)"
+          @drag-leave="(entry, event) => emit('dragLeave', entry, event)"
+          @drop="(entry, event) => emit('drop', entry, event)"
+          @save-rename="emit('saveRename', $event)"
+          @cancel-rename="emit('cancelRename')"
+          @update-rename-value="emit('updateRenameValue', $event)"
+          @thumbnail-error="emit('thumbnailError', $event)"
+        />
       </div>
-    </template>
+    </section>
+
+    <section v-if="fileEntries.length > 0">
+      <h3
+        v-if="folderEntries.length > 0"
+        class="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-muted"
+      >
+        Files
+      </h3>
+      <div class="grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,320px))]">
+        <LibraryEntryCard
+          v-for="entry in fileEntries"
+          :key="`file-${entry.id}`"
+          :entry="entry"
+          :library-id="libraryId"
+          :show-trashed="showTrashed"
+          :drag-enabled="dragEnabled"
+          :dragged-file-ids="draggedFileIds"
+          :drop-target-folder-id="dropTargetFolderId"
+          :rename-value="renameValue"
+          :is-entry-selected="isEntrySelected"
+          :is-renaming="isRenaming"
+          :failed-thumbnails="failedThumbnails"
+          :is-image-file="isImageFile"
+          :is-small-image="isSmallImage"
+          :card-thumb-width="cardThumbWidth"
+          :card-thumb-height="cardThumbHeight"
+          @row-click="(entry, event) => emit('rowClick', entry, event)"
+          @row-double-click="emit('rowDoubleClick', $event)"
+          @row-context-menu="(entry, event) => emit('rowContextMenu', entry, event)"
+          @drag-start="(entry, event) => emit('dragStart', entry, event)"
+          @drag-end="emit('dragEnd')"
+          @drag-enter="emit('dragEnter', $event)"
+          @drag-over="(entry, event) => emit('dragOver', entry, event)"
+          @drag-leave="(entry, event) => emit('dragLeave', entry, event)"
+          @drop="(entry, event) => emit('drop', entry, event)"
+          @save-rename="emit('saveRename', $event)"
+          @cancel-rename="emit('cancelRename')"
+          @update-rename-value="emit('updateRenameValue', $event)"
+          @thumbnail-error="emit('thumbnailError', $event)"
+        />
+      </div>
+    </section>
   </div>
 </template>
