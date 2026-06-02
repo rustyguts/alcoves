@@ -169,4 +169,16 @@ test.describe("Library settings dark @screenshot", () => {
     await expect(page.locator('input[type="text"]').first()).toBeVisible();
     await snap(page, FLOW, "tags-populated-dark");
   });
+
+  test("settings members populated dark @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await setTheme(page, "dark");
+    await createMockApi(page, state);
+    await page.goto("/libraries/lib-photos/settings");
+
+    await expect(page.getByText("Morgan Editor").first()).toBeVisible();
+    await expect(page.getByText("Sam Editor").first()).toBeVisible();
+    await snap(page, FLOW, "settings-members-populated-dark");
+  });
 });

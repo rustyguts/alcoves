@@ -154,4 +154,15 @@ test.describe("Auth dark theme @screenshot", () => {
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
     await snap(page, FLOW, "login-empty-dark");
   });
+
+  test("register empty dark @screenshot", async ({ page }) => {
+    const state = createDefaultState({ loggedIn: false });
+    await setupDeterminism(page);
+    await setTheme(page, "dark");
+    await createMockApi(page, state);
+    await page.goto("/register");
+
+    await expect(page.getByRole("heading", { name: "Create an account" })).toBeVisible();
+    await snap(page, FLOW, "register-empty-dark");
+  });
 });

@@ -163,9 +163,12 @@ export interface MockSession {
 
 export type RouteHandler = (route: Route, url: URL) => Promise<boolean | void> | boolean | void;
 
+export type MockRegistrationMode = "open" | "invite_only" | "closed";
+
 export interface MockState {
   loggedIn: boolean;
   googleAuthEnabled: boolean;
+  registrationMode: MockRegistrationMode;
   currentUser: MockUser;
   libraries: MockLibrary[];
   tags: MockTag[];

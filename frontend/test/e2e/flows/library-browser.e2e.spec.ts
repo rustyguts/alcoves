@@ -233,4 +233,29 @@ test.describe("Library browser dark @screenshot", () => {
     await expect(page.getByText("sunset.jpg")).toBeVisible();
     await snap(page, FLOW, "library-list-view-dark");
   });
+
+  test("library trash items dark @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await setTheme(page, "dark");
+    await primeEntryView(page, "file");
+    await createMockApi(page, state);
+    await page.goto("/libraries/lib-photos/trash");
+
+    await expect(page.getByRole("tab", { name: /Trash/ })).toBeVisible();
+    await snap(page, FLOW, "library-trash-items-dark");
+  });
+
+  test("library empty state dark @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    state.folders = [];
+    state.files = [];
+    await setupDeterminism(page);
+    await setTheme(page, "dark");
+    await createMockApi(page, state);
+    await page.goto("/libraries/lib-personal");
+
+    await expect(page.getByRole("tab", { name: /Files/ })).toBeVisible();
+    await snap(page, FLOW, "library-empty-dark");
+  });
 });

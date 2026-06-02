@@ -57,6 +57,11 @@ export async function createMockApi(page: Page, state: MockState): Promise<void>
       return;
     }
 
+    if (p === "/api/_meta/registration-mode") {
+      await fulfillJson(route, 200, { mode: state.registrationMode });
+      return;
+    }
+
     if (p === "/api/auth/login" && request.method() === "POST") {
       const data = request.postDataJSON() as { email?: string; password?: string };
       if (data.email === state.currentUser.email && data.password === "password123") {

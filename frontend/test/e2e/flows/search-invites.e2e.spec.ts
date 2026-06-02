@@ -127,3 +127,21 @@ test.describe("Invites @screenshot", () => {
     await snap(page, FLOW, "invite-accepted");
   });
 });
+
+test.describe("Invites dark theme @screenshot", () => {
+  test.use({ colorScheme: "dark" });
+
+  test("invite pending dark @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await setTheme(page, "dark");
+    await createMockApi(page, state);
+    await page.goto("/invites/test-token");
+
+    await expect(
+      page.getByText("Accept this invitation to get access to the library."),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Accept Invite" })).toBeVisible();
+    await snap(page, FLOW, "invite-pending-dark");
+  });
+});
