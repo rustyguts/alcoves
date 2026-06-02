@@ -48,7 +48,7 @@ const emit = defineEmits<{
       props.isEntrySelected(props.entry)
         ? 'bg-primary/20 hover:bg-primary/28'
         : props.entry.kind === 'folder'
-          ? 'bg-muted hover:bg-primary/10'
+          ? 'bg-elevated hover:bg-primary/10'
           : 'bg-default hover:bg-primary/10',
       props.dropTargetFolderId === props.entry.id && props.entry.kind === 'folder'
         ? 'ring-2 ring-primary/60 bg-primary/10'
