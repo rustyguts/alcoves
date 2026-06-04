@@ -90,7 +90,7 @@ The backend image bundles all runtime dependencies for CPU-only ML inference:
 
 - **libvips** — image transforms, thumbnails, and proxy resizing
 - **ffmpeg** — video transcoding, thumbnail extraction, and audio waveform generation
-- **ONNX Runtime v1.25.0** — face detection/recognition and COCO object detection
+- **ONNX Runtime v1.26.0** — face detection/recognition and COCO object detection
 - **whisper.cpp** — speech-to-text transcription (AVX/AVX2/FMA baseline; no AVX-512 requirement)
 
 :::note
