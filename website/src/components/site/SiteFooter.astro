@@ -1,0 +1,50 @@
+---
+import logo from '../../assets/logo.webp';
+
+const REPO = 'https://github.com/rustyguts/alcoves';
+// Computed at build time so the copyright never goes stale.
+const year = new Date().getFullYear();
+---
+
+<footer class="footer">
+	<div class="container">
+		<div class="footer-grid">
+			<div>
+				<a href="/" class="foot-brand">
+					<img src={logo.src} alt="" width="26" height="26" />
+					<span>Alcoves</span>
+				</a>
+				<p class="foot-blurb">
+					A self-hosted, privacy-first collaborative media library — a Google
+					Drive plus Google Photos replacement you run yourself.
+				</p>
+			</div>
+
+			<div class="foot-col">
+				<h4>Product</h4>
+				<a href="/overview/">Overview</a>
+				<a href="/getting-started/quickstart/">Quickstart</a>
+				<a href="/getting-started/configuration/">Configuration</a>
+				<a href="#faq">FAQ</a>
+			</div>
+
+			<div class="foot-col">
+				<h4>Concepts</h4>
+				<a href="/architecture/overview/">Architecture</a>
+				<a href="/concepts/privacy-and-local-ai/">Privacy & local AI</a>
+			</div>
+
+			<div class="foot-col">
+				<h4>Project</h4>
+				<a href={REPO} target="_blank" rel="noopener noreferrer">GitHub</a>
+				<a href={`${REPO}/blob/main/docs/vision.md`} target="_blank" rel="noopener noreferrer">Vision</a>
+				<a href={`${REPO}/releases`} target="_blank" rel="noopener noreferrer">Releases</a>
+			</div>
+		</div>
+
+		<div class="foot-bottom">
+			<span>© {year} Alcoves · Self-hosted, privacy-first.</span>
+			<span class="mono">Built with Astro + Starlight · Alpha (0.x)</span>
+		</div>
+	</div>
+</footer>

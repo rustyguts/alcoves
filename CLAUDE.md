@@ -17,34 +17,38 @@ shipping it.** The vision document is the tie-breaker for any product decision.
 
 ## Feature & Technical Documentation
 
-Each distinct subsystem has a dedicated product + technical doc in `docs/`.
-**When working on a subsystem, read its doc first** to align with the existing
-product intent and architecture before changing code — then update the doc in
-the same change if behavior shifts. These docs are derived from the codebase
-and meant to keep what you build consistent with the project vision.
+The user-facing product and developer documentation lives in the documentation
+site under `website/src/content/docs/` (Astro + Starlight, published to
+[alcoves.io](https://alcoves.io)). **When working on a subsystem, read its page
+first** to align with the existing product intent and architecture before
+changing code — then update that page in the same change if behavior shifts.
 
-**Feature documentation** (what the product does, end to end):
+**Feature documentation** (`website/src/content/docs/features/`, what the product does):
 
-- [Authentication & Sessions](docs/authentication-and-sessions.md) — Registration, login, OAuth, session cookies, profile, and avatars.
-- [Libraries, Roles & Access Control](docs/libraries-and-access-control.md) — Library CRUD, owner/admin/viewer roles, invites, and the access-control model.
-- [Files, Folders, Tags & Resumable Uploads](docs/files-folders-and-uploads.md) — File/folder CRUD, trash/restore/purge, tagging, dedup, and TUS uploads.
-- [AI: Face Recognition & Object Detection](docs/face-and-object-detection.md) — Face detection/clustering into people and YOLO object labeling.
-- [AI: Audio Event Detection & Speech Transcription](docs/audio-detection-and-transcription.md) — AudioSet tagging and whisper.cpp transcription with admin-selectable models.
-- [Video Editor, Moments & Highlight Filters](docs/video-editor-and-moments.md) — Timeline editor, moment clips, export, and word/sound highlight filters.
-- [Public Moment Sharing](docs/moment-sharing.md) — Public share links for moment clips with OG/Twitter embeds and SSR landing.
-- [Search, Activity Feed & Notifications](docs/search-activity-and-notifications.md) — Cross-library search and the real-time activity/notification system.
-- [Admin Panel & Async Job Queue](docs/admin-and-job-queue.md) — Owner-gated admin stats, settings, ML-model selection, and the Asynq job dashboard.
-- [MCP Server (Model Context Protocol)](docs/mcp-server.md) — Tools, stdio + HTTP transports, personal access tokens, and the large-file (signed curl URL / tus) model.
+- [Authentication & Sessions](website/src/content/docs/features/authentication-and-sessions.md) — Registration, login, OAuth, session cookies, profile, and avatars.
+- [Libraries, Roles & Access Control](website/src/content/docs/features/libraries-and-access-control.md) — Library CRUD, owner/admin/viewer roles, invites, and the access-control model.
+- [Files, Folders, Tags & Resumable Uploads](website/src/content/docs/features/files-folders-and-uploads.md) — File/folder CRUD, trash/restore/purge, tagging, dedup, and TUS uploads.
+- [AI: Face Recognition & Object Detection](website/src/content/docs/features/face-and-object-detection.md) — Face detection/clustering into people and YOLO object labeling.
+- [AI: Audio Event Detection & Speech Transcription](website/src/content/docs/features/audio-detection-and-transcription.md) — AudioSet tagging and whisper.cpp transcription with admin-selectable models.
+- [Video Editor, Moments & Highlight Filters](website/src/content/docs/features/video-editor-and-moments.md) — Timeline editor, moment clips, export, and word/sound highlight filters.
+- [Public Moment Sharing](website/src/content/docs/features/moment-sharing.md) — Public share links for moment clips with OG/Twitter embeds and SSR landing.
+- [Search, Activity Feed & Notifications](website/src/content/docs/features/search-activity-notifications.md) — Cross-library search and the real-time activity/notification system.
+- [Admin Panel & Async Job Queue](website/src/content/docs/features/admin-and-job-queue.md) — Owner-gated admin stats, settings, ML-model selection, and the Asynq job dashboard.
+- [MCP Server (Model Context Protocol)](website/src/content/docs/features/mcp-server.md) — Tools, stdio + HTTP transports, personal access tokens, and the large-file (signed curl URL / tus) model.
 
-**Technical documentation** (how the system is built):
+**Technical documentation** (`website/src/content/docs/architecture/` + `self-hosting/`, how the system is built):
 
-- [Media Processing: Image Proxy, Video Proxy, Thumbnails & Waveforms](docs/media-processing-pipeline.md) — On-demand image transforms, video transcoding, thumbnails, and audio waveforms.
-- [Storage Backends (Local & S3)](docs/storage-backends.md) — Pluggable blob storage: scopes, key routing, range reads, and cache lifecycle.
-- [Backend Architecture (Go / Echo / GORM / Asynq)](docs/backend-architecture.md) — Server bootstrap, modes, route registration, middleware chain, and config.
-- [Database Schema & Migrations](docs/database-schema-and-migrations.md) — GORM models, Goose migrations, pgvector/HNSW, soft-delete and job-state patterns.
-- [Frontend Architecture (Nuxt 4)](docs/frontend-architecture.md) — Nuxt SSR topology, isomorphic fetch, layouts, middleware, and the typed API client.
-- [ML Models & Runtime Inference](docs/ml-models-and-runtime-inference.md) — The CPU-only ONNX/whisper model stack, on-demand download, and runtime selection.
-- [Deployment & Operations (Docker, Helm, CI/CD)](docs/deployment-and-operations.md) — Docker images, compose, the Helm chart, CI pipelines, and release-please.
+- [Media Processing: Image Proxy, Video Proxy, Thumbnails & Waveforms](website/src/content/docs/architecture/media-processing-pipeline.md) — On-demand image transforms, video transcoding, thumbnails, and audio waveforms.
+- [Storage Backends (Local & S3)](website/src/content/docs/architecture/storage-backends.md) — Pluggable blob storage: scopes, key routing, range reads, and cache lifecycle.
+- [Backend Architecture (Go / Echo / GORM / Asynq)](website/src/content/docs/architecture/backend-architecture-go.md) — Server bootstrap, modes, route registration, middleware chain, and config.
+- [Database Schema & Migrations](website/src/content/docs/architecture/database-schema-and-migrations.md) — GORM models, Goose migrations, pgvector/HNSW, soft-delete and job-state patterns.
+- [Frontend Architecture (Nuxt 4)](website/src/content/docs/architecture/frontend-architecture.md) — Nuxt SSR topology, isomorphic fetch, layouts, middleware, and the typed API client.
+- [ML Models & Runtime Inference](website/src/content/docs/architecture/ml-models-runtime.md) — The CPU-only ONNX/whisper model stack, on-demand download, and runtime selection.
+- [Deployment & Operations (Docker, Helm, CI/CD)](website/src/content/docs/self-hosting/deploying-alcoves.md) — Docker images, compose, the Helm chart, CI pipelines, and release-please.
+
+**Internal documentation** (`docs/internal/`, maintainer-only — not published): ML
+model evaluation/publishing notes and the engineering TODO list. See
+[`docs/internal/README.md`](docs/internal/README.md).
 
 ## Project Summary
 
@@ -279,9 +283,9 @@ test rot we just spent a session unwinding.
      a failure.** "Pre-existing failure, not mine" is how the suite rotted to
      104 failures. The rule: if it failed during your run and you didn't
      touch it, you still own quieting it (fix, update, delete, or `it.skip`
-     with a comment + a `docs/todos.md` entry).
+     with a comment + a `docs/internal/todos.md` entry).
 4. **If you skip a test, leave a paper trail.** Use `it.skip` with a comment
-   that says *why* and links to a `docs/todos.md` line. Never silently
+   that says *why* and links to a `docs/internal/todos.md` line. Never silently
    delete coverage — either keep + skip, or delete with the rationale in the
    commit message.
 5. **Add tests for new behavior.** New composable, handler, util, or branch
@@ -299,7 +303,7 @@ test rot we just spent a session unwinding.
   not `vue-router`. Mocking `vue-router` alone does **not** intercept Nuxt's
   auto-imports. Tests that need to control route data either (a) avoid
   `useRoute`-dependent code paths, or (b) wait for the project to adopt a
-  proper Nuxt route mount helper (tracked in `docs/todos.md` item 9).
+  proper Nuxt route mount helper (tracked in `docs/internal/todos.md` item 9).
 - When mocking `vue-router`, always spread `await importOriginal()` —
   partial mocks break Nuxt plugins that need `createWebHistory` /
   `router.beforeEach` / etc.
@@ -320,7 +324,7 @@ test rot we just spent a session unwinding.
 
 - **No single file should sit below 60% coverage.** This is a per-file floor:
   if a file you touch (or add) is under 60%, add tests to bring it up in the
-  same PR, or note the gap with a `docs/todos.md` entry if it genuinely can't
+  same PR, or note the gap with a `docs/internal/todos.md` entry if it genuinely can't
   be covered. Apply this to both `frontend/` and `backend/` source files.
 - **Backend should aim for 80% global coverage** (`go test ./... -cover`).
 - **Frontend should aim for 90% global coverage** (Vitest coverage summary).
@@ -336,4 +340,4 @@ test rot we just spent a session unwinding.
   that lifts coverage so subsequent PRs aren't blocked.
 - Backend per-package coverage shows up in `go test ./... -cover`. Treat
   any package at `0.0%` with non-test source as a known gap (catalogued in
-  `docs/todos.md` item 9).
+  `docs/internal/todos.md` item 9).

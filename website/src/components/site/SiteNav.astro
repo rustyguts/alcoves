@@ -1,0 +1,47 @@
+---
+import logo from '../../assets/logo.webp';
+
+const REPO = 'https://github.com/rustyguts/alcoves';
+---
+
+<header class="nav">
+	<div class="container nav-inner">
+		<a href="/" class="brand" aria-label="Alcoves home">
+			<img src={logo.src} alt="" width="30" height="30" />
+			<span>Alcoves</span>
+		</a>
+
+		<nav class="nav-links" aria-label="Primary">
+			<a class="nav-link" href="#features">Features</a>
+			<a class="nav-link" href="#how">How it works</a>
+			<a class="nav-link" href="/overview/">Docs</a>
+			<a class="nav-link" href="#faq">FAQ</a>
+		</nav>
+
+		<div class="nav-actions">
+			<a
+				class="icon-btn"
+				href={REPO}
+				target="_blank"
+				rel="noopener noreferrer"
+				aria-label="Alcoves on GitHub"
+			>
+				<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+					<path
+						d="M12 .5C5.73.5.6 5.62.6 11.9c0 5.02 3.26 9.28 7.78 10.78.57.1.78-.25.78-.55v-2.1c-3.17.69-3.84-1.36-3.84-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.33.95.1-.74.4-1.24.72-1.53-2.53-.29-5.2-1.27-5.2-5.64 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.17a10.9 10.9 0 0 1 5.74 0c2.18-1.48 3.14-1.17 3.14-1.17.63 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.38-2.67 5.35-5.21 5.63.41.36.78 1.07.78 2.16v3.2c0 .31.2.66.79.55 4.51-1.5 7.77-5.76 7.77-10.78C23.4 5.62 18.27.5 12 .5Z"
+					></path>
+				</svg>
+			</a>
+			<button class="icon-btn theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false">
+				<svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+					<circle cx="12" cy="12" r="4"></circle>
+					<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+				</svg>
+				<svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path>
+				</svg>
+			</button>
+			<a class="btn btn-primary" href="/getting-started/quickstart/">Get started</a>
+		</div>
+	</div>
+</header>

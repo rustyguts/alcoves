@@ -1,0 +1,85 @@
+---
+const features = [
+	{
+		size: 'lg',
+		title: 'People & faces',
+		text: 'On-device face detection and recognition clusters everyone into people you can browse and search — no faces ever leave your instance.',
+		icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+	},
+	{
+		size: 'lg',
+		title: 'A real video editor',
+		text: 'A zoomable waveform timeline with draggable named "moments", transcript search, audio-detection overlays, MP4 export, and word/sound highlight filters.',
+		icon: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20M7 4v5M17 4v5M7 20v-5M17 20v-5"/>',
+	},
+	{
+		size: 'sm',
+		title: 'Objects & scenes',
+		text: 'COCO-class object detection labels what is in every photo and frame, so a search for "dog" or "beach" just works.',
+		icon: '<path d="m12 2 9 5v10l-9 5-9-5V7z"/><path d="m12 12 9-5M12 12v10M12 12 3 7"/>',
+	},
+	{
+		size: 'sm',
+		title: 'Audio & speech',
+		text: 'AudioSet event tagging (527 classes) plus whisper.cpp transcription make sounds and spoken words findable across your library.',
+		icon: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10a7 7 0 0 1-14 0M12 19v3"/>',
+	},
+	{
+		size: 'sm',
+		title: 'Search & activity',
+		text: 'Cross-library search plus a real-time activity feed and notification bell over WebSockets keep a shared instance current and alive.',
+		icon: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+	},
+	{
+		size: 'lg',
+		title: 'Share, on your terms',
+		text: 'Turn any moment into a public, OG-embeddable share link — no account required for viewers. Sharing is opt-in per library and revocable.',
+		icon: '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
+	},
+	{
+		size: 'lg',
+		title: 'Your storage, your rules',
+		text: 'Local disk or any S3-compatible store, your Postgres, your queue. The Go binary is a pure API — a Raspberry Pi and a rack are both first-class.',
+		icon: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 8h.01M7 17h.01"/>',
+	},
+];
+---
+
+<section class="section" id="features">
+	<div class="container">
+		<div class="section-head reveal">
+			<p class="kicker">Capabilities</p>
+			<h2 class="section-title">A library that actually understands your media</h2>
+			<p class="section-lead">
+				Every file is processed by an async pipeline — hashing, thumbnails,
+				transcodes, waveforms, and a full suite of CPU-only ML — so your media is
+				navigable, not just stored.
+			</p>
+		</div>
+
+		<div class="bento">
+			{
+				features.map((f, i) => (
+					<article
+						class:list={['bento-card', 'reveal', { lg: f.size === 'lg' }]}
+						style={`--d:${(i % 3) * 70}ms`}
+					>
+						<span class="feat-icon">
+							<svg
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.8"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								set:html={f.icon}
+							/>
+						</span>
+						<h3 class="feat-title">{f.title}</h3>
+						<p class="feat-text">{f.text}</p>
+					</article>
+				))
+			}
+		</div>
+	</div>
+</section>

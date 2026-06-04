@@ -1,0 +1,23 @@
+---
+const stats = [
+	{ num: '100%', label: 'Local, on-device inference' },
+	{ num: '0', label: 'Telemetry — nothing phones home' },
+	{ num: '1–100', label: 'Users per trusted instance' },
+	{ num: 'CPU', label: 'No GPU required, ever' },
+];
+---
+
+<section class="band">
+	<div class="container">
+		<div class="band-grid reveal">
+			{
+				stats.map((s) => (
+					<div class="band-item">
+						<div class="band-num">{s.num}</div>
+						<div class="band-label">{s.label}</div>
+					</div>
+				))
+			}
+		</div>
+	</div>
+</section>

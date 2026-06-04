@@ -1,0 +1,58 @@
+@layer base, starlight, theme, components, utilities;
+
+@import '@astrojs/starlight-tailwind';
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/*
+  Starlight reads `--color-accent-*` and `--color-gray-*` from the Tailwind
+  theme. We map them onto the Alcoves app palette so the docs match the product
+  1:1: emerald accent + zinc neutrals + IBM Plex Sans.
+*/
+@theme {
+	--font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
+	--color-accent-50: var(--color-emerald-50);
+	--color-accent-100: var(--color-emerald-100);
+	--color-accent-200: var(--color-emerald-200);
+	--color-accent-300: var(--color-emerald-300);
+	--color-accent-400: var(--color-emerald-400);
+	--color-accent-500: var(--color-emerald-500);
+	--color-accent-600: var(--color-emerald-600);
+	--color-accent-700: var(--color-emerald-700);
+	--color-accent-800: var(--color-emerald-800);
+	--color-accent-900: var(--color-emerald-900);
+	--color-accent-950: var(--color-emerald-950);
+
+	--color-gray-50: var(--color-zinc-50);
+	--color-gray-100: var(--color-zinc-100);
+	--color-gray-200: var(--color-zinc-200);
+	--color-gray-300: var(--color-zinc-300);
+	--color-gray-400: var(--color-zinc-400);
+	--color-gray-500: var(--color-zinc-500);
+	--color-gray-600: var(--color-zinc-600);
+	--color-gray-700: var(--color-zinc-700);
+	--color-gray-800: var(--color-zinc-800);
+	--color-gray-900: var(--color-zinc-900);
+	--color-gray-950: var(--color-zinc-950);
+}
+
+/* Small docs refinements that keep Starlight feeling on-brand. */
+:root {
+	--sl-nav-pad-x: 1.5rem;
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+}
+
+/* Brand gradient used on the docs hero link cards and accents. */
+.sl-markdown-content a:not(:where(.not-content *)) {
+	text-underline-offset: 0.2em;
+}

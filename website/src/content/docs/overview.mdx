@@ -1,0 +1,92 @@
+---
+title: Overview
+description: What Alcoves is — a self-hosted, privacy-first collaborative media library with AI that runs locally on hardware you own.
+---
+
+import { Card, CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+
+**Alcoves** is a self-hosted, privacy-first collaborative media library — a
+Google Drive plus Google Photos replacement you run yourself. It stores your
+photos, videos, audio, and documents; it _understands_ them (faces, objects,
+sounds, speech); it lets a small group browse, organize, and share them — and it
+does all of this on hardware you own, with **no telemetry, no per-seat pricing,
+and no third party in the loop**.
+
+<Aside type="note" title="These are starter docs">
+	This documentation site is new. The pages here are concise samples derived
+	from the project's in-repo docs and [vision](https://github.com/rustyguts/alcoves/blob/main/docs/vision.md);
+	they'll be expanded into the full reference over time.
+</Aside>
+
+## Why Alcoves
+
+The convenient tools for managing personal and family media are the ones that
+mine it. The tools that respect your privacy are usually too primitive to be
+worth using. Alcoves refuses that trade-off: it aims to be _as capable as the
+cloud incumbents on the features that matter, while being something you fully
+own_.
+
+## The pillars
+
+<CardGrid>
+	<Card title="Own your media" icon="seti:db">
+		Local-disk or S3-compatible storage, your database, your queue. The Go
+		binary is a pure API — nothing phones home. A Raspberry Pi with a USB drive
+		and a rack with an object store are both first-class.
+	</Card>
+	<Card title="Understand it locally" icon="seti:image">
+		An async pipeline does SHA-256 dedup, thumbnails, video proxies, waveforms,
+		and a full suite of **CPU-only ONNX ML** — faces, objects, audio events, and
+		speech transcription. Models download on demand. No GPU. No inference leaves
+		the box.
+	</Card>
+	<Card title="Collaborate with real roles" icon="seti:lock">
+		Libraries are the unit of sharing. Owner / admin / viewer roles, invite
+		links with caps and expiry, and a per-library access gate enforced in
+		middleware before any handler runs.
+	</Card>
+	<Card title="Video is first-class" icon="seti:video">
+		A real timeline editor: zoomable waveform, draggable named "moments",
+		transcript search, audio-detection overlays, MP4 export, and public,
+		OG-embeddable share links.
+	</Card>
+</CardGrid>
+
+## Who it's for
+
+- **Individuals** who want a private home for a lifetime of photos and video,
+  with real search and real organization.
+- **Families** sharing a library — grandparents, kids, events — with sensible
+  roles so not everyone is an admin.
+- **Small teams and creators** (1–100 users per instance) collaborating on
+  video: clipping, transcribing, tagging, and sharing highlights.
+- **Self-hosters and homelab operators** who want a clean Helm chart and Docker
+  images for the Postgres, the queue, and the GPU-less inference.
+
+Alcoves is explicitly _not_ built for the 100,000-user multi-tenant SaaS case.
+It optimizes for a trusted instance shared by a known, bounded group.
+
+## Next steps
+
+<CardGrid>
+	<LinkCard
+		title="Quickstart"
+		description="Run the full stack locally with Docker Compose in a few minutes."
+		href="/getting-started/quickstart/"
+	/>
+	<LinkCard
+		title="Configuration"
+		description="The ALCOVES_* environment variables that drive every instance."
+		href="/getting-started/configuration/"
+	/>
+	<LinkCard
+		title="Architecture"
+		description="How the Nuxt frontend and Go/Echo/GORM/Asynq backend fit together."
+		href="/architecture/overview/"
+	/>
+	<LinkCard
+		title="Privacy & local AI"
+		description="Why every model is CPU-only and how inference stays on your box."
+		href="/concepts/privacy-and-local-ai/"
+	/>
+</CardGrid>

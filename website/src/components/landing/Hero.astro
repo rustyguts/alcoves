@@ -1,0 +1,105 @@
+---
+const REPO = 'https://github.com/rustyguts/alcoves';
+---
+
+<section class="hero">
+	<div class="aurora a1"></div>
+	<div class="aurora a2"></div>
+	<div class="aurora a3"></div>
+
+	<div class="container hero-grid">
+		<div class="hero-copy">
+			<span class="eyebrow animate-rise" style="--d:40ms">
+				<span class="dot"></span>Privacy-first · CPU-only · Self-hosted
+			</span>
+
+			<h1 class="hero-title animate-rise" style="--d:120ms">
+				Your media, fully understood —<br />and entirely <span class="grad">yours</span>.
+			</h1>
+
+			<p class="hero-sub animate-rise" style="--d:200ms">
+				Alcoves is a self-hosted media library that makes faces, objects, sounds,
+				and speech searchable — with AI that runs locally on hardware you own. No
+				cloud. No GPU. No telemetry.
+			</p>
+
+			<div class="hero-cta animate-rise" style="--d:280ms">
+				<a class="btn btn-primary btn-lg" href="/getting-started/quickstart/">
+					Deploy with Docker
+					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+				</a>
+				<a class="btn btn-ghost btn-lg" href="/overview/">Read the docs</a>
+			</div>
+
+			<div class="hero-trust animate-rise" style="--d:360ms">
+				<span>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+					CPU-only inference
+				</span>
+				<span>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+					Zero telemetry
+				</span>
+				<span>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+					Docker + Helm
+				</span>
+				<a href={REPO} target="_blank" rel="noopener noreferrer">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+					Open source
+				</a>
+			</div>
+		</div>
+
+		<!-- Hand-built product UI mock (no external screenshot needed). -->
+		<div class="mock animate-rise" style="--d:300ms" aria-hidden="true">
+			<div class="mock-window">
+				<div class="mock-bar">
+					<div class="mock-dots"><i></i><i></i><i></i></div>
+					<div class="mock-search">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+						person:&nbsp;"Dad" &nbsp;·&nbsp; sound:&nbsp;"laughter"
+					</div>
+				</div>
+				<div class="mock-body">
+					<div class="mock-side">
+						<div class="lbl">Library</div>
+						<div class="mock-nav"><span class="ic"></span>All media</div>
+						<div class="mock-nav active"><span class="ic"></span>People</div>
+						<div class="mock-nav"><span class="ic"></span>Moments</div>
+						<div class="lbl">Discover</div>
+						<div class="mock-nav"><span class="ic"></span>Search</div>
+						<div class="mock-nav"><span class="ic"></span>Activity</div>
+					</div>
+					<div class="mock-main">
+						<div class="mock-people">
+							<div class="avatar"></div>
+							<div class="avatar"></div>
+							<div class="avatar"></div>
+							<div class="avatar"></div>
+							<div class="avatar">+9</div>
+						</div>
+						<div class="photo-grid">
+							<div class="photo wide p1">
+								<i></i>
+								<div class="face" data-name="Dad" style="left:18%;top:22%;width:26%;height:46%"></div>
+							</div>
+							<div class="photo tall p3">
+								<i></i>
+								<span class="tag">person · dog</span>
+							</div>
+							<div class="photo p2"><i></i></div>
+							<div class="photo p5">
+								<i></i>
+								<div class="face" data-name="Mia" style="left:30%;top:24%;width:40%;height:48%"></div>
+							</div>
+							<div class="photo p4"><i></i><span class="tag">🔊 laughter</span></div>
+							<div class="photo p6"><i></i></div>
+							<div class="photo p1"><i></i></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
