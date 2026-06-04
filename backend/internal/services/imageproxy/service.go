@@ -12,13 +12,17 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
 const (
 	TaskTypeImageProxy = "image:proxy"
-	ImageProxyQueue    = "imageproxy"
-	transformTimeout   = 30 * time.Second
+	// ImageProxyQueue re-exports the canonical queue name from the queues
+	// package so existing callers keep working; queues.ImageProxy is the
+	// single source of truth.
+	ImageProxyQueue  = queues.ImageProxy
+	transformTimeout = 30 * time.Second
 	// uniqueTTL is the deduplication window for enqueued tasks.
 	// Using Unique (Redis lock with TTL) instead of TaskID means failed/archived
 	// tasks can be re-enqueued once the lock expires, rather than conflicting forever.

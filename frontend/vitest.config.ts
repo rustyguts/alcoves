@@ -7,6 +7,7 @@ export default defineVitestConfig({
     include: [
       "test/components/**/*.spec.ts",
       "test/composables/**/*.spec.ts",
+      "test/shared/**/*.spec.ts",
       "test/utils/**/*.spec.ts",
       "test/app/**/*.spec.ts",
       "test/pages/**/*.spec.ts",

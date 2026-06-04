@@ -24,8 +24,6 @@ function mountGrid(entries: LibraryEntry[]) {
       failedThumbnails: new Set<string>(),
       isImageFile: () => false,
       isSmallImage: () => false,
-      cardThumbWidth: () => 320,
-      cardThumbHeight: () => 180,
     },
   });
 }

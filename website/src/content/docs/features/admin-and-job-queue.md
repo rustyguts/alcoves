@@ -131,6 +131,32 @@ is happening in real time and intervene when something goes wrong.
 | Waveform generation | File upload |
 | Moment export | Exporting a moment clip |
 | File hashing | Backfill action or new upload |
+| Image proxy variant pre-warm | Hourly maintenance loop (background) |
+
+### Named queues
+
+Jobs are split across three named queues so latency-sensitive work is never
+stuck behind a backlog. You can filter the dashboard by queue:
+
+| Queue | Priority | What it carries |
+|---|---|---|
+| `imageproxy` | Highest | Interactive, on-demand image transforms a user is waiting on |
+| `default` | Normal | Detection, transcription, transcode, waveforms, hashing, metadata, moment export |
+| `maintenance` | Lowest | Background upkeep — the hourly image-proxy variant pre-warm |
+
+### Periodic maintenance jobs
+
+Two background loops run on `worker`/`all` nodes without any user action:
+
+- **Metadata backfill** enqueues EXIF/media-metadata extraction for media files
+  that have never been extracted.
+- **Image-proxy variant pre-warm** (hourly) generates every cache variant for
+  each image so the first view is instant rather than waiting on a transform.
+  Disable it with `ALCOVES_IMAGE_PROXY_PREWARM_ENABLED=false`.
+
+Both give up on a file after **3 failed attempts**, so a permanently-broken
+file (e.g. a corrupted image) is never re-queued forever — it shows up as a
+failed job at most three times and is then dropped from the backfill scan.
 
 ### Reading the dashboard
 

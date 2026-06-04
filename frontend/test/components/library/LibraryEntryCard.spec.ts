@@ -45,8 +45,6 @@ function mountCard(entry: LibraryEntry, over: Record<string, unknown> = {}) {
       failedThumbnails: new Set<string>(),
       isImageFile: (f: { mimeType: string }) => f.mimeType.startsWith("image/"),
       isSmallImage: () => false,
-      cardThumbWidth: () => 320,
-      cardThumbHeight: () => 180,
       ...over,
     },
   });

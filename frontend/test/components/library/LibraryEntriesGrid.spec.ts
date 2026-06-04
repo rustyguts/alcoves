@@ -65,8 +65,6 @@ function defaultProps(overrides: Record<string, unknown> = {}) {
     failedThumbnails: new Set<string>(),
     isImageFile: (f: LibraryFile) => f.mimeType.startsWith("image/"),
     isSmallImage: () => false,
-    cardThumbWidth: () => 400,
-    cardThumbHeight: () => 300,
     ...overrides,
   };
 }

@@ -18,8 +18,6 @@ interface Props {
   failedThumbnails: Set<string>;
   isImageFile: (file: LibraryFile) => boolean;
   isSmallImage: (file: LibraryFile) => boolean;
-  cardThumbWidth: (file: LibraryFile) => number;
-  cardThumbHeight: (file: LibraryFile) => number;
 }
 
 const props = defineProps<Props>();
@@ -144,10 +142,9 @@ const emit = defineEmits<{
             :library-id="libraryId"
             :file-id="props.entry.thumbnailFileId"
             :alt="props.entry.name"
-            :width="props.cardThumbWidth(props.entry)"
-            :height="props.cardThumbHeight(props.entry)"
-            format="jpeg"
-            :quality="82"
+            variant="card"
+            :source-width="props.entry.width"
+            :source-height="props.entry.height"
             class="w-full h-full object-cover"
             @error="emit('thumbnailError', props.entry.id)"
           />
@@ -177,10 +174,9 @@ const emit = defineEmits<{
           :library-id="libraryId"
           :file-id="props.entry.id"
           :alt="props.entry.name"
-          :width="props.cardThumbWidth(props.entry)"
-          :height="props.cardThumbHeight(props.entry)"
-          format="jpeg"
-          :quality="82"
+          variant="card"
+          :source-width="props.entry.width"
+          :source-height="props.entry.height"
           :class="props.isSmallImage(props.entry) ? 'object-contain' : 'w-full h-full object-cover'"
           @error="emit('thumbnailError', props.entry.id)"
         />

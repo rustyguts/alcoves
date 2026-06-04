@@ -182,8 +182,7 @@ watch(
             :library-id="libraryId"
             :file-id="face.fileId"
             :alt="face.fileName"
-            :width="300"
-            :height="300"
+            variant="face"
             class="w-full aspect-square object-cover"
           />
           <div

@@ -16,8 +16,6 @@ interface Props {
   failedThumbnails: Set<string>;
   isImageFile: (file: LibraryFile) => boolean;
   isSmallImage: (file: LibraryFile) => boolean;
-  cardThumbWidth: (file: LibraryFile) => number;
-  cardThumbHeight: (file: LibraryFile) => number;
 }
 
 const props = defineProps<Props>();
@@ -73,8 +71,6 @@ const fileEntries = computed(() =>
           :failed-thumbnails="failedThumbnails"
           :is-image-file="isImageFile"
           :is-small-image="isSmallImage"
-          :card-thumb-width="cardThumbWidth"
-          :card-thumb-height="cardThumbHeight"
           @row-click="(entry, event) => emit('rowClick', entry, event)"
           @row-double-click="emit('rowDoubleClick', $event)"
           @row-context-menu="(entry, event) => emit('rowContextMenu', entry, event)"
@@ -109,8 +105,6 @@ const fileEntries = computed(() =>
           :failed-thumbnails="failedThumbnails"
           :is-image-file="isImageFile"
           :is-small-image="isSmallImage"
-          :card-thumb-width="cardThumbWidth"
-          :card-thumb-height="cardThumbHeight"
           @row-click="(entry, event) => emit('rowClick', entry, event)"
           @row-double-click="emit('rowDoubleClick', $event)"
           @row-context-menu="(entry, event) => emit('rowContextMenu', entry, event)"

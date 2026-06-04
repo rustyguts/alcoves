@@ -4,6 +4,7 @@ import "vidstack/player/styles/default/layouts/audio.css";
 import "vidstack/player/styles/default/layouts/video.css";
 
 import type { LibraryFile, PlaybackSource, PlaybackSourcesResponse } from "~~/shared/types/api";
+import { proxyQueryString, resolveVariant } from "~~/shared/image-variants";
 import { getMimeIcon } from "~/utils/mime-icons";
 import { apiFetch } from "~/utils/api-fetch";
 import { api } from "~/api";
@@ -322,17 +323,11 @@ watch(
   { immediate: true },
 );
 
-// Preload adjacent images
+// Preload adjacent images. Uses the shared "preview" variant so the lightbox
+// requests exactly the cache key the pre-warm job generated.
 function buildPreviewUrl(file: LibraryFile): string {
-  const w = file.width && file.width < 1920 ? file.width : 1920;
-  const h = file.height && file.height < 1080 ? file.height : 1080;
-  const params = new URLSearchParams([
-    ["format", "jpeg"],
-    ["height", String(h)],
-    ["quality", "90"],
-    ["width", String(w)],
-  ]);
-  return apiUrl(`/api/files/proxy/${props.libraryId}/${file.id}?${params}`);
+  const query = proxyQueryString(resolveVariant("preview", file.width, file.height));
+  return apiUrl(`/api/files/proxy/${props.libraryId}/${file.id}?${query}`);
 }
 
 const previewImageUrl = computed(() => buildPreviewUrl(props.file));
