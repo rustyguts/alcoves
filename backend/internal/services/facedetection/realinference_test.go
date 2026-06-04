@@ -23,6 +23,12 @@ import (
 
 func init() { onnxtest.SetupLib() }
 
+// faceMinScore is the detection threshold used across these tests. It sits
+// above SCRFD's low-confidence noise but below the real faces in the fixtures
+// as scored by the canonical det_10g model (~0.57–0.69), and is in line with
+// the tuned production default (ALCOVES_FACE_DETECTION_MIN_SCORE=0.28).
+const faceMinScore = 0.4
+
 func loadFaceSessionsOrSkip(t *testing.T) (det, rec *ort.DynamicAdvancedSession) {
 	t.Helper()
 	models := testsupport.ModelsCacheDir()
@@ -100,9 +106,9 @@ func TestRealFaceDetection_FindsFace(t *testing.T) {
 	det, _ := loadFaceSessionsOrSkip(t)
 	for _, fixture := range []string{"images/face_a.jpg", "images/face_b.jpg"} {
 		data := testsupport.FixtureBytes(t, fixture)
-		face, w, h := detectBest(t, det, data, 0.5)
-		if face.Confidence < 0.5 {
-			t.Fatalf("%s: best face confidence %.3f < 0.5", fixture, face.Confidence)
+		face, w, h := detectBest(t, det, data, faceMinScore)
+		if face.Confidence < faceMinScore {
+			t.Fatalf("%s: best face confidence %.3f < %.2f", fixture, face.Confidence, faceMinScore)
 		}
 		b := face.Box
 		if b.Width <= 0 || b.Height <= 0 {
@@ -120,7 +126,7 @@ func TestRealFaceDetection_FindsFace(t *testing.T) {
 func TestRealFaceEmbedding_NormalizedDim(t *testing.T) {
 	det, rec := loadFaceSessionsOrSkip(t)
 	data := testsupport.FixtureBytes(t, "images/face_a.jpg")
-	face, _, _ := detectBest(t, det, data, 0.5)
+	face, _, _ := detectBest(t, det, data, faceMinScore)
 
 	emb, err := ComputeEmbedding(rec, data, face)
 	if err != nil {
@@ -147,12 +153,12 @@ func TestRealFaceEmbedding_SamePersonHighSimilarity(t *testing.T) {
 	orig := testsupport.FixtureBytes(t, "images/face_a.jpg")
 	variant := reencodeJPEG(t, orig, 360)
 
-	f1, _, _ := detectBest(t, det, orig, 0.5)
+	f1, _, _ := detectBest(t, det, orig, faceMinScore)
 	e1, err := ComputeEmbedding(rec, orig, f1)
 	if err != nil {
 		t.Fatalf("ComputeEmbedding(orig): %v", err)
 	}
-	f2, _, _ := detectBest(t, det, variant, 0.5)
+	f2, _, _ := detectBest(t, det, variant, faceMinScore)
 	e2, err := ComputeEmbedding(rec, variant, f2)
 	if err != nil {
 		t.Fatalf("ComputeEmbedding(variant): %v", err)
@@ -171,12 +177,12 @@ func TestRealFaceEmbedding_DifferentPersonsLowSimilarity(t *testing.T) {
 	a := testsupport.FixtureBytes(t, "images/face_a.jpg")
 	b := testsupport.FixtureBytes(t, "images/face_b.jpg")
 
-	fa, _, _ := detectBest(t, det, a, 0.5)
+	fa, _, _ := detectBest(t, det, a, faceMinScore)
 	ea, err := ComputeEmbedding(rec, a, fa)
 	if err != nil {
 		t.Fatalf("ComputeEmbedding(a): %v", err)
 	}
-	fb, _, _ := detectBest(t, det, b, 0.5)
+	fb, _, _ := detectBest(t, det, b, faceMinScore)
 	eb, err := ComputeEmbedding(rec, b, fb)
 	if err != nil {
 		t.Fatalf("ComputeEmbedding(b): %v", err)
@@ -198,7 +204,7 @@ func TestRealFaceEmbedding_DifferentPersonsLowSimilarity(t *testing.T) {
 func TestRealFaceQuality_Range(t *testing.T) {
 	det, _ := loadFaceSessionsOrSkip(t)
 	data := testsupport.FixtureBytes(t, "images/face_a.jpg")
-	face, w, h := detectBest(t, det, data, 0.5)
+	face, w, h := detectBest(t, det, data, faceMinScore)
 	q := ComputeFaceQuality(face, w, h)
 	if q < 0 || q > 1 {
 		t.Fatalf("quality %.4f outside [0,1]", q)
@@ -214,7 +220,7 @@ func TestRealFaceDetection_MinScoreGating(t *testing.T) {
 	det, _ := loadFaceSessionsOrSkip(t)
 	data := testsupport.FixtureBytes(t, "images/face_a.jpg")
 
-	low, _, _, err := DetectFaces(det, data, 0.3)
+	low, _, _, err := DetectFaces(det, data, faceMinScore)
 	if err != nil {
 		t.Fatalf("DetectFaces(low): %v", err)
 	}

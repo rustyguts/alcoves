@@ -175,11 +175,27 @@ func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error
 	}
 
 	modelPath := filepath.Join(modelsPath, detectionModelFile)
-	inputs := []string{"input.1"}
-	outputs := []string{
-		"score_8", "score_16", "score_32",
-		"bbox_8", "bbox_16", "bbox_32",
-		"kps_8", "kps_16", "kps_32",
+
+	// SCRFD det_10g ships under two output-naming conventions: the canonical
+	// InsightFace export uses numeric node names (448, 471, 494, …) while some
+	// re-exports rename them to score_8/bbox_8/kps_8/…. Both declare the same
+	// nine outputs in the same semantic order — scores (stride 8/16/32), bboxes
+	// (8/16/32), keypoints (8/16/32) — which is exactly the order detect.go
+	// decodes by index. Read the names from the model rather than hard-coding one
+	// convention, so whichever variant is on the mirror loads correctly.
+	// (Hard-coding "score_8" failed at inference against the numeric-named mirror
+	// model with "Invalid output name: score_8".)
+	inInfo, outInfo, err := ort.GetInputOutputInfo(modelPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read detection model i/o info: %w", err)
+	}
+	if len(inInfo) != 1 || len(outInfo) != 9 {
+		return nil, fmt.Errorf("unexpected SCRFD model shape: %d inputs / %d outputs (want 1 / 9)", len(inInfo), len(outInfo))
+	}
+	inputs := []string{inInfo[0].Name}
+	outputs := make([]string, len(outInfo))
+	for i, o := range outInfo {
+		outputs[i] = o.Name
 	}
 
 	session, err := ort.NewDynamicAdvancedSession(modelPath, inputs, outputs, nil)
