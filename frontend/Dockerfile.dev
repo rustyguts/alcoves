@@ -1,5 +1,5 @@
 # Dev-mode image: runs Nuxt dev server with HMR. Used by docker-compose.
-FROM oven/bun:1
+FROM oven/bun:latest
 
 WORKDIR /app
 
