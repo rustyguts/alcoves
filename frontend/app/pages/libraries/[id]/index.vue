@@ -1148,6 +1148,26 @@ const emptyStateDescription = computed(() => {
               @click="entryViewMode = 'card'"
             />
           </UTooltip>
+          <UTooltip text="Timeline">
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="sm"
+              square
+              icon="i-lucide-clock"
+              :to="`/libraries/${libraryId}/timeline`"
+            />
+          </UTooltip>
+          <UTooltip text="Map">
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="sm"
+              square
+              icon="i-lucide-map-pin"
+              :to="`/libraries/${libraryId}/map`"
+            />
+          </UTooltip>
         </template>
 
         <UButton
