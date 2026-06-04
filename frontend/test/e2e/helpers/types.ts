@@ -161,6 +161,14 @@ export interface MockSession {
   isCurrent: boolean;
 }
 
+export interface MockAccessToken {
+  id: string;
+  name: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export type RouteHandler = (route: Route, url: URL) => Promise<boolean | void> | boolean | void;
 
 export type MockRegistrationMode = "open" | "invite_only" | "closed";
@@ -184,6 +192,7 @@ export interface MockState {
   people: MockPerson[];
   objectLabels: MockObjectLabel[];
   sessions: MockSession[];
+  accessTokens: MockAccessToken[];
   moments: MockMoment[];
   searchResults?: (query: string) => { query: string; totalCount: number; results: unknown[] };
   overrides: RouteHandler[];

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -22,7 +23,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
-	"github.com/alcoves/alcoves-backend/internal/services/filehash"
+	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
@@ -56,16 +57,9 @@ type tusUpload struct {
 // creation extension. Uploads are written to a staging directory
 // and moved to permanent storage on completion.
 type TusHandler struct {
-	db             *gorm.DB
-	storageSvc     *storage.Service
-	faceSvc        *facedetection.Service
-	objSvc         *objectdetection.Service
-	videoSvc       *videoproxy.Service
-	waveformSvc    *waveform.Service
-	transcribeSvc  *transcribe.Service
-	audioDetectSvc *audiodetection.Service
-	activitySvc    *activity.Service
-	dataDir        string // staging directory for incomplete uploads
+	db      *gorm.DB
+	fileSvc *files.Service // configured for ingest; owns finalize (hash/store/record/jobs)
+	dataDir string         // staging directory for incomplete uploads
 
 	mu      sync.RWMutex
 	uploads map[string]*tusUpload
@@ -79,19 +73,26 @@ func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, fac
 		log.Printf("Failed to create tus staging directory %s: %v", tusDir, err)
 	}
 
+	// The upload-finalize pipeline lives in files.Service.IngestStream so it is
+	// shared with the MCP upload path. Wire the same async services the tus
+	// handler used to call directly.
+	fileSvc := files.NewServiceWithIngest(db, files.IngestDeps{
+		Storage:     storageSvc,
+		Face:        faceSvc,
+		Object:      objSvc,
+		Video:       videoSvc,
+		Waveform:    waveformSvc,
+		Transcribe:  transcribeSvc,
+		AudioDetect: audioDetectSvc,
+		Activity:    activitySvc,
+	})
+
 	h := &TusHandler{
-		db:             db,
-		storageSvc:     storageSvc,
-		faceSvc:        faceSvc,
-		objSvc:         objSvc,
-		videoSvc:       videoSvc,
-		waveformSvc:    waveformSvc,
-		transcribeSvc:  transcribeSvc,
-		audioDetectSvc: audioDetectSvc,
-		activitySvc:    activitySvc,
-		dataDir:        tusDir,
-		uploads:        make(map[string]*tusUpload),
-		stopCleanup:    make(chan struct{}),
+		db:          db,
+		fileSvc:     fileSvc,
+		dataDir:     tusDir,
+		uploads:     make(map[string]*tusUpload),
+		stopCleanup: make(chan struct{}),
 	}
 
 	// Clean orphaned staging files from previous runs
@@ -375,159 +376,30 @@ func (h *TusHandler) finishUpload(upload *tusUpload) (int, error) {
 		h.mu.Unlock()
 	}()
 
-	fileID := uuid.New()
-
-	// Stream the completed file from staging to permanent storage, computing SHA256 as we go
 	f, err := os.Open(stagingPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to open staging file: %w", err)
 	}
 	defer f.Close()
 
-	hr := filehash.NewHashingReader(f)
-	bytesWritten, err := h.storageSvc.StoreFileStream(upload.LibraryID, fileID.String(), hr)
-	if err != nil {
-		return 0, fmt.Errorf("failed to store file: %w", err)
-	}
-
-	hashStr := hr.HexSum()
 	libUUID, _ := uuid.Parse(upload.LibraryID)
-
-	file := models.File{
-		ID:             fileID,
-		LibraryID:      libUUID,
-		ParentFolderID: upload.FolderID,
-		Name:           upload.Filename,
-		MimeType:       upload.MimeType,
-		Size:           bytesWritten,
-		OwnerID:        &upload.UserID,
-		Hash:           &hashStr,
+	params := files.IngestParams{
+		LibraryID: libUUID,
+		OwnerID:   upload.UserID,
+		FolderID:  upload.FolderID,
+		Name:      upload.Filename,
+		MimeType:  upload.MimeType,
 	}
-
 	if upload.LastModified != nil {
 		t := time.UnixMilli(*upload.LastModified)
-		file.OriginalCreatedAt = &t
+		params.OriginalCreatedAt = &t
 	}
 
-	if err := h.db.Create(&file).Error; err != nil {
-		// Clean up stored file on DB failure
-		h.storageSvc.DeleteFile(upload.LibraryID, fileID.String())
-		return 0, fmt.Errorf("failed to create file record: %w", err)
+	res, err := h.fileSvc.IngestStream(context.Background(), params, f)
+	if err != nil {
+		return 0, err
 	}
-
-	if h.activitySvc != nil {
-		actor := upload.UserID
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   libUUID,
-			ActorID:     &actor,
-			Action:      activity.ActionFileCreated,
-			SubjectType: activity.SubjectFile,
-			SubjectID:   &fileID,
-			Metadata: map[string]any{
-				"name":           upload.Filename,
-				"mimeType":       upload.MimeType,
-				"parentFolderId": upload.FolderID,
-				"size":           bytesWritten,
-			},
-		})
-	}
-
-	// Best-effort duplicate detection — surfaced via response header.
-	dupCount := 0
-	if dupes, derr := filehash.FindDuplicates(h.db, libUUID, fileID, hashStr); derr != nil {
-		log.Printf("dedup query failed for tus file %s: %v", fileID, derr)
-	} else {
-		dupCount = len(dupes)
-	}
-
-	// Trigger face detection if applicable
-	if h.faceSvc != nil && strings.HasPrefix(upload.MimeType, "image/") {
-		var library models.Library
-		if err := h.db.Select("face_recognition_enabled").Where("id = ?", libUUID).First(&library).Error; err == nil {
-			if library.FaceRecognitionEnabled {
-				if err := h.faceSvc.EnqueueFaceDetection(upload.LibraryID, fileID.String()); err != nil {
-					log.Printf("failed to enqueue face detection for tus upload %s: %v", fileID, err)
-				}
-			}
-		}
-	}
-
-	// Trigger object detection if applicable
-	if h.objSvc != nil && strings.HasPrefix(upload.MimeType, "image/") {
-		var objLibrary models.Library
-		if err := h.db.Select("object_detection_enabled").Where("id = ?", libUUID).First(&objLibrary).Error; err == nil {
-			if objLibrary.ObjectDetectionEnabled {
-				if err := h.objSvc.EnqueueObjectDetection(upload.LibraryID, fileID.String()); err != nil {
-					log.Printf("failed to enqueue object detection for tus upload %s: %v", fileID, err)
-				}
-			}
-		}
-	}
-
-	// Trigger video proxy generation for video files
-	if h.videoSvc != nil && strings.HasPrefix(upload.MimeType, "video/") {
-		if err := h.videoSvc.EnqueueVideoThumbnail(upload.LibraryID, fileID.String()); err != nil {
-			log.Printf("failed to enqueue video thumbnail for tus upload %s: %v", fileID, err)
-		}
-
-		if videoproxy.ShouldCreateProxyByDefault(upload.MimeType) {
-			queued := "queued"
-			zero := 0
-			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-				"proxy_status":      queued,
-				"proxy_progress":    zero,
-				"proxy_eta_seconds": nil,
-			})
-			if err := h.videoSvc.EnqueueVideoProxy(upload.LibraryID, fileID.String(), false); err != nil {
-				log.Printf("failed to enqueue video proxy for tus upload %s: %v", fileID, err)
-			}
-		} else {
-			notNeeded := "not_needed"
-			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-				"proxy_status":      notNeeded,
-				"proxy_progress":    nil,
-				"proxy_eta_seconds": nil,
-			})
-		}
-
-		if h.waveformSvc != nil {
-			if err := h.waveformSvc.EnqueueWaveform(upload.LibraryID, fileID.String()); err != nil {
-				log.Printf("failed to enqueue waveform for tus upload %s: %v", fileID, err)
-			}
-		}
-
-		if h.transcribeSvc != nil {
-			queued := "queued"
-			zero := 0
-			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-				"transcribe_status":      queued,
-				"transcribe_progress":    zero,
-				"transcribe_eta_seconds": nil,
-				"transcribe_error":       nil,
-				"transcribe_version":     1,
-			})
-			if err := h.transcribeSvc.EnqueueTranscribe(upload.LibraryID, fileID.String()); err != nil {
-				log.Printf("failed to enqueue transcribe for tus upload %s: %v", fileID, err)
-			}
-		}
-
-		if h.audioDetectSvc != nil {
-			queued := "queued"
-			zero := 0
-			h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-				"audio_detect_status":      queued,
-				"audio_detect_progress":    zero,
-				"audio_detect_eta_seconds": nil,
-				"audio_detect_error":       nil,
-				"audio_detect_version":     1,
-			})
-			if err := h.audioDetectSvc.EnqueueDetect(upload.LibraryID, fileID.String()); err != nil {
-				log.Printf("failed to enqueue audio detection for tus upload %s: %v", fileID, err)
-			}
-		}
-	}
-
-	return dupCount, nil
+	return res.DuplicateCount, nil
 }
 
 // setDuplicateHeader writes the X-Alcoves-Duplicate-Count response header when

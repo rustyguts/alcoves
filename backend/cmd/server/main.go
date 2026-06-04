@@ -13,11 +13,14 @@ import (
 
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/alcoves/alcoves-backend/internal/config"
 	"github.com/alcoves/alcoves-backend/internal/database"
 	"github.com/alcoves/alcoves-backend/internal/handlers"
+	"github.com/alcoves/alcoves-backend/internal/mcpserver"
 	"github.com/alcoves/alcoves-backend/internal/middleware"
+	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/version"
 	"github.com/hibiken/asynq"
 
@@ -32,6 +35,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
+	"github.com/alcoves/alcoves-backend/internal/services/signing"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
 	"github.com/alcoves/alcoves-backend/internal/services/videoproxy"
@@ -362,6 +366,10 @@ func main() {
 		avatarHandler := handlers.NewAvatarHandler(db, storageSvc)
 		avatarHandler.RegisterRoutes(api.Group("/auth"))
 
+		// Personal access token self-service (under /api/auth)
+		tokenHandler := handlers.NewTokenHandler(db, authSvc)
+		tokenHandler.RegisterRoutes(api.Group("/auth"))
+
 		// OAuth routes (under /api/auth)
 		oauthHandler := handlers.NewOAuthHandler(db, authSvc, cfg.OAuthGoogleClientID, cfg.OAuthGoogleClientSecret, cfg.BaseURL)
 		oauthHandler.RegisterRoutes(api.Group("/auth"))
@@ -369,6 +377,45 @@ func main() {
 		// Public file proxy (skipped by auth middleware)
 		fileProxyHandler := handlers.NewFileProxyHandler(db, storageSvc, imgSvc)
 		fileProxyHandler.RegisterRoutes(api.Group("/files"))
+
+		// Ingest-configured files service shared by signed uploads + MCP.
+		ingestSvc := files.NewServiceWithIngest(db, files.IngestDeps{
+			Storage:     storageSvc,
+			Face:        faceSvc,
+			Object:      objSvc,
+			Video:       videoSvc,
+			Waveform:    waveformSvc,
+			Transcribe:  transcribeSvc,
+			AudioDetect: audioDetectSvc,
+			Activity:    activitySvc,
+		})
+
+		// Signed curl upload/download endpoints (skipped by auth middleware;
+		// authenticated by a signed token). Used by remote MCP clients.
+		signer := signing.New(cfg.MCPSigningSecret)
+		signedHandler := handlers.NewSignedHandler(db, storageSvc, ingestSvc, signer)
+		signedHandler.RegisterRoutes(api.Group("/files"))
+
+		// MCP HTTP transport (streamable). Gated by config; authenticated by the
+		// global auth middleware (Bearer PAT or session). A per-request identity
+		// bridge carries the authenticated user into the MCP tool handlers.
+		if cfg.MCPHTTPEnabled {
+			mcpSrv := mcpserver.NewServer(mcpserver.Deps{
+				DB:      db,
+				Access:  accessSvc,
+				Files:   ingestSvc,
+				Storage: storageSvc,
+				Signer:  signer,
+				BaseURL: cfg.BaseURL,
+				// Identity is resolved per request from the bearer token.
+			})
+			streamable := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return mcpSrv }, nil)
+			mcpRoute := mcpEchoHandler(streamable)
+			api.POST("/mcp", mcpRoute)
+			api.GET("/mcp", mcpRoute)
+			api.DELETE("/mcp", mcpRoute)
+			log.Println("MCP HTTP transport enabled at /api/mcp")
+		}
 
 		// Public moment share endpoints (metadata + video + thumbnail).
 		// HTML landing page is rendered by Nuxt; this only exposes API.
@@ -402,6 +449,22 @@ func main() {
 		log.Fatalf("Server shutdown error: %v", err)
 	}
 	log.Println("Server stopped")
+}
+
+// mcpEchoHandler bridges Echo → the MCP streamable HTTP handler. The global
+// auth middleware has already validated the bearer PAT / session and stored the
+// user on the Echo context; this copies it onto the request context as an
+// mcpserver.Identity so the (transport-agnostic) tool handlers can read it.
+func mcpEchoHandler(streamable *mcp.StreamableHTTPHandler) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		req := c.Request()
+		if user, ok := c.Get(middleware.ContextKeyUser).(*models.User); ok && user != nil {
+			ctx := mcpserver.WithIdentity(req.Context(), mcpserver.NewStaticIdentity(user))
+			req = req.WithContext(ctx)
+		}
+		streamable.ServeHTTP(c.Response(), req)
+		return nil
+	}
 }
 
 // buildCORSOrigins constructs the explicit origin allowlist used by the CORS

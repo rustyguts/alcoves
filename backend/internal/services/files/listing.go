@@ -129,16 +129,28 @@ type listingRow struct {
 
 type Service struct {
 	db *gorm.DB
+	// ingest is nil for read-only callers; set via NewServiceWithIngest. See ingest.go.
+	ingest *IngestDeps
 }
 
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
-func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*PaginatedFiles, error) {
-	showTrashed := c.QueryParam("trashed") == "true"
-	limit := parseLimit(c.QueryParam("limit"))
-	requestedFolderID, err := normalizeFolderID(c.QueryParam("folder"))
+// ListParams holds the raw listing inputs. The HTTP handler builds it from
+// query params; the MCP tool builds it from typed arguments. Parsing/validation
+// happens inside ListLibraryFiles so both callers share identical semantics.
+type ListParams struct {
+	Trashed bool
+	Limit   string // raw; empty/invalid → DefaultLimit, clamped to [1, MaxLimit]
+	Folder  string // raw; "" / "null" → root, otherwise must be a UUID
+	Cursor  string // raw base64 cursor; "" → first page
+}
+
+func (s *Service) ListLibraryFiles(libraryID string, p ListParams) (*PaginatedFiles, error) {
+	showTrashed := p.Trashed
+	limit := parseLimit(p.Limit)
+	requestedFolderID, err := normalizeFolderID(p.Folder)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +173,7 @@ func (s *Service) ListLibraryFiles(libraryID string, c echo.Context) (*Paginated
 	}
 
 	// Parse cursor
-	cursor, err := parseCursor(c.QueryParam("cursor"))
+	cursor, err := parseCursor(p.Cursor)
 	if err != nil {
 		return nil, err
 	}

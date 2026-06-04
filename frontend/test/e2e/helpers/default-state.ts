@@ -650,6 +650,15 @@ export function createDefaultState(overrides: DeepPartial<MockState> = {}): Mock
         isCurrent: false,
       },
     ],
+    accessTokens: [
+      {
+        id: "token-laptop",
+        name: "Claude Desktop (laptop)",
+        lastUsedAt: "2026-01-14T08:30:00.000Z",
+        expiresAt: null,
+        createdAt: "2026-01-02T09:00:00.000Z",
+      },
+    ],
     moments: [],
     searchResults: makeSearchResults,
     overrides: [],

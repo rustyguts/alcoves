@@ -302,6 +302,20 @@ export interface AuthProvidersResponse {
   google: boolean;
 }
 
+/** A personal access token used to authenticate the MCP server as this user. */
+export interface AccessToken {
+  id: string;
+  name: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+/** Create response — includes the plaintext `token`, shown only once. */
+export interface CreatedAccessToken extends AccessToken {
+  token: string;
+}
+
 // ─── Admin ─────────────────────────────────────────────
 
 export interface AdminStats {
@@ -409,7 +423,6 @@ export interface MomentShare {
   revokedAt: string | null;
   createdAt: string;
 }
-
 
 // ─── Activity feed / notifications ──────────────────────────────────────────
 // These mirror the backend services/activity package. The set of action
