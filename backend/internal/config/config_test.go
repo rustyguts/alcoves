@@ -229,7 +229,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if cfg.GoogleAuthEnabled {
 		t.Error("Expected GoogleAuthEnabled to be false when client ID is not set")
 	}
-	if cfg.BaseURL != "http://localhost:5173" {
-		t.Errorf("Expected default BaseURL 'http://localhost:5173', got '%s'", cfg.BaseURL)
+	if cfg.BaseURL != "http://localhost:3000" {
+		t.Errorf("Expected default BaseURL 'http://localhost:3000', got '%s'", cfg.BaseURL)
 	}
 }
