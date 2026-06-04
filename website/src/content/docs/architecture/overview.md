@@ -1,5 +1,5 @@
 ---
-title: Architecture
+title: Architecture overview
 description: How the Nuxt frontend and the Go (Echo / GORM / Asynq) backend fit together, and how heavy work flows through the async queue.
 ---
 
@@ -7,12 +7,13 @@ Alcoves is two deployable units that meet at a reverse proxy: a **Nuxt 4
 frontend** on its own Nitro server, and a **Go API backend**. The Go binary is a
 pure API — it does not embed or serve the frontend.
 
-:::note[Sample doc]
-A condensed overview. The full detail lives in the repo's
-[backend](https://github.com/rustyguts/alcoves/blob/main/docs/backend-architecture.md)
-and [frontend](https://github.com/rustyguts/alcoves/blob/main/docs/frontend-architecture.md)
-architecture docs.
-:::
+This page is the map; the rest of the section drills into each subsystem —
+[backend](/architecture/backend-architecture-go/),
+[frontend](/architecture/frontend-architecture/),
+[database & migrations](/architecture/database-schema-and-migrations/),
+[media processing](/architecture/media-processing-pipeline/),
+[storage backends](/architecture/storage-backends/), and
+[ML models & runtime](/architecture/ml-models-runtime/).
 
 ## Topology
 

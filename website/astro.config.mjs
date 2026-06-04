@@ -42,8 +42,39 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Features',
+					items: [
+						{ label: 'Authentication & sessions', slug: 'features/authentication-and-sessions' },
+						{ label: 'Libraries, roles & access', slug: 'features/libraries-and-access-control' },
+						{ label: 'Files, folders & uploads', slug: 'features/files-folders-and-uploads' },
+						{ label: 'Faces & objects', slug: 'features/face-and-object-detection' },
+						{ label: 'Audio & transcription', slug: 'features/audio-detection-and-transcription' },
+						{ label: 'Video editor & moments', slug: 'features/video-editor-and-moments' },
+						{ label: 'Sharing moments', slug: 'features/moment-sharing' },
+						{ label: 'Search & activity', slug: 'features/search-activity-notifications' },
+						{ label: 'MCP server', slug: 'features/mcp-server' },
+						{ label: 'Admin & job queue', slug: 'features/admin-and-job-queue' },
+					],
+				},
+				{
+					label: 'Self-hosting',
+					items: [{ label: 'Deploying Alcoves', slug: 'self-hosting/deploying-alcoves' }],
+				},
+				{
 					label: 'Concepts',
-					items: [{ autogenerate: { directory: 'concepts' } }],
+					items: [{ label: 'Privacy & local AI', slug: 'concepts/privacy-and-local-ai' }],
+				},
+				{
+					label: 'Architecture',
+					items: [
+						{ label: 'Overview', slug: 'architecture/overview' },
+						{ label: 'Backend architecture', slug: 'architecture/backend-architecture-go' },
+						{ label: 'Frontend architecture', slug: 'architecture/frontend-architecture' },
+						{ label: 'Database & migrations', slug: 'architecture/database-schema-and-migrations' },
+						{ label: 'Media processing pipeline', slug: 'architecture/media-processing-pipeline' },
+						{ label: 'Storage backends', slug: 'architecture/storage-backends' },
+						{ label: 'ML models & runtime', slug: 'architecture/ml-models-runtime' },
+					],
 				},
 				{
 					label: 'Reference',
