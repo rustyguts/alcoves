@@ -1,103 +1,58 @@
 # Alcoves — Open Improvements
 
-Generated 2026-04-25 from repo snapshot. Completed items archived after merge.
+Generated 2026-04-25; **audited 2026-06-04** against the current code (items 3–7
+from the original list shipped and were moved to Completed). Completed items
+archived at the bottom.
 
-## 1. Rate limiting on auth + share endpoints (Security)
+## 1. Rate limiting on auth + share endpoints (Security) — OPEN
 
-- **What:** No `RateLimit` middleware anywhere in backend. Add Echo rate limiter to `/api/auth/login`, `/api/auth/register`, `/api/share/:token/*`, `/api/invites`.
-- **Why now:** Self-hosted but exposed-to-internet by design. Brute force on login + share-token enumeration both trivial today.
+- **What:** Still no rate-limit middleware anywhere in the backend (verified
+  2026-06-04: no `RateLimiter` usage, no `ratelimit.go`, no limiter dependency in
+  `go.mod`). Add an Echo rate limiter to `/api/auth/login`,
+  `/api/auth/register`, `/api/share/:token/*`, `/api/invites`.
+- **Why now:** Self-hosted but exposed-to-internet by design. Brute force on
+  login + share-token enumeration both trivial today.
 - **Effort:** S
 - **Risk:** Low if applied per-route. Keep limits generous initially.
 - **Files:** `backend/cmd/server/main.go`, new `backend/internal/middleware/ratelimit.go`.
 
 
-## 2. Testing gaps — fill the cold spots (Testing) — PARTIAL 2026-04-26
+## 2. Testing — remaining gaps (Testing) — PARTIAL
 
-**Status:** Frontend 511 pass / 25 skip / 0 fail. Backend all packages green. Suite rot cleared. Coverage still uneven.
+Most of the original cold spots are closed: every backend service package and all
+21 handlers now have tests; backend coverage is 80%+ (#551) and frontend unit
+coverage 90%+ (#549). What remains (audited 2026-06-04):
 
-### Remaining backend test gaps
+### Nuxt 4 route-mock limitation — STILL OPEN (highest-leverage)
 
-| Package | Coverage | Status |
-|---|---:|---|
-| `internal/services/transcribe` | smoke only | needs end-to-end worker test with fixture audio |
-| `internal/services/audiodetection` | smoke only | same |
-| `internal/services/momentexport` | smoke only | same — exercise ffmpeg path |
-| `internal/services/objectdetection` | 0% | no tests at all |
-| `internal/services/facedetection` | 9.3% | thin |
-| `internal/services/filehash` | 6.6% | thin |
-| `internal/services/auth` | 12.8% | partial |
-| `internal/handlers` | 19.9% | broad-but-shallow |
+23 unit tests are skipped (down from 25), 12 of them in
+`useLibraryExplorer.spec.ts`, because `useRoute`/`useRouter` auto-import from
+`#app/composables/router` and aren't intercepted by `vue-router`/`#imports`
+mocks (mocking the real module breaks Nuxt plugins). No
+`mountSuspended`-with-injected-`_route` helper has been adopted yet. Other
+skipped files: `pages/login.spec.ts` (3), `pages/library-tags.spec.ts` (2),
+`layouts/library.spec.ts` (2), `composables/useAuth.spec.ts` (1),
+`pages/invites-token.spec.ts` (1), `pages/search.spec.ts` (1),
+`e2e/tus-upload.e2e.spec.ts` (1).
 
-**Untested handlers (10 of 21):** `admin`, `admin_jobs`, `avatar`, `file`, `folder`, `highlight_filter`, `moment`, `objects`, `people`, `validator`. Start with `file`, `folder`, `moment`, `highlight_filter`, `avatar` — user-data CRUD.
+**Follow-up:** adopt `mountSuspended` from `@nuxt/test-utils/runtime` with a
+custom test app injecting a real `_route` ref into `useNuxtApp()`, then un-skip
+the route-dependent specs. Each `it.skip` already carries a comment + this todo
+line as the breadcrumb.
 
-### Skipped frontend tests (25) — Nuxt 4 route-mock limitation
+### Thin spots worth lifting
 
-Nuxt auto-imports `useRoute`/`useRouter` from `#app/composables/router`. `vue-router`/`#imports` mocks don't intercept. Mocking `#app/composables/router` directly breaks Nuxt plugins. Affected files:
-
-- `useLibraryExplorer.spec.ts` — 12 skipped
-- `library.spec.ts` layout — 4 skipped
-- `LibraryTabs.spec.ts` — 4 skipped
-- `pages/search.spec.ts` — 1 skipped
-- `pages/library-tags.spec.ts` — 2 skipped
-- `pages/invites-token.spec.ts` — 1 skipped
-- `composables/useAuth.spec.ts` — 1 skipped
-
-**Follow-up:** adopt `mountSuspended` from `@nuxt/test-utils/runtime` with a custom test app injecting a real `_route` ref into `useNuxtApp()`. Each `it.skip` has a comment + this todo line as the breadcrumb.
-
-### Untested frontend composables (8 of 23)
-
-`useAsyncJobStatus`, `useAudioDetections`, `useAudioDetectJob`, `useEditorHighlights`, `useHighlightFilters`, `useLibrariesList`, `useLibraryMoments`, `useTranscribeJob`, `useTranscript`. Most are editor composables from refactor #5.
+- `internal/services/objectdetection` measured **56.1%** (2026-06-04) — below the
+  60% per-file floor; add a few more cases. (`facedetection` 68.2%, `filehash`
+  92.4% are fine; `transcribe`/`audiodetection`/`momentexport`/`auth` have
+  substantial suites but weren't re-measured — DB/ffmpeg/onnxruntime-bound.)
+- `useLibrariesList` composable has no spec — a trivial 12-line register/refresh
+  helper; add a small test or accept the gap.
 
 ### E2e
 
-E2e currently green (94 pass / 5 skip / 0 fail). Watch for snapshot drift after Tailwind/font changes — `bunx playwright test --update-snapshots <flow>` to re-baseline.
-
----
-
-## 3. Bulk transcribe + audio-detect for admins (Feature)
-
-- **What:**
-  - File-list multi-selection: right-click on selected files → "Transcribe N file(s)" / "Detect audio in N file(s)". Single video/audio file → same actions for one file.
-  - Library Settings page: "Reprocess Transcripts" + "Reprocess Audio Detections" cards (matches the Facial Recognition / Object Detection reprocess pattern). Confirm modal before queuing every video/audio file in the library.
-- **Why:** Re-running transcription/extraction across many files used to require opening each file's editor and clicking the per-file button. Tedious after model swaps or bug fixes (e.g. the VAD repetition fix on 2026-04-27 invalidated every previously-generated transcript on capable users).
-- **Backend:** `POST /api/libraries/:id/files/bulk-transcribe` + `bulk-audio-detect` accept an optional `fileIds` array (omit = all videos in library). Loop over candidates, call existing `EnqueueTranscribe` / `EnqueueDetect`. Dedup already in place (asynq.Unique).
-- **Frontend:** context-menu items in the file grid for selected files, dedicated UCards in the library settings page for library-wide reprocessing.
-
-
-## 4. Editor back button respects current folder (UX bug)
-
-- **What:** "Back" from the video editor (`/libraries/:id/edit/:fileId`) currently routes to the library root, ignoring whatever folder the user was browsing. Should return to the folder they came from.
-- **Why:** Power users browse deep folder hierarchies; bouncing back to root forces re-navigation every time they edit a file.
-- **Implementation:** carry the originating folder ID through the navigation. Either (a) store in route query/hash on entry and pop on exit, or (b) read `useLibraryExplorer` last-folder state. Prefer (a) — survives reloads and cross-tab.
-- **Effort:** S.
-- **Risk:** Low.
-
-
-## 5. File-list border too strong in both themes (Polish)
-
-- **What:** The card/file-list border is too saturated. Light mode = too dark/black; dark mode = too bright. Both modes need a softer divider.
-- **Why:** Visual heaviness; doesn't match Nuxt UI v4 default neutral dividers elsewhere in the app.
-- **Implementation:** find the offending Tailwind border classes (likely `border-default` / `divide-default` / a hard `border-neutral-900`). Move to `border-muted` or a custom token at ~10% alpha.
-- **Effort:** S — class swap + visual sanity check in both modes.
-- **Risk:** Trivial.
-
-
-## 6. Library cards: 16:9 aspect, capped width (Polish)
-
-- **What:** Library cards are too wide on large viewports. Constrain to 16:9 aspect ratio and a sensible max width regardless of breakpoint.
-- **Why:** Cards stretch unattractively on ultrawide monitors.
-- **Implementation:** Tailwind `aspect-video` on the thumbnail container, plus a `max-w-*` (probably `max-w-md` or `max-w-sm`) on the grid item. Verify with the existing library list page across breakpoints.
-- **Effort:** S.
-- **Risk:** Trivial.
-
-
-## 7. Editor video frame: 16:9 with max-height, fits without overflow or crop (UX bug)
-
-- **What:** The video element in the editor must live inside a 16:9 frame with `max-height: 400px` (or similar). The video must always fit fully inside (letterbox/pillarbox) regardless of the source aspect ratio. No overflow, no crop.
-- **Why:** Vertical / square / oddly-shaped sources currently overflow or stretch, blowing up the editor layout.
-- **Implementation:** wrap `<video>` in a `aspect-video max-h-[400px]` flex container; on the video apply `object-contain w-full h-full max-h-full`. May need a small JS measurer to size the wrapper based on viewport when sources are very tall (older code used `vidfit-js`-style logic — re-implement minimally if pure CSS isn't enough).
-- **Effort:** S–M.
-- **Risk:** Low. UI-only.
+E2e green. Watch for snapshot drift after Tailwind/font changes —
+`bunx playwright test --update-snapshots <flow>` to re-baseline.
 
 
 ## 8. Map view leaks photo locations to the public OSM tile server by default (Privacy)
@@ -117,9 +72,33 @@ E2e currently green (94 pass / 5 skip / 0 fail). Watch for snapshot drift after 
 
 ## Completed
 
+- **Bulk transcribe + audio-detect for admins** (verified 2026-06-04) —
+  `POST /api/libraries/:id/files/bulk-transcribe` + `bulk-audio-detect`
+  (`backend/internal/handlers/file.go`), where an empty `fileIds` array means
+  "every eligible file in the library"; asynq-deduped, returns HTTP 202 with
+  `{enqueued, skipped}`. Frontend file-grid context-menu actions ("Transcribe /
+  Detect audio in N file(s)") in `libraries/[id]/index.vue` and library-settings
+  reprocess cards in `settings.vue`. Handler tests in
+  `file_full_test.go` / `file_enqueue_test.go`.
+- **Editor back button respects current folder** (verified 2026-06-04) —
+  `goBack()` in `edit/[fileId].vue` reads `route.query.from` and returns to that
+  folder (falling back to library root only when absent); `index.vue` seeds
+  `?from=<folderId>` when opening the editor.
+- **File-list border softened in both themes** (verified 2026-06-04) —
+  `LibraryEntriesTable.vue` uses `divide-default/60` + `border-default` (soft
+  semantic tokens that adapt light/dark); no hard `border-neutral-*` remains.
+- **Editor video frame 16:9, fits without crop** (verified 2026-06-04) —
+  `VideoEditorPlayer.vue` computes the largest 16:9 box via a ResizeObserver and
+  letterboxes the `<video>` with `object-fit: contain`; the cell is height-capped
+  (`max-h-[600px]`) in `index.vue`, so vertical/square/odd sources never overflow
+  or crop.
+- **Library/grid cards 16:9 + width cap** (verified 2026-06-04) —
+  `LibraryEntryCard.vue` thumbnail is `aspect-video`; `LibraryEntriesGrid.vue`
+  caps card width via `grid-cols-[repeat(auto-fill,minmax(220px,320px))]` (the cap
+  is enforced through the grid track range rather than a `max-w-*` utility).
 - **OAuth CSRF state fix** (2026-04-25) — 32-byte crypto-random state, HttpOnly cookie, constant-time compare, 5 unit tests.
 - **Handler test coverage for security-critical paths** (2026-04-25) — `oauth_test.go`, `share_test.go`, `moment_share_test.go`, `member_test.go`, `library_test.go` added; cleanup migrated to `TRUNCATE … CASCADE`; `download.go` Serve now `HasProcessor()`-guarded.
-- **Whisper model upgrade to large-v3-turbo-q5_0** (2026-04-25, **rolled back 2026-04-26**) — large-v3-turbo-q5_0 ran at ~0.5× realtime on production CPU and got OOM-killed on long files, despite the docs/benchmark claim of 10× realtime. Rolled `ALCOVES_WHISPER_MODEL` default back to `base` in `config.go` + `helm/values.yaml`; updated `docs/models.md` + `models/README.md` to reflect status. `ggml-large-v3-turbo-q5_0.bin` (574 MB) stays published at `https://s3.rustyguts.net/models/` for opt-in via `ALCOVES_WHISPER_MODEL=large-v3-turbo-q5_0` on capable hardware.
+- **Whisper model upgrade to large-v3-turbo-q5_0** (2026-04-25, **rolled back 2026-04-26**) — large-v3-turbo-q5_0 ran at ~0.5× realtime on production CPU and got OOM-killed on long files, despite the docs/benchmark claim of 10× realtime. Rolled `ALCOVES_WHISPER_MODEL` default back to `base` in `config.go` + `helm/values.yaml`; updated `docs/internal/models.md` + `models/README.md` to reflect status. `ggml-large-v3-turbo-q5_0.bin` (574 MB) stays published at `https://s3.rustyguts.net/models/` for opt-in via `ALCOVES_WHISPER_MODEL=large-v3-turbo-q5_0` on capable hardware.
 - **Transcribe progress reporting fix** (2026-04-26) — two bugs surfaced by the bigger model: (a) whisper-cli's stdout/stderr were fully-buffered when piped, hiding per-segment lines for many minutes; (b) `-pp` only ticks every 5%, which on slow CPU = many minutes between updates. Fix in `backend/internal/services/transcribe/worker.go`: wrap whisper-cli with `stdbuf -oL -eL` (LD_PRELOAD-injected libstdbuf.so flushes on every newline), parse `[hh:mm:ss --> hh:mm:ss]` segment lines for smooth per-chunk progress, derive audio duration from the extracted WAV's file size. Extracted `progressTracker` struct with monotonic emit + 99% clamp; 6 new unit tests in `worker_test.go`.
 - **Split 699-line video editor page** (2026-04-25) — page 699 → 338 lines; logic extracted into 7 composables + 1 util + 1 header component; `job-status-button.spec.ts` covers the pure mapper.
 - **Backend tests in CI** (2026-04-25) — new `backend-test` workflow job: pgvector :5455, libvips-dev, onnxruntime v1.24.1, `go test ./... -race -count=1`.

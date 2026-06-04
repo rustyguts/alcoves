@@ -16,7 +16,6 @@ document every change is measured against.
 
 | File | What it is | Why it's internal |
 | --- | --- | --- |
-| [`backend-top10-plan.md`](backend-top10-plan.md) | Ranked remediation backlog from an automated multi-agent code audit | Contains security-finding details, line-level code references, and a maintainer remediation plan |
 | [`models.md`](models.md) | ML model evaluation, upgrade history, and rollback rationale | Documents maintainer decisions, incident history, and private model-mirror (`s3.rustyguts.net`) details |
 | [`publishing-models.md`](publishing-models.md) | Process for mirroring ML model weights to the project's model bucket | A maintainer-only workflow that requires private push credentials |
 | [`todos.md`](todos.md) | Engineering backlog: testing gaps, open bugs, polish items | Internal task tracking, not a product or contributor reference |

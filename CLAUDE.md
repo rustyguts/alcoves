@@ -46,9 +46,9 @@ changing code — then update that page in the same change if behavior shifts.
 - [ML Models & Runtime Inference](website/src/content/docs/architecture/ml-models-runtime.md) — The CPU-only ONNX/whisper model stack, on-demand download, and runtime selection.
 - [Deployment & Operations (Docker, Helm, CI/CD)](website/src/content/docs/self-hosting/deploying-alcoves.md) — Docker images, compose, the Helm chart, CI pipelines, and release-please.
 
-**Internal documentation** (`docs/internal/`, maintainer-only — not published): the
-automated-audit remediation backlog, ML model evaluation/publishing notes, and the
-engineering TODO list. See [`docs/internal/README.md`](docs/internal/README.md).
+**Internal documentation** (`docs/internal/`, maintainer-only — not published): ML
+model evaluation/publishing notes and the engineering TODO list. See
+[`docs/internal/README.md`](docs/internal/README.md).
 
 ## Project Summary
 
