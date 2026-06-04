@@ -11,11 +11,31 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
     steps:
-      - uses: googleapis/release-please-action@v5
+      - id: release
+        uses: googleapis/release-please-action@v5
         with:
           # Prefer a fine-grained PAT so the tag push from release-please
-          # triggers downstream workflows (publish.yml). Falls back to
-          # GITHUB_TOKEN — Release PRs still open, but the tag-driven
-          # Docker build won't fire until RELEASE_PLEASE_TOKEN is set.
+          # triggers downstream workflows. Falls back to GITHUB_TOKEN —
+          # Release PRs still open. Version-tagged Docker images no longer
+          # depend on this token: the publish-images job below builds them
+          # directly from this run when a release is created.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+  # When a Release PR merges, GitHub does not let release-please's
+  # GITHUB_TOKEN-created tag/release re-trigger publish.yml, so the version
+  # tags would never be published. Instead we build + push them here, from
+  # the merge commit that release-please just tagged (its VERSION file already
+  # holds the new version), guaranteeing ghcr images tagged X.Y.Z and X.Y.
+  publish-images:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-images.yml
+    with:
+      push: true
+      version_tags: true
