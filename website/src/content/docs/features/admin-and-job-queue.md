@@ -135,14 +135,35 @@ is happening in real time and intervene when something goes wrong.
 
 ### Named queues
 
-Jobs are split across three named queues so latency-sensitive work is never
-stuck behind a backlog. You can filter the dashboard by queue:
+Each job type runs on its own named queue, ranked by **importance ÷
+complexity** — how much a user is actively waiting on the result, weighed
+against how long the job takes so a slow job class can never hog the worker
+pool ahead of fast ones. Latency-sensitive work is never stuck behind a
+backlog, and the heaviest long-runners (whisper transcription, full video
+transcode) sit near the bottom — below fast jobs like thumbnailing. You can
+filter the dashboard by queue:
 
 | Queue | Priority | What it carries |
 |---|---|---|
 | `imageproxy` | Highest | Interactive, on-demand image transforms a user is waiting on |
-| `default` | Normal | Detection, transcription, transcode, waveforms, hashing, metadata, moment export |
+| `metadata` | Very high | EXIF/GPS + ffprobe extraction (fast; unblocks Timeline, Map, file details) |
+| `thumbnail` | High | Video poster-frame extraction (fast ffmpeg seek; makes the grid usable) |
+| `hash` | High | SHA-256 content hashing for dedup (fast) |
+| `moment-export` | Medium | User-initiated clip encodes — someone clicked "export" and is waiting |
+| `waveform` | Medium | Audio waveform peaks for the editor/player |
+| `object-detection` | Medium-low | YOLO ONNX inference (background search enrichment) |
+| `face-detection` | Medium-low | Face ONNX inference + clustering (background) |
+| `audio-detection` | Medium-low | AudioSet ONNX inference (background) |
+| `video-transcode` | Low | Full video proxy transcodes — heavy, multi-minute ffmpeg work |
+| `transcription` | Lowest (real work) | Whisper speech-to-text — the longest-running job class |
 | `maintenance` | Lowest | Background upkeep — the hourly image-proxy variant pre-warm |
+
+A `default` queue is retained only as a drain target for tasks enqueued by an
+older build during an upgrade; no current job type routes new work to it.
+
+Queue selection is **non-strict weighted sampling**: a lower-priority queue is
+never starved when it's the only one with work — it simply yields to
+higher-priority queues while they have a backlog.
 
 ### Periodic maintenance jobs
 

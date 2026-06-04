@@ -14,6 +14,8 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/hibiken/asynq"
+
+	"github.com/alcoves/alcoves-backend/internal/queues"
 )
 
 func TestNewTask_TypeAndPayload(t *testing.T) {
@@ -77,9 +79,11 @@ func TestEnqueueDetect_DedupsConcurrentRequests(t *testing.T) {
 
 	// Sanity: bare client without dedup option would surface
 	// ErrDuplicateTask. Confirm the underlying option is what gates this,
-	// not some other code path that silently accepts everything.
+	// not some other code path that silently accepts everything. The raw
+	// enqueue must target the same queue the service uses, since asynq keys
+	// its uniqueness lock by queue + type + payload.
 	task, _ := newTask(Payload{LibraryID: "lib-1", FileID: "file-1"})
-	_, err := client.Enqueue(task, asynq.Unique(enqueueUniqueWindow))
+	_, err := client.Enqueue(task, asynq.Queue(queues.AudioDetection), asynq.Unique(enqueueUniqueWindow))
 	if !errors.Is(err, asynq.ErrDuplicateTask) {
 		t.Fatalf("expected asynq.ErrDuplicateTask from raw client, got: %v", err)
 	}

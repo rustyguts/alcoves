@@ -11,6 +11,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/config"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
@@ -56,7 +57,10 @@ func (s *Service) EnqueueDetect(libraryID, fileID string) error {
 	if err != nil {
 		return fmt.Errorf("create audio-detect task: %w", err)
 	}
+	// AudioSet ONNX inference over decoded (often long) audio — background
+	// enrichment, ranked just below the image-based detectors.
 	_, err = s.asynqClient.Enqueue(task,
+		asynq.Queue(queues.AudioDetection),
 		asynq.Retention(completedTaskRetention),
 		asynq.Unique(enqueueUniqueWindow),
 	)

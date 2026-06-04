@@ -7,6 +7,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -35,7 +36,8 @@ func (s *Service) EnqueueObjectDetection(libraryID, fileID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create object detect task: %w", err)
 	}
-	_, err = s.asynqClient.Enqueue(task)
+	// YOLO ONNX inference: CPU-bound background enrichment for search.
+	_, err = s.asynqClient.Enqueue(task, asynq.Queue(queues.ObjectDetection))
 	if err != nil {
 		return fmt.Errorf("failed to enqueue object detect task: %w", err)
 	}

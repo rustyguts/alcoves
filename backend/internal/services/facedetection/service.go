@@ -8,6 +8,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -38,7 +39,8 @@ func (s *Service) EnqueueFaceDetection(libraryID, fileID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create face detect task: %w", err)
 	}
-	_, err = s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention))
+	// Face ONNX inference + clustering: CPU-bound background enrichment.
+	_, err = s.asynqClient.Enqueue(task, asynq.Queue(queues.FaceDetection), asynq.Retention(completedTaskRetention))
 	if err != nil {
 		return fmt.Errorf("failed to enqueue face detect task: %w", err)
 	}
