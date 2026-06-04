@@ -95,16 +95,21 @@ interface AudioTaggerOption {
   mAP: number;
   license: string;
   notes: string;
+  // available mirrors audiodetection.ModelSpec.Available on the backend: a
+  // model is only selectable once its ONNX artifact is published to the model
+  // bucket. Unpublished entries stay listed (disabled) so the roadmap is
+  // visible, but picking one would 404 the worker — the backend rejects it too.
+  available: boolean;
 }
 
 const audioTaggers: AudioTaggerOption[] = [
-  { id: "efficientat_mn04", label: "EfficientAT mn04_as (tiny)", diskMB: 5, ramPeakMB: 60, mAP: 0.432, license: "MIT", notes: "Same mAP as CNN14 at ~80× smaller. Best for ultra-constrained pods." },
-  { id: "efficientat_mn10", label: "EfficientAT mn10_as (default)", diskMB: 20, ramPeakMB: 120, mAP: 0.471, license: "MIT", notes: "~16× smaller than CNN14, +9% mAP, faster on CPU." },
-  { id: "efficientat_mn40", label: "EfficientAT mn40_as_ext", diskMB: 280, ramPeakMB: 500, mAP: 0.487, license: "MIT", notes: "Same disk class as CNN14, +5.6 mAP. Slower CPU inference." },
-  { id: "ced_tiny", label: "CED-Tiny", diskMB: 22, ramPeakMB: 120, mAP: 0.481, license: "Apache-2.0", notes: "Transformer; CPU parity with MobileNetV3." },
-  { id: "ced_small", label: "CED-Small", diskMB: 85, ramPeakMB: 280, mAP: 0.496, license: "Apache-2.0", notes: "Best mid-range quality." },
-  { id: "ced_base", label: "CED-Base (premium)", diskMB: 330, ramPeakMB: 600, mAP: 0.500, license: "Apache-2.0", notes: "SOTA-class quality." },
-  { id: "pann_cnn14", label: "PANNs CNN14 (legacy)", diskMB: 313, ramPeakMB: 600, mAP: 0.431, license: "Apache-2.0", notes: "Original baseline. Kept as rollback option." },
+  { id: "efficientat_mn04", label: "EfficientAT mn04_as (tiny)", diskMB: 5, ramPeakMB: 60, mAP: 0.432, license: "MIT", notes: "Same mAP as CNN14 at ~80× smaller. Best for ultra-constrained pods.", available: false },
+  { id: "efficientat_mn10", label: "EfficientAT mn10_as (default)", diskMB: 20, ramPeakMB: 120, mAP: 0.471, license: "MIT", notes: "~16× smaller than CNN14, +9% mAP, faster on CPU.", available: true },
+  { id: "efficientat_mn40", label: "EfficientAT mn40_as_ext", diskMB: 280, ramPeakMB: 500, mAP: 0.487, license: "MIT", notes: "Same disk class as CNN14, +5.6 mAP. Slower CPU inference.", available: false },
+  { id: "ced_tiny", label: "CED-Tiny", diskMB: 22, ramPeakMB: 120, mAP: 0.481, license: "Apache-2.0", notes: "Transformer; CPU parity with MobileNetV3.", available: false },
+  { id: "ced_small", label: "CED-Small", diskMB: 85, ramPeakMB: 280, mAP: 0.496, license: "Apache-2.0", notes: "Best mid-range quality.", available: false },
+  { id: "ced_base", label: "CED-Base (premium)", diskMB: 330, ramPeakMB: 600, mAP: 0.500, license: "Apache-2.0", notes: "SOTA-class quality.", available: false },
+  { id: "pann_cnn14", label: "PANNs CNN14 (legacy)", diskMB: 313, ramPeakMB: 600, mAP: 0.431, license: "Apache-2.0", notes: "Original baseline. Kept as rollback option.", available: true },
 ];
 
 function formatMB(mb: number): string {
@@ -493,7 +498,7 @@ const columns: TableColumn<AdminUser>[] = [
           </div>
           <USelect
             :model-value="audioTaggerDraft ?? 'efficientat_mn10'"
-            :items="audioTaggers.map((m) => ({ label: m.label, value: m.id }))"
+            :items="audioTaggers.map((m) => ({ label: m.available ? m.label : `${m.label} — not yet available`, value: m.id, disabled: !m.available }))"
             :disabled="updatingAudioTagger"
             size="sm"
             @update:model-value="(v: string) => { audioTaggerDraft = v; updateAudioTagger(v); }"

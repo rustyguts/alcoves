@@ -55,14 +55,68 @@ func TestLookupSpec_EmptyIDReturnsDefault(t *testing.T) {
 }
 
 func TestIsValidModelID(t *testing.T) {
-	for _, id := range []string{"pann_cnn14", "efficientat_mn04", "efficientat_mn10", "efficientat_mn40", "ced_tiny", "ced_small", "ced_base"} {
+	// Only models whose ONNX artifact is published to the bucket are
+	// selectable. pann_cnn14 + efficientat_mn10 are the two currently mirrored.
+	for _, id := range []string{"pann_cnn14", "efficientat_mn10"} {
 		if !IsValidModelID(id) {
-			t.Errorf("IsValidModelID(%q) = false, want true", id)
+			t.Errorf("IsValidModelID(%q) = false, want true (published model)", id)
+		}
+	}
+	// Known registry entries that are catalogued but NOT yet uploaded must be
+	// rejected — selecting them would 404 the worker and fail every job.
+	for _, id := range []string{"efficientat_mn04", "efficientat_mn40", "ced_tiny", "ced_small", "ced_base"} {
+		if IsValidModelID(id) {
+			t.Errorf("IsValidModelID(%q) = true, want false (not published to the bucket)", id)
 		}
 	}
 	for _, id := range []string{"", "panns_cnn14", "wavegram", "BEATs", "ced", "mn10"} {
 		if IsValidModelID(id) {
 			t.Errorf("IsValidModelID(%q) = true, want false", id)
+		}
+	}
+}
+
+func TestRegistry_DefaultAndLegacyAreAvailable(t *testing.T) {
+	// LookupSpec falls back to DefaultModelID for empty/unknown/unavailable
+	// IDs, so the default MUST itself be published or the fallback 404s. The
+	// legacy PANN model is also kept selectable as a rollback path.
+	for _, id := range []string{DefaultModelID, LegacyModelID} {
+		spec, ok := Registry[id]
+		if !ok {
+			t.Fatalf("%q missing from registry", id)
+		}
+		if !spec.Available {
+			t.Errorf("%q must be Available (selectable + on the bucket)", id)
+		}
+	}
+}
+
+func TestLookupSpec_UnavailableFallsBackToDefault(t *testing.T) {
+	// A settings row pointing at a catalogued-but-unpublished model (e.g. an
+	// admin selected ced_base before it was gated) must fall back to the
+	// default rather than resolving to a spec the worker can't download.
+	spec, ok := LookupSpec("ced_base")
+	if ok {
+		t.Fatal("expected ced_base to be treated as unavailable (miss)")
+	}
+	if spec.ID != DefaultModelID {
+		t.Fatalf("fallback ID: got %q want %q", spec.ID, DefaultModelID)
+	}
+}
+
+func TestAvailableModelList_OnlyPublished(t *testing.T) {
+	list := AvailableModelList()
+	if len(list) == 0 {
+		t.Fatal("AvailableModelList is empty; the default would be unselectable")
+	}
+	for _, m := range list {
+		if !m.Available {
+			t.Errorf("AvailableModelList included unavailable model %q", m.ID)
+		}
+	}
+	for i := 1; i < len(list); i++ {
+		if list[i-1].ID > list[i].ID {
+			t.Errorf("AvailableModelList not sorted: %q after %q", list[i].ID, list[i-1].ID)
 		}
 	}
 }

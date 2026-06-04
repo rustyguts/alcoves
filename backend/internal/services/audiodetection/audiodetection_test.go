@@ -521,12 +521,16 @@ func TestExtractAudio_Success(t *testing.T) {
 // --- registry.go: LookupSpec known-id branch (fills the remaining branch) ---
 
 func TestLookupSpec_KnownIDHit(t *testing.T) {
-	spec, ok := LookupSpec("ced_base")
+	// Use a published model — LookupSpec only reports a hit for selectable
+	// (Available) entries. pann_cnn14 is on the bucket and distinct from the
+	// default, so it exercises the known-id branch without colliding with the
+	// fallback path.
+	spec, ok := LookupSpec("pann_cnn14")
 	if !ok {
-		t.Fatal("expected hit for known id")
+		t.Fatal("expected hit for known, published id")
 	}
-	if spec.ID != "ced_base" {
-		t.Errorf("spec.ID = %q, want ced_base", spec.ID)
+	if spec.ID != "pann_cnn14" {
+		t.Errorf("spec.ID = %q, want pann_cnn14", spec.ID)
 	}
 }
 

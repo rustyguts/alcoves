@@ -111,18 +111,25 @@ with roughly 8× faster processing and less than 1 GB RAM at peak.
 The instance owner selects the audio detection model from the same
 **Admin → Inference Models** page.
 
-| Model | Disk | Accuracy (mAP) | License |
-|---|---|---|---|
-| `efficientat_mn04` | 5 MB | 0.432 | MIT |
-| **`efficientat_mn10` (default)** | 20 MB | 0.471 | MIT |
-| `efficientat_mn40` | 280 MB | 0.487 | MIT |
-| `ced_tiny` | 22 MB | 0.481 | Apache-2.0 |
-| `ced_small` | 85 MB | 0.496 | Apache-2.0 |
-| `ced_base` | 330 MB | 0.500 | Apache-2.0 |
+| Model | Disk | Accuracy (mAP) | License | Status |
+|---|---|---|---|---|
+| `efficientat_mn04` | 5 MB | 0.432 | MIT | Planned |
+| **`efficientat_mn10` (default)** | 20 MB | 0.471 | MIT | Available |
+| `efficientat_mn40` | 280 MB | 0.487 | MIT | Planned |
+| `ced_tiny` | 22 MB | 0.481 | Apache-2.0 | Planned |
+| `ced_small` | 85 MB | 0.496 | Apache-2.0 | Planned |
+| `ced_base` | 330 MB | 0.500 | Apache-2.0 | Planned |
+| `pann_cnn14` (legacy) | 313 MB | 0.431 | Apache-2.0 | Available |
 
 The default `efficientat_mn10` is a practical balance of size (20 MB) and
-accuracy. For the best accuracy at the cost of more disk and RAM, try
-`ced_base`.
+accuracy. `pann_cnn14` is the original baseline, kept selectable as a
+rollback option.
+
+Models marked **Planned** are catalogued but their weights are not yet
+published to the model bucket. They appear greyed-out in the admin picker and
+cannot be selected — choosing one would otherwise fail every audio-detect job
+with a 404 when the worker tries to download the missing file. They become
+selectable once their weights are published.
 
 Models download automatically the first time they are needed, so the initial
 run of a new model may take longer while the file is fetched.
