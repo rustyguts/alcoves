@@ -102,9 +102,15 @@ export interface LibraryFile {
   waveformVersion?: number;
   waveformedVersion?: number | null;
   waveformPeaksPerSecond?: number;
+  metadataStatus?: string | null;
+  metadataVersion?: number;
+  metadataExtractedVersion?: number | null;
   thumbnailFileId?: string | null;
   sourceFileId: string | null;
   originalCreatedAt: string | null;
+  capturedAt?: string | null;
+  gpsLat?: number | null;
+  gpsLon?: number | null;
   hash: string | null;
   hasDuplicates?: boolean;
   duplicateOfFileIds?: string[] | null;
@@ -142,6 +148,23 @@ export interface PaginatedFiles {
   totalCount: number;
   breadcrumbs: FolderBreadcrumb[];
   currentFolderId: string | null;
+}
+
+/** A single geotagged file plotted on the Map view. */
+export interface MapPoint {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  thumbnailFileId: string | null;
+  capturedAt: string | null;
+}
+
+/** Response for GET /api/libraries/:id/map. `truncated` is true when the
+ * server-side point cap was hit. */
+export interface LibraryMapResponse {
+  points: MapPoint[];
+  truncated: boolean;
 }
 
 export interface LibraryMemberWithUser {

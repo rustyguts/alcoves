@@ -127,6 +127,9 @@ const objDetReprocessing = ref(false);
 const videoThumbReprocessOpen = ref(false);
 const videoThumbReprocessing = ref(false);
 
+const metadataReprocessOpen = ref(false);
+const metadataReprocessing = ref(false);
+
 const transcribeReprocessOpen = ref(false);
 const transcribeReprocessing = ref(false);
 
@@ -336,6 +339,23 @@ async function reprocessVideoThumbnails() {
     toast.add({ title: message, color: "error" });
   } finally {
     videoThumbReprocessing.value = false;
+  }
+}
+
+async function reprocessMetadata() {
+  metadataReprocessing.value = true;
+  metadataReprocessOpen.value = false;
+  try {
+    const result = await api.libraries.metadataReprocess(libraryId.value);
+    toast.add({
+      title: "Metadata reprocessing queued",
+      description: `${result.queuedCount} file${result.queuedCount === 1 ? "" : "s"} queued for capture-date & GPS extraction.`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to queue metadata reprocessing";
+    toast.add({ title: message, color: "error" });
+  } finally {
+    metadataReprocessing.value = false;
   }
 }
 
@@ -671,6 +691,27 @@ async function deleteLibrary() {
       </div>
     </AppPanel>
 
+    <!-- Photo Metadata (Timeline + Map) -->
+    <AppPanel
+      v-if="isLibraryOwner"
+      title="Photo Metadata"
+      description="Re-extract capture date & GPS location (EXIF) for all photos and videos. Powers the Timeline and Map views."
+      icon="i-lucide-map-pin"
+    >
+      <div class="flex sm:justify-end">
+        <UButton
+          color="warning"
+          variant="soft"
+          icon="i-lucide-refresh-cw"
+          :loading="metadataReprocessing"
+          :disabled="metadataReprocessing"
+          @click="metadataReprocessOpen = true"
+        >
+          Reprocess Metadata
+        </UButton>
+      </div>
+    </AppPanel>
+
     <!-- Danger Zone -->
     <AppPanel>
       <template #title>
@@ -705,6 +746,17 @@ async function deleteLibrary() {
       confirm-icon="i-lucide-trash-2"
       :pending="faceRecToggling"
       @confirm="confirmDisableFaceRecognition"
+    />
+
+    <ConfirmModal
+      v-model:open="metadataReprocessOpen"
+      title="Reprocess Photo Metadata"
+      message="This re-extracts capture date and GPS location for every photo and video in the library, refreshing the Timeline and Map. Existing metadata is overwritten as each file completes."
+      confirm-label="Queue Reprocessing"
+      confirm-class="btn-soft btn-warning"
+      confirm-icon="i-lucide-refresh-cw"
+      :pending="metadataReprocessing"
+      @confirm="reprocessMetadata"
     />
 
     <ConfirmModal

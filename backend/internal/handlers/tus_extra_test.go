@@ -50,7 +50,7 @@ func wiredTusHandler(t *testing.T) (*TusHandler, *gorm.DB) {
 	transcribeSvc := transcribe.NewService(db, st, client, cfg, activitySvc, settingsSvc)
 	audioDetectSvc := audiodetection.NewService(db, st, client, cfg, settingsSvc)
 
-	h := NewTusHandler(db, st, tempDir, faceSvc, objSvc, videoSvc, waveformSvc, transcribeSvc, audioDetectSvc, activitySvc)
+	h := NewTusHandler(db, st, tempDir, faceSvc, objSvc, videoSvc, waveformSvc, transcribeSvc, audioDetectSvc, nil, activitySvc)
 	return h, db
 }
 

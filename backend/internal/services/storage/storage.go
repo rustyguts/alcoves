@@ -90,6 +90,18 @@ func (s *Service) OpenFileReadStream(libraryID, fileID string, byteRange *ByteRa
 	return s.driver.OpenReadStream(ScopeFiles, fileKey(libraryID, fileID), byteRange)
 }
 
+// LocalFilePath returns the on-disk path of a file blob when the storage driver
+// is local, so seeking tools (ffprobe, ffmpeg) can read it directly instead of
+// copying the whole file to a temp location first. ok is false for non-local
+// drivers (e.g. S3), where callers must fall back to streaming/copying.
+func (s *Service) LocalFilePath(libraryID, fileID string) (path string, ok bool) {
+	ld, isLocal := s.driver.(*LocalDriver)
+	if !isLocal {
+		return "", false
+	}
+	return ld.resolve(ScopeFiles, fileKey(libraryID, fileID)), true
+}
+
 // Avatar operations
 func (s *Service) StoreAvatar(userID string, data []byte) error {
 	return s.driver.PutBuffer(ScopeAvatars, avatarKey(userID), data)

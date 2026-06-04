@@ -100,6 +100,19 @@ E2e currently green (94 pass / 5 skip / 0 fail). Watch for snapshot drift after 
 - **Risk:** Low. UI-only.
 
 
+## 8. Map view leaks photo locations to the public OSM tile server by default (Privacy)
+
+- **What:** The library Map view (`frontend/app/components/LibraryMap.client.vue`) defaults its raster tiles to `https://tile.openstreetmap.org/{z}/{x}/{y}.png` (`NUXT_PUBLIC_MAP_TILE_URL` in `nuxt.config.ts`). Every pan/zoom sends the viewed bounding box — i.e. roughly *where the user's private photos were taken* — to a third-party server. Self-hosters can override the URL, but the **default** still leaks, which is in tension with the vision's privacy-first pillar (`docs/vision.md`).
+- **Why not fixed now:** the obvious privacy-preserving alternative — self-hosting a tile server — incurs real cost/ops (storage + bandwidth for the planet, or a paid tile provider). Needs a product call on the right default before changing it.
+- **Options to weigh:**
+  - Ship **no tiles until configured** (map shows markers on a blank/grey canvas with a "configure a tile server" hint) — privacy-safe default, degraded out-of-box UX.
+  - Keep OSM as default but add a **prominent one-time in-UI notice** that tile requests reveal the viewed area to openstreetmap.org, with a link to the override env var.
+  - Document/recommend a cheap self-host (e.g. a `protomaps`/`pmtiles` single-file basemap served from existing storage) and a paid-provider option (MapTiler/Stadia) for those who prefer it.
+  - Also: verify the public OSM tile **usage policy** is acceptable for a self-hosted app (bulk/systematic use is discouraged; a valid identifying header is required).
+- **Effort:** S (notice) → M (pmtiles basemap path).
+- **Risk:** Low code-wise; this is mainly a product/privacy decision. Tracked from the PR #552 review.
+
+
 ---
 
 ## Completed

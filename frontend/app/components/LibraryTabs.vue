@@ -21,6 +21,8 @@ function onTabClick(to: string, event: MouseEvent) {
 }
 
 const currentTab = computed(() => {
+  if (route.path.endsWith("/timeline")) return "timeline";
+  if (route.path.endsWith("/map")) return "map";
   if (route.path.endsWith("/tags")) return "tags";
   if (route.path.endsWith("/feed")) return "feed";
   if (route.path.includes(`/libraries/${props.libraryId}/people`)) return "people";
@@ -41,6 +43,13 @@ interface Tab {
 const browseTabs = computed<Tab[]>(() => {
   const items: Tab[] = [
     { key: "files", label: "Files", icon: "i-lucide-folder", to: `/libraries/${props.libraryId}` },
+    {
+      key: "timeline",
+      label: "Timeline",
+      icon: "i-lucide-clock",
+      to: `/libraries/${props.libraryId}/timeline`,
+    },
+    { key: "map", label: "Map", icon: "i-lucide-map-pin", to: `/libraries/${props.libraryId}/map` },
     { key: "tags", label: "Tags", icon: "i-lucide-tags", to: `/libraries/${props.libraryId}/tags` },
     { key: "feed", label: "Feed", icon: "i-lucide-rss", to: `/libraries/${props.libraryId}/feed` },
   ];
@@ -69,7 +78,12 @@ const browseTabs = computed<Tab[]>(() => {
 // Utility tabs: management surfaces, de-emphasised as icon-only on the right.
 const utilityTabs = computed<Tab[]>(() => {
   const items: Tab[] = [
-    { key: "trash", label: "Trash", icon: "i-lucide-trash-2", to: `/libraries/${props.libraryId}/trash` },
+    {
+      key: "trash",
+      label: "Trash",
+      icon: "i-lucide-trash-2",
+      to: `/libraries/${props.libraryId}/trash`,
+    },
   ];
 
   if (props.canManageLibrary) {

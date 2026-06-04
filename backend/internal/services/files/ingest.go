@@ -16,6 +16,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
+	"github.com/alcoves/alcoves-backend/internal/services/metadata"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
@@ -35,6 +36,7 @@ type IngestDeps struct {
 	Waveform    *waveform.Service
 	Transcribe  *transcribe.Service
 	AudioDetect *audiodetection.Service
+	Metadata    *metadata.Service
 	Activity    *activity.Service
 }
 
@@ -141,6 +143,19 @@ func (s *Service) enqueuePostIngestJobs(libraryID, fileID uuid.UUID, mimeType st
 	d := s.ingest
 	libStr := libraryID.String()
 	fileStr := fileID.String()
+
+	// EXIF / media-metadata extraction (Timeline + Map). No library-setting
+	// gate — it's always cheap and useful. metadata_status is set so the
+	// maintenance backfill scan skips this freshly-enqueued file.
+	if d.Metadata != nil && (strings.HasPrefix(mimeType, "image/") || strings.HasPrefix(mimeType, "video/")) {
+		s.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+			"metadata_status":  "queued",
+			"metadata_version": 1,
+		})
+		if err := d.Metadata.EnqueueMetadata(libStr, fileStr); err != nil {
+			log.Printf("failed to enqueue metadata extraction for ingest %s: %v", fileID, err)
+		}
+	}
 
 	if d.Face != nil && strings.HasPrefix(mimeType, "image/") {
 		var library models.Library

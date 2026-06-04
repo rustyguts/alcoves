@@ -63,6 +63,9 @@ type FileResponse struct {
 	ThumbnailFileID   *string       `json:"thumbnailFileId"`
 	SourceFileID      *string       `json:"sourceFileId"`
 	OriginalCreatedAt *string       `json:"originalCreatedAt"`
+	CapturedAt        *string       `json:"capturedAt"`
+	GpsLat            *float64      `json:"gpsLat"`
+	GpsLon            *float64      `json:"gpsLon"`
 	Hash              *string       `json:"hash"`
 	HasDuplicates     bool          `json:"hasDuplicates"`
 	TrashedAt         *string       `json:"trashedAt"`
