@@ -1,0 +1,30 @@
+{
+  "name": "alcoves-website",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.6.0",
+    "@astrojs/starlight": "^0.39.3",
+    "@astrojs/starlight-tailwind": "^5.0.0",
+    "@fontsource-variable/fraunces": "^5.2.6",
+    "@fontsource-variable/ibm-plex-sans": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.6",
+    "@tailwindcss/vite": "^4.2.4",
+    "astro": "^6.3.1",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4.2.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,24 @@
+---
+import LandingLayout from '../layouts/LandingLayout.astro';
+import SiteNav from '../components/site/SiteNav.astro';
+import SiteFooter from '../components/site/SiteFooter.astro';
+import Hero from '../components/landing/Hero.astro';
+import TrustStats from '../components/landing/TrustStats.astro';
+import FeatureBento from '../components/landing/FeatureBento.astro';
+import HowItWorks from '../components/landing/HowItWorks.astro';
+import FAQ from '../components/landing/FAQ.astro';
+import FinalCTA from '../components/landing/FinalCTA.astro';
+---
+
+<LandingLayout>
+	<SiteNav />
+	<main>
+		<Hero />
+		<TrustStats />
+		<FeatureBento />
+		<HowItWorks />
+		<FAQ />
+		<FinalCTA />
+	</main>
+	<SiteFooter />
+</LandingLayout>

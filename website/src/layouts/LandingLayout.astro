@@ -1,0 +1,108 @@
+---
+import '@fontsource-variable/fraunces';
+import '@fontsource-variable/ibm-plex-sans';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+import '../styles/landing.css';
+
+interface Props {
+	title?: string;
+	description?: string;
+}
+
+const {
+	title = 'Alcoves — Your media, understood and entirely yours',
+	description = 'A self-hosted, privacy-first collaborative media library with AI that runs locally on your own hardware. No cloud, no GPU, no telemetry.',
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL('og-image.png', Astro.site);
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+		<link rel="icon" type="image/png" href="/favicon.png" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+
+		<!-- Open Graph -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Alcoves" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		<meta property="og:image" content={ogImage} />
+
+		<!-- Twitter -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImage} />
+
+		<meta name="theme-color" content="#08080a" />
+
+		<!-- Set theme before paint to avoid a flash. -->
+		<script is:inline>
+			(() => {
+				document.documentElement.classList.add('js');
+				try {
+					const saved = localStorage.getItem('alcoves-theme');
+					const prefersLight =
+						window.matchMedia('(prefers-color-scheme: light)').matches;
+					const theme = saved || (prefersLight ? 'light' : 'dark');
+					document.documentElement.dataset.theme = theme;
+				} catch (_) {
+					document.documentElement.dataset.theme = 'dark';
+				}
+			})();
+		</script>
+	</head>
+	<body class="lp">
+		<slot />
+
+		<script is:inline>
+			// Sticky-nav background on scroll.
+			const nav = document.querySelector('.nav');
+			const onScroll = () => nav?.classList.toggle('scrolled', window.scrollY > 8);
+			onScroll();
+			window.addEventListener('scroll', onScroll, { passive: true });
+
+			// Theme toggle (persists to localStorage; matches the no-FOUC script key).
+			document.querySelector('.theme-toggle')?.addEventListener('click', () => {
+				const root = document.documentElement;
+				const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+				root.dataset.theme = next;
+				try {
+					localStorage.setItem('alcoves-theme', next);
+				} catch (_) {}
+			});
+
+			// Scroll-reveal.
+			const io = new IntersectionObserver(
+				(entries) => {
+					for (const e of entries) {
+						if (e.isIntersecting) {
+							e.target.classList.add('in');
+							io.unobserve(e.target);
+						}
+					}
+				},
+				{ rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+			);
+			document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+			// Pointer-follow glow on bento cards.
+			document.querySelectorAll('.bento-card').forEach((card) => {
+				card.addEventListener('pointermove', (ev) => {
+					const r = card.getBoundingClientRect();
+					card.style.setProperty('--mx', `${((ev.clientX - r.left) / r.width) * 100}%`);
+				});
+			});
+		</script>
+	</body>
+</html>

@@ -1,0 +1,39 @@
+---
+const steps = [
+	{ t: 'Upload', d: 'Resumable, web-first uploads (TUS) land your photos, video, audio, and docs.' },
+	{ t: 'Hash & dedup', d: 'SHA-256 hashing deduplicates content; derived and trashed files are ignored.' },
+	{ t: 'Derive', d: 'Thumbnails, video proxy transcodes, and audio waveforms are generated.' },
+	{ t: 'Understand', d: 'CPU-only ONNX models detect faces, objects, audio events, and transcribe speech.' },
+	{ t: 'Searchable', d: 'Results are indexed — navigable by person, object, sound, and word.' },
+];
+---
+
+<section class="section" id="how">
+	<div class="container">
+		<div class="section-head center reveal">
+			<p class="kicker">How it works</p>
+			<h2 class="section-title">The magic runs on your box</h2>
+			<p class="section-lead">
+				Drop in a file and an async pipeline takes over — all of it local, all of
+				it on CPU.
+			</p>
+		</div>
+
+		<div class="steps">
+			{
+				steps.map((s, i) => (
+					<div class="step reveal" style={`--d:${i * 90}ms`}>
+						<div class="step-num">{i + 1}</div>
+						<h3 class="step-title">{s.t}</h3>
+						<p class="step-text">{s.d}</p>
+					</div>
+				))
+			}
+		</div>
+
+		<p class="pipe-note reveal">
+			Heavy work runs <b>async</b> on the queue — never blocking a request.
+			<b>No cloud · No GPU · No telemetry.</b>
+		</p>
+	</div>
+</section>

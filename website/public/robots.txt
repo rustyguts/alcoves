@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://alcoves.io/sitemap-index.xml

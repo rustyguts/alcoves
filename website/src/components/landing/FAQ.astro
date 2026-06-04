@@ -1,0 +1,53 @@
+---
+const faqs = [
+	{
+		q: 'Do I need a GPU?',
+		a: 'No. Every model — face and object detection, audio-event tagging, and speech transcription — runs on CPU by design. Models are chosen for that constraint, not to chase state-of-the-art at any cost.',
+	},
+	{
+		q: 'Is any of my data sent anywhere?',
+		a: 'No. There is no telemetry, no analytics, and no inference that ever leaves your instance. The Go backend is a pure API that never phones home — and never will.',
+	},
+	{
+		q: 'What hardware do I need?',
+		a: 'Roughly 8 GB of RAM is the practical ceiling for the CPU-only models. Storage scales with your library on local disk or any S3-compatible object store. A Raspberry Pi with a USB drive and a rack with object storage are both first-class.',
+	},
+	{
+		q: 'How do I deploy it?',
+		a: 'Docker and Docker Compose for a single host, or the Helm chart for Kubernetes. External PostgreSQL and Dragonfly/Redis are expected; storage is local or S3.',
+	},
+	{
+		q: 'Who can administer an instance?',
+		a: 'The first registered user becomes the owner. Owner-gated surfaces include the admin panel, the job-queue dashboard, registration policy, and ML-model selection. Within libraries, roles are owner / admin / viewer.',
+	},
+	{
+		q: 'Is it production-ready?',
+		a: 'Alcoves is alpha (0.x.y). Expect breaking changes — they ship with migrations and changelog entries. It targets bounded, trusted instances of 1–100 users, not anonymous mass signup.',
+	},
+];
+---
+
+<section class="section" id="faq">
+	<div class="container">
+		<div class="section-head center reveal">
+			<p class="kicker">FAQ</p>
+			<h2 class="section-title">Questions, answered</h2>
+		</div>
+
+		<div class="faq">
+			{
+				faqs.map((f, i) => (
+					<details class="faq-item reveal" style={`--d:${i * 50}ms`} name="faq">
+						<summary>
+							{f.q}
+							<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+								<path d="M12 5v14M5 12h14" />
+							</svg>
+						</summary>
+						<p class="faq-a">{f.a}</p>
+					</details>
+				))
+			}
+		</div>
+	</div>
+</section>
