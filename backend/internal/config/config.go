@@ -14,6 +14,12 @@ type Config struct {
 	Mode        string // "all", "api", "worker"
 	Environment string // "development" or "production"
 
+	// SeedEnabled turns on the dev/test database seeder (ALCOVES_SEED=true).
+	// It only acts on an empty database, so real first-time setups — which
+	// never set this flag — are untouched. Enabled in docker-compose for local
+	// dev; left off everywhere else. See internal/seed.
+	SeedEnabled bool
+
 	SessionSecret string // At least 32 bytes for AES-256
 
 	StoragePath       string
@@ -138,6 +144,8 @@ func Load() (*Config, error) {
 		DatabaseURL: getEnv("ALCOVES_DATABASE_URL", "postgres://postgres:postgres@localhost:5455/alcoves"),
 		Mode:        getEnv("ALCOVES_MODE", "all"),
 		Environment: getEnv("ALCOVES_ENV", "development"),
+
+		SeedEnabled: getEnv("ALCOVES_SEED", "") == "true",
 
 		SessionSecret: sessionSecret,
 

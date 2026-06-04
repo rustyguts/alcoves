@@ -33,6 +33,10 @@ services:
       - ALCOVES_QUEUE_HOST=dragonfly
       - ALCOVES_QUEUE_PORT=6379
       - LD_LIBRARY_PATH=/usr/local/lib
+      # Load dev/test seed data when the database is empty (see internal/seed).
+      # Safe on every boot: it no-ops once any user exists. Local-dev only —
+      # never set in real deployments, so real first-time setups are untouched.
+      - ALCOVES_SEED=true
     env_file:
       - .env
     volumes:
