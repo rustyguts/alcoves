@@ -3,12 +3,8 @@
 baseUrl: https://alcoves.example.com
 
 image:
-  backend:
-    repository: ghcr.io/yourorg/alcoves-backend
-    tag: "v0.1.0"
-  frontend:
-    repository: ghcr.io/yourorg/alcoves-frontend
-    tag: "v0.1.0"
+  repository: ghcr.io/rustyguts/alcoves
+  tag: "0.20.0"
 
 # Generate: openssl rand -base64 48
 sessionSecret: "REPLACE_WITH_32+_BYTE_KEY"

@@ -78,13 +78,14 @@ Navigate to [http://localhost:3000](http://localhost:3000) and register your fir
 
 ### Using the Container Image
 
-The published image `ghcr.io/rustyguts/alcoves:latest` is the **Go API backend only** — the Nuxt frontend ships as a separate image (built from `frontend/Dockerfile`). For a working setup you need both.
+The published image `ghcr.io/rustyguts/alcoves:latest` is a **single unified image that runs the whole stack** — the Go API, the async worker, and the Nuxt (Nitro) frontend. By default it supervises all of them in one container.
 
-If you already have PostgreSQL and Dragonfly (Redis) running, the simplest path is still `docker compose up` against the included `docker-compose.yml`. To run the API container standalone (for example, behind your own reverse proxy that already serves a built frontend):
+If you already have PostgreSQL and Dragonfly (Redis) running, you can run the entire app with one container:
 
 ```bash
 docker run -d \
-  --name alcoves-api \
+  --name alcoves \
+  -p 3000:3000 \
   -p 3001:3001 \
   -e ALCOVES_DATABASE_URL="postgres://user:password@your-db-host:5432/alcoves?sslmode=disable" \
   -e ALCOVES_SESSION_SECRET="your-secret-key-at-least-32-characters-long" \
@@ -93,72 +94,22 @@ docker run -d \
   ghcr.io/rustyguts/alcoves:latest
 ```
 
-The API serves on port 3001. Point your reverse proxy (or the Nuxt frontend's `ALCOVES_API_URL`) at it, and route browser traffic to the Nuxt server on port 3000.
+Open [http://localhost:3000](http://localhost:3000): the Nitro server serves the UI and proxies `/api/**` to the co-located Go API on port 3001. Port 3000 alone is enough to get going. In production, front the container with a reverse proxy that routes `/api/**` directly to port 3001 (and set `NUXT_PUBLIC_API_ORIGIN` to your public origin) so video and large downloads stream straight from the API instead of through Nitro.
+
+To split roles across containers (e.g. scale the worker separately), pass a role as the command: `web`, `api`, or `worker` — for example `docker run … ghcr.io/rustyguts/alcoves:latest worker`.
 
 ### Docker Compose (Production)
 
-For production deployments, run the API + a separately-built frontend image alongside Postgres and Dragonfly. Build the frontend image once from `frontend/Dockerfile` (e.g. `docker build -t alcoves-frontend ./frontend`) and reference it below as `image: alcoves-frontend`. Put both `frontend` (port 3000) and `api` (port 3001) behind one reverse proxy in front, with `/api/**` and `/s/**` routed to `api` and everything else to `frontend`.
-
-```yaml
-services:
-  api:
-    image: ghcr.io/rustyguts/alcoves:latest
-    environment:
-      - ALCOVES_DATABASE_URL=postgres://postgres:change-me@postgres:5432/alcoves?sslmode=disable
-      - ALCOVES_SESSION_SECRET=change-me-to-a-random-string-at-least-32-chars
-      - ALCOVES_QUEUE_HOST=dragonfly
-      - ALCOVES_BASE_URL=https://alcoves.example.com
-    volumes:
-      - alcoves_data:/app/data
-    expose:
-      - "3001"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      dragonfly:
-        condition: service_healthy
-    restart: unless-stopped
-
-  frontend:
-    image: alcoves-frontend # built locally from ./frontend/Dockerfile
-    environment:
-      - NITRO_HOST=0.0.0.0
-      - NITRO_PORT=3000
-      - ALCOVES_API_URL=http://api:3001
-    expose:
-      - "3000"
-    depends_on:
-      - api
-    restart: unless-stopped
-
-  postgres:
-    image: pgvector/pgvector:pg18
-    environment:
-      - POSTGRES_DB=alcoves
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=change-me
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  dragonfly:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
-    command: ["dragonfly", "--default_lua_flags=allow-undeclared-keys"]
-    restart: unless-stopped
-
-volumes:
-  alcoves_data:
-  postgres_data:
-```
+For production deployments, run the single unified image alongside Postgres and Dragonfly. The repo ships a ready-to-edit [`docker-compose.prod.yml`](docker-compose.prod.yml) that does exactly this — one `app` container running the whole stack:
 
 ```bash
+# Edit the change-me values (session secret, DB password) first.
 docker compose -f docker-compose.prod.yml up -d
 ```
+
+The compose file publishes port 3000 (Nitro — UI, SSR share pages, and the `/api` proxy) and port 3001 (the Go API, for direct binary streaming). Front it with a reverse proxy that terminates TLS, routes `/api/**` to port 3001, and routes everything else to port 3000; set `NUXT_PUBLIC_API_ORIGIN` to your public origin so video and large downloads stream directly from the API.
+
+To split roles across containers (independent scaling), run the same image multiple times with `command: ["web"]`, `command: ["api"]`, and `command: ["worker"]` — point each `ALCOVES_API_URL`/ingress accordingly. For Kubernetes, the [Helm chart](helm/alcoves/) already does this split out of the box.
 
 ## Kubernetes (Helm)
 
@@ -337,10 +288,12 @@ alcoves/
 │   │   └── utils/              # Shared utilities
 │   ├── shared/types/           # API response type definitions
 │   ├── test/                   # Unit (Vitest) + E2E (Playwright) tests
-│   └── Dockerfile              # Production frontend image (separate from backend)
-├── helm/alcoves/               # Helm chart (frontend + backend-api + backend-worker)
+│   └── Dockerfile.dev          # Dev frontend image (Bun + hot reload)
+├── docker/entrypoint.sh        # Unified-image supervisor (all | web | api | worker)
+├── helm/alcoves/               # Helm chart (frontend + backend-api + backend-worker, one image)
 ├── docker-compose.yml          # Development environment (frontend + backend + db + queue)
-└── Dockerfile                  # Backend-only production image (Go API + workers)
+├── docker-compose.prod.yml     # Production: single unified image + Postgres + Dragonfly
+└── Dockerfile                  # Unified production image (Go API + worker + Nuxt/Nitro)
 ```
 
 ## Contributing

@@ -3,10 +3,11 @@ title: "Deploying Alcoves"
 description: "Docker images, Helm chart, environment variables, and operational tips for running Alcoves in production."
 ---
 
-Alcoves ships as two Docker images — a Go API backend and a Nuxt frontend — plus
-two external data stores. This page covers everything an operator needs to run a
-production instance: the runtime topology, the Helm chart, environment variables,
-ingress configuration, and the most important operational gotchas.
+Alcoves ships as a **single Docker image** that runs the whole stack — the Go
+API, the async worker, and the Nuxt (Nitro) frontend — plus two external data
+stores (PostgreSQL and Dragonfly). This page covers everything an operator needs
+to run a production instance: the runtime topology, the Helm chart, environment
+variables, ingress configuration, and the most important operational gotchas.
 
 :::tip
 Looking to get started quickly? The [Quickstart](/getting-started/quickstart/)
@@ -17,21 +18,26 @@ guide gets a full local stack running with a single `docker compose up`.
 
 ## Runtime topology
 
-A production Alcoves deployment has four moving parts:
+A production Alcoves deployment runs **two processes** (the Nitro frontend and
+the Go API/worker) plus two external data stores. Both processes live inside the
+**same image** — the container's entrypoint supervises them together:
 
 ```
                       ┌──────────────────────────────────────────┐
-   browser ──────────▶│         reverse proxy / ingress          │
-                      │  /api/**  + /s/**  ──▶  Go API  :3001    │
-                      │  /        (everything else) ──▶  Nuxt :3000 │
+   browser ──────────▶│        reverse proxy / ingress           │
+                      │  /api/**          ──▶  Go API   :3001     │
+                      │  /  (everything else, incl. /s/**) ─▶ Nitro :3000 │
                       └─────────────┬───────────────┬────────────┘
                                     │               │
-                       ┌────────────▼─────┐  ┌──────▼──────────────┐
-                       │  Nuxt 4 (Nitro)  │  │  Go API (Echo)      │
-                       │  :3000           │  │  :3001              │
-                       │  UI + SSR share  │  │  ALCOVES_MODE=      │
-                       │  pages (/s/**)   │  │  all | api | worker │
-                       └──────────────────┘  └──────┬───────┬──────┘
+              ┌─────────────────────┴───────────────┴─────────────────────┐
+              │           one container (ghcr.io/rustyguts/alcoves)        │
+              │  ┌────────────────────┐      ┌────────────────────────┐    │
+              │  │  Nuxt 4 (Nitro)    │      │  Go API/worker (Echo)  │    │
+              │  │  :3000             │      │  :3001                 │    │
+              │  │  UI + SSR /s/**    │ ───▶ │  ALCOVES_MODE=         │    │
+              │  │  + /api proxy      │      │  all | api | worker    │    │
+              │  └────────────────────┘      └──────┬───────┬─────────┘    │
+              └─────────────────────────────────────┼───────┼─────────────┘
                                                     │       │
                                    ┌────────────────▼──┐  ┌─▼──────────────────┐
                                    │  PostgreSQL 18     │  │  Dragonfly (Redis) │
@@ -42,14 +48,23 @@ A production Alcoves deployment has four moving parts:
 
 | Process | Default port | Role |
 |---|---|---|
-| Nuxt 4 (Nitro) | 3000 | Serves the UI. SSR is scoped to `/s/**` (public share pages); all other routes are client-rendered. |
+| Nuxt 4 (Nitro) | 3000 | Serves the UI, SSRs `/s/**` (public share pages), and proxies `/api/**` to the Go API. All other routes are client-rendered. |
 | Go API (Echo) | 3001 | All `/api/**` HTTP endpoints and the async worker pool. |
 | PostgreSQL 18 + pgvector | 5432 | System of record. pgvector is required from the first migration (512-dim face embeddings). |
 | Dragonfly (Redis-compatible) | 6379 prod / 6389 dev | Backs the Asynq job queue and the cross-process activity pub/sub bus. |
 
-**Routing contract:** put both processes behind one reverse proxy. Route `/api/**`
-and `/s/**` to the Go service on `:3001`; route everything else (including SSR
-share landing pages) to the Nuxt server on `:3000`.
+**Single-image quick start:** `docker run -p 3000:3000 ghcr.io/rustyguts/alcoves`
+runs the whole stack. Nitro serves the UI on `:3000` and proxies `/api/**` to the
+co-located Go API on `127.0.0.1:3001`, so a single published port is enough to get
+going.
+
+**Routing contract (production):** front the container with one reverse proxy.
+Route `/api/**` to the Go API on `:3001` and everything else (including the SSR
+share pages at `/s/**`) to the Nitro server on `:3000`. Routing `/api/**` straight
+to `:3001` — rather than letting Nitro proxy it — is what keeps video `Range`
+streaming intact (see [Direct browser streaming](#direct-browser-streaming-in-production)).
+Publishing `:3001` from the same container makes this possible without a second
+image.
 
 ### `ALCOVES_MODE` — one image, three roles
 
@@ -73,25 +88,43 @@ without a separate migration step. Trigger a rolling upgrade with
 
 ---
 
-## Docker images
+## Docker image
 
-Two images are published to GitHub Container Registry on every tagged release:
+A single unified image is published to GitHub Container Registry on every tagged
+release:
 
 | Image | Source | Purpose |
 |---|---|---|
-| `ghcr.io/rustyguts/alcoves:<version>` | root `Dockerfile` | Go API binary with libvips, ffmpeg, ONNX Runtime, and whisper.cpp |
-| `ghcr.io/rustyguts/alcoves-frontend:<version>` | `frontend/Dockerfile` | Nuxt Nitro server (production build) |
+| `ghcr.io/rustyguts/alcoves:<version>` | root `Dockerfile` | The whole stack — Go API/worker (libvips, ffmpeg, ONNX Runtime, whisper.cpp) **and** the Nuxt (Nitro) frontend, plus the Bun runtime that serves it |
 
 Tags follow semver: `0.x.y`, `0.x`, and `latest` (from `main`).
 
-### What is inside the backend image
+### One image, four roles
 
-The backend image bundles all runtime dependencies for CPU-only ML inference:
+The container's entrypoint takes a role argument (the image `CMD`, overridable via
+`docker run … <role>` or a Kubernetes `args`):
+
+| Role | What runs |
+|---|---|
+| `all` (default) | Nitro (`:3000`) **and** the Go API+worker (`:3001`), supervised together. The simplest way to run everything in one container. |
+| `web` | Only the Nitro server (UI + SSR share pages). |
+| `api` | Only the Go HTTP API (`ALCOVES_MODE=api`). |
+| `worker` | Only the Go Asynq worker (`ALCOVES_MODE=worker`). |
+
+The single-role modes exist so the same image can back split deployments — see the
+[Helm chart](#helm-chart), which runs `web`, `api`, and `worker` as three separate
+workloads from this one image.
+
+### What is inside the image
+
+The image bundles all runtime dependencies for CPU-only ML inference plus the
+frontend:
 
 - **libvips** — image transforms, thumbnails, and proxy resizing
 - **ffmpeg** — video transcoding, thumbnail extraction, and audio waveform generation
 - **ONNX Runtime v1.26.0** — face detection/recognition and COCO object detection
 - **whisper.cpp** — speech-to-text transcription (AVX/AVX2/FMA baseline; no AVX-512 requirement)
+- **Bun + the Nuxt `.output` bundle** — serves the UI and SSRs the public share pages
 
 :::note
 Whisper and audio-tagger models are **not bundled** in the image. They are
@@ -241,16 +274,17 @@ The Helm chart (`helm/alcoves/`) deploys Alcoves to Kubernetes. It does
 
 ### Workloads
 
-The chart deploys three separate workloads from two images:
+The chart deploys three separate workloads, all from the **one unified image**.
+Each selects its role via container `args`:
 
-| Workload | Mode | Default replicas | Purpose |
+| Workload | Role (`args`) | Default replicas | Purpose |
 |---|---|---|---|
 | `backend-api` | `api` | 2 | Serves all HTTP requests |
 | `backend-worker` | `worker` | 1 | Runs Asynq jobs (ML inference, ffmpeg, transcription) |
-| `frontend` | — | 2 | Nuxt Nitro server |
+| `frontend` | `web` | 2 | Nuxt Nitro server |
 
-The API and worker use the **same image** — `ALCOVES_MODE` selects behavior.
-This means rolling out a new version is a single image bump for both.
+All three pull the **same image** and differ only by role — so rolling out a new
+version is a single `image.tag` bump for the entire app.
 
 ### Resource allocation
 

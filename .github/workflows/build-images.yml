@@ -1,7 +1,7 @@
 name: Build Images
 
-# Reusable workflow: builds the backend + frontend Docker images and
-# (optionally) pushes them to GHCR. Called by:
+# Reusable workflow: builds the single unified Alcoves Docker image (Go API +
+# worker + Nuxt/Nitro frontend) and (optionally) pushes it to GHCR. Called by:
 #   - publish.yml         → branch / PR / manual-tag builds
 #   - release-please.yml  → release builds (version_tags: true), so the
 #                           X.Y.Z / X.Y tags get published on every release
@@ -28,16 +28,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: ${{ github.repository }}
-            context: .
-            file: ./Dockerfile
-          - image: ${{ github.repository }}-frontend
-            context: ./frontend
-            file: ./frontend/Dockerfile
 
     steps:
       - name: Checkout repository
@@ -62,7 +52,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ matrix.image }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
           # The semver lines only fire when the ref is a tag (manual `v*`
           # push). The raw lines fire when version_tags is requested — that's
           # how release merges (which run on the `main` branch ref) still get
@@ -78,8 +68,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
+          context: .
+          file: ./Dockerfile
           push: ${{ inputs.push }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -55,16 +55,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*
-Image reference helpers.
+Image reference helper. One unified image runs every role (web | api | worker);
+the workload templates select the role via the container `args`.
 */}}
-{{- define "alcoves.backend.image" -}}
-{{- $tag := default .Chart.AppVersion .Values.image.backend.tag -}}
-{{ printf "%s:%s" .Values.image.backend.repository $tag }}
-{{- end -}}
-
-{{- define "alcoves.frontend.image" -}}
-{{- $tag := default .Chart.AppVersion .Values.image.frontend.tag -}}
-{{ printf "%s:%s" .Values.image.frontend.repository $tag }}
+{{- define "alcoves.image" -}}
+{{- $tag := default .Chart.AppVersion .Values.image.tag -}}
+{{ printf "%s:%s" .Values.image.repository $tag }}
 {{- end -}}
 
 {{/*

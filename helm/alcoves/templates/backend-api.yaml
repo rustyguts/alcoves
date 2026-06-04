@@ -33,8 +33,10 @@ spec:
       {{- end }}
       containers:
         - name: api
-          image: {{ include "alcoves.backend.image" . }}
-          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          image: {{ include "alcoves.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Unified image, api role: run only the Go HTTP API (ALCOVES_MODE=api).
+          args: ["api"]
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

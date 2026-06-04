@@ -1,15 +1,38 @@
+# Build context excludes for the unified image (build context = repo root).
+# The Dockerfile COPYs both backend/ and frontend/ source, so keep those trees
+# but drop everything that is large, generated, secret, or build-host-specific.
+
 .git
 .github
 .vscode
+.claude
 
-.nuxt
-.output
-dist
+# Node / Nuxt build artifacts at any depth (the frontend lives under frontend/).
+**/node_modules
+**/.nuxt
+**/.output
+**/dist
+
+# Test + coverage output
+**/coverage
+**/playwright-report
+**/test-results
+**/.nyc_output
+
+# Go build output
+backend/bin
+backend/tmp
+
+# Not needed inside the app image
+website
+docs
+helm
+models
 node_modules
 
-coverage
-playwright-report
-test-results
-
+# Local runtime data, secrets, and logs
 data
-*.log
+.env
+tmp
+**/*.log
+**/.DS_Store
