@@ -2,7 +2,8 @@
 import logo from '../../assets/logo.webp';
 
 const REPO = 'https://github.com/rustyguts/alcoves';
-const year = 2026;
+// Computed at build time so the copyright never goes stale.
+const year = new Date().getFullYear();
 ---
 
 <footer class="footer">
@@ -29,15 +30,15 @@ const year = 2026;
 
 			<div class="foot-col">
 				<h4>Concepts</h4>
-				<a href="/concepts/architecture/">Architecture</a>
+				<a href="/architecture/overview/">Architecture</a>
 				<a href="/concepts/privacy-and-local-ai/">Privacy & local AI</a>
 			</div>
 
 			<div class="foot-col">
 				<h4>Project</h4>
-				<a href={REPO} target="_blank" rel="noopener">GitHub</a>
-				<a href={`${REPO}/blob/main/docs/vision.md`} target="_blank" rel="noopener">Vision</a>
-				<a href={`${REPO}/releases`} target="_blank" rel="noopener">Releases</a>
+				<a href={REPO} target="_blank" rel="noopener noreferrer">GitHub</a>
+				<a href={`${REPO}/blob/main/docs/vision.md`} target="_blank" rel="noopener noreferrer">Vision</a>
+				<a href={`${REPO}/releases`} target="_blank" rel="noopener noreferrer">Releases</a>
 			</div>
 		</div>
 

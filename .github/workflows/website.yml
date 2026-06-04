@@ -17,11 +17,6 @@ on:
       - '.github/workflows/website.yml'
   workflow_dispatch:
 
-# Allow one concurrent Pages deployment; cancel superseded in-progress runs.
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 permissions:
   contents: read
   pages: write
@@ -30,11 +25,16 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Cancel superseded builds for the same ref, but never a `main` deployment
+    # (the deploy job has its own `pages` group below).
+    concurrency:
+      group: website-build-${{ github.ref }}
+      cancel-in-progress: true
     defaults:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -57,10 +57,15 @@ jobs:
       - name: Build
         run: bun run build
 
+      # The Pages steps need `pages: write` / `id-token: write`, which aren't
+      # granted to forked-PR runs — so only run them when actually deploying
+      # (push to main). PRs stop after the build above for validation.
       - name: Configure GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4
         with:
           # `path` is resolved from the repo root, NOT the job working-directory.
@@ -71,6 +76,10 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    # Serialize deployments; never cancel an in-progress publish.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

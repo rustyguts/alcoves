@@ -43,12 +43,18 @@ docker compose up
 
 This brings up four services:
 
-| Service     | Port   | Purpose                                  |
-| ----------- | ------ | ---------------------------------------- |
-| Frontend    | `3000` | Nuxt (Nitro) server                      |
-| Backend API | `3001` | Go API + worker (`ALCOVES_MODE=all`)     |
-| PostgreSQL  | `5432` | Primary database (Goose migrations)      |
-| Dragonfly   | `6389` | Redis-compatible async job queue (Asynq) |
+| Service     | Host port  | Purpose                                                         |
+| ----------- | ---------- | -------------------------------------------------------------- |
+| Frontend    | `3000`     | Nuxt (Nitro) server — open this in your browser                |
+| Backend API | `3001`     | Go API + worker (`ALCOVES_MODE=all`)                           |
+| Dragonfly   | `6389`     | Redis-compatible async job queue (Asynq)                       |
+| PostgreSQL  | _internal_ | Primary database; reachable in-network at `postgres:5432` only |
+
+:::note
+PostgreSQL is **not** published to the host by the default `docker-compose.yml` —
+it's only reachable from the other containers (at `postgres:5432`). If you want to
+connect from your machine, add a `ports:` mapping to the `postgres` service.
+:::
 
 Goose migrations run automatically on startup, so the schema is ready the first
 time the API boots.
@@ -87,5 +93,5 @@ bun run dev
 ## Next steps
 
 - [Configuration](/getting-started/configuration/) — every `ALCOVES_*` knob.
-- [Architecture](/concepts/architecture/) — how the pieces fit together.
+- [Architecture overview](/architecture/overview/) — how the pieces fit together.
 - [Privacy & local AI](/concepts/privacy-and-local-ai/) — how inference stays on your box.

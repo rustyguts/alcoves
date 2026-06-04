@@ -44,7 +44,8 @@ const ogImage = new URL('og-image.png', Astro.site);
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
 
-		<meta name="theme-color" content="#08080a" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#08080a" />
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa" />
 
 		<!-- Set theme before paint to avoid a flash. -->
 		<script is:inline>
@@ -73,13 +74,22 @@ const ogImage = new URL('og-image.png', Astro.site);
 			window.addEventListener('scroll', onScroll, { passive: true });
 
 			// Theme toggle (persists to localStorage; matches the no-FOUC script key).
-			document.querySelector('.theme-toggle')?.addEventListener('click', () => {
+			// aria-pressed reflects whether dark mode is active, for assistive tech.
+			const themeToggle = document.querySelector('.theme-toggle');
+			const syncTogglePressed = () =>
+				themeToggle?.setAttribute(
+					'aria-pressed',
+					String(document.documentElement.dataset.theme === 'dark'),
+				);
+			syncTogglePressed();
+			themeToggle?.addEventListener('click', () => {
 				const root = document.documentElement;
 				const next = root.dataset.theme === 'light' ? 'dark' : 'light';
 				root.dataset.theme = next;
 				try {
 					localStorage.setItem('alcoves-theme', next);
 				} catch (_) {}
+				syncTogglePressed();
 			});
 
 			// Scroll-reveal.

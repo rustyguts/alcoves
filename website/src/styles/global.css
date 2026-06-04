@@ -46,6 +46,12 @@ html {
 	scroll-behavior: smooth;
 }
 
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+}
+
 /* Brand gradient used on the docs hero link cards and accents. */
 .sl-markdown-content a:not(:where(.not-content *)) {
 	text-underline-offset: 0.2em;
