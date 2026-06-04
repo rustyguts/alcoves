@@ -20,13 +20,13 @@ RUN ARCH=$(dpkg --print-architecture) && \
     else \
       ONNX_ARCH="x64"; \
     fi && \
-    wget -q https://github.com/microsoft/onnxruntime/releases/download/v1.24.1/onnxruntime-linux-${ONNX_ARCH}-1.24.1.tgz && \
-    tar -xzf onnxruntime-linux-${ONNX_ARCH}-1.24.1.tgz && \
-    cp -r onnxruntime-linux-${ONNX_ARCH}-1.24.1/lib/* /usr/local/lib/ && \
-    cp -r onnxruntime-linux-${ONNX_ARCH}-1.24.1/include/* /usr/local/include/ && \
+    wget -q https://github.com/microsoft/onnxruntime/releases/download/v1.25.0/onnxruntime-linux-${ONNX_ARCH}-1.25.0.tgz && \
+    tar -xzf onnxruntime-linux-${ONNX_ARCH}-1.25.0.tgz && \
+    cp -r onnxruntime-linux-${ONNX_ARCH}-1.25.0/lib/* /usr/local/lib/ && \
+    cp -r onnxruntime-linux-${ONNX_ARCH}-1.25.0/include/* /usr/local/include/ && \
     strip --strip-unneeded /usr/local/lib/libonnxruntime*.so* || true && \
     ldconfig && \
-    rm -rf onnxruntime-linux-${ONNX_ARCH}-1.24.1*
+    rm -rf onnxruntime-linux-${ONNX_ARCH}-1.25.0*
 
 WORKDIR /backend
 COPY backend/go.mod backend/go.sum ./

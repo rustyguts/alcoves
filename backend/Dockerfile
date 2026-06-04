@@ -19,13 +19,13 @@ RUN ARCH=$(dpkg --print-architecture) && \
     else \
         ONNX_ARCH="x64"; \
     fi && \
-    wget https://github.com/microsoft/onnxruntime/releases/download/v1.24.1/onnxruntime-linux-${ONNX_ARCH}-1.24.1.tgz && \
-    tar -xzf onnxruntime-linux-${ONNX_ARCH}-1.24.1.tgz && \
-    cp -r onnxruntime-linux-${ONNX_ARCH}-1.24.1/lib/* /usr/local/lib/ && \
-    cp -r onnxruntime-linux-${ONNX_ARCH}-1.24.1/include/* /usr/local/include/ && \
+    wget https://github.com/microsoft/onnxruntime/releases/download/v1.25.0/onnxruntime-linux-${ONNX_ARCH}-1.25.0.tgz && \
+    tar -xzf onnxruntime-linux-${ONNX_ARCH}-1.25.0.tgz && \
+    cp -r onnxruntime-linux-${ONNX_ARCH}-1.25.0/lib/* /usr/local/lib/ && \
+    cp -r onnxruntime-linux-${ONNX_ARCH}-1.25.0/include/* /usr/local/include/ && \
     ln -sf /usr/local/lib/libonnxruntime.so /usr/local/lib/onnxruntime.so && \
     ldconfig && \
-    rm -rf onnxruntime-linux-${ONNX_ARCH}-1.24.1*
+    rm -rf onnxruntime-linux-${ONNX_ARCH}-1.25.0*
 
 # Build whisper.cpp (whisper-cli) for transcription. Models are downloaded at runtime.
 #
