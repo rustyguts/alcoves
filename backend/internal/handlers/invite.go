@@ -125,10 +125,15 @@ func (h *InviteHandler) Accept(c echo.Context) error {
 	result, err := invites.Redeem(h.db, invite, userID)
 	if err != nil {
 		if errors.Is(err, invites.ErrAlreadyMember) {
-			return c.JSON(http.StatusOK, map[string]interface{}{
-				"libraryId": invite.LibraryID.String(),
-				"role":      "owner",
-			})
+			var lib models.Library
+			if dbErr := h.db.Select("owner_id").Where("id = ?", invite.LibraryID).First(&lib).Error; dbErr == nil && lib.OwnerID == userID {
+				return c.JSON(http.StatusOK, map[string]interface{}{"libraryId": invite.LibraryID.String(), "role": "owner"})
+			}
+			var member models.LibraryMember
+			if dbErr := h.db.Where("library_id = ? AND user_id = ?", invite.LibraryID, userID).First(&member).Error; dbErr == nil {
+				return c.JSON(http.StatusOK, map[string]interface{}{"libraryId": invite.LibraryID.String(), "role": member.Role})
+			}
+			return c.JSON(http.StatusOK, map[string]interface{}{"libraryId": invite.LibraryID.String(), "role": "viewer"})
 		}
 		if errors.Is(err, invites.ErrExhausted) {
 			return echo.NewHTTPError(http.StatusGone, "Invite has no remaining uses")

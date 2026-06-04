@@ -179,15 +179,37 @@ func (h *TagHandler) SyncFileTags(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
 	}
 
-	// Delete existing tags
-	h.db.Where("file_id = ?", fileID).Delete(&models.FileTag{})
+	parsedFileID, err := uuid.Parse(fileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid file ID")
+	}
 
-	// Insert new tags
+	// Parse all tag IDs up front so we can fail fast before touching the DB.
+	parsedTagIDs := make([]uuid.UUID, 0, len(req.TagIDs))
 	for _, tagID := range req.TagIDs {
-		h.db.Create(&models.FileTag{
-			FileID: uuid.MustParse(fileID),
-			TagID:  uuid.MustParse(tagID),
-		})
+		tid, err := uuid.Parse(tagID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "Invalid tag ID: "+tagID)
+		}
+		parsedTagIDs = append(parsedTagIDs, tid)
+	}
+
+	// Delete + insert atomically so a failed insert never leaves tags half-written.
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("file_id = ?", parsedFileID).Delete(&models.FileTag{}).Error; err != nil {
+			return err
+		}
+		for _, tid := range parsedTagIDs {
+			if err := tx.Create(&models.FileTag{
+				FileID: parsedFileID,
+				TagID:  tid,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to sync tags")
 	}
 
 	// Return updated tags
@@ -219,13 +241,37 @@ func (h *TagHandler) SyncFolderTags(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Folder not found")
 	}
 
-	h.db.Where("folder_id = ?", folderID).Delete(&models.FolderTag{})
+	parsedFolderID, err := uuid.Parse(folderID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid folder ID")
+	}
 
+	// Parse all tag IDs up front so we can fail fast before touching the DB.
+	parsedTagIDs := make([]uuid.UUID, 0, len(req.TagIDs))
 	for _, tagID := range req.TagIDs {
-		h.db.Create(&models.FolderTag{
-			FolderID: uuid.MustParse(folderID),
-			TagID:    uuid.MustParse(tagID),
-		})
+		tid, err := uuid.Parse(tagID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "Invalid tag ID: "+tagID)
+		}
+		parsedTagIDs = append(parsedTagIDs, tid)
+	}
+
+	// Delete + insert atomically so a failed insert never leaves tags half-written.
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("folder_id = ?", parsedFolderID).Delete(&models.FolderTag{}).Error; err != nil {
+			return err
+		}
+		for _, tid := range parsedTagIDs {
+			if err := tx.Create(&models.FolderTag{
+				FolderID: parsedFolderID,
+				TagID:    tid,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to sync tags")
 	}
 
 	var tags []models.Tag

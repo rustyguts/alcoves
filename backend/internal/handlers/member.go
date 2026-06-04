@@ -58,9 +58,13 @@ func (h *MemberHandler) ListUsers(c echo.Context) error {
 
 	// Get owner
 	var library models.Library
-	h.db.Select("owner_id").Where("id = ?", libraryID).First(&library)
+	if err := h.db.Select("owner_id").Where("id = ?", libraryID).First(&library).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load library")
+	}
 	var owner models.User
-	h.db.Select("id, email, display_name, avatar_url").Where("id = ?", library.OwnerID).First(&owner)
+	if err := h.db.Select("id, email, display_name, avatar_url").Where("id = ?", library.OwnerID).First(&owner).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load library owner")
+	}
 
 	// Build member list with owner first
 	memberList := []map[string]interface{}{

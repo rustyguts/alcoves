@@ -440,11 +440,13 @@ func (h *MomentHandler) Export(c echo.Context) error {
 	queued := "queued"
 	zero := 0
 	now := time.Now()
-	h.db.Model(&models.Moment{}).Where("id = ?", moment.ID).Updates(map[string]interface{}{
+	if err := h.db.Model(&models.Moment{}).Where("id = ?", moment.ID).Updates(map[string]interface{}{
 		"export_status":   &queued,
 		"export_progress": &zero,
 		"updated_at":      now,
-	})
+	}).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update export status")
+	}
 
 	if h.momentExport != nil {
 		if err := h.momentExport.Enqueue(
