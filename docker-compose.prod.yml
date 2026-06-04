@@ -1,0 +1,82 @@
+# Production-style Compose for the unified Alcoves image.
+#
+# A single application container runs the whole stack — Nuxt (Nitro) on :3000
+# and the Go API + worker on :3001 — alongside Postgres (pgvector) and
+# Dragonfly. For real deployments put a TLS-terminating reverse proxy in front;
+# this file publishes the app ports directly for a quick start.
+#
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Then open http://localhost:3000 and register the first (owner) account.
+#
+# NOTE: replace every "change-me" value before exposing this to a network.
+# Generate the session secret with: openssl rand -base64 48
+
+services:
+  app:
+    image: ghcr.io/rustyguts/alcoves:latest
+    # The default command ("all") runs Nitro + Go (API + worker) together.
+    # To split roles across containers, override with: command: ["web"|"api"|"worker"]
+    environment:
+      - ALCOVES_DATABASE_URL=postgres://postgres:change-me@postgres:5432/alcoves?sslmode=disable
+      - ALCOVES_SESSION_SECRET=change-me-to-a-random-string-at-least-32-chars
+      - ALCOVES_QUEUE_HOST=dragonfly
+      - ALCOVES_QUEUE_PORT=6379
+      - ALCOVES_BASE_URL=http://localhost:3000
+      # Production behind a reverse proxy: set this to your public origin so the
+      # browser streams video/large files straight from the Go API (:3001),
+      # bypassing Nitro's proxy (which can mangle HTTP Range responses).
+      # - NUXT_PUBLIC_API_ORIGIN=https://alcoves.example.com
+    volumes:
+      - alcoves_data:/app/data
+    ports:
+      - "3000:3000"   # Nitro — UI, SSR share pages, /api proxy
+      - "3001:3001"   # Go API — direct binary streaming (optional to publish)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dragonfly:
+        condition: service_healthy
+    # Default "all" role: Nitro on :3000 must be up AND proxy /api/health through
+    # to the Go API, so this one probe covers both processes. Override per-service
+    # if you split roles (api/worker should probe :3001/api/health instead).
+    healthcheck:
+      test:
+        - "CMD"
+        - "bun"
+        - "-e"
+        - "await fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg18
+    environment:
+      - POSTGRES_DB=alcoves
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=change-me
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    command: ["dragonfly", "--default_lua_flags=allow-undeclared-keys"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  alcoves_data:
+  postgres_data:

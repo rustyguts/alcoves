@@ -33,8 +33,10 @@ spec:
       {{- end }}
       containers:
         - name: frontend
-          image: {{ include "alcoves.frontend.image" . }}
-          imagePullPolicy: {{ .Values.image.frontend.pullPolicy }}
+          image: {{ include "alcoves.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Unified image, frontend role: run only the Nuxt (Nitro) server.
+          args: ["web"]
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

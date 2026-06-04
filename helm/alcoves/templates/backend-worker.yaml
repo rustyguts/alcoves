@@ -33,8 +33,10 @@ spec:
       {{- end }}
       containers:
         - name: worker
-          image: {{ include "alcoves.backend.image" . }}
-          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          image: {{ include "alcoves.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Unified image, worker role: run only the Asynq worker (ALCOVES_MODE=worker).
+          args: ["worker"]
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

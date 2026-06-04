@@ -1,17 +1,15 @@
 # Alcoves Helm values. Override anything here via -f my-values.yaml or --set.
 
 # =============================================================================
-# Images
+# Image
 # =============================================================================
+# One unified image runs every role. The three workloads below (frontend, api,
+# worker) all pull this same image and select their role via container args
+# (web | api | worker) — so a version upgrade is a single image bump.
 image:
-  backend:
-    repository: ghcr.io/yourorg/alcoves-backend
-    tag: ""              # defaults to .Chart.AppVersion
-    pullPolicy: IfNotPresent
-  frontend:
-    repository: ghcr.io/yourorg/alcoves-frontend
-    tag: ""
-    pullPolicy: IfNotPresent
+  repository: ghcr.io/rustyguts/alcoves
+  tag: ""                # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 

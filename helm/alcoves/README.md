@@ -31,19 +31,29 @@ helm/alcoves/
 - A storage backend:
   - `ReadWriteMany` PVC (NFS, CephFS, Longhorn RWX, etc.) for `storage.driver=local`, **or**
   - S3-compatible bucket for `storage.driver=s3`.
-- Container images for backend + frontend pushed to a registry the cluster can pull from.
+- The unified container image pushed to a registry the cluster can pull from
+  (published as `ghcr.io/rustyguts/alcoves` by CI on every tagged release).
 
-## Build + push images
+## Image
+
+The chart deploys three workloads — `frontend`, `api`, and `worker` — that all
+pull the **same** unified image and select their role via container `args`
+(`web` / `api` / `worker`). Upgrading is a single `image.tag` bump.
 
 ```bash
-# from repo root
-docker build -t ghcr.io/yourorg/alcoves-backend:v0.1.0 .
-docker build -t ghcr.io/yourorg/alcoves-frontend:v0.1.0 ./frontend
-docker push ghcr.io/yourorg/alcoves-backend:v0.1.0
-docker push ghcr.io/yourorg/alcoves-frontend:v0.1.0
+# Use the published image (recommended):
+#   image.repository: ghcr.io/rustyguts/alcoves
+#   image.tag:        0.20.0
+#
+# Or build + push it yourself from the repo root:
+docker build -t ghcr.io/yourorg/alcoves:0.20.0 .
+docker push ghcr.io/yourorg/alcoves:0.20.0
 ```
 
-The backend image bakes in `ffmpeg`, ONNX Runtime, and `whisper-cli` (whisper.cpp). Models (Whisper, PANNs, YOLO, InsightFace) are *not* baked in — they auto-download to `/app/data/.whisper` and `/app/data/.models` on first job from the URLs in `values.yaml > models`.
+The image bakes in `ffmpeg`, ONNX Runtime, `whisper-cli` (whisper.cpp), and the
+Nuxt (Nitro) frontend. Models (Whisper, PANNs, YOLO, InsightFace) are *not* baked
+in — they auto-download to `/app/data/.whisper` and `/app/data/.models` on first
+job from the URLs in `values.yaml > models`.
 
 ## Install
 

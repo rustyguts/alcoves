@@ -63,6 +63,8 @@ It has:
 
 **Deploy topology**: Nuxt Nitro server on :3000 + Go API on :3001. Nuxt proxies `/api/**` and `/s/**` to Go in dev; in prod, put both behind the same reverse proxy. The Go binary no longer embeds the frontend.
 
+**Production image**: a single unified image (root `Dockerfile`, published as `ghcr.io/rustyguts/alcoves`) bundles the Go API/worker **and** the Nuxt/Nitro frontend (via a copied Bun binary + `.output`). Its entrypoint (`docker/entrypoint.sh`) supervises both processes; a role arg (`all` default | `web` | `api` | `worker`) lets the same image run the whole stack or one role. `tini` is PID 1. The Helm chart's three workloads (`frontend`/`api`/`worker`) all pull this one image and set `args` to pick a role. Dev still uses the two-service `docker-compose.yml` with `frontend/Dockerfile.dev` (hot reload) — only the production packaging is unified.
+
 ## Core Commands
 
 ### Frontend (run from `frontend/` directory)
