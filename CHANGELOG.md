@@ -10,6 +10,26 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.21.0](https://github.com/rustyguts/alcoves/compare/v0.20.0...v0.21.0) (2026-06-04)
+
+
+### Added
+
+* **frontend:** add Timeline and Map view-switcher icons to file browser ([#557](https://github.com/rustyguts/alcoves/issues/557)) ([b7465da](https://github.com/rustyguts/alcoves/commit/b7465da8cb93defaf8b013b5d25d458c8bfef4d4))
+* **image-proxy:** hourly variant pre-warm, shared variant registry, named queues ([#561](https://github.com/rustyguts/alcoves/issues/561)) ([687760e](https://github.com/rustyguts/alcoves/commit/687760e3786c3fe1533ee005fe5d0b7bcc38c318))
+
+
+### Fixed
+
+* **backend:** gate audio taggers to published models so unavailable ones don't 404 ([#559](https://github.com/rustyguts/alcoves/issues/559)) ([e71b38b](https://github.com/rustyguts/alcoves/commit/e71b38ba10f59c22b27cad5b4efe1550143e9298))
+* **frontend:** order library trash tab after settings ([#555](https://github.com/rustyguts/alcoves/issues/555)) ([8cfe0a0](https://github.com/rustyguts/alcoves/commit/8cfe0a0e5d14878c7dd12615098ab16671dc6493))
+* **website:** enable client-side routing to remove docs page flash ([#558](https://github.com/rustyguts/alcoves/issues/558)) ([d135253](https://github.com/rustyguts/alcoves/commit/d1352535989f2e3f12d03e3f8651f842c6539bbe))
+
+
+### Build
+
+* **backend:** upgrade onnxruntime_go v1.31.0 + ONNX Runtime 1.26.0 ([#560](https://github.com/rustyguts/alcoves/issues/560)) ([c83f896](https://github.com/rustyguts/alcoves/commit/c83f896eec49be0703bb22f5057b5f7133526461))
+
 ## [0.20.0](https://github.com/rustyguts/alcoves/compare/v0.19.0...v0.20.0) (2026-06-04)
 
 
