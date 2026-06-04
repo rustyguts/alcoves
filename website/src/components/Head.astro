@@ -1,0 +1,19 @@
+---
+// Override of Starlight's default `Head` component.
+//
+// We render the stock Starlight head and then add Astro's `<ClientRouter />`,
+// which upgrades navigation between docs pages to client-side routing with
+// view transitions. Without it, every sidebar/link click triggers a full
+// document reload — a jarring white flash. The `head` config option only
+// accepts plain HTML tags, so adding an Astro component requires this override.
+//
+// Scope: this only affects Starlight docs pages. The marketing landing page
+// (LandingLayout.astro) keeps its own bespoke head + load-time scripts, so a
+// landing↔docs jump still does a normal navigation (a single boundary, not the
+// repeated flash you get while browsing the docs).
+import Default from '@astrojs/starlight/components/Head.astro';
+import { ClientRouter } from 'astro:transitions';
+---
+
+<Default><slot /></Default>
+<ClientRouter />

@@ -26,6 +26,12 @@ export default defineConfig({
 				baseUrl: `${REPO}/edit/main/website/`,
 			},
 			lastUpdated: true,
+			components: {
+				// Inject Astro's `<ClientRouter />` so navigation between docs
+				// pages is client-side (view transitions) instead of a full
+				// document reload — removes the white page flash.
+				Head: './src/components/Head.astro',
+			},
 			// Default social-card / OG metadata for documentation pages.
 			head: [
 				{ tag: 'meta', attrs: { property: 'og:image', content: `${SITE}/og-image.png` } },
