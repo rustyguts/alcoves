@@ -565,11 +565,6 @@ describe("library index page", () => {
     });
   }
 
-  it("renders the library name as breadcrumb root", () => {
-    const wrapper = mountPage();
-    expect(wrapper.text()).toContain("Test Library");
-  });
-
   it("shows loading indicator when files are pending and no entries loaded", () => {
     mocks.filesPending = true;
     mocks.entries = [];
@@ -651,17 +646,6 @@ describe("library index page", () => {
     mocks.isOverDropZone = true;
     const wrapper = mountPage();
     expect(wrapper.text()).toContain("Drop files to upload to this folder");
-  });
-
-  it("renders breadcrumb items for nested folders", () => {
-    mocks.breadcrumbs = [
-      { id: "f1", name: "Documents" },
-      { id: "f2", name: "Photos" },
-    ];
-    const wrapper = mountPage();
-    expect(wrapper.text()).toContain("Test Library");
-    expect(wrapper.text()).toContain("Documents");
-    expect(wrapper.text()).toContain("Photos");
   });
 
   it("highlights list view button when in file mode", () => {

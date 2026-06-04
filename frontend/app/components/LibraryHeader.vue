@@ -1,70 +1,31 @@
 <script setup lang="ts">
-import EmojiPicker from "~/components/EmojiPicker.vue";
+import LibraryBreadcrumb from "~/components/LibraryBreadcrumb.vue";
 
-const props = defineProps<{
+/**
+ * The shared chrome at the top of every library tab: an emoji prefix + the
+ * breadcrumb heading (row 1) and the tabs (default slot, row 2). The library
+ * name and emoji are display-only here — renaming and emoji editing live on the
+ * Settings tab.
+ */
+defineProps<{
+  libraryId: string;
   name?: string;
   emoji?: string | null;
-  canEdit?: boolean;
 }>();
 
-const emit = defineEmits<{
-  "update:name": [value: string];
-  "update:emoji": [value: string | null];
-}>();
-
-const editingName = ref(false);
-const editName = ref("");
 const slots = useSlots();
-
-function startRename() {
-  if (!props.canEdit) return;
-  editName.value = props.name ?? "";
-  editingName.value = true;
-}
-
-function saveName() {
-  editingName.value = false;
-  const trimmed = editName.value.trim();
-  if (!trimmed || trimmed === props.name) return;
-  emit("update:name", trimmed);
-}
 </script>
 
 <template>
   <div>
     <div class="flex items-center justify-between gap-3 min-h-12">
-      <div class="flex items-center gap-2 min-w-0">
-        <EmojiPicker
-          v-if="canEdit"
-          :model-value="emoji ?? null"
-          @update:model-value="emit('update:emoji', $event)"
-        />
-        <span v-else-if="emoji" class="text-2xl leading-none">{{ emoji }}</span>
-        <h1
-          v-if="!editingName"
-          class="text-2xl font-semibold truncate"
-          :class="canEdit ? 'cursor-pointer hover:text-primary' : ''"
-          @click="startRename"
-        >
-          {{ name }}
-        </h1>
-        <UInput
-          v-else
-          v-model="editName"
-          size="lg"
-          autofocus
-          :ui="{ root: 'w-full' }"
-          @blur="saveName"
-          @keydown.enter="saveName"
-          @keydown.escape="editingName = false"
-        />
+      <div class="flex min-w-0 items-center gap-2">
+        <span v-if="emoji" class="shrink-0 text-2xl leading-none">{{ emoji }}</span>
+        <LibraryBreadcrumb class="min-w-0" :library-id="libraryId" :library-name="name" />
       </div>
-      <div class="flex items-center gap-3 shrink-0">
+      <div v-if="slots.actions" class="flex shrink-0 items-center gap-3">
         <slot name="actions" />
       </div>
-    </div>
-    <div v-if="slots.subtitle" class="mt-1 text-sm text-muted">
-      <slot name="subtitle" />
     </div>
     <div v-if="slots.default" class="mt-3">
       <slot />

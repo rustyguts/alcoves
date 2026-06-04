@@ -12,6 +12,7 @@ import AppIcon from "~/components/AppIcon.vue";
 import ConfirmModal from "~/components/ConfirmModal.vue";
 import InviteLinkRow from "~/components/library/settings/InviteLinkRow.vue";
 import LibraryMemberRow from "~/components/library/settings/LibraryMemberRow.vue";
+import EmojiPicker from "~/components/EmojiPicker.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -368,11 +369,21 @@ async function deleteLibrary() {
 <template>
   <div class="space-y-4 overflow-y-auto flex-1 min-h-0 px-0.5">
     <!-- Library Name -->
-    <AppPanel title="Library Name" description="Rename this library." icon="i-lucide-folder-pen">
-      <div class="flex flex-col gap-2 sm:flex-row">
+    <AppPanel
+      title="Library Name"
+      description="Rename this library and pick an emoji. The emoji saves as soon as you choose it."
+      icon="i-lucide-folder-pen"
+    >
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <EmojiPicker
+          class="shrink-0"
+          :model-value="library?.emoji ?? null"
+          @update:model-value="saveLibraryEmoji"
+        />
         <UInput
           v-model="libraryNameDraft"
           placeholder="Library name"
+          class="sm:flex-1"
           :ui="{ root: 'w-full' }"
           @keydown.enter="saveLibraryNameFromSettings"
         />
