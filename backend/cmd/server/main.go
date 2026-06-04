@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getsentry/sentry-go"
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -48,6 +50,22 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Sentry — optional. Skipped entirely when DSN is not set.
+	if cfg.SentryDSN != "" {
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn:              cfg.SentryDSN,
+			Environment:      cfg.Environment,
+			Release:          version.App(),
+			TracesSampleRate: cfg.SentryTracesSampleRate,
+			EnableTracing:    true,
+		}); err != nil {
+			log.Printf("Sentry init failed (continuing without Sentry): %v", err)
+		} else {
+			defer sentry.Flush(2 * time.Second)
+			log.Printf("Sentry initialized (environment=%s)", cfg.Environment)
+		}
 	}
 
 	db, err := database.Connect(cfg.DatabaseURL)
@@ -220,6 +238,12 @@ func main() {
 	// Global middleware
 	e.Use(echomw.Logger())
 	e.Use(echomw.Recover())
+	if cfg.SentryDSN != "" {
+		// sentryhttp wraps net/http; echo.WrapMiddleware bridges it to Echo v4.
+		// Repanic=true re-raises panics so Echo's Recover middleware still fires.
+		sh := sentryhttp.New(sentryhttp.Options{Repanic: true})
+		e.Use(echo.WrapMiddleware(sh.Handle))
+	}
 	e.Use(echomw.CORSWithConfig(echomw.CORSConfig{
 		AllowOriginFunc: func(origin string) (bool, error) {
 			for _, allowed := range corsAllowedOrigins {

@@ -6,6 +6,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.36.1
 	github.com/coder/websocket v1.8.14
 	github.com/davidbyttow/govips/v2 v2.18.0
+	github.com/getsentry/sentry-go v0.46.2
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/google/uuid v1.6.0
 	github.com/hibiken/asynq v0.26.0

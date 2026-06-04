@@ -90,6 +90,10 @@ type Config struct {
 	AudioDetectWindowSec    float64
 	AudioDetectThreshold    float64
 	AudioDetectTopK         int
+
+	// Sentry observability (optional — disabled when DSN is empty).
+	SentryDSN              string
+	SentryTracesSampleRate float64
 }
 
 func Load() (*Config, error) {
@@ -190,6 +194,9 @@ func Load() (*Config, error) {
 		AudioDetectWindowSec:    parseFloatEnv("ALCOVES_AUDIO_DETECT_WINDOW_SEC", 10.0),
 		AudioDetectThreshold:    parseFloatEnv("ALCOVES_AUDIO_DETECT_THRESHOLD", 0.2),
 		AudioDetectTopK:         parseIntEnv("ALCOVES_AUDIO_DETECT_TOP_K", 5),
+
+		SentryDSN:              getEnv("ALCOVES_SENTRY_DSN", ""),
+		SentryTracesSampleRate: parseFloatEnv("ALCOVES_SENTRY_TRACES_SAMPLE_RATE", 0.2),
 	}
 
 	return cfg, nil

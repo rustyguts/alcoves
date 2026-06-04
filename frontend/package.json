@@ -27,6 +27,7 @@
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@iconify/vue": "^5.0.1",
     "@nuxt/ui": "^4.8.1",
+    "@sentry/nuxt": "^10.56.0",
     "nuxt": "^4.4.7",
     "tailwindcss": "^4.3.0",
     "tus-js-client": "^4.3.1",

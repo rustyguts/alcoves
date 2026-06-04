@@ -7,7 +7,7 @@ export default defineNuxtConfig({
   compatibilityDate: "2025-11-01",
   devtools: { enabled: false },
 
-  modules: ["@nuxt/ui"],
+  modules: ["@nuxt/ui", "@sentry/nuxt/module"],
 
   css: ["~/assets/css/main.css"],
 
@@ -38,6 +38,26 @@ export default defineNuxtConfig({
       // which can mangle Range responses. Defaults to empty → fall back to the
       // current page origin (relative URLs go through the proxy).
       apiOrigin: process.env.NUXT_PUBLIC_API_ORIGIN || "",
+      // Sentry DSN — optional. SDK is a no-op when empty.
+      sentry: {
+        dsn: process.env.NUXT_PUBLIC_SENTRY_DSN || "",
+      },
+    },
+  },
+
+  // Sentry: upload source maps during `nuxt build` when auth token is present.
+  // Set SENTRY_AUTH_TOKEN, SENTRY_ORG, and SENTRY_PROJECT in CI to enable.
+  // Client source maps are generated as "hidden" (referenced in bundle but not
+  // served publicly) and deleted after upload.
+  sourcemap: { client: "hidden" },
+  sentry: {
+    sourceMapsUploadOptions: {
+      org: process.env.SENTRY_ORG || "",
+      project: process.env.SENTRY_PROJECT_FRONTEND || "alcoves-frontend",
+      authToken: process.env.SENTRY_AUTH_TOKEN || "",
+      sourcemaps: {
+        filesToDeleteAfterUpload: [".output/**/public/**/*.map"],
+      },
     },
   },
 
