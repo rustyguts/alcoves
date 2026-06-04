@@ -24,6 +24,7 @@ No vendor lock-in. No subscriptions. Just your files, on your server.
 - **Resumable uploads** &mdash; Large file uploads use the TUS protocol so uploads survive network interruptions.
 - **Image & video proxy** &mdash; On-the-fly image transforms and video transcoding with Redis-backed caching.
 - **AI-powered search** &mdash; Automatic face detection and object recognition via ONNX Runtime.
+- **Timeline & Map** &mdash; Browse a library reverse-chronologically by capture date, and see geotagged photos on a map. Capture date, GPS, and camera are extracted from EXIF (images) and container metadata (video) by a CPU-only background job.
 - **User accounts** &mdash; Built-in registration and authentication with session-based encrypted cookies.
 - **OAuth** &mdash; Sign in with Google (optional).
 - **Modern UI** &mdash; Clean, responsive dashboard with dark mode support.
@@ -240,6 +241,17 @@ To enable Google sign-in, set:
 | `ALCOVES_S3_FILES_PREFIX`      | Object prefix for uploaded files                                           | `files`                  |
 | `ALCOVES_S3_AVATARS_PREFIX`    | Object prefix for avatars                                                  | `avatars`                |
 | `ALCOVES_S3_CACHE_PREFIX`      | Object prefix for transformed media cache                                  | `cache`                  |
+
+### Map tiles (Map view)
+
+The Map view loads raster tiles from a tile server in the browser. These are **frontend** (Nuxt) variables, not `ALCOVES_*` backend ones:
+
+| Variable                           | Description                                  | Default                                          |
+| ---------------------------------- | -------------------------------------------- | ------------------------------------------------ |
+| `NUXT_PUBLIC_MAP_TILE_URL`         | Raster tile URL template (`{z}/{x}/{y}`)     | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
+| `NUXT_PUBLIC_MAP_TILE_ATTRIBUTION` | Attribution text shown on the map            | `© OpenStreetMap contributors`                   |
+
+> The map works out of the box against public OpenStreetMap tiles. Because tile requests are made by each viewer's browser, the rough area being viewed is visible to whoever serves the tiles — point `NUXT_PUBLIC_MAP_TILE_URL` at your own tile server to keep that fully private.
 
 See `.env.example` for the full list and defaults.
 
