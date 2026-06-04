@@ -4,7 +4,7 @@ description: >-
   Alcoves — self-hosted collaborative file library (Nuxt frontend + Go API +
   async workers)
 type: application
-version: 0.19.0
+version: 0.20.0
 appVersion: 0.18.3
 home: https://github.com/yourorg/alcoves
 keywords:
