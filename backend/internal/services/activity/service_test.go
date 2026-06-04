@@ -9,22 +9,17 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/testsupport"
 )
 
 // activityTestDB returns a *gorm.DB pointed at the shared test postgres,
 // migrating only the tables this package needs.
 func activityTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := "postgres://postgres:postgres@localhost:5455/alcoves_test"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
-	if err != nil {
-		t.Skipf("Skipping: database not available: %v", err)
-	}
+	db := testsupport.OpenSchema(t, "svc_activity")
 	if err := db.AutoMigrate(
 		&models.User{}, &models.Library{}, &models.LibraryMember{},
 		&models.LibraryActivity{}, &models.UserNotificationDismissal{},

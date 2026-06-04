@@ -5,23 +5,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/testsupport"
 )
 
 func setupDedupDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
-	dsn := "postgres://postgres:postgres@localhost:5455/alcoves_test"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		t.Skipf("Skipping test: database not available: %v", err)
-	}
+	db := testsupport.OpenSchema(t, "svc_filehash")
 
 	if err := db.AutoMigrate(
 		&models.User{},

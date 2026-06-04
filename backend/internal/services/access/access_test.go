@@ -4,22 +4,15 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/testsupport"
 )
 
 func testDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := "postgres://postgres:postgres@localhost:5455/alcoves_test"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		t.Skipf("Skipping test: database not available: %v", err)
-	}
+	db := testsupport.OpenSchema(t, "svc_access")
 
 	db.AutoMigrate(
 		&models.User{},
@@ -27,9 +20,9 @@ func testDB(t *testing.T) *gorm.DB {
 		&models.LibraryMember{},
 	)
 
-	db.Exec("DELETE FROM library_members")
-	db.Exec("DELETE FROM libraries")
-	db.Exec("DELETE FROM users")
+	// TRUNCATE … CASCADE clears everything in one statement and tolerates a
+	// schema that a prior error-path test may have temporarily mangled.
+	db.Exec("TRUNCATE TABLE library_members, libraries, users RESTART IDENTITY CASCADE")
 
 	return db
 }

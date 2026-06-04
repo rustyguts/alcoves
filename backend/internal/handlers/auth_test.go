@@ -9,28 +9,21 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
+	"github.com/alcoves/alcoves-backend/internal/testsupport"
 )
 
 // testDB creates a test database connection. Skips if DB is unavailable.
 func testDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := "postgres://postgres:postgres@localhost:5455/alcoves_test"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		t.Skipf("Skipping test: database not available: %v", err)
-	}
+	db := testsupport.OpenSchema(t, "handlers")
 
 	// Auto-migrate test tables
-	err = db.AutoMigrate(
+	err := db.AutoMigrate(
 		&models.User{},
 		&models.Library{},
 		&models.Account{},
