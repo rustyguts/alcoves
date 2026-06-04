@@ -8,6 +8,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -35,7 +36,8 @@ func (s *Service) EnqueueFileHash(libraryID, fileID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file hash task: %w", err)
 	}
-	_, err = s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention))
+	// SHA256 content hashing for dedup: fast, no user blocked on it.
+	_, err = s.asynqClient.Enqueue(task, asynq.Queue(queues.Hash), asynq.Retention(completedTaskRetention))
 	if err != nil {
 		return fmt.Errorf("failed to enqueue file hash task: %w", err)
 	}

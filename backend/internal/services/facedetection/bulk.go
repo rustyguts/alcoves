@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -40,7 +41,7 @@ func EnqueueExistingLibraryImages(client *asynq.Client, db *gorm.DB, libraryID s
 			log.Printf("failed to create task for file %s: %v", f.ID, err)
 			continue
 		}
-		if _, err := client.Enqueue(task, asynq.Retention(completedTaskRetention)); err != nil {
+		if _, err := client.Enqueue(task, asynq.Queue(queues.FaceDetection), asynq.Retention(completedTaskRetention)); err != nil {
 			log.Printf("failed to enqueue task for file %s: %v", f.ID, err)
 			continue
 		}

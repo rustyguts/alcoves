@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/queues"
 )
 
 // testRedisOpt isolates these tests on a dedicated Redis logical DB so parallel
@@ -59,10 +60,10 @@ func TestEnqueueFileHash(t *testing.T) {
 		t.Fatalf("EnqueueFileHash: %v", err)
 	}
 
-	// Confirm the task landed in the default queue.
+	// Confirm the task landed in the dedicated hash queue.
 	insp := asynq.NewInspector(testRedisOpt())
 	defer insp.Close()
-	info, err := insp.GetQueueInfo("default")
+	info, err := insp.GetQueueInfo(queues.Hash)
 	if err != nil {
 		t.Fatalf("GetQueueInfo: %v", err)
 	}

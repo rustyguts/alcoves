@@ -24,15 +24,25 @@ This page covers the non-ML media pipeline. AI-driven analysis (face recognition
 - **Asynq job queue** (backed by Dragonfly/Redis) — async task dispatch, deduplication, and retention
 - **Storage service** — unified blob I/O across local-disk and S3 backends, scoped to `Files`, `Avatars`, and `Cache`
 
-Worker processes register with the Asynq mux when the server runs in `all` or `worker` mode (`ALCOVES_MODE`). Work is split across three named queues — the single source of truth for queue names and weights is the `internal/queues` package:
+Worker processes register with the Asynq mux when the server runs in `all` or `worker` mode (`ALCOVES_MODE`). Each job type runs on its own named queue — the single source of truth for queue names and weights is the `internal/queues` package. Weights follow **importance ÷ complexity**: how much a user is blocked on the result, divided by how long the job takes (so a heavy job class never hogs the worker pool ahead of fast ones).
 
 | Queue | Weight | Carries |
 |---|---|---|
-| `imageproxy` | 10 | Interactive, on-demand image transforms (a user is blocked on these) |
-| `default` | 3 | Hashing, metadata/EXIF, waveforms, face/object/audio detection, transcription, video transcode, moment export |
-| `maintenance` | 1 | Low-priority background upkeep — currently the hourly image-proxy variant pre-warm |
+| `imageproxy` | 100 | Interactive, on-demand image transforms (a user is blocked on these) |
+| `metadata` | 70 | EXIF/GPS + ffprobe extraction (fast; unblocks Timeline, Map, file details) |
+| `thumbnail` | 65 | Video poster-frame extraction (fast ffmpeg seek) |
+| `hash` | 60 | SHA-256 content hashing for dedup |
+| `default` | 50 | Retained only as a drain target for tasks enqueued by an older build during an upgrade; no new work routes here |
+| `moment-export` | 45 | User-initiated clip encodes |
+| `waveform` | 40 | Audio waveform peaks |
+| `object-detection` | 30 | YOLO ONNX inference (background) |
+| `face-detection` | 30 | Face ONNX inference + clustering (background) |
+| `audio-detection` | 25 | AudioSet ONNX inference (background) |
+| `video-transcode` | 10 | Full video proxy transcodes — heavy, multi-minute ffmpeg work |
+| `transcription` | 5 | Whisper speech-to-text — the longest-running job class |
+| `maintenance` | 1 | Low-priority background upkeep — the hourly image-proxy variant pre-warm |
 
-The weights mean "users first, batch second, upkeep last": a large pre-warm or detection backlog can never starve interactive image loads.
+The ladder means "interactive first, fast derivations next, then ML inference, then the heavy long-runners, with upkeep last": a large transcription or video-transcode backlog can never starve interactive image loads or fast jobs like thumbnailing. Asynq samples non-strictly across non-empty queues in proportion to these weights, so a low-priority queue still drains fully when it's the only one with work.
 
 ---
 

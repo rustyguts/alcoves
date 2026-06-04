@@ -218,10 +218,13 @@ func main() {
 	if cfg.Mode == "all" || cfg.Mode == "worker" {
 		asynqServer = asynq.NewServer(asynqRedisOpt, asynq.Config{
 			Concurrency: 8,
-			// Queue weights come from the single source of truth in the queues
-			// package: imageproxy (interactive) ≫ default (batch ML/video) ≫
-			// maintenance (background cache pre-warm), so latency-sensitive work
-			// is never starved by a large maintenance backfill.
+			// Per-job-type queue weights come from the single source of truth in
+			// the queues package, ranked by importance ÷ complexity: interactive
+			// image transforms ≫ fast post-upload derivations (metadata,
+			// thumbnails, hashes) ≫ moderate media ≫ ML inference ≫ heavy
+			// long-runners (video transcode, whisper transcription) ≫ background
+			// maintenance. Latency-sensitive work is never starved by a large
+			// batch of slow jobs.
 			Queues: queues.Priorities,
 		})
 

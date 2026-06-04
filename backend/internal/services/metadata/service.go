@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/config"
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -16,7 +17,8 @@ import (
 const TaskTypeMetadata = "file:metadata"
 
 // Service owns enqueuing metadata-extraction work. It mirrors the waveform
-// service: version-tracked, idempotent, runs on the shared default queue.
+// service: version-tracked, idempotent, runs on the high-priority metadata
+// queue (see internal/queues).
 type Service struct {
 	db          *gorm.DB
 	storage     *storage.Service
@@ -36,7 +38,9 @@ func (s *Service) EnqueueMetadata(libraryID, fileID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create metadata task: %w", err)
 	}
-	if _, err := s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention)); err != nil {
+	// EXIF/ffprobe extraction is fast and unblocks core display surfaces
+	// (Timeline, Map, file details), so it runs on a high-priority queue.
+	if _, err := s.asynqClient.Enqueue(task, asynq.Queue(queues.Metadata), asynq.Retention(completedTaskRetention)); err != nil {
 		return fmt.Errorf("failed to enqueue metadata task: %w", err)
 	}
 	log.Printf("Enqueued metadata extraction for file %s in library %s", fileID, libraryID)

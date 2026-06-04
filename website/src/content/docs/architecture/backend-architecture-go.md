@@ -74,9 +74,11 @@ A contributor adding a new service or route edits this file.
    `EnsureModels` for face and object detection. Non-fatal: logs a warning on
    failure and the first job will block while the model downloads lazily.
 
-6. **Start the Asynq worker** (`mode=all|worker`) — concurrency 8, with queue
-   priorities that let interactive image-transform requests preempt batch ML
-   work.
+6. **Start the Asynq worker** (`mode=all|worker`) — concurrency 8, with
+   per-job-type queue priorities (weighted by importance ÷ complexity) that let
+   interactive image-transform requests preempt batch ML work and keep the
+   heavy long-runners (video transcode, whisper transcription) from starving
+   fast jobs like thumbnailing.
 
 7. **Configure Echo** — install the custom validator, then the global middleware
    chain: logger, recover, CORS (strict allowlist, never a wildcard), auth
@@ -289,22 +291,29 @@ files) and `export` (on moments).
 
 ### Queue tasks
 
-| Task | What it does |
-|---|---|
-| `image:proxy` | On-demand image transforms (resize, crop, format) |
-| `face:detect` | Face detection and embedding for a file |
-| `object:detect` | COCO object detection for a file |
-| `video:proxy` | Video transcoding to HLS/MP4 |
-| `video:thumbnail` | Extracts a thumbnail from a video file |
-| `file:hash` | SHA-256 dedup hash |
-| `moment:export` | Exports a named moment clip to MP4 |
-| `file:transcribe` | whisper.cpp speech transcription |
-| `file:audio-detect` | AudioSet audio-event classification |
-| `file:waveform` | Extracts and stores the audio waveform |
+| Task | Queue | What it does |
+|---|---|---|
+| `image:proxy` | `imageproxy` | On-demand image transforms (resize, crop, format) |
+| `file:metadata` | `metadata` | EXIF/GPS + ffprobe metadata extraction |
+| `video:thumbnail` | `thumbnail` | Extracts a thumbnail from a video file |
+| `file:hash` | `hash` | SHA-256 dedup hash |
+| `moment:export` | `moment-export` | Exports a named moment clip to MP4 |
+| `file:waveform` | `waveform` | Extracts and stores the audio waveform |
+| `object:detect` | `object-detection` | COCO object detection for a file |
+| `face:detect` | `face-detection` | Face detection and embedding for a file |
+| `file:audio-detect` | `audio-detection` | AudioSet audio-event classification |
+| `video:proxy` | `video-transcode` | Video transcoding to HLS/MP4 |
+| `file:transcribe` | `transcription` | whisper.cpp speech transcription |
+| `image:prewarm` | `maintenance` | Hourly pre-warm of every image-proxy variant |
 
-The queue runs at concurrency 8 with image proxy jobs prioritized above batch
-ML work, so interactive thumbnail requests are not queued behind a long
-transcription job.
+The queue runs at concurrency 8. Each job type has its own queue, weighted by
+**importance ÷ complexity** (see `internal/queues`): interactive image
+transforms rank highest, fast post-upload derivations (metadata, thumbnails,
+hashes) next, then ML inference, then the heavy long-runners (full video
+transcode, whisper transcription) just above background maintenance. So a long
+transcription or transcode job can never queue ahead of an interactive
+thumbnail request — and, per the explicit priority intent, whisper sits *below*
+thumbnailing.
 
 ### Idempotency and re-triggering
 

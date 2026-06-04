@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
@@ -40,7 +41,10 @@ func (s *Service) EnqueueVideoProxy(libraryID, fileID string, force bool) error 
 	if err != nil {
 		return fmt.Errorf("failed to create video proxy task: %w", err)
 	}
-	_, err = s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention))
+	// A full proxy transcode is heavy, multi-minute ffmpeg work, so it runs on
+	// the low-priority video-transcode queue and never starves the fast jobs
+	// (thumbnails, metadata) queued behind it.
+	_, err = s.asynqClient.Enqueue(task, asynq.Queue(queues.VideoTranscode), asynq.Retention(completedTaskRetention))
 	if err != nil {
 		return fmt.Errorf("failed to enqueue video proxy task: %w", err)
 	}
@@ -53,7 +57,10 @@ func (s *Service) EnqueueVideoThumbnail(libraryID, fileID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create video thumbnail task: %w", err)
 	}
-	_, err = s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention))
+	// Thumbnail extraction is a fast ffmpeg seek that makes the grid usable, so
+	// it runs on its own high-priority queue — explicitly ranked above heavy
+	// video transcode and whisper transcription.
+	_, err = s.asynqClient.Enqueue(task, asynq.Queue(queues.Thumbnail), asynq.Retention(completedTaskRetention))
 	if err != nil {
 		return fmt.Errorf("failed to enqueue video thumbnail task: %w", err)
 	}

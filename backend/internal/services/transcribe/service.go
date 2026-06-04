@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/config"
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
@@ -45,7 +46,10 @@ func (s *Service) EnqueueTranscribe(libraryID, fileID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create transcribe task: %w", err)
 	}
-	if _, err := s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention)); err != nil {
+	// Whisper transcription is the heaviest, longest-running job class, so it
+	// runs on its own lowest-real-work queue (above only maintenance) and never
+	// hogs the worker pool ahead of fast jobs like thumbnailing.
+	if _, err := s.asynqClient.Enqueue(task, asynq.Queue(queues.Transcription), asynq.Retention(completedTaskRetention)); err != nil {
 		return fmt.Errorf("failed to enqueue transcribe task: %w", err)
 	}
 	log.Printf("Enqueued transcribe for file %s in library %s", fileID, libraryID)

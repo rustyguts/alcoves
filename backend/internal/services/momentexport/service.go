@@ -9,6 +9,7 @@ import (
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -44,7 +45,10 @@ func (s *Service) Enqueue(libraryID, fileID, momentID string) error {
 		return fmt.Errorf("failed to marshal moment export payload: %w", err)
 	}
 	task := asynq.NewTask(TaskTypeMomentExport, payload)
-	if _, err := s.asynqClient.Enqueue(task, asynq.Retention(completedTaskRetention)); err != nil {
+	// User-initiated clip encode: someone clicked "export" and is waiting, so it
+	// outranks background ML, but it's a real ffmpeg encode so it sits below the
+	// cheap post-upload derivations.
+	if _, err := s.asynqClient.Enqueue(task, asynq.Queue(queues.MomentExport), asynq.Retention(completedTaskRetention)); err != nil {
 		return fmt.Errorf("failed to enqueue moment export: %w", err)
 	}
 	log.Printf("Enqueued moment export moment=%s file=%s library=%s", momentID, fileID, libraryID)

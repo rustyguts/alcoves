@@ -6,6 +6,8 @@ import (
 
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
+
+	"github.com/alcoves/alcoves-backend/internal/queues"
 )
 
 // EnqueueUnhashedFiles queries for all files without a hash and enqueues
@@ -33,7 +35,7 @@ func EnqueueUnhashedFiles(client *asynq.Client, db *gorm.DB) (int, error) {
 			log.Printf("failed to create hash task for file %s: %v", f.ID, err)
 			continue
 		}
-		if _, err := client.Enqueue(task, asynq.Retention(completedTaskRetention)); err != nil {
+		if _, err := client.Enqueue(task, asynq.Queue(queues.Hash), asynq.Retention(completedTaskRetention)); err != nil {
 			log.Printf("failed to enqueue hash task for file %s: %v", f.ID, err)
 			continue
 		}
