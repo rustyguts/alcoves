@@ -71,11 +71,11 @@ jobs:
 
       - name: Install ONNX Runtime
         run: |
-          # Must match the API version onnxruntime_go links against (ORT 1.25.x /
-          # API v25). An older runtime fails ONNX init with
-          # "requested API version [25] is not available", which would skip every
+          # Must match the API version onnxruntime_go links against (ORT 1.26.x /
+          # API v26). An older runtime fails ONNX init with
+          # "requested API version [26] is not available", which would skip every
           # real face/object/audio inference test.
-          ONNX_VERSION=1.25.0
+          ONNX_VERSION=1.26.0
           ARCH=$(dpkg --print-architecture)
           if [ "$ARCH" = "arm64" ]; then ONNX_ARCH="aarch64"; else ONNX_ARCH="x64"; fi
           wget -q "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}.tgz"

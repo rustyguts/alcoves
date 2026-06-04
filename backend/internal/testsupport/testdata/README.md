@@ -38,7 +38,7 @@ ffmpeg -i /tmp/s.aiff -ac 1 -ar 16000 -acodec pcm_s16le audio/speech_hello.wav
 
 ## Running the real-inference tests locally
 
-The ONNX-based tests (face/object/audio) need an **ONNX Runtime 1.25.x** shared
+The ONNX-based tests (face/object/audio) need an **ONNX Runtime 1.26.x** shared
 library matching `onnxruntime_go` (see `internal/testsupport/onnxtest`). On a
 host without it installed system-wide, point the suite at one:
 
