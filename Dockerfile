@@ -49,6 +49,15 @@ RUN CGO_ENABLED=1 GOOS=linux go build \
       -X github.com/alcoves/alcoves-backend/internal/version.appVersion=${APP_VERSION}" \
     -o /alcoves ./cmd/server
 
+# alcoves-mcp: the stdio Model Context Protocol server. Shares the same native
+# deps as the main binary (onnxruntime/libvips, linked transitively), so it
+# runs inside this same image.
+RUN CGO_ENABLED=1 GOOS=linux go build \
+    -buildvcs=false \
+    -ldflags="-s -w \
+      -X github.com/alcoves/alcoves-backend/internal/version.appVersion=${APP_VERSION}" \
+    -o /alcoves-mcp ./cmd/mcp
+
 # whisper.cpp build stage — produces whisper-cli. Models are not bundled;
 # they are fetched on demand by the transcribe worker.
 FROM debian:bookworm-slim AS whisper-build
@@ -106,6 +115,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 
 WORKDIR /app
 COPY --from=backend-build /alcoves ./alcoves
+COPY --from=backend-build /alcoves-mcp ./alcoves-mcp
 
 EXPOSE 3001
 

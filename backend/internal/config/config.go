@@ -46,6 +46,14 @@ type Config struct {
 	// Base URL for OAuth callbacks and CORS origin derivation.
 	BaseURL string
 
+	// MCP server. MCPToken is the personal access token the stdio MCP process
+	// authenticates as. MCPHTTPEnabled gates the /api/mcp HTTP transport.
+	// MCPSigningSecret keys the signed curl upload/download URLs (falls back to
+	// SessionSecret when unset).
+	MCPHTTPEnabled   bool
+	MCPSigningSecret string
+	MCPToken         string
+
 	// ExtraCORSOrigins is an optional list of additional origins to allow in
 	// the CORS policy. Parsed from ALCOVES_EXTRA_CORS_ORIGINS (comma-separated).
 	// Use this when the Nuxt frontend is served from a different subdomain.
@@ -109,6 +117,12 @@ func Load() (*Config, error) {
 
 	googleClientID := getEnv("ALCOVES_OAUTH_GOOGLE_CLIENT_ID", "")
 
+	// Signed URLs reuse the session secret unless a dedicated key is provided.
+	mcpSigningSecret := getEnv("ALCOVES_MCP_SIGNING_SECRET", "")
+	if mcpSigningSecret == "" {
+		mcpSigningSecret = sessionSecret
+	}
+
 	cfg := &Config{
 		Port:        port,
 		DatabaseURL: getEnv("ALCOVES_DATABASE_URL", "postgres://postgres:postgres@localhost:5455/alcoves"),
@@ -142,6 +156,10 @@ func Load() (*Config, error) {
 
 		BaseURL:          getEnv("ALCOVES_BASE_URL", "http://localhost:5173"),
 		ExtraCORSOrigins: parseCommaList(getEnv("ALCOVES_EXTRA_CORS_ORIGINS", "")),
+
+		MCPHTTPEnabled:   getEnv("ALCOVES_MCP_HTTP_ENABLED", "") == "true",
+		MCPSigningSecret: mcpSigningSecret,
+		MCPToken:         getEnv("ALCOVES_MCP_TOKEN", ""),
 
 		FaceDetectionMinScore:         faceMinScore,
 		FaceRecognitionMaxDistance:    faceMaxDist,

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
+	"github.com/alcoves/alcoves-backend/internal/models"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
 )
 
@@ -28,6 +29,15 @@ func AuthMiddleware(authSvc *authservice.Service) echo.MiddlewareFunc {
 				return next(c)
 			}
 
+			// A Bearer personal access token takes precedence when present —
+			// this authenticates the MCP HTTP transport and out-of-band tus
+			// uploads. Falls through to the session cookie otherwise.
+			if user := resolveBearerUser(c, authSvc); user != nil {
+				c.Set(ContextKeyUserID, user.ID.String())
+				c.Set(ContextKeyUser, user)
+				return next(c)
+			}
+
 			user, sessionToken, err := authSvc.GetUserBySession(c)
 			if err != nil || user == nil {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")
@@ -40,6 +50,25 @@ func AuthMiddleware(authSvc *authservice.Service) echo.MiddlewareFunc {
 			return next(c)
 		}
 	}
+}
+
+// resolveBearerUser returns the user identified by an Authorization: Bearer
+// <personal-access-token> header, or nil if absent/invalid.
+func resolveBearerUser(c echo.Context, authSvc *authservice.Service) *models.User {
+	const prefix = "Bearer "
+	authz := c.Request().Header.Get("Authorization")
+	if !strings.HasPrefix(authz, prefix) {
+		return nil
+	}
+	token := strings.TrimSpace(authz[len(prefix):])
+	if token == "" {
+		return nil
+	}
+	user, err := authSvc.ValidateMCPToken(c.Request().Context(), token)
+	if err != nil || user == nil {
+		return nil
+	}
+	return user
 }
 
 func needsAuth(path string) bool {
@@ -85,6 +114,11 @@ func needsAuth(path string) bool {
 	}
 	// Public moment share endpoints (Nuxt SSR loads metadata; video/thumbnail stream directly)
 	if strings.HasPrefix(path, "/api/share/") {
+		return false
+	}
+	// Signed curl upload/download endpoints authenticate via a signed token in
+	// the query string, not a session — so a bare curl needs no header.
+	if strings.HasPrefix(path, "/api/files/signed") || strings.HasPrefix(path, "/api/files/upload-signed") {
 		return false
 	}
 	return true

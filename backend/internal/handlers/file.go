@@ -75,7 +75,12 @@ func (h *FileHandler) List(c echo.Context) error {
 	if _, err := uuid.Parse(libraryID); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
 	}
-	result, err := h.fileSvc.ListLibraryFiles(libraryID, c)
+	result, err := h.fileSvc.ListLibraryFiles(libraryID, files.ListParams{
+		Trashed: c.QueryParam("trashed") == "true",
+		Limit:   c.QueryParam("limit"),
+		Folder:  c.QueryParam("folder"),
+		Cursor:  c.QueryParam("cursor"),
+	})
 	if err != nil {
 		return err
 	}

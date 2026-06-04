@@ -3,6 +3,8 @@ import type {
   AuthUser,
   AuthProvidersResponse,
   SessionInfo,
+  AccessToken,
+  CreatedAccessToken,
   Library,
   LibraryFile,
   LibraryFolder,
@@ -77,6 +79,21 @@ const auth = {
   /** GET /api/auth/providers */
   providers() {
     return apiFetch<AuthProvidersResponse>("/api/auth/providers");
+  },
+
+  /** GET /api/auth/tokens — the user's MCP access tokens (no secrets). */
+  listTokens() {
+    return apiFetch<AccessToken[]>("/api/auth/tokens");
+  },
+
+  /** POST /api/auth/tokens — mint a token; the plaintext is returned once. */
+  createToken(body: { name: string; expiresInDays?: number | null }) {
+    return apiFetch<CreatedAccessToken>("/api/auth/tokens", { method: "POST", body });
+  },
+
+  /** DELETE /api/auth/tokens/:id — revoke a token. */
+  revokeToken(tokenId: string) {
+    return apiFetch<void>(`/api/auth/tokens/${tokenId}`, { method: "DELETE" });
   },
 } as const;
 

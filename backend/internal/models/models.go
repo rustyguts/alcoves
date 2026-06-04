@@ -284,6 +284,31 @@ func (s *Session) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+// PersonalAccessToken is a long-lived bearer credential (used by the MCP
+// server and future integrations). Only the SHA-256 hash of the token is
+// stored; the plaintext is returned once at creation. A nil ExpiresAt never
+// expires.
+type PersonalAccessToken struct {
+	ID         uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	UserID     uuid.UUID  `gorm:"column:user_id;type:uuid;not null;index:personal_access_tokens_user_id_idx" json:"userId"`
+	TokenHash  string     `gorm:"column:token_hash;type:text;not null;uniqueIndex" json:"-"`
+	Name       string     `gorm:"column:name;type:text;not null" json:"name"`
+	LastUsedAt *time.Time `gorm:"column:last_used_at" json:"lastUsedAt"`
+	ExpiresAt  *time.Time `gorm:"column:expires_at" json:"expiresAt"`
+	CreatedAt  time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+
+	User *User `gorm:"foreignKey:UserID" json:"-"`
+}
+
+func (PersonalAccessToken) TableName() string { return "personal_access_tokens" }
+
+func (p *PersonalAccessToken) BeforeCreate(tx *gorm.DB) error {
+	if p.ID == uuid.Nil {
+		p.ID = uuid.New()
+	}
+	return nil
+}
+
 // Person maps to the "people" table (face recognition).
 type Person struct {
 	ID                   uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`

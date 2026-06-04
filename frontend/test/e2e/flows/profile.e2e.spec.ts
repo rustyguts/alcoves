@@ -52,6 +52,29 @@ test.describe("Profile @screenshot", () => {
     await snap(page, FLOW, "profile-session-revoke-confirm");
   });
 
+  test("profile access tokens @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await createMockApi(page, state);
+    await page.goto("/profile");
+
+    await expect(page.getByRole("heading", { name: "MCP access tokens" })).toBeVisible();
+    await expect(page.getByText("Claude Desktop (laptop)")).toBeVisible();
+    await snap(page, FLOW, "profile-access-tokens");
+  });
+
+  test("profile access token created modal @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await createMockApi(page, state);
+    await page.goto("/profile");
+
+    await page.getByPlaceholder("e.g. Claude Desktop on laptop").fill("CI token");
+    await page.getByRole("button", { name: /Create token/ }).click();
+    await expect(page.getByText("Copy your new token")).toBeVisible();
+    await snap(page, FLOW, "profile-access-token-created");
+  });
+
   test("profile appearance theme picker @screenshot", async ({ page }) => {
     const state = createDefaultState();
     await setupDeterminism(page);

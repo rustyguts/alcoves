@@ -160,6 +160,29 @@ export async function createMockApi(page: Page, state: MockState): Promise<void>
       return;
     }
 
+    if (p === "/api/auth/tokens" && request.method() === "GET") {
+      await fulfillJson(route, 200, state.accessTokens);
+      return;
+    }
+    if (p === "/api/auth/tokens" && request.method() === "POST") {
+      const created = {
+        id: `token-${state.accessTokens.length + 1}`,
+        name: "New token",
+        lastUsedAt: null,
+        expiresAt: null,
+        createdAt: "2026-01-15T09:00:00.000Z",
+      };
+      state.accessTokens = [created, ...state.accessTokens];
+      await fulfillJson(route, 201, { ...created, token: "alc_pat_examplePlaintextTokenValue" });
+      return;
+    }
+    const tokenMatch = p.match(/^\/api\/auth\/tokens\/([\w-]+)$/);
+    if (tokenMatch && request.method() === "DELETE") {
+      state.accessTokens = state.accessTokens.filter((tk) => tk.id !== tokenMatch[1]);
+      await fulfillJson(route, 200, { deleted: true });
+      return;
+    }
+
     if (p === "/api/libraries" && request.method() === "GET") {
       if (!state.loggedIn) {
         await fulfillJson(route, 401, { message: "Unauthorized" });

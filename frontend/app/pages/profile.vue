@@ -290,5 +290,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
         description="Only this browser session is active right now."
       />
     </UCard>
+
+    <ProfileAccessTokensSection />
   </div>
 </template>

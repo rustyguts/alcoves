@@ -34,6 +34,7 @@ and meant to keep what you build consistent with the project vision.
 - [Public Moment Sharing](docs/moment-sharing.md) — Public share links for moment clips with OG/Twitter embeds and SSR landing.
 - [Search, Activity Feed & Notifications](docs/search-activity-and-notifications.md) — Cross-library search and the real-time activity/notification system.
 - [Admin Panel & Async Job Queue](docs/admin-and-job-queue.md) — Owner-gated admin stats, settings, ML-model selection, and the Asynq job dashboard.
+- [MCP Server (Model Context Protocol)](docs/mcp-server.md) — Tools, stdio + HTTP transports, personal access tokens, and the large-file (signed curl URL / tus) model.
 
 **Technical documentation** (how the system is built):
 
