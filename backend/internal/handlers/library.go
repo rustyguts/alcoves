@@ -259,7 +259,9 @@ func (h *LibraryHandler) Update(c echo.Context) error {
 	}
 
 	var library models.Library
-	h.db.Where("id = ?", libraryID).First(&library)
+	if err := h.db.Where("id = ?", libraryID).First(&library).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to reload library")
+	}
 
 	return c.JSON(http.StatusOK, toLibraryResponse(&library, la))
 }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -59,7 +60,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 
 	// Search files across accessible libraries (by filename)
 	var fileResults []searchResult
-	h.db.Raw(`
+	if err := h.db.Raw(`
 		SELECT f.id, f.library_id, l.name as library_name, f.parent_folder_id,
 		       f.name, 'file' as kind, f.mime_type, f.size, f.thumbnail_file_id,
 		       to_char(f.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
@@ -72,11 +73,13 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		  AND f.name ILIKE ?
 		ORDER BY f.name ASC
 		LIMIT 50
-	`, userID, userID, searchPattern).Scan(&fileResults)
+	`, userID, userID, searchPattern).Scan(&fileResults).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Search failed")
+	}
 
 	// Search folders across accessible libraries
 	var folderResults []searchResult
-	h.db.Raw(`
+	if err := h.db.Raw(`
 		SELECT fo.id, fo.library_id, l.name as library_name, fo.parent_folder_id,
 		       fo.name, 'folder' as kind, NULL as mime_type, NULL as size,
 		       to_char(fo.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
@@ -88,7 +91,9 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		  AND fo.name ILIKE ?
 		ORDER BY fo.name ASC
 		LIMIT 50
-	`, userID, userID, searchPattern).Scan(&folderResults)
+	`, userID, userID, searchPattern).Scan(&folderResults).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Search failed")
+	}
 
 	// Search files by detected object labels
 	type objectMatch struct {
@@ -105,7 +110,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		MatchedLabel    string  `gorm:"column:matched_label"`
 	}
 	var objectResults []objectMatch
-	h.db.Raw(`
+	if err := h.db.Raw(`
 		SELECT DISTINCT ON (f.id)
 		       f.id, f.library_id, l.name as library_name, f.parent_folder_id,
 		       f.name, 'file' as kind, f.mime_type, f.size, f.thumbnail_file_id,
@@ -120,7 +125,9 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		  AND od.label ILIKE ?
 		ORDER BY f.id, od.confidence DESC
 		LIMIT 50
-	`, userID, userID, searchPattern).Scan(&objectResults)
+	`, userID, userID, searchPattern).Scan(&objectResults).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Search failed")
+	}
 
 	// Collect all matched labels per file (a file may match multiple labels)
 	fileLabels := map[string][]string{}
@@ -135,14 +142,17 @@ func (h *SearchHandler) Search(c echo.Context) error {
 			Label  string `gorm:"column:label"`
 		}
 		var allLabels []labelRow
-		h.db.Raw(`
+		if err := h.db.Raw(`
 			SELECT DISTINCT file_id, label
 			FROM object_detections
 			WHERE file_id IN ?
 			  AND label ILIKE ?
-		`, fileIDs, searchPattern).Scan(&allLabels)
-		for _, row := range allLabels {
-			fileLabels[row.FileID] = append(fileLabels[row.FileID], row.Label)
+		`, fileIDs, searchPattern).Scan(&allLabels).Error; err != nil {
+			log.Printf("search: failed to fetch matched labels: %v", err)
+		} else {
+			for _, row := range allLabels {
+				fileLabels[row.FileID] = append(fileLabels[row.FileID], row.Label)
+			}
 		}
 	}
 

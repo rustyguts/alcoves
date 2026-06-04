@@ -100,7 +100,9 @@ func (h *PeopleHandler) Update(c echo.Context) error {
 	}
 
 	var person models.Person
-	h.db.Where("id = ?", personID).First(&person)
+	if err := h.db.Where("id = ?", personID).First(&person).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated person")
+	}
 
 	return c.JSON(http.StatusOK, toPersonResponse(&person))
 }
@@ -212,33 +214,52 @@ func (h *PeopleHandler) SplitFace(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Face not found")
 	}
 
-	// Create a new person for this face
-	newPerson := models.Person{
-		LibraryID:            uuid.MustParse(libraryID),
-		CoverFaceDetectionID: &face.ID,
-		FaceCount:            1,
-	}
-	h.db.Create(&newPerson)
-
-	// Move face to new person
-	h.db.Model(&face).Update("person_id", newPerson.ID)
-
-	// Update old person's face count
-	h.db.Model(&models.Person{}).Where("id = ?", personID).
-		Update("face_count", gorm.Expr("face_count - 1"))
-
-	// If old person's cover was this face, clear it
-	var oldPerson models.Person
-	h.db.Where("id = ?", personID).First(&oldPerson)
-	if oldPerson.CoverFaceDetectionID != nil && *oldPerson.CoverFaceDetectionID == face.ID {
-		// Set to another face or nil
-		var anotherFace models.FaceDetection
-		if err := h.db.Where("person_id = ? AND id != ?", personID, faceID).
-			Order("confidence DESC").First(&anotherFace).Error; err == nil {
-			h.db.Model(&oldPerson).Update("cover_face_detection_id", anotherFace.ID)
-		} else {
-			h.db.Model(&oldPerson).Update("cover_face_detection_id", nil)
+	var newPerson models.Person
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		// Create a new person for this face
+		newPerson = models.Person{
+			LibraryID:            uuid.MustParse(libraryID),
+			CoverFaceDetectionID: &face.ID,
+			FaceCount:            1,
 		}
+		if err := tx.Create(&newPerson).Error; err != nil {
+			return err
+		}
+
+		// Move face to new person
+		if err := tx.Model(&face).Update("person_id", newPerson.ID).Error; err != nil {
+			return err
+		}
+
+		// Update old person's face count
+		if err := tx.Model(&models.Person{}).Where("id = ?", personID).
+			Update("face_count", gorm.Expr("face_count - 1")).Error; err != nil {
+			return err
+		}
+
+		// If old person's cover was this face, clear it
+		var oldPerson models.Person
+		if err := tx.Where("id = ?", personID).First(&oldPerson).Error; err != nil {
+			return err
+		}
+		if oldPerson.CoverFaceDetectionID != nil && *oldPerson.CoverFaceDetectionID == face.ID {
+			// Set to another face or nil
+			var anotherFace models.FaceDetection
+			if err := tx.Where("person_id = ? AND id != ?", personID, faceID).
+				Order("confidence DESC").First(&anotherFace).Error; err == nil {
+				if err := tx.Model(&oldPerson).Update("cover_face_detection_id", anotherFace.ID).Error; err != nil {
+					return err
+				}
+			} else {
+				if err := tx.Model(&oldPerson).Update("cover_face_detection_id", nil).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to split face")
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -272,34 +293,56 @@ func (h *PeopleHandler) Merge(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "One or more persons not found")
 	}
 
-	// Move all faces from sources to target
-	h.db.Model(&models.FaceDetection{}).
-		Where("person_id IN ?", sourceIDs).
-		Update("person_id", targetID)
-
-	// Update target face count
-	var totalFaces int64
-	h.db.Model(&models.FaceDetection{}).Where("person_id = ?", targetID).Count(&totalFaces)
-	h.db.Model(&models.Person{}).Where("id = ?", targetID).Update("face_count", totalFaces)
-
-	// Preserve name from sources if target has none
 	var target models.Person
-	h.db.Where("id = ?", targetID).First(&target)
-	if target.Name == nil {
-		for _, sid := range sourceIDs {
-			var source models.Person
-			h.db.Where("id = ?", sid).First(&source)
-			if source.Name != nil {
-				h.db.Model(&target).Update("name", *source.Name)
-				break
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		// Move all faces from sources to target
+		if err := tx.Model(&models.FaceDetection{}).
+			Where("person_id IN ?", sourceIDs).
+			Update("person_id", targetID).Error; err != nil {
+			return err
+		}
+
+		// Update target face count
+		var totalFaces int64
+		if err := tx.Model(&models.FaceDetection{}).Where("person_id = ?", targetID).Count(&totalFaces).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.Person{}).Where("id = ?", targetID).Update("face_count", totalFaces).Error; err != nil {
+			return err
+		}
+
+		// Preserve name from sources if target has none
+		if err := tx.Where("id = ?", targetID).First(&target).Error; err != nil {
+			return err
+		}
+		if target.Name == nil {
+			for _, sid := range sourceIDs {
+				var source models.Person
+				if err := tx.Where("id = ?", sid).First(&source).Error; err != nil {
+					return err
+				}
+				if source.Name != nil {
+					if err := tx.Model(&target).Update("name", *source.Name).Error; err != nil {
+						return err
+					}
+					break
+				}
 			}
 		}
+
+		// Delete source persons
+		if err := tx.Where("id IN ?", sourceIDs).Delete(&models.Person{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to merge persons")
 	}
 
-	// Delete source persons
-	h.db.Where("id IN ?", sourceIDs).Delete(&models.Person{})
-
-	h.db.Where("id = ?", targetID).First(&target)
+	if err := h.db.Where("id = ?", targetID).First(&target).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch merged person")
+	}
 	return c.JSON(http.StatusOK, toPersonResponse(&target))
 }
 

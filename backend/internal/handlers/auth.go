@@ -309,7 +309,9 @@ func (h *AuthHandler) UpdateMe(c echo.Context) error {
 	}
 
 	var user models.User
-	h.db.Where("id = ?", userID).First(&user)
+	if err := h.db.Where("id = ?", userID).First(&user).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to reload user")
+	}
 
 	return c.JSON(http.StatusOK, toUserResponse(&user))
 }

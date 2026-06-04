@@ -299,7 +299,9 @@ func (h *FileHandler) Update(c echo.Context) error {
 	}
 
 	var file models.File
-	h.db.Where("id = ? AND library_id = ?", fileID, libraryID).First(&file)
+	if err := h.db.Where("id = ? AND library_id = ?", fileID, libraryID).First(&file).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated file")
+	}
 
 	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(&file))
 }
@@ -311,7 +313,10 @@ type deleteFileRequest struct {
 func (h *FileHandler) Delete(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
-	libUUID, _ := uuid.Parse(libraryID)
+	libUUID, parseErr := uuid.Parse(libraryID)
+	if parseErr != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
+	}
 	actorID := middleware.GetUserID(c)
 
 	now := time.Now()

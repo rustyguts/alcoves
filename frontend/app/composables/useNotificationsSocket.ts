@@ -7,6 +7,8 @@ interface SocketState {
   reconnectAttempt: number;
   closed: boolean;
   pollFallback: ReturnType<typeof setInterval> | null;
+  heartbeatTimer: ReturnType<typeof setInterval> | null;
+  lastMessageAt: number;
 }
 
 interface UseNotificationsSocketReturn {
@@ -31,13 +33,12 @@ export function useNotificationsSocket(): UseNotificationsSocketReturn {
     reconnectAttempt: 0,
     closed: false,
     pollFallback: null,
+    heartbeatTimer: null,
+    lastMessageAt: 0,
   }));
   const connected = useState<boolean>("notifications:connected", () => false);
   const subscribedRooms = useState<Set<string>>("notifications:rooms", () => new Set());
   const handlers = useState<ActivityHandler[]>("notifications:handlers", () => []);
-  let lastMessageAt = Date.now();
-  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
   function wsUrl(): string {
     if (!import.meta.client) return "";
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -46,10 +47,10 @@ export function useNotificationsSocket(): UseNotificationsSocketReturn {
   }
 
   function startHeartbeat() {
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
-    heartbeatTimer = setInterval(() => {
+    if (state.value.heartbeatTimer) clearInterval(state.value.heartbeatTimer);
+    state.value.heartbeatTimer = setInterval(() => {
       if (!state.value.ws) return;
-      if (Date.now() - lastMessageAt > HEARTBEAT_TIMEOUT_MS) {
+      if (performance.now() - state.value.lastMessageAt > HEARTBEAT_TIMEOUT_MS) {
         // Force-close; onclose triggers reconnect.
         try {
           state.value.ws.close();
@@ -59,9 +60,9 @@ export function useNotificationsSocket(): UseNotificationsSocketReturn {
   }
 
   function stopHeartbeat() {
-    if (heartbeatTimer) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = null;
+    if (state.value.heartbeatTimer) {
+      clearInterval(state.value.heartbeatTimer);
+      state.value.heartbeatTimer = null;
     }
   }
 
@@ -102,7 +103,7 @@ export function useNotificationsSocket(): UseNotificationsSocketReturn {
     ws.addEventListener("open", () => {
       connected.value = true;
       state.value.reconnectAttempt = 0;
-      lastMessageAt = Date.now();
+      state.value.lastMessageAt = performance.now();
       // Re-subscribe to all known library rooms.
       for (const room of subscribedRooms.value) {
         ws.send(JSON.stringify({ type: "subscribe", room }));
@@ -114,7 +115,7 @@ export function useNotificationsSocket(): UseNotificationsSocketReturn {
       startHeartbeat();
     });
     ws.addEventListener("message", (ev) => {
-      lastMessageAt = Date.now();
+      state.value.lastMessageAt = performance.now();
       try {
         const data = JSON.parse(ev.data as string);
         if (data?.type === "ping") {
