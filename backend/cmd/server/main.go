@@ -25,6 +25,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/queues"
+	"github.com/alcoves/alcoves-backend/internal/seed"
 	"github.com/alcoves/alcoves-backend/internal/version"
 	"github.com/hibiken/asynq"
 
@@ -103,6 +104,13 @@ func main() {
 	storageSvc := storage.NewService(storageDriver)
 	if err := storageSvc.EnsureReady(); err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
+	}
+
+	// Dev/test seed — only when ALCOVES_SEED=true AND the database is empty.
+	// No-op for real deployments and for already-populated databases, so this
+	// is safe to call on every boot. See internal/seed.
+	if err := seed.MaybeRun(db, storageSvc, cfg.SeedEnabled, cfg.Mode, cfg.Environment); err != nil {
+		log.Printf("Warning: dev seed failed (continuing without seed data): %v", err)
 	}
 
 	// Asynq client (Redis-backed job queue)

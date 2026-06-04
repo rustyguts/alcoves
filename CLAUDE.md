@@ -107,6 +107,39 @@ docker compose up -d postgres dragonfly
 
 Frontend container runs `Dockerfile.dev` (`bun run dev`) on :3000. Backend container runs Go with Air hot-reload on :3001. Postgres on :5432, Dragonfly (Redis) on :6389.
 
+## Local Dev Seed Data (`backend/internal/seed`)
+
+`docker compose up` against an **empty** database auto-loads a rich, representative
+data set so you can log in immediately and exercise every feature with real
+content. **Log in with `test@alcoves.io` / `password123`** (an owner/admin).
+
+- **What's seeded:** 3 users (admin + two members for collaboration), 5 libraries
+  (with member roles, face/object/sharing flags), nested folders, real image /
+  video / audio files (small synthetic media embedded in the binary), tags,
+  people + face crops, object detections, EXIF/GPS metadata (Timeline + Map),
+  transcripts, audio-event detections, waveforms, moments, a **public moment
+  share**, highlight filters, the activity feed, and a dev personal access token.
+- **The media files are real**, committed under `backend/internal/seed/assets/`
+  and embedded via `go:embed`. Regenerate them with `assets/generate.sh`
+  (ImageMagick + ffmpeg + cwebp). They are labeled placeholders, not real photos.
+- **Gating — this matters:** the seeder runs **only** when `ALCOVES_SEED=true`
+  (set in `docker-compose.yml` for local dev) **and** the database has zero users.
+  A populated DB — a real deployment, or an already-seeded dev DB — is left
+  untouched, so a **real owner's first-time setup is never affected** (real
+  deployments never set `ALCOVES_SEED`). It is therefore safe on every boot and a
+  no-op after the first run. To reload from scratch: `docker compose down -v`
+  (drops the `postgres_data` volume) then `docker compose up`.
+- **Tests reuse it:** `seed.Run(db, storage)` is exported; `seed_test.go` runs it
+  against an isolated schema + temp storage and asserts the data set.
+
+> [!IMPORTANT]
+> **Keep the seed relevant to features.** When you add or change a user-facing
+> feature, extend the seeder in the same change so the feature has representative
+> data here (a new model → seed a few rows; a new view → seed what it renders).
+> The bar: after `docker compose up`, logging in as `test@alcoves.io` should show
+> realistic content for **every** shipped feature. A feature with no seed data is
+> invisible in local dev and untested by the seed test — treat that as a gap.
+
 ## Architecture Notes
 
 ### Backend (`backend/`)
