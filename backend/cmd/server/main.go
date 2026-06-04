@@ -109,7 +109,7 @@ func main() {
 	// Dev/test seed — only when ALCOVES_SEED=true AND the database is empty.
 	// No-op for real deployments and for already-populated databases, so this
 	// is safe to call on every boot. See internal/seed.
-	if err := seed.MaybeRun(db, storageSvc, cfg.SeedEnabled, cfg.Mode); err != nil {
+	if err := seed.MaybeRun(db, storageSvc, cfg.SeedEnabled, cfg.Mode, cfg.Environment); err != nil {
 		log.Printf("Warning: dev seed failed (continuing without seed data): %v", err)
 	}
 

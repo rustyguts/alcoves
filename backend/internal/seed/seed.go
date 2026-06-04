@@ -14,6 +14,7 @@
 package seed
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -44,6 +45,11 @@ const (
 // same IDs and storage keys — stable URLs for tests and no orphaned blobs.
 var seedNS = uuid.MustParse("5eed0000-0000-4000-8000-00000000a1c0")
 
+// seedAdvisoryLockKey namespaces the Postgres advisory lock that serializes
+// concurrent MaybeRun calls so API replicas starting together cannot both
+// observe an empty database and double-seed.
+const seedAdvisoryLockKey = 0x5EED5EED
+
 func id(parts ...string) uuid.UUID {
 	return uuid.NewSHA1(seedNS, []byte(strings.Join(parts, "/")))
 }
@@ -70,10 +76,35 @@ type Result struct {
 //     doesn't double-seed (the empty-DB check also guards this).
 //   - zero users: a populated DB (real users, or an already-seeded dev DB) is
 //     left untouched, so this is safe to call on every boot.
-func MaybeRun(db *gorm.DB, st *storage.Service, enabled bool, mode string) error {
+func MaybeRun(db *gorm.DB, st *storage.Service, enabled bool, mode, environment string) error {
 	if !enabled || mode == "worker" {
 		return nil
 	}
+	// Safety net: never seed a production database, even if the flag is set by
+	// mistake — seeding creates known-credential accounts and a fixed PAT.
+	if environment == "production" {
+		log.Println("seed: ALCOVES_SEED set but ALCOVES_ENV=production — refusing to seed")
+		return nil
+	}
+
+	// Serialize concurrent starters (multiple API replicas) with a session
+	// Postgres advisory lock held on one dedicated connection, so two processes
+	// cannot both observe an empty DB and double-seed. It releases on conn close.
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("seed: db handle: %w", err)
+	}
+	ctx := context.Background()
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("seed: acquire connection: %w", err)
+	}
+	defer conn.Close()
+	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", seedAdvisoryLockKey); err != nil {
+		return fmt.Errorf("seed: advisory lock: %w", err)
+	}
+	defer func() { _, _ = conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", seedAdvisoryLockKey) }()
+
 	var users int64
 	if err := db.Model(&models.User{}).Count(&users).Error; err != nil {
 		return fmt.Errorf("seed: count users: %w", err)

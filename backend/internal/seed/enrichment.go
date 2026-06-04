@@ -66,8 +66,14 @@ func (s *seeder) addFace(idName string, file *models.File, lib uuid.UUID, person
 	s.create(fd)
 	if s.err == nil {
 		s.res.Faces++
-		if crop, err := asset(cropAsset); err == nil {
-			_ = s.st.StoreCacheBuffer(fmt.Sprintf("%s/faces/%s.webp", lib.String(), fd.ID.String()), crop)
+		crop, cerr := asset(cropAsset)
+		if cerr != nil {
+			s.fail(cerr)
+			return fd
+		}
+		if serr := s.st.StoreCacheBuffer(fmt.Sprintf("%s/faces/%s.webp", lib.String(), fd.ID.String()), crop); serr != nil {
+			s.fail(fmt.Errorf("store face crop %s: %w", idName, serr))
+			return fd
 		}
 	}
 	return fd

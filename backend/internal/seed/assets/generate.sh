@@ -66,16 +66,17 @@ make_video podcast-ep1.mp4    '#2563eb-#1e1b4b' 'Podcast - Episode 1' 6 220
 make_video podcast-ep2.mp4    '#7c3aed-#2e1065' 'Podcast - Episode 2' 6 330
 make_video vacation-recap.mp4 '#0d9488-#042f2e' 'Vacation Recap'      5 440
 
-# Audio (mp3 tone). Fall back to AAC/m4a only if libmp3lame is unavailable.
-if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libmp3lame; then
-  ffmpeg -y -loglevel error -f lavfi -i "sine=frequency=180:duration=8" \
-    -c:a libmp3lame -b:a 128k "$AUD/interview-clip.mp3"
-  echo "audio  interview-clip.mp3"
-else
-  ffmpeg -y -loglevel error -f lavfi -i "sine=frequency=180:duration=8" \
-    -c:a aac -b:a 128k "$AUD/interview-clip.m4a"
-  echo "audio  interview-clip.m4a (libmp3lame missing)"
+# Audio (mp3 tone). The seeder's go:embed manifest expects assets/audio/*.mp3,
+# so mp3 is mandatory: fail loudly rather than silently emit an .m4a the embed
+# would not pick up (which would break seeding/tests on regeneration).
+if ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libmp3lame; then
+  echo "error: this ffmpeg lacks libmp3lame, required to (re)generate assets/audio/*.mp3." >&2
+  echo "       install an ffmpeg with mp3 support (e.g. 'brew install ffmpeg') and retry." >&2
+  exit 1
 fi
+ffmpeg -y -loglevel error -f lavfi -i "sine=frequency=180:duration=8" \
+  -c:a libmp3lame -b:a 128k "$AUD/interview-clip.mp3"
+echo "audio  interview-clip.mp3"
 
 # Video thumbnails (webp) — extracted first frame, scaled down.
 make_thumb() {

@@ -52,11 +52,16 @@ func (s *seeder) createUser(idName, email, name, role, avatarAsset string, creat
 		UpdatedAt:    createdAt,
 	}
 	if avatarAsset != "" {
-		if data, aerr := asset(avatarAsset); aerr == nil {
-			if serr := s.st.StoreAvatar(uid.String(), data); serr == nil {
-				u.AvatarUrl = sp(fmt.Sprintf("/api/auth/users/%s/avatar", uid.String()))
-			}
+		data, aerr := asset(avatarAsset)
+		if aerr != nil {
+			s.fail(aerr)
+			return &models.User{}
 		}
+		if serr := s.st.StoreAvatar(uid.String(), data); serr != nil {
+			s.fail(fmt.Errorf("store avatar for %s: %w", email, serr))
+			return &models.User{}
+		}
+		u.AvatarUrl = sp(fmt.Sprintf("/api/auth/users/%s/avatar", uid.String()))
 	}
 	s.create(u)
 	// A credentials account mirrors what the register flow creates, so password
@@ -242,9 +247,15 @@ func (s *seeder) addFile(spec fileSpec) *models.File {
 
 	// Videos render a thumbnail from the cache key {lib}/{fileID}/thumbnail.webp.
 	if spec.thumbAsset != "" && s.err == nil {
-		if thumb, terr := asset(spec.thumbAsset); terr == nil {
-			cacheKey := fmt.Sprintf("%s/%s/thumbnail.webp", spec.lib.String(), fid.String())
-			_ = s.st.StoreCacheBuffer(cacheKey, thumb)
+		thumb, terr := asset(spec.thumbAsset)
+		if terr != nil {
+			s.fail(terr)
+			return &models.File{}
+		}
+		cacheKey := fmt.Sprintf("%s/%s/thumbnail.webp", spec.lib.String(), fid.String())
+		if serr := s.st.StoreCacheBuffer(cacheKey, thumb); serr != nil {
+			s.fail(fmt.Errorf("store thumbnail for %s: %w", spec.name, serr))
+			return &models.File{}
 		}
 	}
 	if s.err == nil {

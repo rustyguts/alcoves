@@ -194,7 +194,7 @@ func TestMaybeRunGating(t *testing.T) {
 
 	t.Run("disabled is a no-op", func(t *testing.T) {
 		db := freshDB(t, "seedgate1")
-		if err := MaybeRun(db, st, false, "all"); err != nil {
+		if err := MaybeRun(db, st, false, "all", "development"); err != nil {
 			t.Fatalf("MaybeRun: %v", err)
 		}
 		if n := userCount(db); n != 0 {
@@ -204,7 +204,7 @@ func TestMaybeRunGating(t *testing.T) {
 
 	t.Run("worker mode is a no-op", func(t *testing.T) {
 		db := freshDB(t, "seedgate2")
-		if err := MaybeRun(db, st, true, "worker"); err != nil {
+		if err := MaybeRun(db, st, true, "worker", "development"); err != nil {
 			t.Fatalf("MaybeRun: %v", err)
 		}
 		if n := userCount(db); n != 0 {
@@ -212,10 +212,20 @@ func TestMaybeRunGating(t *testing.T) {
 		}
 	})
 
+	t.Run("production environment is a no-op", func(t *testing.T) {
+		db := freshDB(t, "seedgate4")
+		if err := MaybeRun(db, st, true, "all", "production"); err != nil {
+			t.Fatalf("MaybeRun: %v", err)
+		}
+		if n := userCount(db); n != 0 {
+			t.Errorf("users = %d, want 0 (production)", n)
+		}
+	})
+
 	t.Run("enabled on empty db seeds, and re-running is a no-op", func(t *testing.T) {
 		db := freshDB(t, "seedgate3")
 		st := tempStorage(t)
-		if err := MaybeRun(db, st, true, "all"); err != nil {
+		if err := MaybeRun(db, st, true, "all", "development"); err != nil {
 			t.Fatalf("MaybeRun: %v", err)
 		}
 		first := userCount(db)
@@ -223,7 +233,7 @@ func TestMaybeRunGating(t *testing.T) {
 			t.Fatal("expected seeding to create users")
 		}
 		// Second run must not duplicate (DB no longer empty) and must not error.
-		if err := MaybeRun(db, st, true, "all"); err != nil {
+		if err := MaybeRun(db, st, true, "all", "development"); err != nil {
 			t.Fatalf("MaybeRun (second): %v", err)
 		}
 		if n := userCount(db); n != first {
