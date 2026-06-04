@@ -174,7 +174,7 @@ to `.env` for local dev. Highlights:
 |---|---|---|
 | `ALCOVES_MODE` | `all` | `all` / `api` / `worker` |
 | `ALCOVES_ENV` | `development` | `development` or `production` (controls dev-only CORS localhost origins) |
-| `ALCOVES_BASE_URL` | `http://localhost:5173` | Public URL; drives OAuth redirect URIs, share links, and the primary CORS origin |
+| `ALCOVES_BASE_URL` | `http://localhost:3000` | Public URL; drives OAuth redirect URIs, share links, and the primary CORS origin |
 | `ALCOVES_DATABASE_URL` | `postgres://postgres:postgres@localhost:5455/alcoves` | PostgreSQL DSN (must have pgvector) |
 | `ALCOVES_SESSION_SECRET` | dev placeholder | **Required**, ≥32 bytes; AES-GCM cookie key. Generate with `openssl rand -base64 32`. The only hard-required field — `config.Load()` errors without it. |
 | `ALCOVES_QUEUE_HOST` / `ALCOVES_QUEUE_PORT` / `ALCOVES_QUEUE_PASSWORD` | `localhost:6389` | Dragonfly/Redis for Asynq |

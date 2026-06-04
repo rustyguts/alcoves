@@ -6,6 +6,7 @@ definePageMeta({ layout: "library", alias: ["/libraries/:id/trash"] });
 
 import { api } from "~/api";
 import { useLibraryExplorer } from "~/composables/useLibraryExplorer";
+import { useLibraryFolderPath } from "~/composables/useLibraryFolderPath";
 import { useLibraryTags } from "~/composables/useLibraryTags";
 import { useDownloadZip } from "~/composables/useDownloadZip";
 import { useLibraryFolderActions } from "~/composables/useLibraryFolderActions";
@@ -137,36 +138,15 @@ function showContextMenu(entry: LibraryEntry, _event: MouseEvent) {
   contextMenuEntry.value = entry;
 }
 
-function buildBreadcrumbUrl(folderId: string | null): string {
-  const basePath = `/libraries/${libraryId.value}`;
-  if (!folderId) return basePath;
-  return `${basePath}?folder=${encodeURIComponent(folderId)}`;
-}
-
-const breadcrumbItems = computed<
-  Array<{
-    id: string;
-    label: string;
-    to: string;
-    isCurrent: boolean;
-  }>
->(() => {
-  const folderCrumbs = breadcrumbs.value.map((crumb, index) => ({
-    id: crumb.id,
-    label: crumb.name,
-    to: buildBreadcrumbUrl(crumb.id),
-    isCurrent: index === breadcrumbs.value.length - 1,
-  }));
-
-  return [
-    {
-      id: "__root__",
-      label: library.value?.name ?? "Library",
-      to: buildBreadcrumbUrl(null),
-      isCurrent: folderCrumbs.length === 0 || showTrashed.value,
-    },
-    ...(showTrashed.value ? [] : folderCrumbs),
-  ];
+// Publish the current folder ancestry to the shared store so the library
+// header (rendered by the parent layout) renders it in the breadcrumb heading.
+// Empty in trash; cleared on unmount so non-Files tabs fall back to the name.
+const folderPath = useLibraryFolderPath();
+watchEffect(() => {
+  folderPath.value = showTrashed.value ? [] : breadcrumbs.value;
+});
+onUnmounted(() => {
+  folderPath.value = [];
 });
 
 const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelect: () => void }>>>(
@@ -1145,41 +1125,7 @@ const emptyStateDescription = computed(() => {
       </UBadge>
     </div>
 
-    <div class="flex min-h-10 w-full items-center gap-2 pl-2 sm:pl-3 lg:pl-4">
-      <div v-if="!showTrashed" class="min-w-0 flex-1">
-        <nav class="text-sm leading-tight">
-          <ul class="flex items-center flex-wrap gap-x-1.5 whitespace-nowrap">
-            <li
-              v-for="(item, index) in breadcrumbItems"
-              :key="item.id"
-              class="min-w-0 flex items-center gap-1.5"
-            >
-              <UIcon
-                v-if="index > 0"
-                name="i-lucide-chevron-right"
-                class="size-3.5 text-muted shrink-0"
-              />
-              <NuxtLink
-                v-if="!item.isCurrent"
-                :to="item.to"
-                class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-muted transition-colors hover:text-primary"
-              >
-                <UIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
-                {{ item.label }}
-              </NuxtLink>
-              <span
-                v-else
-                class="inline-flex items-center gap-1 truncate max-w-32 sm:max-w-56 font-semibold text-default"
-              >
-                <UIcon v-if="index === 0" name="i-lucide-house" class="size-4 shrink-0" />
-                {{ item.label }}
-              </span>
-            </li>
-          </ul>
-        </nav>
-      </div>
-      <div v-else class="min-w-0 flex-1" />
-
+    <div class="flex min-h-10 w-full items-center justify-end gap-2">
       <div class="flex shrink-0 items-center gap-2">
         <template v-if="!showTrashed">
           <UTooltip text="List view">

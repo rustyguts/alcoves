@@ -146,17 +146,13 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
 </script>
 
 <template>
-  <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 overflow-y-auto px-0.5 pb-6">
-    <UCard
-      :ui="{
-        root: 'overflow-hidden',
-        body: 'bg-gradient-to-br from-primary-500/10 via-default to-secondary-500/10 p-6 sm:p-10',
-      }"
-    >
-      <div class="flex flex-col items-center gap-5 text-center">
+  <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 overflow-y-auto px-0.5 pb-6">
+    <!-- Identity -->
+    <UCard>
+      <div class="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
         <button
           type="button"
-          class="group relative rounded-full transition hover:ring-4 hover:ring-primary-500/20"
+          class="group relative shrink-0 rounded-full transition hover:ring-4 hover:ring-primary-500/20"
           @click="openAvatarPicker"
         >
           <UAvatar
@@ -172,17 +168,24 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
           </span>
         </button>
 
-        <div class="w-full max-w-sm space-y-2">
-          <UInput
-            v-model="displayName"
-            placeholder="Display name"
-            size="lg"
-            class="w-full"
-            :ui="{ root: 'w-full', base: 'text-center text-xl font-semibold' }"
-          />
-          <p class="text-sm text-muted">{{ user?.email }}</p>
-          <div v-if="user?.role" class="flex justify-center">
+        <div class="w-full min-w-0 flex-1 space-y-4 text-center sm:text-left">
+          <UFormField label="Display name" :ui="{ container: 'mt-1' }">
+            <UInput
+              v-model="displayName"
+              placeholder="Display name"
+              size="lg"
+              class="w-full"
+              :ui="{ root: 'w-full' }"
+            />
+          </UFormField>
+
+          <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+            <span class="inline-flex max-w-full items-center gap-1.5 text-sm text-muted">
+              <UIcon name="i-lucide-mail" class="size-4 shrink-0" />
+              <span class="break-all">{{ user?.email }}</span>
+            </span>
             <UBadge
+              v-if="user?.role"
               :color="user.role === 'owner' ? 'primary' : 'neutral'"
               variant="subtle"
               size="sm"
@@ -191,18 +194,17 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
               {{ user.role }}
             </UBadge>
           </div>
-        </div>
 
-        <UButton
-          color="primary"
-          size="lg"
-          :loading="saving"
-          :disabled="!hasProfileChanges"
-          icon="i-lucide-save"
-          @click="save"
-        >
-          Save changes
-        </UButton>
+          <UButton
+            color="primary"
+            :loading="saving"
+            :disabled="!hasProfileChanges"
+            icon="i-lucide-save"
+            @click="save"
+          >
+            Save changes
+          </UButton>
+        </div>
       </div>
 
       <input
@@ -214,14 +216,8 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
       />
     </UCard>
 
-    <UCard>
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-palette" class="size-5 text-primary" />
-          <h2 class="text-base font-semibold">Appearance</h2>
-        </div>
-      </template>
-
+    <!-- Appearance -->
+    <AppPanel title="Appearance" icon="i-lucide-palette">
       <div class="grid grid-cols-3 gap-3">
         <button
           v-for="opt in themeOptions"
@@ -239,32 +235,27 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
           <span class="text-sm font-medium">{{ opt.label }}</span>
         </button>
       </div>
-    </UCard>
+    </AppPanel>
 
-    <UCard>
-      <template #header>
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 class="text-base font-semibold">Active sessions</h2>
-            <p class="text-sm text-muted">Revoke any session you don't recognise.</p>
-          </div>
-          <UBadge color="neutral" variant="outline">{{ sessions?.length ?? 0 }} total</UBadge>
-        </div>
+    <!-- Active sessions -->
+    <AppPanel title="Active sessions" description="Revoke any session you don't recognise.">
+      <template #actions>
+        <UBadge color="neutral" variant="outline">{{ sessions?.length ?? 0 }} total</UBadge>
       </template>
 
-      <div v-if="sessions?.length" class="grid gap-3">
+      <div v-if="sessions?.length" class="grid gap-2">
         <div
           v-for="session in sessions"
           :key="session.id"
-          class="flex items-center justify-between rounded-lg border border-default bg-elevated/40 p-4"
+          class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default bg-elevated/40 px-4 py-3"
         >
-          <div class="space-y-1">
+          <div class="min-w-0 space-y-1">
             <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-monitor" class="size-4 text-muted" />
-              <span class="font-medium">{{ parseBrowser(session.userAgent) }}</span>
+              <UIcon name="i-lucide-monitor" class="size-4 shrink-0 text-muted" />
+              <span class="truncate font-medium">{{ parseBrowser(session.userAgent) }}</span>
               <UBadge v-if="session.isCurrent" color="primary" size="sm">Current</UBadge>
             </div>
-            <div class="flex flex-wrap items-center gap-3 text-xs text-muted">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
               <span v-if="session.ipAddress">{{ session.ipAddress }}</span>
               <span>Signed in {{ formatSessionDate(session.createdAt) }}</span>
             </div>
@@ -289,7 +280,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
         title="No other active sessions"
         description="Only this browser session is active right now."
       />
-    </UCard>
+    </AppPanel>
 
     <ProfileAccessTokensSection />
   </div>

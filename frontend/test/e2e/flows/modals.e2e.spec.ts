@@ -47,7 +47,9 @@ test.describe("Modals @screenshot", () => {
     const state = createDefaultState();
     await setupDeterminism(page);
     await createMockApi(page, state);
-    await page.goto("/libraries/lib-photos");
+    // Emoji/icon editing lives on the Settings tab — the redesigned library
+    // header now shows the emoji display-only (see LibraryHeader.vue).
+    await page.goto("/libraries/lib-photos/settings");
 
     await expect(page.getByTitle("Choose emoji icon")).toBeVisible();
     await page.getByTitle("Choose emoji icon").click();
@@ -190,8 +192,9 @@ test.describe("Modals dark @screenshot", () => {
     await setupDeterminism(page);
     await setTheme(page, "dark");
     await createMockApi(page, state);
-    await page.goto("/libraries/lib-photos");
+    await page.goto("/libraries/lib-photos/settings");
 
+    await expect(page.getByTitle("Choose emoji icon")).toBeVisible();
     await page.getByTitle("Choose emoji icon").click();
     await snap(page, FLOW, "emoji-picker-open-dark");
   });

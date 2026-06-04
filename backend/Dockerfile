@@ -28,10 +28,24 @@ RUN ARCH=$(dpkg --print-architecture) && \
     rm -rf onnxruntime-linux-${ONNX_ARCH}-1.24.1*
 
 # Build whisper.cpp (whisper-cli) for transcription. Models are downloaded at runtime.
+#
+# On aarch64 (Apple Silicon under Docker Desktop's arm64 VM), ggml's default
+# native detection does NOT enable the +fp16 target feature, so the ggml-cpu
+# fp16 NEON intrinsics (e.g. vfmaq_f16) fail to inline with a "target specific
+# option mismatch" error. Pin the ARM baseline to armv8.2-a+fp16 — the first
+# arch level with FP16 vector arithmetic, and well below every Apple Silicon
+# generation (M-series are armv8.4-a or newer), so the resulting binary runs on
+# any host that can run this image. x86_64 keeps ggml's default native path.
 ARG WHISPER_VERSION=v1.8.4
-RUN git clone --depth 1 --branch ${WHISPER_VERSION} https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp && \
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then \
+        WHISPER_CMAKE_FLAGS="-DGGML_NATIVE=OFF -DGGML_CPU_ARM_ARCH=armv8.2-a+fp16"; \
+    else \
+        WHISPER_CMAKE_FLAGS=""; \
+    fi && \
+    git clone --depth 1 --branch ${WHISPER_VERSION} https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp && \
     cd /tmp/whisper.cpp && \
-    cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
+    cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON ${WHISPER_CMAKE_FLAGS} && \
     cmake --build build -j --config Release && \
     install -m 0755 build/bin/whisper-cli /usr/local/bin/whisper-cli && \
     find build -name 'libwhisper.so*' -exec cp -a {} /usr/local/lib/ \; && \

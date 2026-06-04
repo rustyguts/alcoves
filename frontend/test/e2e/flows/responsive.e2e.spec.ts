@@ -72,7 +72,9 @@ test.describe("Mobile @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos");
 
-    await expect(page.getByRole("heading", { name: "Photos 2025" })).toBeVisible();
+    // The library name now lives in the breadcrumb heading (a nav, not a
+    // heading element); gate on the Files tab to confirm the chrome rendered.
+    await expect(page.getByRole("tab", { name: /Files/ })).toBeVisible();
     await snap(page, FLOW, "mobile-library-header");
   });
 

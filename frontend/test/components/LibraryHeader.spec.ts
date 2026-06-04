@@ -1,153 +1,75 @@
 import { mount } from "@vue/test-utils";
 import LibraryHeader from "~/components/LibraryHeader.vue";
 
+// The breadcrumb is exercised in its own spec; here we stub it so we can test
+// LibraryHeader's composition (emoji prefix + breadcrumb + slots) in isolation.
 const stubs = {
-  EmojiPicker: {
-    template: '<div class="emoji-picker-stub" />',
-    props: ["modelValue"],
+  LibraryBreadcrumb: {
+    name: "LibraryBreadcrumb",
+    template: '<nav class="lib-breadcrumb-stub">{{ libraryName }}</nav>',
+    props: ["libraryId", "libraryName"],
   },
 };
 
 describe("LibraryHeader", () => {
-  it("renders library name", () => {
+  it("renders the library name via the breadcrumb", () => {
     const wrapper = mount(LibraryHeader, {
-      props: { name: "My Library" },
+      props: { libraryId: "lib-1", name: "My Library" },
       global: { stubs },
     });
-    expect(wrapper.find("h1").text()).toBe("My Library");
+    expect(wrapper.find(".lib-breadcrumb-stub").text()).toBe("My Library");
   });
 
-  it("renders emoji when canEdit is false", () => {
+  it("passes libraryId and name through to the breadcrumb", () => {
     const wrapper = mount(LibraryHeader, {
-      props: { name: "Lib", emoji: "\u{1F680}", canEdit: false },
+      props: { libraryId: "lib-9", name: "Photos" },
+      global: { stubs },
+    });
+    const breadcrumb = wrapper.findComponent({ name: "LibraryBreadcrumb" });
+    expect(breadcrumb.props("libraryId")).toBe("lib-9");
+    expect(breadcrumb.props("libraryName")).toBe("Photos");
+  });
+
+  it("renders the emoji as a display-only prefix when present", () => {
+    const wrapper = mount(LibraryHeader, {
+      props: { libraryId: "lib-1", name: "Lib", emoji: "\u{1F680}" },
       global: { stubs },
     });
     expect(wrapper.text()).toContain("\u{1F680}");
-    expect(wrapper.find(".emoji-picker-stub").exists()).toBe(false);
   });
 
-  it("renders EmojiPicker when canEdit is true", () => {
+  it("does not render an emoji when absent", () => {
     const wrapper = mount(LibraryHeader, {
-      props: { name: "Lib", emoji: "\u{1F680}", canEdit: true },
+      props: { libraryId: "lib-1", name: "Lib" },
       global: { stubs },
     });
-    expect(wrapper.find(".emoji-picker-stub").exists()).toBe(true);
+    expect(wrapper.text()).not.toContain("\u{1F680}");
   });
 
-  it("does not show emoji picker or emoji when both are absent", () => {
+  it("is not editable: no rename input or heading affordance", () => {
     const wrapper = mount(LibraryHeader, {
-      props: { name: "Lib", canEdit: false },
+      props: { libraryId: "lib-1", name: "Lib" },
       global: { stubs },
     });
-    expect(wrapper.find(".emoji-picker-stub").exists()).toBe(false);
-  });
-
-  it("makes name clickable when canEdit is true", () => {
-    const wrapper = mount(LibraryHeader, {
-      props: { name: "Editable", canEdit: true },
-      global: { stubs },
-    });
-    expect(wrapper.find("h1").classes()).toContain("cursor-pointer");
-  });
-
-  it("does not make name clickable when canEdit is false", () => {
-    const wrapper = mount(LibraryHeader, {
-      props: { name: "Readonly", canEdit: false },
-      global: { stubs },
-    });
-    expect(wrapper.find("h1").classes()).not.toContain("cursor-pointer");
-  });
-
-  it("switches to edit mode on name click when canEdit", async () => {
-    const wrapper = mount(LibraryHeader, {
-      props: { name: "Original", canEdit: true },
-      global: { stubs },
-    });
-    await wrapper.find("h1").trigger("click");
-    expect(wrapper.find("input").exists()).toBe(true);
-    expect((wrapper.find("input").element as HTMLInputElement).value).toBe("Original");
-  });
-
-  it("does not switch to edit mode on name click when canEdit is false", async () => {
-    const wrapper = mount(LibraryHeader, {
-      props: { name: "Original", canEdit: false },
-      global: { stubs },
-    });
-    await wrapper.find("h1").trigger("click");
     expect(wrapper.find("input").exists()).toBe(false);
+    expect(wrapper.find("h1").exists()).toBe(false);
   });
 
-  it("emits update:name on blur with changed value", async () => {
+  it("renders the default slot (tabs)", () => {
     const wrapper = mount(LibraryHeader, {
-      props: { name: "Original", canEdit: true },
+      props: { libraryId: "lib-1", name: "Lib" },
       global: { stubs },
+      slots: { default: "<div>TABS</div>" },
     });
-    await wrapper.find("h1").trigger("click");
-    const input = wrapper.find("input");
-    await input.setValue("New Name");
-    await input.trigger("blur");
-    expect(wrapper.emitted("update:name")?.[0]).toEqual(["New Name"]);
+    expect(wrapper.text()).toContain("TABS");
   });
 
-  it("does not emit update:name if value is unchanged", async () => {
+  it("renders the actions slot", () => {
     const wrapper = mount(LibraryHeader, {
-      props: { name: "Same", canEdit: true },
-      global: { stubs },
-    });
-    await wrapper.find("h1").trigger("click");
-    await wrapper.find("input").trigger("blur");
-    expect(wrapper.emitted("update:name")).toBeUndefined();
-  });
-
-  it("does not emit update:name if value is empty after trim", async () => {
-    const wrapper = mount(LibraryHeader, {
-      props: { name: "Original", canEdit: true },
-      global: { stubs },
-    });
-    await wrapper.find("h1").trigger("click");
-    await wrapper.find("input").setValue("   ");
-    await wrapper.find("input").trigger("blur");
-    expect(wrapper.emitted("update:name")).toBeUndefined();
-  });
-
-  it("saves name on Enter key", async () => {
-    const wrapper = mount(LibraryHeader, {
-      props: { name: "Original", canEdit: true },
-      global: { stubs },
-    });
-    await wrapper.find("h1").trigger("click");
-    await wrapper.find("input").setValue("Enter Name");
-    await wrapper.find("input").trigger("keydown.enter");
-    expect(wrapper.emitted("update:name")?.[0]).toEqual(["Enter Name"]);
-  });
-
-  it("cancels editing on Escape key", async () => {
-    const wrapper = mount(LibraryHeader, {
-      props: { name: "Original", canEdit: true },
-      global: { stubs },
-    });
-    await wrapper.find("h1").trigger("click");
-    expect(wrapper.find("input").exists()).toBe(true);
-    await wrapper.find("input").trigger("keydown.escape");
-    expect(wrapper.find("input").exists()).toBe(false);
-    expect(wrapper.find("h1").exists()).toBe(true);
-  });
-
-  it("renders actions slot", () => {
-    const wrapper = mount(LibraryHeader, {
-      props: { name: "Lib" },
+      props: { libraryId: "lib-1", name: "Lib" },
       global: { stubs },
       slots: { actions: "<button>Action</button>" },
     });
     expect(wrapper.text()).toContain("Action");
-  });
-
-  it("renders subtitle slot", () => {
-    const wrapper = mount(LibraryHeader, {
-      props: { name: "Lib" },
-      global: { stubs },
-      slots: { subtitle: "<span>3 files</span>" },
-    });
-    expect(wrapper.text()).toContain("3 files");
   });
 });

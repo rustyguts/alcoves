@@ -406,19 +406,16 @@ const columns: TableColumn<AdminUser>[] = [
       </UCard>
     </div>
 
-    <UCard>
-      <template #header>
-        <div>
-          <h2 class="text-lg font-semibold">Registration</h2>
-          <p class="text-sm text-muted">Control who can create accounts on this instance.</p>
-        </div>
-      </template>
-
-      <div class="flex flex-col gap-3">
+    <AppPanel
+      title="Registration"
+      description="Control who can create accounts on this instance."
+      icon="i-lucide-user-plus"
+    >
+      <div class="flex flex-col gap-1">
         <label
           v-for="mode in registrationModes"
           :key="mode.value"
-          class="flex items-start gap-3 cursor-pointer rounded-md p-3 hover:bg-elevated/50"
+          class="flex items-start gap-3 cursor-pointer rounded-lg p-3 hover:bg-elevated/50"
         >
           <input
             type="radio"
@@ -435,20 +432,13 @@ const columns: TableColumn<AdminUser>[] = [
           </div>
         </label>
       </div>
-    </UCard>
+    </AppPanel>
 
-    <UCard>
-      <template #header>
-        <div>
-          <h2 class="text-lg font-semibold">Inference models</h2>
-          <p class="text-sm text-muted">
-            Switch the transcription model and audio-tagger used by background
-            workers. Changes take effect on the next job; long-running jobs
-            already in flight finish on the previous model.
-          </p>
-        </div>
-      </template>
-
+    <AppPanel
+      title="Inference models"
+      description="Switch the transcription model and audio-tagger used by background workers. Changes take effect on the next job; long-running jobs already in flight finish on the previous model."
+      icon="i-lucide-brain-circuit"
+    >
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="space-y-3">
           <div>
@@ -524,17 +514,11 @@ const columns: TableColumn<AdminUser>[] = [
           </p>
         </div>
       </div>
-    </UCard>
+    </AppPanel>
 
-    <UCard :ui="{ body: 'p-0' }">
-      <template #header>
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-semibold">Users</h2>
-            <p class="text-sm text-muted">Manage accounts and roles.</p>
-          </div>
-          <UBadge v-if="users" color="neutral" variant="subtle">{{ users.length }}</UBadge>
-        </div>
+    <AppPanel title="Users" description="Manage accounts and roles." icon="i-lucide-users" flush>
+      <template #actions>
+        <UBadge v-if="users" color="neutral" variant="subtle">{{ users.length }}</UBadge>
       </template>
 
       <div v-if="usersStatus === 'pending'" class="flex justify-center py-12">
@@ -544,7 +528,7 @@ const columns: TableColumn<AdminUser>[] = [
         <UTable :data="users" :columns="columns" />
       </div>
       <p v-else class="px-6 pb-6 text-sm text-muted">No users found.</p>
-    </UCard>
+    </AppPanel>
 
     <AdminJobsPanel embedded />
 

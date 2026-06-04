@@ -154,7 +154,7 @@ func Load() (*Config, error) {
 		OAuthGoogleClientSecret: getEnv("ALCOVES_OAUTH_GOOGLE_CLIENT_SECRET", ""),
 		GoogleAuthEnabled:       googleClientID != "",
 
-		BaseURL:          getEnv("ALCOVES_BASE_URL", "http://localhost:5173"),
+		BaseURL:          getEnv("ALCOVES_BASE_URL", "http://localhost:3000"),
 		ExtraCORSOrigins: parseCommaList(getEnv("ALCOVES_EXTRA_CORS_ORIGINS", "")),
 
 		MCPHTTPEnabled:   getEnv("ALCOVES_MCP_HTTP_ENABLED", "") == "true",
