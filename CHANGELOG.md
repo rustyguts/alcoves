@@ -10,6 +10,23 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.22.0](https://github.com/rustyguts/alcoves/compare/v0.21.0...v0.22.0) (2026-06-04)
+
+
+### Added
+
+* **backend:** seed dev/test database with representative data ([#565](https://github.com/rustyguts/alcoves/issues/565)) ([8ab0af8](https://github.com/rustyguts/alcoves/commit/8ab0af819e981078cbe50d913804db9e06fc0f9a))
+
+
+### Build
+
+* **docker:** unify backend and frontend into a single production image ([#564](https://github.com/rustyguts/alcoves/issues/564)) ([5020bbb](https://github.com/rustyguts/alcoves/commit/5020bbbc70eaa79193ed2e994788dd2dc3926b27))
+
+
+### CI
+
+* **release:** publish version-tagged Docker images on release merges ([#562](https://github.com/rustyguts/alcoves/issues/562)) ([4d9412b](https://github.com/rustyguts/alcoves/commit/4d9412b7d1add5fd915cd37596462d76d09a2a44))
+
 ## [0.21.0](https://github.com/rustyguts/alcoves/compare/v0.20.0...v0.21.0) (2026-06-04)
 
 
