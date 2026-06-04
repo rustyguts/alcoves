@@ -10,6 +10,43 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.20.0](https://github.com/rustyguts/alcoves/compare/v0.19.0...v0.20.0) (2026-06-04)
+
+
+### Added
+
+* **mcp:** add Model Context Protocol server ([#546](https://github.com/rustyguts/alcoves/issues/546)) ([eb71a57](https://github.com/rustyguts/alcoves/commit/eb71a572ff096b9d9c54157e8376938425001aa0))
+* **observability:** add Sentry SDK to backend and frontend ([#548](https://github.com/rustyguts/alcoves/issues/548)) ([700faee](https://github.com/rustyguts/alcoves/commit/700faee0c49129a0d6652fe0cb8dd0eb6803a472))
+* **timeline-map:** EXIF metadata pipeline with Timeline and Map views ([#552](https://github.com/rustyguts/alcoves/issues/552)) ([2d596a2](https://github.com/rustyguts/alcoves/commit/2d596a253a35a3c8bd2128e426814fc80ed07878))
+* **website:** add Astro + Starlight marketing & docs site ([#553](https://github.com/rustyguts/alcoves/issues/553)) ([871807d](https://github.com/rustyguts/alcoves/commit/871807d9e03042ba6e62cb5167448f650b1222e0))
+
+
+### Fixed
+
+* resolve 15 handler bugs from bug sweep ([#547](https://github.com/rustyguts/alcoves/issues/547)) ([1d0bb11](https://github.com/rustyguts/alcoves/commit/1d0bb1135161a688a5110548266a9e0bb48a62de))
+
+
+### Changed
+
+* **frontend:** unify panels, fix profile spacing/clipping ([#545](https://github.com/rustyguts/alcoves/issues/545)) ([1cd8e46](https://github.com/rustyguts/alcoves/commit/1cd8e461306186cf1f45171d54fe9a16c2a08731))
+
+
+### Documentation
+
+* add test coverage targets to CLAUDE.md ([#550](https://github.com/rustyguts/alcoves/issues/550)) ([e99df4a](https://github.com/rustyguts/alcoves/commit/e99df4af2fdd30f339c158161069d2fb526c210e))
+
+
+### Tests
+
+* **backend:** raise coverage to 80%+ and isolate test DBs per-package ([#551](https://github.com/rustyguts/alcoves/issues/551)) ([870076a](https://github.com/rustyguts/alcoves/commit/870076a875eb762551195f81d001f840a2c4c541))
+* **backend:** real-data ML inference e2e tests (+ fix ONNX Runtime 1.25.0) ([#554](https://github.com/rustyguts/alcoves/issues/554)) ([9533147](https://github.com/rustyguts/alcoves/commit/95331470c72a972faf192f8fe5645a0b52e59722))
+* **frontend:** raise unit coverage above 90% ([#549](https://github.com/rustyguts/alcoves/issues/549)) ([f19f85e](https://github.com/rustyguts/alcoves/commit/f19f85e26040187916eb39a2adc2f81a6c83cb4d))
+
+
+### CI
+
+* bump release-please-action to v5 (Node.js 24) ([17d69cd](https://github.com/rustyguts/alcoves/commit/17d69cddc04d33c79d595e6d81a1e9048c8cd0fc))
+
 ## [0.19.0](https://github.com/rustyguts/alcoves/compare/v0.18.2...v0.19.0) (2026-06-02)
 
 
