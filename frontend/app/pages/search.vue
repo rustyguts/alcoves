@@ -119,14 +119,10 @@ async function openPreview(result: GlobalSearchResult) {
 
 <template>
   <div class="mx-auto w-full max-w-6xl space-y-6 overflow-y-auto flex-1 min-h-0 px-0.5">
-    <UCard
-      :ui="{
-        root: 'overflow-hidden bg-gradient-to-br from-primary-500/10 via-default to-secondary-500/10',
-      }"
-    >
+    <UCard>
       <div class="space-y-4">
         <div class="space-y-1">
-          <h1 class="text-2xl font-semibold">Global Search</h1>
+          <h1 class="text-xl font-semibold text-highlighted">Global Search</h1>
           <p class="text-sm text-muted">
             Search files and folders across every library you can access.
           </p>
@@ -190,17 +186,17 @@ async function openPreview(result: GlobalSearchResult) {
     />
 
     <div v-else class="space-y-4">
-      <UCard v-for="group in groupedResults" :key="group.libraryId" :ui="{ body: 'p-1' }">
-        <template #header>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-library" class="size-4 text-primary" />
-              <h2 class="font-semibold">{{ group.libraryName }}</h2>
-            </div>
-            <UBadge color="neutral" variant="subtle" size="sm">
-              {{ group.results.length }}
-            </UBadge>
-          </div>
+      <AppPanel
+        v-for="group in groupedResults"
+        :key="group.libraryId"
+        :title="group.libraryName"
+        icon="i-lucide-library"
+        body-class="p-1"
+      >
+        <template #actions>
+          <UBadge color="neutral" variant="subtle" size="sm">
+            {{ group.results.length }}
+          </UBadge>
         </template>
 
         <div class="space-y-1">
@@ -257,7 +253,7 @@ async function openPreview(result: GlobalSearchResult) {
             </div>
           </div>
         </div>
-      </UCard>
+      </AppPanel>
     </div>
 
     <FilePreview

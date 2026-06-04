@@ -367,16 +367,9 @@ async function deleteLibrary() {
 
 <template>
   <div class="space-y-4 overflow-y-auto flex-1 min-h-0 px-0.5">
-    <!-- Library Name Card -->
-    <UCard>
-      <template #header>
-        <div>
-          <p class="text-sm font-semibold">Library Name</p>
-          <p class="text-xs text-muted">Rename this library.</p>
-        </div>
-      </template>
-
-      <div class="flex flex-col sm:flex-row gap-2">
+    <!-- Library Name -->
+    <AppPanel title="Library Name" description="Rename this library." icon="i-lucide-folder-pen">
+      <div class="flex flex-col gap-2 sm:flex-row">
         <UInput
           v-model="libraryNameDraft"
           placeholder="Library name"
@@ -398,27 +391,25 @@ async function deleteLibrary() {
           Save
         </UButton>
       </div>
-    </UCard>
+    </AppPanel>
 
-    <!-- Library Members Card -->
-    <UCard v-if="!library?.isDefault">
-      <template #header>
-        <div>
-          <p class="text-sm font-semibold">Library Members</p>
-          <p class="text-xs text-muted">
-            Manage who has access to this library and their permissions.
-          </p>
-        </div>
-      </template>
-
+    <!-- Library Members -->
+    <AppPanel
+      v-if="!library?.isDefault"
+      title="Library Members"
+      description="Manage who has access to this library and their permissions."
+      icon="i-lucide-users"
+    >
       <div class="space-y-6">
-        <div>
-          <p class="text-sm font-medium mb-2">Create Invite Link</p>
-          <p class="text-xs text-muted mb-3">
-            Anyone with the link can sign up and join this library as a member.
-          </p>
-          <div class="flex flex-col sm:flex-row gap-2 items-end">
-            <UFormField label="Max uses" hint="Leave blank for unlimited" class="flex-1">
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm font-medium text-highlighted">Create Invite Link</p>
+            <p class="text-xs text-muted">
+              Anyone with the link can sign up and join this library as a member.
+            </p>
+          </div>
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <UFormField label="Max uses" class="flex-1">
               <UInput
                 v-model="newLinkMaxUses"
                 type="number"
@@ -428,7 +419,7 @@ async function deleteLibrary() {
                 :ui="{ root: 'w-full' }"
               />
             </UFormField>
-            <UFormField label="Expires at" hint="Leave blank for never" class="flex-1">
+            <UFormField label="Expires at" class="flex-1">
               <UInput
                 v-model="newLinkExpiresAt"
                 type="datetime-local"
@@ -446,94 +437,92 @@ async function deleteLibrary() {
               Create Link
             </UButton>
           </div>
-        </div>
-
-        <USeparator />
-
-        <div v-if="inviteLinks.length">
-          <div class="flex items-center justify-between gap-3 mb-3">
-            <div>
-              <p class="text-sm font-medium">Active Invite Links</p>
-              <p class="text-xs text-muted">
-                Track redemptions and revoke links you no longer need.
-              </p>
-            </div>
-            <UBadge color="neutral" variant="soft" size="sm">
-              {{ inviteLinks.length }}
-            </UBadge>
-          </div>
-          <div class="divide-y divide-default rounded-xl border border-default overflow-hidden">
-            <InviteLinkRow
-              v-for="invite in inviteLinks"
-              :key="invite.id"
-              :invite="invite"
-              :revoking="revokingInviteId === invite.id"
-              @copy="copyInviteLink"
-              @revoke="revokeInvite"
-            />
-          </div>
-        </div>
-
-        <div v-if="libraryMembers.length">
-          <p class="text-sm font-medium mb-3">Members</p>
-          <div class="divide-y divide-default rounded-xl border border-default overflow-hidden">
-            <LibraryMemberRow
-              v-for="member in libraryMembers"
-              :key="member.id"
-              :member="member"
-              :role-draft="
-                (memberRoleDrafts[member.userId] ??
-                  (member.role === 'owner' ? 'admin' : member.role)) as 'admin' | 'viewer'
-              "
-              :updating-role="updatingMemberUserId === member.userId"
-              :removing="removingMemberUserId === member.userId"
-              :role-options="inviteRoleOptions"
-              @update-role="
-                (_, role) => {
-                  memberRoleDrafts[member.userId] = role;
-                  updateMemberRole(member);
-                }
-              "
-              @remove="removeMember"
-            />
-          </div>
-        </div>
-      </div>
-    </UCard>
-
-    <!-- Facial Recognition Card -->
-    <UCard>
-      <template #header>
-        <div>
-          <p class="text-sm font-semibold">Facial Recognition</p>
           <p class="text-xs text-muted">
-            Detect and group faces from image uploads. Disabling removes all face data.
+            Leave both fields blank for unlimited uses that never expire.
           </p>
         </div>
-      </template>
 
-      <div class="space-y-4">
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">Enable facial recognition</p>
-            <p class="text-xs text-muted">Process new uploads and group detected faces.</p>
+        <template v-if="inviteLinks.length">
+          <USeparator />
+          <div class="space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Active Invite Links</p>
+                <p class="text-xs text-muted">
+                  Track redemptions and revoke links you no longer need.
+                </p>
+              </div>
+              <UBadge color="neutral" variant="soft" size="sm">
+                {{ inviteLinks.length }}
+              </UBadge>
+            </div>
+            <div class="divide-y divide-default overflow-hidden rounded-lg border border-default">
+              <InviteLinkRow
+                v-for="invite in inviteLinks"
+                :key="invite.id"
+                :invite="invite"
+                :revoking="revokingInviteId === invite.id"
+                @copy="copyInviteLink"
+                @revoke="revokeInvite"
+              />
+            </div>
           </div>
+        </template>
+
+        <template v-if="libraryMembers.length">
+          <USeparator />
+          <div class="space-y-3">
+            <p class="text-sm font-medium text-highlighted">Members</p>
+            <div class="divide-y divide-default overflow-hidden rounded-lg border border-default">
+              <LibraryMemberRow
+                v-for="member in libraryMembers"
+                :key="member.id"
+                :member="member"
+                :role-draft="
+                  (memberRoleDrafts[member.userId] ??
+                    (member.role === 'owner' ? 'admin' : member.role)) as 'admin' | 'viewer'
+                "
+                :updating-role="updatingMemberUserId === member.userId"
+                :removing="removingMemberUserId === member.userId"
+                :role-options="inviteRoleOptions"
+                @update-role="
+                  (_, role) => {
+                    memberRoleDrafts[member.userId] = role;
+                    updateMemberRole(member);
+                  }
+                "
+                @remove="removeMember"
+              />
+            </div>
+          </div>
+        </template>
+      </div>
+    </AppPanel>
+
+    <!-- Facial Recognition -->
+    <AppPanel
+      title="Facial Recognition"
+      description="Detect and group faces from image uploads. Disabling removes all face data."
+      icon="i-lucide-scan-face"
+    >
+      <div class="space-y-4">
+        <AppPanelRow
+          title="Enable facial recognition"
+          description="Process new uploads and group detected faces."
+        >
           <USwitch
             :model-value="library?.faceRecognitionEnabled ?? false"
             :disabled="faceRecToggling"
             @update:model-value="toggleFaceRecognition($event as boolean)"
           />
-        </div>
+        </AppPanelRow>
 
         <USeparator />
 
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">Queue full reprocessing</p>
-            <p class="text-xs text-muted">
-              Deletes current face inference data, then re-runs detection on all images.
-            </p>
-          </div>
+        <AppPanelRow
+          title="Queue full reprocessing"
+          description="Deletes current face inference data, then re-runs detection on all images."
+        >
           <UButton
             color="warning"
             variant="soft"
@@ -544,43 +533,34 @@ async function deleteLibrary() {
           >
             Reprocess Faces
           </UButton>
-        </div>
+        </AppPanelRow>
       </div>
-    </UCard>
+    </AppPanel>
 
-    <!-- Object Detection Card -->
-    <UCard>
-      <template #header>
-        <div>
-          <p class="text-sm font-semibold">Object Detection</p>
-          <p class="text-xs text-muted">
-            Detect objects in image uploads using YOLO26. Disabling removes all detection data.
-          </p>
-        </div>
-      </template>
-
+    <!-- Object Detection -->
+    <AppPanel
+      title="Object Detection"
+      description="Detect objects in image uploads using YOLO26. Disabling removes all detection data."
+      icon="i-lucide-scan-search"
+    >
       <div class="space-y-4">
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">Enable object detection</p>
-            <p class="text-xs text-muted">Process new uploads and index detected objects.</p>
-          </div>
+        <AppPanelRow
+          title="Enable object detection"
+          description="Process new uploads and index detected objects."
+        >
           <USwitch
             :model-value="library?.objectDetectionEnabled ?? false"
             :disabled="objDetToggling"
             @update:model-value="toggleObjectDetection($event as boolean)"
           />
-        </div>
+        </AppPanelRow>
 
         <USeparator />
 
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">Queue full reprocessing</p>
-            <p class="text-xs text-muted">
-              Deletes current object detection data, then re-runs detection on all images.
-            </p>
-          </div>
+        <AppPanelRow
+          title="Queue full reprocessing"
+          description="Deletes current object detection data, then re-runs detection on all images."
+        >
           <UButton
             color="warning"
             variant="soft"
@@ -591,29 +571,20 @@ async function deleteLibrary() {
           >
             Reprocess Objects
           </UButton>
-        </div>
+        </AppPanelRow>
       </div>
-    </UCard>
+    </AppPanel>
 
-    <!-- Transcription Card -->
-    <UCard>
-      <template #header>
-        <div>
-          <p class="text-sm font-semibold">Transcription</p>
-          <p class="text-xs text-muted">
-            Generate searchable text + WebVTT cues from video and audio files using whisper.cpp.
-          </p>
-        </div>
-      </template>
-
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <p class="text-sm font-medium">Re-transcribe all videos</p>
-          <p class="text-xs text-muted">
-            Queues transcription for every video and audio file in this library, overwriting
-            existing transcripts. Useful after a model upgrade or hallucination-fix rollout.
-          </p>
-        </div>
+    <!-- Transcription -->
+    <AppPanel
+      title="Transcription"
+      description="Generate searchable text + WebVTT cues from video and audio files using whisper.cpp."
+      icon="i-lucide-captions"
+    >
+      <AppPanelRow
+        title="Re-transcribe all videos"
+        description="Queues transcription for every video and audio file in this library, overwriting existing transcripts. Useful after a model upgrade or hallucination-fix rollout."
+      >
         <UButton
           color="warning"
           variant="soft"
@@ -624,29 +595,19 @@ async function deleteLibrary() {
         >
           Reprocess Transcripts
         </UButton>
-      </div>
-    </UCard>
+      </AppPanelRow>
+    </AppPanel>
 
-    <!-- Audio Event Detection Card -->
-    <UCard>
-      <template #header>
-        <div>
-          <p class="text-sm font-semibold">Audio Event Detection</p>
-          <p class="text-xs text-muted">
-            Tag audio segments with PANNs CNN14 (music, speech, applause, …). Requires the file's
-            transcript to be ready.
-          </p>
-        </div>
-      </template>
-
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <p class="text-sm font-medium">Re-run audio detection on all videos</p>
-          <p class="text-xs text-muted">
-            Queues PANNs detection for every video and audio file with a ready transcript,
-            overwriting existing audio-event tags.
-          </p>
-        </div>
+    <!-- Audio Event Detection -->
+    <AppPanel
+      title="Audio Event Detection"
+      description="Tag audio segments with PANNs CNN14 (music, speech, applause, …). Requires the file's transcript to be ready."
+      icon="i-lucide-audio-waveform"
+    >
+      <AppPanelRow
+        title="Re-run audio detection on all videos"
+        description="Queues PANNs detection for every video and audio file with a ready transcript, overwriting existing audio-event tags."
+      >
         <UButton
           color="warning"
           variant="soft"
@@ -657,44 +618,35 @@ async function deleteLibrary() {
         >
           Reprocess Audio Detections
         </UButton>
-      </div>
-    </UCard>
+      </AppPanelRow>
+    </AppPanel>
 
-    <!-- Sharing Card -->
-    <UCard>
-      <template #header>
-        <div>
-          <p class="text-sm font-semibold">Sharing</p>
-          <p class="text-xs text-muted">
-            Allow members to create public share links for moments in this library.
-          </p>
-        </div>
-      </template>
-
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <p class="text-sm font-medium">Enable sharing</p>
-          <p class="text-xs text-muted">
-            When on, anyone with a share link can view the individual moment without signing in.
-          </p>
-        </div>
+    <!-- Sharing -->
+    <AppPanel
+      title="Sharing"
+      description="Allow members to create public share links for moments in this library."
+      icon="i-lucide-share-2"
+    >
+      <AppPanelRow
+        title="Enable sharing"
+        description="When on, anyone with a share link can view the individual moment without signing in."
+      >
         <USwitch
           :model-value="library?.sharingEnabled ?? false"
           :disabled="sharingToggling"
           @update:model-value="toggleSharing($event as boolean)"
         />
-      </div>
-    </UCard>
+      </AppPanelRow>
+    </AppPanel>
 
-    <!-- Video Thumbnails Card -->
-    <UCard v-if="isLibraryOwner">
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <p class="text-sm font-semibold">Video Thumbnails</p>
-          <p class="text-xs text-muted">
-            Regenerate JPG thumbnails for all source videos in this library.
-          </p>
-        </div>
+    <!-- Video Thumbnails -->
+    <AppPanel
+      v-if="isLibraryOwner"
+      title="Video Thumbnails"
+      description="Regenerate JPG thumbnails for all source videos in this library."
+      icon="i-lucide-image-up"
+    >
+      <div class="flex sm:justify-end">
         <UButton
           color="warning"
           variant="soft"
@@ -706,15 +658,21 @@ async function deleteLibrary() {
           Regenerate Thumbnails
         </UButton>
       </div>
-    </UCard>
+    </AppPanel>
 
-    <!-- Danger Zone Card -->
-    <UCard>
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <p class="text-sm font-semibold text-error">Delete Library</p>
-          <p class="text-xs text-muted">Permanently remove this library. Must be empty first.</p>
+    <!-- Danger Zone -->
+    <AppPanel>
+      <template #title>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-triangle-alert" class="size-4 shrink-0 text-error" />
+          <h2 class="text-sm font-semibold text-error">Delete Library</h2>
         </div>
+      </template>
+      <AppPanelRow
+        title="Delete this library"
+        description="Permanently remove this library. Must be empty first."
+        danger
+      >
         <UButton
           color="error"
           variant="soft"
@@ -724,8 +682,8 @@ async function deleteLibrary() {
         >
           Delete
         </UButton>
-      </div>
-    </UCard>
+      </AppPanelRow>
+    </AppPanel>
 
     <ConfirmModal
       v-model:open="faceRecDisableOpen"
