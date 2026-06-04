@@ -78,27 +78,40 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		// identical to the other image workers.
 		data, err := h.storage.ReadFileBuffer(libraryID, fileID)
 		if err != nil {
-			return h.fail(fileID, fmt.Errorf("read file: %w", err))
+			// A storage read failure is infrastructure (S3 blip, disk error),
+			// not a broken file — retry without burning a 3-strike attempt.
+			return h.failTransient(fileID, fmt.Errorf("read file: %w", err))
 		}
 		// EXIF parse failures (missing/malformed) degrade gracefully to "no
 		// metadata"; they are not job failures and do not burn an attempt.
 		ex = parseImageMetadata(data)
 	} else {
-		tmpDir, err := os.MkdirTemp("", "alcoves-metadata-*")
-		if err != nil {
-			return h.fail(fileID, fmt.Errorf("mktemp: %w", err))
-		}
-		defer os.RemoveAll(tmpDir)
+		// Prefer probing the source in place on local storage — ffprobe only
+		// needs to seek the container's metadata, so copying the whole (possibly
+		// multi-GB) file is wasteful. Non-local drivers (S3) fall back to a temp
+		// copy because ffprobe needs a seekable handle.
+		srcPath, isLocal := h.storage.LocalFilePath(libraryID, fileID)
+		if !isLocal {
+			tmpDir, err := os.MkdirTemp("", "alcoves-metadata-*")
+			if err != nil {
+				return h.failTransient(fileID, fmt.Errorf("mktemp: %w", err))
+			}
+			defer os.RemoveAll(tmpDir)
 
-		srcPath := filepath.Join(tmpDir, "source")
-		if err := h.copySourceToTemp(libraryID, fileID, srcPath); err != nil {
-			return h.fail(fileID, err)
+			srcPath = filepath.Join(tmpDir, "source")
+			if err := h.copySourceToTemp(libraryID, fileID, srcPath); err != nil {
+				return h.failTransient(fileID, err)
+			}
 		}
 
 		probed, err := probeVideoMetadata(ctx, srcPath)
 		if err != nil {
-			// A genuine ffprobe failure is a real error worth retrying (and
-			// counting toward the 3-strike cap).
+			// A bad container is a genuine per-file failure that should count
+			// toward the 3-strike cap; a probe that never ran (ffprobe missing,
+			// worker shutting down) is infrastructure and must not burn one.
+			if isTransientProbeError(err) {
+				return h.failTransient(fileID, fmt.Errorf("probe video: %w", err))
+			}
 			return h.fail(fileID, fmt.Errorf("probe video: %w", err))
 		}
 		ex = probed
@@ -117,18 +130,14 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 	}
 	ex.CapturedAt = capturedAt
 
-	// Verify we haven't been superseded by a newer reprocess request.
-	var current models.File
-	if err := h.db.Where("id = ?", fileID).First(&current).Error; err != nil {
-		return err
+	// Apply the result only if a concurrent reprocess hasn't bumped the version
+	// out from under us. The guarded UPDATE makes the check-and-write atomic, so
+	// a reprocess landing mid-run can never leave stale data behind.
+	if h.complete(fileID, targetVersion, ex) {
+		log.Printf("metadata: complete for file %s (captured_at=%v, gps=%v)", fileID, ex.CapturedAt, ex.GpsLat != nil)
+	} else {
+		log.Printf("metadata: version moved on, discarding stale work for file %s", fileID)
 	}
-	if current.MetadataVersion != targetVersion {
-		log.Printf("metadata: version changed (%d → %d), discarding work for file %s", targetVersion, current.MetadataVersion, fileID)
-		return nil
-	}
-
-	h.complete(fileID, targetVersion, ex)
-	log.Printf("metadata: complete for file %s (captured_at=%v, gps=%v)", fileID, ex.CapturedAt, ex.GpsLat != nil)
 	return nil
 }
 
@@ -156,9 +165,10 @@ func (h *TaskHandler) setStatus(fileID, status string, errMsg *string) {
 	})
 }
 
-// fail records the error, increments the attempt counter (consulted by the
-// maintenance backfill scan so a permanently-broken file is dropped after 3
-// strikes), and returns the error so asynq records the failure.
+// fail records a genuine per-file failure (a broken/unreadable file): it
+// increments the attempt counter consulted by the maintenance backfill scan so
+// a permanently-broken file is dropped after 3 strikes, and returns the error
+// so asynq records the failure.
 func (h *TaskHandler) fail(fileID string, err error) error {
 	log.Printf("metadata: failed for file %s: %v", fileID, err)
 	msg := err.Error()
@@ -170,17 +180,57 @@ func (h *TaskHandler) fail(fileID string, err error) error {
 	return err
 }
 
-func (h *TaskHandler) complete(fileID string, version int, ex extracted) {
+// failTransient records an infrastructure failure (storage read error, ffprobe
+// couldn't start, worker shutting down) WITHOUT incrementing the attempt
+// counter, so a transient outage can't exhaust the 3-strike cap and permanently
+// sideline an otherwise-healthy file. asynq still retries via the returned
+// error, and the maintenance scan re-selects the file on its next pass.
+func (h *TaskHandler) failTransient(fileID string, err error) error {
+	log.Printf("metadata: transient failure for file %s: %v", fileID, err)
+	msg := err.Error()
 	h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-		"metadata_status":            "ready",
-		"metadata_error":             nil,
-		"metadata_extracted_version": version,
-		"captured_at":                ex.CapturedAt,
-		"gps_lat":                    ex.GpsLat,
-		"gps_lon":                    ex.GpsLon,
-		"camera_make":                ex.CameraMake,
-		"camera_model":               ex.CameraModel,
+		"metadata_status": "failed",
+		"metadata_error":  &msg,
 	})
+	return err
+}
+
+// complete writes the extracted metadata, but only if metadata_version still
+// equals the version this run started from. A reprocess bumps the version, so
+// the guard turns stale work into a no-op atomically (no read-then-write race).
+// Returns true when the row was updated.
+func (h *TaskHandler) complete(fileID string, version int, ex extracted) bool {
+	res := h.db.Model(&models.File{}).
+		Where("id = ? AND metadata_version = ?", fileID, version).
+		Updates(map[string]interface{}{
+			"metadata_status":            "ready",
+			"metadata_error":             nil,
+			"metadata_extracted_version": version,
+			"captured_at":                ex.CapturedAt,
+			"gps_lat":                    ex.GpsLat,
+			"gps_lon":                    ex.GpsLon,
+			"camera_make":                ex.CameraMake,
+			"camera_model":               ex.CameraModel,
+		})
+	return res.Error == nil && res.RowsAffected > 0
+}
+
+// isTransientProbeError reports whether an ffprobe error is infrastructure
+// rather than an unreadable file. *exec.ExitError means ffprobe ran and
+// rejected the file — a real per-file failure that should count toward the cap.
+// A probe that never started (*exec.Error: binary missing) or a cancelled
+// context (worker shutdown) is transient. Unknown shapes default to transient
+// so a quirk can't permanently exhaust the cap; a truly broken file still fails
+// with an ExitError and is counted.
+func isTransientProbeError(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return false
+	}
+	return true
 }
 
 // probeVideoMetadata runs ffprobe and extracts capture time + GPS from container

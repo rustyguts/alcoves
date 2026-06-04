@@ -109,7 +109,11 @@ function buildDateGroups(files: LibraryFile[]): TimelineGroup[] {
   for (const f of files) {
     const iso = f.capturedAt ?? f.createdAt;
     const d = new Date(iso);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    // Bucket by the photo's *UTC* wall-clock day. EXIF capture dates carry no
+    // timezone and the server stores them as UTC, so grouping by UTC keeps a
+    // photo on the day it was taken — and makes grouping deterministic instead
+    // of shifting with the viewer's local timezone (off-by-one near midnight).
+    const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
     if (!current || current.key !== key) {
       current = { key, label: formatDayHeading(d), files: [] };
       groups.push(current);
@@ -126,5 +130,6 @@ function formatDayHeading(d: Date): string {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   });
 }

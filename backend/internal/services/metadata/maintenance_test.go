@@ -5,23 +5,22 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/testsupport"
 )
 
 func tTime() *time.Time { now := time.Now(); return &now }
 
+// setupMetadataTestDB scopes the metadata tests to their own PostgreSQL schema
+// (via testsupport.OpenSchema) so the package's *global* scanPendingMetadata
+// query — which has no library filter — never sees rows inserted by other test
+// packages running concurrently under `go test ./...`.
 func setupMetadataTestDB(t *testing.T) (*gorm.DB, uuid.UUID) {
 	t.Helper()
 
-	dsn := "postgres://postgres:postgres@localhost:5455/alcoves_test"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
-	if err != nil {
-		t.Skipf("Skipping test: database not available: %v", err)
-	}
+	db := testsupport.OpenSchema(t, "svc_metadata")
 	if err := db.AutoMigrate(&models.User{}, &models.Library{}, &models.File{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}

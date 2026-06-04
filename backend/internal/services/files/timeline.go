@@ -3,6 +3,7 @@ package files
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -106,7 +107,11 @@ func (s *Service) ListLibraryTimeline(libraryID string, c echo.Context) (*Pagina
 		countQuery += " AND (mime_type LIKE 'image/%' OR mime_type LIKE 'video/%')"
 	}
 	var totalCount int
-	s.db.Raw(countQuery, countArgs...).Scan(&totalCount)
+	// A count failure shouldn't sink the whole page (the rows already loaded);
+	// log it and fall back to 0 rather than swallowing it silently.
+	if err := s.db.Raw(countQuery, countArgs...).Scan(&totalCount).Error; err != nil {
+		log.Printf("timeline: count query failed for library %s: %v", libraryID, err)
+	}
 
 	hasMore := len(rows) > limit
 	if hasMore {

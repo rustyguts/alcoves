@@ -121,6 +121,30 @@ describe("useLibraryTimeline", () => {
     expect(tl.groups.value[1]!.files.map((f) => f.id)).toEqual(["c"]);
   });
 
+  it("buckets by UTC day (deterministic across the viewer's timezone)", async () => {
+    // Two instants straddling a UTC midnight: they must land in separate UTC
+    // days (June 4 vs June 5) regardless of the machine's local timezone.
+    mockTimeline.mockResolvedValueOnce(
+      page(
+        [
+          makeFile("late", { capturedAt: "2026-06-04T23:30:00Z" }),
+          makeFile("early", { capturedAt: "2026-06-05T00:30:00Z" }),
+        ],
+        null,
+        2,
+      ),
+    );
+
+    const tl = useLibraryTimeline("lib-1");
+    await tl.loadFirst();
+
+    expect(tl.groups.value).toHaveLength(2);
+    expect(tl.groups.value[0]!.files.map((f) => f.id)).toEqual(["late"]);
+    expect(tl.groups.value[1]!.files.map((f) => f.id)).toEqual(["early"]);
+    expect(tl.groups.value[0]!.label).toContain("June 4");
+    expect(tl.groups.value[1]!.label).toContain("June 5");
+  });
+
   it("setType switches filter and refetches", async () => {
     mockTimeline
       .mockResolvedValueOnce(page([makeFile("a")], null))

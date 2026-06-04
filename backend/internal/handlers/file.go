@@ -178,6 +178,10 @@ func (h *FileHandler) Upload(c echo.Context) error {
 	h.maybeEnqueueVideoThumbnail(libraryID, fileID, mimeType)
 	h.maybeEnqueueWaveform(libraryID, fileID, mimeType)
 
+	// Trigger EXIF / media-metadata extraction (Timeline + Map). Mirrors the tus
+	// path so direct uploads don't have to wait for the maintenance backfill.
+	h.maybeEnqueueMetadata(libraryID, fileID, mimeType)
+
 	dupes, _ := filehash.FindDuplicates(h.db, libraryID, fileID, hashStr)
 	return c.JSON(http.StatusOK, fileToJSON(&file, dupes))
 }
@@ -1309,6 +1313,23 @@ func (h *FileHandler) maybeEnqueueWaveform(libraryID, fileID uuid.UUID, mimeType
 	}
 	if err := h.waveformSvc.EnqueueWaveform(libraryID.String(), fileID.String()); err != nil {
 		log.Printf("failed to enqueue waveform for file %s: %v", fileID, err)
+	}
+}
+
+// maybeEnqueueMetadata triggers EXIF / media-metadata extraction for image and
+// video uploads (powers the Timeline + Map views). No library-setting gate —
+// it's always cheap and useful. metadata_status is set so the maintenance
+// backfill scan skips this freshly-enqueued file.
+func (h *FileHandler) maybeEnqueueMetadata(libraryID, fileID uuid.UUID, mimeType string) {
+	if h.metadataSvc == nil || (!strings.HasPrefix(mimeType, "image/") && !strings.HasPrefix(mimeType, "video/")) {
+		return
+	}
+	h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+		"metadata_status":  "queued",
+		"metadata_version": 1,
+	})
+	if err := h.metadataSvc.EnqueueMetadata(libraryID.String(), fileID.String()); err != nil {
+		log.Printf("failed to enqueue metadata extraction for file %s: %v", fileID, err)
 	}
 }
 

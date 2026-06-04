@@ -16,12 +16,53 @@ const map = useLibraryMap(libraryId);
 const previewFile = ref<LibraryFile | null>(null);
 const previewOpen = ref(false);
 
+// Ordered, lightweight LibraryFile records for every geotagged point so the
+// lightbox can page through the whole map. Map points are a thin DTO, so the
+// displayed file is always (re)fetched in full on open and on navigate.
+const previewFiles = computed<LibraryFile[]>(() =>
+  map.points.value.map((p) => ({
+    id: p.id,
+    libraryId: libraryId.value,
+    parentFolderId: null,
+    name: p.name,
+    kind: "file",
+    mimeType: "",
+    size: 0,
+    duration: null,
+    width: null,
+    height: null,
+    proxyStatus: null,
+    thumbnailFileId: p.thumbnailFileId,
+    sourceFileId: null,
+    originalCreatedAt: null,
+    capturedAt: p.capturedAt,
+    gpsLat: p.lat,
+    gpsLon: p.lon,
+    hash: null,
+    trashedAt: null,
+    createdAt: p.capturedAt ?? "",
+    updatedAt: p.capturedAt ?? "",
+    owner: null,
+    tags: [],
+  })),
+);
+
 // Map points are a thin DTO; fetch the full file before opening the lightbox.
 async function onSelect(point: MapPoint) {
   try {
     const file = await api.files.get(libraryId.value, point.id);
     previewFile.value = file;
     previewOpen.value = true;
+  } catch {
+    // Ignore — file may have been removed since the map loaded.
+  }
+}
+
+// Lightbox prev/next emits one of the thin previewFiles records — refetch it in
+// full so the preview has real mime/proxy data, mirroring onSelect.
+async function onNavigate(file: LibraryFile) {
+  try {
+    previewFile.value = await api.files.get(libraryId.value, file.id);
   } catch {
     // Ignore — file may have been removed since the map loaded.
   }
@@ -87,8 +128,14 @@ onMounted(() => {
         </p>
       </div>
 
-      <!-- Map (client-only component) -->
-      <LibraryMap :points="map.points.value" class="absolute inset-0" @select="onSelect" />
+      <!-- Map (client-only component). Only mounted once there are points to
+           plot, so an empty/loading library never fetches map tiles. -->
+      <LibraryMap
+        v-if="map.points.value.length > 0"
+        :points="map.points.value"
+        class="absolute inset-0"
+        @select="onSelect"
+      />
     </div>
 
     <FilePreview
@@ -96,8 +143,8 @@ onMounted(() => {
       v-model:open="previewOpen"
       :file="previewFile"
       :library-id="libraryId"
-      :files="[previewFile]"
-      @navigate="previewFile = $event"
+      :files="previewFiles"
+      @navigate="onNavigate"
       @update:file="handleFileUpdate"
     />
   </div>
