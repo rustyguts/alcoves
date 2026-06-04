@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -237,13 +238,38 @@ func main() {
 
 	// Global middleware
 	e.Use(echomw.Logger())
-	e.Use(echomw.Recover())
 	if cfg.SentryDSN != "" {
-		// sentryhttp wraps net/http; echo.WrapMiddleware bridges it to Echo v4.
-		// Repanic=true re-raises panics so Echo's Recover middleware still fires.
+		// sentryhttp (bridged to Echo v4 via WrapMiddleware) injects a
+		// per-request Sentry hub, continues any inbound distributed trace, and
+		// starts a transaction. It runs *outside* Recover: Recover turns panics
+		// into errors and routes them through HTTPErrorHandler, which is the
+		// single place we report to Sentry (so panics aren't captured twice).
 		sh := sentryhttp.New(sentryhttp.Options{Repanic: true})
 		e.Use(echo.WrapMiddleware(sh.Handle))
+
+		// Echo handlers report failures by returning errors, not panicking, so
+		// sentryhttp's panic recovery alone would miss every 5xx. Wrap the
+		// error handler to capture server-side failures on the request's hub
+		// (carries trace + request context), then delegate to Echo's default
+		// rendering. 4xx are expected client errors and intentionally skipped.
+		defaultErrorHandler := e.HTTPErrorHandler
+		e.HTTPErrorHandler = func(err error, c echo.Context) {
+			status := http.StatusInternalServerError
+			var he *echo.HTTPError
+			if errors.As(err, &he) {
+				status = he.Code
+			}
+			if status >= http.StatusInternalServerError {
+				if hub := sentry.GetHubFromContext(c.Request().Context()); hub != nil {
+					hub.CaptureException(err)
+				} else {
+					sentry.CaptureException(err)
+				}
+			}
+			defaultErrorHandler(err, c)
+		}
 	}
+	e.Use(echomw.Recover())
 	e.Use(echomw.CORSWithConfig(echomw.CORSConfig{
 		AllowOriginFunc: func(origin string) (bool, error) {
 			for _, allowed := range corsAllowedOrigins {
@@ -259,6 +285,10 @@ func main() {
 			"Range", "If-Range",
 			// tus protocol headers
 			"Tus-Resumable", "Upload-Length", "Upload-Offset", "Upload-Metadata",
+			// Sentry distributed tracing — the browser SDK adds these on API
+			// requests so frontend and backend spans join one trace. Needed
+			// only when the frontend is served from a different origin.
+			"sentry-trace", "baggage",
 		},
 		ExposeHeaders: []string{
 			// streaming/byte-range support

@@ -2,6 +2,13 @@ import { vite as vidstack } from "vidstack/plugins";
 
 const apiTarget = process.env.ALCOVES_API_URL || "http://localhost:3001";
 
+// Source-map upload only makes sense when a Sentry auth token is present at
+// build time (CI). Gate client source-map *generation* on the same condition:
+// without a token there is no upload, so `filesToDeleteAfterUpload` never runs
+// and the maps would otherwise linger in the public output of a no-Sentry build.
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN || "";
+const uploadSourceMaps = sentryAuthToken !== "";
+
 export default defineNuxtConfig({
   ssr: true,
   compatibilityDate: "2025-11-01",
@@ -45,16 +52,15 @@ export default defineNuxtConfig({
     },
   },
 
-  // Sentry: upload source maps during `nuxt build` when auth token is present.
-  // Set SENTRY_AUTH_TOKEN, SENTRY_ORG, and SENTRY_PROJECT in CI to enable.
-  // Client source maps are generated as "hidden" (referenced in bundle but not
-  // served publicly) and deleted after upload.
-  sourcemap: { client: "hidden" },
+  // Generate "hidden" client source maps (no sourceMappingURL comment, so not
+  // exposed via devtools) only in CI builds that will upload + delete them.
+  // Default builds leave client maps off, matching pre-Sentry behavior.
+  sourcemap: { client: uploadSourceMaps ? "hidden" : false },
   sentry: {
     sourceMapsUploadOptions: {
       org: process.env.SENTRY_ORG || "",
       project: process.env.SENTRY_PROJECT_FRONTEND || "alcoves-frontend",
-      authToken: process.env.SENTRY_AUTH_TOKEN || "",
+      authToken: sentryAuthToken,
       sourcemaps: {
         filesToDeleteAfterUpload: [".output/**/public/**/*.map"],
       },
@@ -98,8 +104,12 @@ export default defineNuxtConfig({
       // other route is either auth-gated (so SSR requires backend access on
       // the SSR request, which tests can't mock) or an interactive form
       // (which suffers from a native-form-submit race during hydration).
-      "/**": { ssr: false },
-      "/s/**": { ssr: true },
+      //
+      // `Document-Policy: js-profiling` opts the document into the browser's
+      // JS Self-Profiling API, which Sentry's browserProfilingIntegration
+      // needs to collect CPU profiles. Harmless when Sentry is disabled.
+      "/**": { ssr: false, headers: { "Document-Policy": "js-profiling" } },
+      "/s/**": { ssr: true, headers: { "Document-Policy": "js-profiling" } },
     },
     externals: {
       inline: ["vue", "@vue/server-renderer", "@vue/compiler-dom"],
