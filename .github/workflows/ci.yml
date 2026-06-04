@@ -34,6 +34,13 @@ jobs:
       # broker on localhost:6389 (mirrors docker-compose + the e2e job).
       dragonfly:
         image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+        # Asynq's Inspector/GetQueueInfo Lua scripts touch keys not declared in
+        # KEYS[]; Dragonfly rejects that by default. Allow it (mirrors
+        # docker-compose's `--default_lua_flags=allow-undeclared-keys`). GitHub
+        # service containers can't override the command, but Dragonfly reads
+        # flags from DFLY_-prefixed env vars.
+        env:
+          DFLY_default_lua_flags: allow-undeclared-keys
         ports:
           - 6389:6379
 
