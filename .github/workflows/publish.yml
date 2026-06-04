@@ -9,62 +9,12 @@ on:
   release:
     types: [published]
 
-env:
-  REGISTRY: ghcr.io
-
 jobs:
-  build-and-push-image:
-    runs-on: ubuntu-latest
+  build:
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: ${{ github.repository }}
-            context: .
-            file: ./Dockerfile
-          - image: ${{ github.repository }}-frontend
-            context: ./frontend
-            file: ./frontend/Dockerfile
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Read app version
-        id: appver
-        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
-
-      - name: Log in to the Container registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ matrix.image }}
-          tags: |
-            type=sha,prefix=,suffix=,format=short
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            COMMIT_SHA=${{ github.sha }}
-            BUILD_TIME=${{ github.event.head_commit.timestamp || github.event.release.published_at }}
-            APP_VERSION=${{ steps.appver.outputs.version }}
+    uses: ./.github/workflows/build-images.yml
+    with:
+      # Don't push on PRs — just verify the images build.
+      push: ${{ github.event_name != 'pull_request' }}
