@@ -77,14 +77,7 @@ const browseTabs = computed<Tab[]>(() => {
 
 // Utility tabs: management surfaces, de-emphasised as icon-only on the right.
 const utilityTabs = computed<Tab[]>(() => {
-  const items: Tab[] = [
-    {
-      key: "trash",
-      label: "Trash",
-      icon: "i-lucide-trash-2",
-      to: `/libraries/${props.libraryId}/trash`,
-    },
-  ];
+  const items: Tab[] = [];
 
   if (props.canManageLibrary) {
     items.push({
@@ -94,6 +87,13 @@ const utilityTabs = computed<Tab[]>(() => {
       to: `/libraries/${props.libraryId}/settings`,
     });
   }
+
+  items.push({
+    key: "trash",
+    label: "Trash",
+    icon: "i-lucide-trash-2",
+    to: `/libraries/${props.libraryId}/trash`,
+  });
 
   return items;
 });
