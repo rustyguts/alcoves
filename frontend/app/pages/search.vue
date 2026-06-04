@@ -215,10 +215,7 @@ async function openPreview(result: GlobalSearchResult) {
                 :library-id="result.libraryId"
                 :file-id="getThumbnailFileId(result)!"
                 :alt="result.name"
-                :width="80"
-                :height="80"
-                format="jpeg"
-                :quality="70"
+                variant="search"
                 class="size-full object-cover"
                 @error="failedThumbnails.add(result.id)"
               />

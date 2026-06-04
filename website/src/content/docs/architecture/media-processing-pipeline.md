@@ -24,7 +24,15 @@ This page covers the non-ML media pipeline. AI-driven analysis (face recognition
 - **Asynq job queue** (backed by Dragonfly/Redis) — async task dispatch, deduplication, and retention
 - **Storage service** — unified blob I/O across local-disk and S3 backends, scoped to `Files`, `Avatars`, and `Cache`
 
-Worker processes register with the Asynq mux when the server runs in `all` or `worker` mode (`ALCOVES_MODE`). The image proxy queue runs at higher priority than the default queue so interactive image loads are not starved by background transcodes.
+Worker processes register with the Asynq mux when the server runs in `all` or `worker` mode (`ALCOVES_MODE`). Work is split across three named queues — the single source of truth for queue names and weights is the `internal/queues` package:
+
+| Queue | Weight | Carries |
+|---|---|---|
+| `imageproxy` | 10 | Interactive, on-demand image transforms (a user is blocked on these) |
+| `default` | 3 | Hashing, metadata/EXIF, waveforms, face/object/audio detection, transcription, video transcode, moment export |
+| `maintenance` | 1 | Low-priority background upkeep — currently the hourly image-proxy variant pre-warm |
+
+The weights mean "users first, batch second, upkeep last": a large pre-warm or detection backlog can never starve interactive image loads.
 
 ---
 
@@ -45,6 +53,23 @@ The proxy accepts four query parameters:
 
 Width and height are clamped to 4096 to prevent memory exhaustion from crafted requests against the libvips allocator.
 
+### Variant registry (single source of truth)
+
+Rather than scattering sizes across the UI, every distinct transform the app requests is named once in a shared **variant registry**. The registry is mirrored on both sides of the stack and must be changed in lockstep:
+
+- Backend: `backend/internal/services/imageproxy/variants.go` (`imageproxy.Variants`)
+- Frontend: `frontend/shared/image-variants.ts` (`IMAGE_VARIANTS`)
+
+| Variant | Box | Quality | Format | Sizing | Used by |
+|---|---|---|---|---|---|
+| `search` | 80×80 | 70 | jpeg | fixed | Search-result avatars |
+| `timeline` | 240×240 | 70 | webp | fixed | Timeline grid |
+| `face` | 300×300 | 80 | jpeg | fixed | People / face grid |
+| `card` | 720×360 | 82 | jpeg | capped | Library browser cards |
+| `preview` | 1920×1080 | 90 | jpeg | capped | Full-screen lightbox |
+
+A **capped** variant clamps its box down to the source image's own pixel dimensions (a 500 px-wide original is requested at `w500`, not `w720`), so the cache key matches the source exactly and no oversized box is stored. A **fixed** variant always requests the full box. Both the frontend URL builder (`resolveVariant`) and the backend pre-warm job (`Variant.Resolve`) apply the identical rule, guaranteeing the cache key a request produces is exactly the one the pre-warm job generated. The registry carries a `VariantsVersion`; bumping it (plus a one-line migration that resets `image_proxy_warmed_version`) re-warms every image against the new set.
+
 ### Transform pipeline (libvips)
 
 1. Decode source bytes from storage.
@@ -64,6 +89,16 @@ When a transform derivative is not yet cached, the proxy must coordinate concurr
 5. **Wait** — block up to 30 seconds for the pub/sub signal. An `"ok"` signal reads the result from a transient Redis key first (avoids stale NFS attribute cache), falling back to storage with retries. An `"error"` signal returns immediately without waiting for the timeout.
 
 When Redis is not available (development or test environments), the proxy transforms synchronously and writes directly to cache storage.
+
+### Variant pre-warm (hourly maintenance)
+
+The concurrency model above fills the cache *lazily* — the first viewer of each derivative pays the transform latency. To eliminate that cold-start cost, an **hourly background maintenance loop** (running on `all`/`worker` nodes, gated by `ALCOVES_IMAGE_PROXY_PREWARM_ENABLED`, default on) generates every registry variant for every image ahead of time:
+
+1. **Scan** — a bounded batch (500/pass) of live image files that have not been warmed at the current `VariantsVersion`, are under the 3-strike cap, and are not already in flight (or are stuck past 15 minutes). Derived video-thumbnail images are included; trashed files are not.
+2. **Enqueue** — one `image:prewarm` task per file on the low-priority `maintenance` queue, so the backfill never competes with interactive transforms.
+3. **Generate** — the worker reads the source once and writes any missing variant to cache (already-cached variants are skipped, making the job idempotent), then marks the file warmed.
+
+**Failure handling.** A genuine per-file failure — a corrupted or unsupported source that fails the libvips transform — increments a strike counter (`files.image_proxy_attempts`). After **3 strikes** the scan drops the file permanently, so a job that fails every time runs at most three times rather than being re-queued forever. Infrastructure failures (a storage read/write blip) are recorded *without* burning a strike, so a transient outage can't sideline a healthy file. Tasks carry no asynq-level retries; the database strike counter is the sole cap, applied across maintenance passes.
 
 ### Access control
 

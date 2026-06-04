@@ -24,6 +24,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/mcpserver"
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/queues"
 	"github.com/alcoves/alcoves-backend/internal/version"
 	"github.com/hibiken/asynq"
 
@@ -194,23 +195,31 @@ func main() {
 	hashSvc := filehash.NewService(db, storageSvc, asynqClient)
 
 	// Image proxy service — cache lookup, Redis pub/sub signaling, queued processing.
-	imgSvc := imageproxy.NewService(storageSvc, asynqClient, asynqRedisOpt, imageproxy.NewVipsProcessor())
+	// The processor is shared with the pre-warm service below so both the request
+	// path and the maintenance backfill transform identically.
+	imgProcessor := imageproxy.NewVipsProcessor()
+	imgSvc := imageproxy.NewService(storageSvc, asynqClient, asynqRedisOpt, imgProcessor)
+
+	// Image proxy pre-warm service — the hourly maintenance backfill that
+	// generates every image-proxy Variant for each image so the first request is
+	// a warm-cache hit. Runs on the low-priority maintenance queue.
+	imgPrewarmSvc := imageproxy.NewPrewarmService(db, storageSvc, imgProcessor, asynqClient)
 
 	// Start asynq worker if mode is "all" or "worker"
 	var asynqServer *asynq.Server
 	if cfg.Mode == "all" || cfg.Mode == "worker" {
 		asynqServer = asynq.NewServer(asynqRedisOpt, asynq.Config{
 			Concurrency: 8,
-			// imageproxy gets highest priority so API handlers aren't kept waiting;
-			// default queue handles face/object detection and video transcoding.
-			Queues: map[string]int{
-				imageproxy.ImageProxyQueue: 10,
-				"default":                  1,
-			},
+			// Queue weights come from the single source of truth in the queues
+			// package: imageproxy (interactive) ≫ default (batch ML/video) ≫
+			// maintenance (background cache pre-warm), so latency-sensitive work
+			// is never starved by a large maintenance backfill.
+			Queues: queues.Priorities,
 		})
 
 		mux := asynq.NewServeMux()
 		mux.HandleFunc(imageproxy.TaskTypeImageProxy, imgSvc.NewTaskHandler().ProcessTask)
+		mux.HandleFunc(imageproxy.TaskTypePrewarm, imgPrewarmSvc.NewTaskHandler().ProcessTask)
 		mux.HandleFunc(facedetection.TaskTypeFaceDetect, faceSvc.NewTaskHandler().ProcessTask)
 		mux.HandleFunc(objectdetection.TaskTypeObjectDetect, objSvc.NewTaskHandler().ProcessTask)
 		videoTaskHandler := videoSvc.NewTaskHandler()
@@ -234,6 +243,16 @@ func main() {
 		// media files that have never been extracted, giving up after 3 failed
 		// attempts so a permanently-broken file is never re-queued forever.
 		metadata.StartMaintenance(context.Background(), db, metadataSvc)
+
+		// Hourly image-proxy pre-warm: generate every cache variant for each
+		// image so the first request is a warm-cache hit. Same 3-strike cap so a
+		// corrupted image is dropped after 3 attempts. Gated by config so
+		// constrained hosts can opt out.
+		if cfg.ImageProxyPrewarmEnabled {
+			imageproxy.StartPrewarmMaintenance(context.Background(), db, imgPrewarmSvc)
+		} else {
+			log.Println("image:prewarm — disabled via ALCOVES_IMAGE_PROXY_PREWARM_ENABLED=false")
+		}
 	}
 
 	// Echo setup

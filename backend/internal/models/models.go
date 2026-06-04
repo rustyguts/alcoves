@@ -140,6 +140,10 @@ type File struct {
 	GpsLon                   *float64   `gorm:"column:gps_lon;type:double precision" json:"gpsLon"`
 	CameraMake               *string    `gorm:"column:camera_make;type:text" json:"cameraMake"`
 	CameraModel              *string    `gorm:"column:camera_model;type:text" json:"cameraModel"`
+	ImageProxyStatus         *string    `gorm:"column:image_proxy_status;type:text" json:"imageProxyStatus"`
+	ImageProxyError          *string    `gorm:"column:image_proxy_error;type:text" json:"imageProxyError"`
+	ImageProxyAttempts       int        `gorm:"column:image_proxy_attempts;type:integer;not null;default:0" json:"imageProxyAttempts"`
+	ImageProxyWarmedVersion  *int       `gorm:"column:image_proxy_warmed_version;type:integer" json:"imageProxyWarmedVersion"`
 	ThumbnailFileID          *uuid.UUID `gorm:"column:thumbnail_file_id;type:uuid" json:"thumbnailFileId"`
 	SourceFileID             *uuid.UUID `gorm:"column:source_file_id;type:uuid" json:"sourceFileId"`
 	OriginalCreatedAt        *time.Time `gorm:"column:original_created_at" json:"originalCreatedAt"`

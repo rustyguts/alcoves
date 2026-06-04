@@ -152,10 +152,7 @@ onBeforeUnmount(() => {
                 v-if="thumbId(file)"
                 :library-id="libraryId"
                 :file-id="thumbId(file)!"
-                :width="240"
-                :height="240"
-                format="webp"
-                :quality="70"
+                variant="timeline"
                 class="h-full w-full object-cover transition-transform group-hover:scale-105"
               />
               <span v-else class="flex h-full w-full items-center justify-center text-dimmed">

@@ -54,4 +54,38 @@ describe("AlcovesImage", () => {
     expect(img.attributes("height")).toBe("200");
     expect(img.classes()).toEqual(expect.arrayContaining(["rounded-md", "object-cover"]));
   });
+
+  it("resolves a fixed variant from the shared registry", () => {
+    const wrapper = mount(AlcovesImage, {
+      props: { libraryId: "lib", fileId: "file", variant: "search" },
+    });
+    expect(wrapper.get("img").attributes("src")).toBe(
+      "/api/files/proxy/lib/file?format=jpeg&height=80&quality=70&width=80",
+    );
+  });
+
+  it("clamps a capped variant down to the source dimensions", () => {
+    const wrapper = mount(AlcovesImage, {
+      props: {
+        libraryId: "lib",
+        fileId: "file",
+        variant: "card",
+        sourceWidth: 500,
+        sourceHeight: 400,
+      },
+    });
+    // card box is 720×360; width clamps to the 500px source, height stays 360.
+    expect(wrapper.get("img").attributes("src")).toBe(
+      "/api/files/proxy/lib/file?format=jpeg&height=360&quality=82&width=500",
+    );
+  });
+
+  it("lets explicit props override a variant", () => {
+    const wrapper = mount(AlcovesImage, {
+      props: { libraryId: "lib", fileId: "file", variant: "timeline", quality: 95 },
+    });
+    expect(wrapper.get("img").attributes("src")).toBe(
+      "/api/files/proxy/lib/file?format=webp&height=240&quality=95&width=240",
+    );
+  });
 });

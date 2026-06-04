@@ -71,6 +71,12 @@ type Config struct {
 	ObjectDetectionMaxDets   int
 	ObjectDetectionNMSThresh float64
 
+	// ImageProxyPrewarmEnabled gates the hourly background job that generates
+	// every image-proxy cache variant for each image (default on). Set
+	// ALCOVES_IMAGE_PROXY_PREWARM_ENABLED=false to disable on constrained hosts
+	// where on-demand transforms are preferred over eager cache warming.
+	ImageProxyPrewarmEnabled bool
+
 	// Transcription (whisper.cpp)
 	WhisperBinaryPath   string
 	WhisperModel        string
@@ -174,6 +180,9 @@ func Load() (*Config, error) {
 		ObjectDetectionMinScore:  objMinScore,
 		ObjectDetectionMaxDets:   objMaxDets,
 		ObjectDetectionNMSThresh: objNMSThresh,
+
+		// Default on; only an explicit "false" disables pre-warming.
+		ImageProxyPrewarmEnabled: getEnv("ALCOVES_IMAGE_PROXY_PREWARM_ENABLED", "true") != "false",
 
 		WhisperBinaryPath: getEnv("ALCOVES_WHISPER_BINARY", "whisper-cli"),
 		WhisperModel:      getEnv("ALCOVES_WHISPER_MODEL", "large-v3"),

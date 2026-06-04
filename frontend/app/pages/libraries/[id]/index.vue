@@ -290,16 +290,6 @@ function isSmallImage(file: LibraryFile): boolean {
   return Boolean(file.width && file.height && file.width < 320 && file.height < 160);
 }
 
-function cardThumbWidth(file: LibraryFile): number {
-  if (file.width && file.width < 720) return file.width;
-  return 720;
-}
-
-function cardThumbHeight(file: LibraryFile): number {
-  if (file.height && file.height < 360) return file.height;
-  return 360;
-}
-
 function buildFolderLabel(folder: LibraryFolder, folderMap: Map<string, LibraryFolder>) {
   const parts: string[] = [folder.name];
   let current = folder.parentFolderId;
@@ -1241,8 +1231,6 @@ const emptyStateDescription = computed(() => {
           :failed-thumbnails="failedThumbnails"
           :is-image-file="isImageFile"
           :is-small-image="isSmallImage"
-          :card-thumb-width="cardThumbWidth"
-          :card-thumb-height="cardThumbHeight"
           @row-click="handleRowClick"
           @row-double-click="openEntry"
           @row-context-menu="showContextMenu"
