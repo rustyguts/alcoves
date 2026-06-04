@@ -68,6 +68,33 @@ E2e green. Watch for snapshot drift after Tailwind/font changes —
 - **Risk:** Low code-wise; this is mainly a product/privacy decision. Tracked from the PR #552 review.
 
 
+## 9. Publish the catalogued-but-missing audio-tagger models (ML) — OPEN
+
+- **What:** Five of the seven models in `audiodetection.Registry` were never
+  uploaded to the model bucket — `efficientat_mn04_as.onnx`,
+  `efficientat_mn40_as_ext.onnx`, `ced_tiny.onnx`, `ced_small.onnx`,
+  `ced_base.onnx` all 404 at `https://s3.rustyguts.net/models/` (verified
+  2026-06-04 against the live bucket listing; only `efficientat_mn10_as.onnx`
+  and `panns_cnn14.onnx` are present). Selecting any of them used to fail every
+  audio-detect job with a 404 at model-download time ("ced_base.onnx 404").
+- **Interim fix (2026-06-04):** added `ModelSpec.Available` and gated the
+  catalog — `IsValidModelID` rejects unavailable models, `LookupSpec` falls
+  back to the default for a stored-but-unavailable selection (self-heals an
+  admin who already picked `ced_base`), and the admin picker renders them
+  disabled ("— not yet available"). Jobs no longer fail; the unpublished models
+  are simply not selectable yet.
+- **To actually ship them:** run the export + publish flow in
+  `docs/internal/publishing-models.md` (`scripts/export-audio-tagger.py` →
+  rclone to `rustyguts:models/`), then flip `Available: true` on the matching
+  registry entries AND set `available: true` in the `audioTaggers` array in
+  `frontend/app/pages/admin/index.vue`, in the SAME change. Update the Status
+  columns in `website/.../features/audio-detection-and-transcription.md` and
+  `website/.../architecture/ml-models-runtime.md`.
+- **Effort:** M (export needs a torch venv; uploads are 5–330 MB each).
+- **Risk:** Low — gated behind `Available`; a half-finished upload just stays
+  unselectable.
+
+
 ---
 
 ## Completed

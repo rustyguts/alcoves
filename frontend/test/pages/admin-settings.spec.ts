@@ -90,7 +90,7 @@ beforeEach(() => {
     registration_mode: "invite_only",
     whisper_model: "tiny",
     whisper_language: "fr",
-    audio_detect_model: "ced_small",
+    audio_detect_model: "pann_cnn14",
   });
 });
 
@@ -143,13 +143,16 @@ describe("admin settings handlers", () => {
   });
 
   it("updates the audio tagger via the select", async () => {
+    // Only published models are selectable (pann_cnn14 + efficientat_mn10);
+    // unpublished entries like ced_small are rendered disabled and rejected by
+    // the backend. Switch to the legacy PANN model, which is available.
     const wrapper = mountPage();
     const selects = wrapper.findAll("select");
-    await selects[2]!.setValue("ced_small");
+    await selects[2]!.setValue("pann_cnn14");
     await vi.waitFor(() => {
       expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/settings", {
         method: "PATCH",
-        body: { audio_detect_model: "ced_small" },
+        body: { audio_detect_model: "pann_cnn14" },
       });
     });
   });

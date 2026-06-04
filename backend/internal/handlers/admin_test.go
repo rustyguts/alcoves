@@ -197,3 +197,48 @@ func TestAdmin_UpdateSettings_ValidatesMode(t *testing.T) {
 		t.Fatalf("expected 400, got %v", err)
 	}
 }
+
+// TestAdmin_UpdateSettings_RejectsUnpublishedAudioModel guards the audio-model
+// 404 regression: a model that is catalogued in the registry but whose weights
+// were never uploaded to the bucket (e.g. ced_base) must be refused here so it
+// can never be persisted and 404 the worker. A published model is accepted.
+func TestAdmin_UpdateSettings_RejectsUnpublishedAudioModel(t *testing.T) {
+	db := libraryTestDB(t)
+	h, svc := adminHandlerForTest(t, db)
+	e := newLibEcho()
+
+	owner := mustUser(t, db, "admin-audio@example.com")
+	owner.Role = "owner"
+	db.Save(&owner)
+
+	// Unpublished model → 400, setting unchanged.
+	body := `{"audio_detect_model":"ced_base"}`
+	req := httptest.NewRequest(http.MethodPatch, "/admin/settings", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := ctxWithUser(e, req, rec, owner.ID)
+	err := h.requireOwnerMiddleware(h.UpdateSettings)(c)
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok || httpErr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for unpublished model, got %v", err)
+	}
+	if got := svc.Get().AudioDetectModel; got == "ced_base" {
+		t.Fatalf("unpublished model must not be persisted, got %q", got)
+	}
+
+	// Published model → 200, persisted.
+	body = `{"audio_detect_model":"pann_cnn14"}`
+	req = httptest.NewRequest(http.MethodPatch, "/admin/settings", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+	c = ctxWithUser(e, req, rec, owner.ID)
+	if err := h.requireOwnerMiddleware(h.UpdateSettings)(c); err != nil {
+		t.Fatalf("UpdateSettings(published): %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for published model, got %d", rec.Code)
+	}
+	if got := svc.Get().AudioDetectModel; got != "pann_cnn14" {
+		t.Fatalf("expected audio_detect_model=pann_cnn14, got %q", got)
+	}
+}

@@ -56,13 +56,19 @@ func NewTaskHandler(db *gorm.DB, storageSvc *storage.Service, cfg *config.Config
 
 // activeSpec returns the ModelSpec for the admin-selected tagger, with
 // fallback to the registry default. Unknown IDs (e.g. left over from a
-// rolled-back deploy) fall back rather than failing the job.
+// rolled-back deploy) AND unavailable IDs (a model catalogued but not yet
+// published to the bucket — selecting it would 404) fall back rather than
+// failing the job. A non-empty ID that misses is logged so operators can see
+// why their selection isn't taking effect.
 func (h *TaskHandler) activeSpec() ModelSpec {
 	id := ""
 	if h.settingsSvc != nil {
 		id = h.settingsSvc.Get().AudioDetectModel
 	}
-	spec, _ := LookupSpec(id)
+	spec, ok := LookupSpec(id)
+	if id != "" && !ok {
+		log.Printf("audio-detect: configured model %q is unknown or not published; falling back to %q", id, spec.ID)
+	}
 	return spec
 }
 

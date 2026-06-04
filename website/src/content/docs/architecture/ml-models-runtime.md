@@ -56,15 +56,17 @@ Labels files with COCO-80 object classes (person, car, dog, and so on). The mode
 
 Classifies audio into 527 AudioSet event classes (music, speech, dog bark, machinery, and so on). Each model in the registry bundles the mel-spectrogram transform inside the ONNX graph so the worker only feeds raw mono PCM. The active model is selectable from the admin panel at runtime.
 
-| ID | Disk | mAP | Notes |
-|---|---|---|---|
-| `efficientat_mn04` | 5 MB | 0.432 | Smallest; fast on constrained hardware |
-| **`efficientat_mn10`** (default) | 20 MB | 0.471 | Best balance of size and accuracy |
-| `efficientat_mn40` | 280 MB | 0.487 | Higher accuracy, larger footprint |
-| `ced_tiny` | 22 MB | 0.481 | Good accuracy-to-size ratio |
-| `ced_small` | 85 MB | 0.496 | |
-| `ced_base` | 330 MB | 0.500 | Highest mAP in the registry |
-| `pann_cnn14` (legacy) | 313 MB | 0.431 | Kept for rollback; not recommended for new installs |
+The registry catalogues several models, but a model is only **selectable** once its ONNX weights are mirrored to the model bucket. Entries whose weights are not yet published carry `Available: false` in `audiodetection.Registry`: the admin API rejects selecting them, the picker renders them disabled, and `LookupSpec` falls back to the default for any stored-but-unavailable selection — so a stale setting can never make the worker 404 on a missing file. Flip `Available` to `true` in the same change that uploads the artifact.
+
+| ID | Disk | mAP | Status | Notes |
+|---|---|---|---|---|
+| `efficientat_mn04` | 5 MB | 0.432 | Planned | Smallest; fast on constrained hardware |
+| **`efficientat_mn10`** (default) | 20 MB | 0.471 | Available | Best balance of size and accuracy |
+| `efficientat_mn40` | 280 MB | 0.487 | Planned | Higher accuracy, larger footprint |
+| `ced_tiny` | 22 MB | 0.481 | Planned | Good accuracy-to-size ratio |
+| `ced_small` | 85 MB | 0.496 | Planned | |
+| `ced_base` | 330 MB | 0.500 | Planned | Highest mAP in the registry |
+| `pann_cnn14` (legacy) | 313 MB | 0.431 | Available | Kept for rollback; not recommended for new installs |
 
 | Property | Value |
 |---|---|
