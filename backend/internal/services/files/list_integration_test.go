@@ -3,30 +3,26 @@ package files
 import (
 	"encoding/base64"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 )
 
-// newCtx builds an echo.Context whose request carries the given query params.
-func newCtx(t *testing.T, params map[string]string) echo.Context {
+// newCtx builds the ListParams that ListLibraryFiles consumes from the given
+// raw query params. It mirrors the HTTP handler's mapping (trashed/limit/
+// folder/cursor) so tests exercise the same parsing/validation semantics.
+func newCtx(t *testing.T, params map[string]string) ListParams {
 	t.Helper()
-	q := url.Values{}
-	for k, v := range params {
-		q.Set(k, v)
+	return ListParams{
+		Trashed: params["trashed"] == "true",
+		Limit:   params["limit"],
+		Folder:  params["folder"],
+		Cursor:  params["cursor"],
 	}
-	target := "/?" + q.Encode()
-	req := httptest.NewRequest(http.MethodGet, target, nil)
-	rec := httptest.NewRecorder()
-	return echo.New().NewContext(req, rec)
 }
 
 // createTagFixture inserts a tag and returns its ID.
