@@ -193,7 +193,7 @@ The audio detection session is load-probed across 96 input/output name combinati
 `backend/Dockerfile` is a multi-stage build. It ships the inference runtime but not the model weights.
 
 - **Build stage** (`golang:1.26-bookworm`): installs `libvips-dev` (image preprocessing), `ffmpeg` (audio/video decoding), `libgomp1` (OpenMP for ONNX), and build tools. Built with `CGO_ENABLED=1`.
-- **ONNX Runtime v1.24.1**: downloaded from GitHub releases with architecture-aware selection (`arm64` or `x64`), installed to `/usr/local/lib`, stripped, and symlinked as `onnxruntime.so`. `ldconfig` runs after install.
+- **ONNX Runtime v1.25.0**: downloaded from GitHub releases with architecture-aware selection (`arm64` or `x64`), installed to `/usr/local/lib`, stripped, and symlinked as `onnxruntime.so`. `ldconfig` runs after install. The runtime **must be 1.25.x** to match the version pinned by `onnxruntime_go`.
 - **whisper.cpp v1.8.4** (separate stage): shallow-cloned at the pinned tag, built with CMake Release mode (AVX/AVX2/FMA/F16C enabled; AVX-512 disabled). Produces `whisper-cli` and the required shared libraries.
 - **Final image** (`debian:bookworm-slim`): copies the ONNX Runtime library, `whisper-cli`, and whisper shared libraries. Sets `ENV LD_LIBRARY_PATH=/usr/local/lib` — this is required because the Go ONNX bindings call `dlopen("onnxruntime.so")` without an absolute path, and `onnxruntime.so` is not a SONAME, so `ldconfig` alone does not resolve it.
 
@@ -229,6 +229,26 @@ The Helm `backend-worker` deployment runs with no CPU limit. whisper.cpp, ffmpeg
 
 :::note
 `ALCOVES_AUDIO_DETECT_MODEL_BASE_URL` replaced the older `ALCOVES_AUDIO_DETECT_MODEL_URL` in v0.18.0. Update any custom configuration that references the old name.
+:::
+
+---
+
+## Testing (real-data inference)
+
+Each pipeline has a **real-data test** that runs actual inference end to end against committed sample media — not mocks — so a model, runtime, or preprocessing regression is caught rather than papered over:
+
+| Pipeline | File | What it asserts on real input |
+|---|---|---|
+| Waveform | `services/waveform/realmedia_test.go` | ffmpeg-decoded tones with a known amplitude envelope → peaks; full `ProcessTask` → cache JSON |
+| Object detection | `services/objectdetection/realinference_test.go` | sample images → expected COCO labels (`person`/`dog`/`bicycle`) + box/score invariants |
+| Face detection | `services/facedetection/realinference_test.go` | faces found; 512-dim L2-normed embeddings; same face matches across re-encode, different people don't |
+| Audio events | `services/audiodetection/realinference_test.go` | speech clip → `Speech`; 527-class output range; full `ProcessTask` → DB rows |
+| Transcription | `services/transcribe/realinference_test.go` | real `whisper-cli` (`tiny`) → transcript contains the spoken words |
+
+Fixtures plus their provenance and licenses live in `internal/testsupport/testdata/` (AI-generated faces + CC0 images + a locally synthesized speech clip). Shared setup is in `internal/testsupport` (`mlfixtures.go`, `onnxtest/`).
+
+:::note
+Every test **skips** (it never fails) when a dependency is missing — ffmpeg, `whisper-cli`, the test Postgres, the ONNX Runtime shared library, or the model weights. CI installs all of these (libvips + ffmpeg + ONNX Runtime + a whisper.cpp build), so the suite runs there. Locally, point it at a matching ONNX Runtime via `$ALCOVES_ONNXRUNTIME_LIB` and, optionally, a warm model cache via `$ALCOVES_MODELS_PATH` / `$ALCOVES_WHISPER_MODELS_DIR`. The ONNX Runtime must be 1.25.x to match `onnxruntime_go`.
 :::
 
 ---

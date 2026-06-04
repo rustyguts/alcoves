@@ -62,14 +62,20 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
-      - name: Install libvips
+      - name: Install libvips + ffmpeg
         run: |
           sudo apt-get update
-          sudo apt-get install -y libvips-dev libheif-plugin-aomenc libheif-plugin-x265
+          # ffmpeg powers the audio extraction in the waveform, audio-event
+          # detection, and transcription real-data tests.
+          sudo apt-get install -y libvips-dev libheif-plugin-aomenc libheif-plugin-x265 ffmpeg
 
       - name: Install ONNX Runtime
         run: |
-          ONNX_VERSION=1.24.1
+          # Must match the API version onnxruntime_go links against (ORT 1.25.x /
+          # API v25). An older runtime fails ONNX init with
+          # "requested API version [25] is not available", which would skip every
+          # real face/object/audio inference test.
+          ONNX_VERSION=1.25.0
           ARCH=$(dpkg --print-architecture)
           if [ "$ARCH" = "arm64" ]; then ONNX_ARCH="aarch64"; else ONNX_ARCH="x64"; fi
           wget -q "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}.tgz"
@@ -79,6 +85,21 @@ jobs:
           sudo ln -sf /usr/local/lib/libonnxruntime.so /usr/local/lib/onnxruntime.so
           sudo ldconfig
           rm -rf "onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}"*
+
+      - name: Build whisper.cpp (whisper-cli)
+        run: |
+          # Build the same whisper.cpp release the Docker image ships so the
+          # transcription real-data test runs against the real binary. Models are
+          # downloaded at test time.
+          WHISPER_VERSION=v1.8.4
+          git clone --depth 1 --branch "${WHISPER_VERSION}" https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp
+          cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
+          cmake --build /tmp/whisper.cpp/build -j --config Release
+          sudo install -m 0755 /tmp/whisper.cpp/build/bin/whisper-cli /usr/local/bin/whisper-cli
+          sudo find /tmp/whisper.cpp/build -name 'libwhisper.so*' -exec cp -a {} /usr/local/lib/ \;
+          sudo find /tmp/whisper.cpp/build -name 'libggml*.so*' -exec cp -a {} /usr/local/lib/ \;
+          sudo ldconfig
+          rm -rf /tmp/whisper.cpp
 
       - name: Download Go modules
         run: go mod download
