@@ -316,6 +316,20 @@ test rot we just spent a session unwinding.
 
 **Coverage:**
 
+**Coverage targets (recommendations, not hard gates):**
+
+- **No single file should sit below 60% coverage.** This is a per-file floor:
+  if a file you touch (or add) is under 60%, add tests to bring it up in the
+  same PR, or note the gap with a `docs/todos.md` entry if it genuinely can't
+  be covered. Apply this to both `frontend/` and `backend/` source files.
+- **Backend should aim for 80% global coverage** (`go test ./... -cover`).
+- **Frontend should aim for 90% global coverage** (Vitest coverage summary).
+- These are aspirational targets, not CI gates — don't block a merge solely
+  on missing the global number. They exist to keep coverage trending up: a
+  change that lowers coverage should add tests, and a change that adds
+  meaningful new behavior should land with tests that move the needle toward
+  these goals.
+
 - Frontend coverage thresholds live in `frontend/vitest.config.ts`. If they
   trip, the CI run reports it but the suite still passes — they're a
   signal, not a gate. If you raise them, raise them as part of the same PR
