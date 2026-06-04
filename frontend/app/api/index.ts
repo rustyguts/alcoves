@@ -13,6 +13,7 @@ import type {
   PersonFace,
   LibraryUsersResponse,
   PaginatedFiles,
+  LibraryMapResponse,
   PlaybackSourcesResponse,
   ObjectLabelsResponse,
   DownloadEstimate,
@@ -132,6 +133,23 @@ const libraries = {
   /** DELETE /api/libraries/:id */
   delete(libraryId: string) {
     return apiFetch<void>(`/api/libraries/${libraryId}`, { method: "DELETE" });
+  },
+
+  /** GET /api/libraries/:id/timeline — files newest-first by capture date. */
+  timeline(libraryId: string, query?: { type?: "media" | "all"; cursor?: string; limit?: string }) {
+    return apiFetch<PaginatedFiles>(`/api/libraries/${libraryId}/timeline`, { query });
+  },
+
+  /** GET /api/libraries/:id/map — geotagged files for the Map view. */
+  map(libraryId: string) {
+    return apiFetch<LibraryMapResponse>(`/api/libraries/${libraryId}/map`);
+  },
+
+  /** POST /api/libraries/:id/metadata/reprocess — re-extract EXIF/GPS for all media. */
+  metadataReprocess(libraryId: string) {
+    return apiFetch<{ queuedCount: number }>(`/api/libraries/${libraryId}/metadata/reprocess`, {
+      method: "POST",
+    });
   },
 } as const;
 

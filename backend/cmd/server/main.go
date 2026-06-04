@@ -35,6 +35,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
+	"github.com/alcoves/alcoves-backend/internal/services/metadata"
 	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
@@ -182,6 +183,10 @@ func main() {
 	// Waveform service (ffmpeg PCM extraction + peak windowing).
 	waveformSvc := waveform.NewService(db, storageSvc, asynqClient, cfg, activitySvc)
 
+	// Metadata service (EXIF date/GPS for images, ffprobe for video) — powers
+	// the Timeline and Map views.
+	metadataSvc := metadata.NewService(db, storageSvc, asynqClient, cfg)
+
 	// Moment export service (clip encoder for /moments/:id/export).
 	momentExportSvc := momentexport.NewService(db, storageSvc, asynqClient)
 
@@ -216,6 +221,7 @@ func main() {
 		mux.HandleFunc(transcribe.TaskTypeTranscribe, transcribeSvc.NewTaskHandler().ProcessTask)
 		mux.HandleFunc(audiodetection.TaskTypeAudioDetect, audioDetectSvc.NewTaskHandler().ProcessTask)
 		mux.HandleFunc(waveform.TaskTypeWaveform, waveformSvc.NewTaskHandler().ProcessTask)
+		mux.HandleFunc(metadata.TaskTypeMetadata, metadataSvc.NewTaskHandler().ProcessTask)
 
 		go func() {
 			log.Println("Starting asynq worker...")
@@ -223,6 +229,11 @@ func main() {
 				log.Printf("Asynq worker error: %v", err)
 			}
 		}()
+
+		// Maintenance backfill: periodically enqueue metadata extraction for
+		// media files that have never been extracted, giving up after 3 failed
+		// attempts so a permanently-broken file is never re-queued forever.
+		metadata.StartMaintenance(context.Background(), db, metadataSvc)
 	}
 
 	// Echo setup
@@ -339,7 +350,7 @@ func main() {
 		libraryHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// File routes (under /api/libraries)
-		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, activitySvc)
+		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, metadataSvc, activitySvc)
 		fileHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Folder routes (under /api/libraries)
@@ -413,7 +424,7 @@ func main() {
 		downloadHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Tus resumable upload routes (under /api/tus)
-		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc, waveformSvc, transcribeSvc, audioDetectSvc, activitySvc)
+		tusHandler := handlers.NewTusHandler(db, storageSvc, cfg.StoragePath, faceSvc, objSvc, videoSvc, waveformSvc, transcribeSvc, audioDetectSvc, metadataSvc, activitySvc)
 		tusHandler.RegisterRoutes(api)
 
 		// Avatar routes (under /api/auth)
@@ -441,6 +452,7 @@ func main() {
 			Waveform:    waveformSvc,
 			Transcribe:  transcribeSvc,
 			AudioDetect: audioDetectSvc,
+			Metadata:    metadataSvc,
 			Activity:    activitySvc,
 		})
 

@@ -22,6 +22,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
+	"github.com/alcoves/alcoves-backend/internal/services/metadata"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
@@ -39,11 +40,12 @@ type FileHandler struct {
 	transcribeSvc  *transcribe.Service
 	audioDetectSvc *audiodetection.Service
 	waveformSvc    *waveform.Service
+	metadataSvc    *metadata.Service
 	activitySvc    *activity.Service
 }
 
-func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service, waveformSvc *waveform.Service, activitySvc *activity.Service) *FileHandler {
-	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc, transcribeSvc: transcribeSvc, audioDetectSvc: audioDetectSvc, waveformSvc: waveformSvc, activitySvc: activitySvc}
+func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service, waveformSvc *waveform.Service, metadataSvc *metadata.Service, activitySvc *activity.Service) *FileHandler {
+	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc, transcribeSvc: transcribeSvc, audioDetectSvc: audioDetectSvc, waveformSvc: waveformSvc, metadataSvc: metadataSvc, activitySvc: activitySvc}
 }
 
 func (h *FileHandler) RegisterRoutes(g *echo.Group) {
@@ -63,6 +65,9 @@ func (h *FileHandler) RegisterRoutes(g *echo.Group) {
 	g.POST("/:id/files/:fileId/waveform", h.GenerateWaveform)
 	g.GET("/:id/files/:fileId/waveform", h.GetWaveform)
 	g.POST("/:id/files/video-thumbnails/reprocess", h.ReprocessVideoThumbnails)
+	g.POST("/:id/metadata/reprocess", h.MetadataReprocess)
+	g.GET("/:id/timeline", h.Timeline)
+	g.GET("/:id/map", h.Map)
 	g.GET("/:id/files/:fileId/proxy", h.Proxy)
 	g.GET("/:id/files/:fileId/thumbnail", h.Thumbnail)
 	g.POST("/:id/files/purge", h.Purge)
@@ -602,6 +607,59 @@ func (h *FileHandler) ReprocessVideoThumbnails(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]int{"queuedCount": queuedCount})
+}
+
+// MetadataReprocess re-enqueues EXIF/media-metadata extraction for every media
+// file in the library. Owner/admin-gated by the route middleware (non-GET on
+// /api/libraries/:id/* requires library admin). Resets the 3-strike attempt cap
+// so previously-exhausted files retry — the escape hatch after a parser fix.
+func (h *FileHandler) MetadataReprocess(c echo.Context) error {
+	if h.metadataSvc == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Metadata service unavailable")
+	}
+
+	libraryID := c.Param("id")
+	if _, err := uuid.Parse(libraryID); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
+	}
+
+	queuedCount, err := h.metadataSvc.ReprocessLibrary(libraryID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Reprocess failed: %v", err))
+	}
+
+	return c.JSON(http.StatusOK, map[string]int{"queuedCount": queuedCount})
+}
+
+// Timeline returns library files flattened and sorted newest-first by effective
+// capture date for the Timeline view. ?type=media (default) limits to images +
+// videos; ?type=all includes every file. Cursor-paginated.
+func (h *FileHandler) Timeline(c echo.Context) error {
+	libraryID := c.Param("id")
+	if _, err := uuid.Parse(libraryID); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
+	}
+
+	result, err := h.fileSvc.ListLibraryTimeline(libraryID, c)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+// Map returns geotagged files (with GPS coordinates) for the Map view, capped at
+// a sane maximum with a `truncated` flag when the cap is hit.
+func (h *FileHandler) Map(c echo.Context) error {
+	libraryID := c.Param("id")
+	if _, err := uuid.Parse(libraryID); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
+	}
+
+	result, err := h.fileSvc.ListLibraryMapPoints(libraryID)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
 }
 
 type playbackSourceResponse struct {

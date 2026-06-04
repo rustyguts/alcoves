@@ -24,6 +24,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
+	"github.com/alcoves/alcoves-backend/internal/services/metadata"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 	"github.com/alcoves/alcoves-backend/internal/services/transcribe"
@@ -67,7 +68,7 @@ type TusHandler struct {
 	stopCleanup chan struct{}
 }
 
-func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, waveformSvc *waveform.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service, activitySvc *activity.Service) *TusHandler {
+func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, waveformSvc *waveform.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service, metadataSvc *metadata.Service, activitySvc *activity.Service) *TusHandler {
 	tusDir := filepath.Join(dataDir, ".tus-uploads")
 	if err := os.MkdirAll(tusDir, 0o755); err != nil {
 		log.Printf("Failed to create tus staging directory %s: %v", tusDir, err)
@@ -84,6 +85,7 @@ func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, fac
 		Waveform:    waveformSvc,
 		Transcribe:  transcribeSvc,
 		AudioDetect: audioDetectSvc,
+		Metadata:    metadataSvc,
 		Activity:    activitySvc,
 	})
 

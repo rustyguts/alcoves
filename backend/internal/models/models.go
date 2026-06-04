@@ -95,48 +95,58 @@ func (f *Folder) BeforeCreate(tx *gorm.DB) error {
 
 // File maps to the "files" table.
 type File struct {
-	ID                     uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	LibraryID              uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:files_library_parent_trash_name_idx" json:"libraryId"`
-	ParentFolderID         *uuid.UUID `gorm:"column:parent_folder_id;type:uuid;index:files_library_parent_trash_name_idx" json:"parentFolderId"`
-	Name                   string     `gorm:"column:name;type:text;not null;index:files_library_parent_trash_name_idx" json:"name"`
-	MimeType               string     `gorm:"column:mime_type;type:text;not null;default:application/octet-stream" json:"mimeType"`
-	Size                   int64      `gorm:"column:size;type:bigint;not null;default:0" json:"size"`
-	OwnerID                *uuid.UUID `gorm:"column:owner_id;type:uuid;index:files_owner_id_idx" json:"ownerId"`
-	Duration               *int       `gorm:"column:duration;type:integer" json:"duration"`
-	Width                  *int       `gorm:"column:width;type:integer" json:"width"`
-	Height                 *int       `gorm:"column:height;type:integer" json:"height"`
-	ProxyStatus            *string    `gorm:"column:proxy_status;type:text" json:"proxyStatus"`
-	ProxyProgress          *int       `gorm:"column:proxy_progress;type:integer" json:"proxyProgress"`
-	ProxyEtaSeconds        *int       `gorm:"column:proxy_eta_seconds;type:integer" json:"proxyEtaSeconds"`
-	TranscribeStatus       *string    `gorm:"column:transcribe_status;type:text" json:"transcribeStatus"`
-	TranscribeProgress     *int       `gorm:"column:transcribe_progress;type:integer" json:"transcribeProgress"`
-	TranscribeEtaSeconds   *int       `gorm:"column:transcribe_eta_seconds;type:integer" json:"transcribeEtaSeconds"`
-	TranscribeError        *string    `gorm:"column:transcribe_error;type:text" json:"transcribeError"`
-	TranscribeVersion      int        `gorm:"column:transcribe_version;type:integer;not null;default:0" json:"transcribeVersion"`
-	TranscribedVersion     *int       `gorm:"column:transcribed_version;type:integer" json:"transcribedVersion"`
-	TranscriptText         *string    `gorm:"column:transcript_text;type:text" json:"transcriptText,omitempty"`
-	TranscriptVTT          *string    `gorm:"column:transcript_vtt;type:text" json:"transcriptVtt,omitempty"`
-	TranscriptModel        *string    `gorm:"column:transcript_model;type:text" json:"transcriptModel"`
-	AudioDetectStatus      *string    `gorm:"column:audio_detect_status;type:text" json:"audioDetectStatus"`
-	AudioDetectProgress    *int       `gorm:"column:audio_detect_progress;type:integer" json:"audioDetectProgress"`
-	AudioDetectEtaSeconds  *int       `gorm:"column:audio_detect_eta_seconds;type:integer" json:"audioDetectEtaSeconds"`
-	AudioDetectError       *string    `gorm:"column:audio_detect_error;type:text" json:"audioDetectError"`
-	AudioDetectVersion     int        `gorm:"column:audio_detect_version;type:integer;not null;default:0" json:"audioDetectVersion"`
-	AudioDetectedVersion   *int       `gorm:"column:audio_detected_version;type:integer" json:"audioDetectedVersion"`
-	AudioDetectModel       *string    `gorm:"column:audio_detect_model;type:text" json:"audioDetectModel"`
-	WaveformStatus         *string    `gorm:"column:waveform_status;type:text" json:"waveformStatus"`
-	WaveformProgress       *int       `gorm:"column:waveform_progress;type:integer" json:"waveformProgress"`
-	WaveformError          *string    `gorm:"column:waveform_error;type:text" json:"waveformError"`
-	WaveformVersion        int        `gorm:"column:waveform_version;type:integer;not null;default:0" json:"waveformVersion"`
-	WaveformedVersion      *int       `gorm:"column:waveformed_version;type:integer" json:"waveformedVersion"`
-	WaveformPeaksPerSecond int        `gorm:"column:waveform_peaks_per_second;type:integer;not null;default:50" json:"waveformPeaksPerSecond"`
-	ThumbnailFileID        *uuid.UUID `gorm:"column:thumbnail_file_id;type:uuid" json:"thumbnailFileId"`
-	SourceFileID           *uuid.UUID `gorm:"column:source_file_id;type:uuid" json:"sourceFileId"`
-	OriginalCreatedAt      *time.Time `gorm:"column:original_created_at" json:"originalCreatedAt"`
-	Hash                   *string    `gorm:"column:hash;type:text" json:"hash"`
-	TrashedAt              *time.Time `gorm:"column:trashed_at;index:files_library_parent_trash_name_idx" json:"trashedAt"`
-	CreatedAt              time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt              time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
+	ID                       uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	LibraryID                uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:files_library_parent_trash_name_idx" json:"libraryId"`
+	ParentFolderID           *uuid.UUID `gorm:"column:parent_folder_id;type:uuid;index:files_library_parent_trash_name_idx" json:"parentFolderId"`
+	Name                     string     `gorm:"column:name;type:text;not null;index:files_library_parent_trash_name_idx" json:"name"`
+	MimeType                 string     `gorm:"column:mime_type;type:text;not null;default:application/octet-stream" json:"mimeType"`
+	Size                     int64      `gorm:"column:size;type:bigint;not null;default:0" json:"size"`
+	OwnerID                  *uuid.UUID `gorm:"column:owner_id;type:uuid;index:files_owner_id_idx" json:"ownerId"`
+	Duration                 *int       `gorm:"column:duration;type:integer" json:"duration"`
+	Width                    *int       `gorm:"column:width;type:integer" json:"width"`
+	Height                   *int       `gorm:"column:height;type:integer" json:"height"`
+	ProxyStatus              *string    `gorm:"column:proxy_status;type:text" json:"proxyStatus"`
+	ProxyProgress            *int       `gorm:"column:proxy_progress;type:integer" json:"proxyProgress"`
+	ProxyEtaSeconds          *int       `gorm:"column:proxy_eta_seconds;type:integer" json:"proxyEtaSeconds"`
+	TranscribeStatus         *string    `gorm:"column:transcribe_status;type:text" json:"transcribeStatus"`
+	TranscribeProgress       *int       `gorm:"column:transcribe_progress;type:integer" json:"transcribeProgress"`
+	TranscribeEtaSeconds     *int       `gorm:"column:transcribe_eta_seconds;type:integer" json:"transcribeEtaSeconds"`
+	TranscribeError          *string    `gorm:"column:transcribe_error;type:text" json:"transcribeError"`
+	TranscribeVersion        int        `gorm:"column:transcribe_version;type:integer;not null;default:0" json:"transcribeVersion"`
+	TranscribedVersion       *int       `gorm:"column:transcribed_version;type:integer" json:"transcribedVersion"`
+	TranscriptText           *string    `gorm:"column:transcript_text;type:text" json:"transcriptText,omitempty"`
+	TranscriptVTT            *string    `gorm:"column:transcript_vtt;type:text" json:"transcriptVtt,omitempty"`
+	TranscriptModel          *string    `gorm:"column:transcript_model;type:text" json:"transcriptModel"`
+	AudioDetectStatus        *string    `gorm:"column:audio_detect_status;type:text" json:"audioDetectStatus"`
+	AudioDetectProgress      *int       `gorm:"column:audio_detect_progress;type:integer" json:"audioDetectProgress"`
+	AudioDetectEtaSeconds    *int       `gorm:"column:audio_detect_eta_seconds;type:integer" json:"audioDetectEtaSeconds"`
+	AudioDetectError         *string    `gorm:"column:audio_detect_error;type:text" json:"audioDetectError"`
+	AudioDetectVersion       int        `gorm:"column:audio_detect_version;type:integer;not null;default:0" json:"audioDetectVersion"`
+	AudioDetectedVersion     *int       `gorm:"column:audio_detected_version;type:integer" json:"audioDetectedVersion"`
+	AudioDetectModel         *string    `gorm:"column:audio_detect_model;type:text" json:"audioDetectModel"`
+	WaveformStatus           *string    `gorm:"column:waveform_status;type:text" json:"waveformStatus"`
+	WaveformProgress         *int       `gorm:"column:waveform_progress;type:integer" json:"waveformProgress"`
+	WaveformError            *string    `gorm:"column:waveform_error;type:text" json:"waveformError"`
+	WaveformVersion          int        `gorm:"column:waveform_version;type:integer;not null;default:0" json:"waveformVersion"`
+	WaveformedVersion        *int       `gorm:"column:waveformed_version;type:integer" json:"waveformedVersion"`
+	WaveformPeaksPerSecond   int        `gorm:"column:waveform_peaks_per_second;type:integer;not null;default:50" json:"waveformPeaksPerSecond"`
+	MetadataStatus           *string    `gorm:"column:metadata_status;type:text" json:"metadataStatus"`
+	MetadataError            *string    `gorm:"column:metadata_error;type:text" json:"metadataError"`
+	MetadataVersion          int        `gorm:"column:metadata_version;type:integer;not null;default:0" json:"metadataVersion"`
+	MetadataExtractedVersion *int       `gorm:"column:metadata_extracted_version;type:integer" json:"metadataExtractedVersion"`
+	MetadataAttempts         int        `gorm:"column:metadata_attempts;type:integer;not null;default:0" json:"metadataAttempts"`
+	CapturedAt               *time.Time `gorm:"column:captured_at" json:"capturedAt"`
+	GpsLat                   *float64   `gorm:"column:gps_lat;type:double precision" json:"gpsLat"`
+	GpsLon                   *float64   `gorm:"column:gps_lon;type:double precision" json:"gpsLon"`
+	CameraMake               *string    `gorm:"column:camera_make;type:text" json:"cameraMake"`
+	CameraModel              *string    `gorm:"column:camera_model;type:text" json:"cameraModel"`
+	ThumbnailFileID          *uuid.UUID `gorm:"column:thumbnail_file_id;type:uuid" json:"thumbnailFileId"`
+	SourceFileID             *uuid.UUID `gorm:"column:source_file_id;type:uuid" json:"sourceFileId"`
+	OriginalCreatedAt        *time.Time `gorm:"column:original_created_at" json:"originalCreatedAt"`
+	Hash                     *string    `gorm:"column:hash;type:text" json:"hash"`
+	TrashedAt                *time.Time `gorm:"column:trashed_at;index:files_library_parent_trash_name_idx" json:"trashedAt"`
+	CreatedAt                time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+	UpdatedAt                time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 
 	Library *Library `gorm:"foreignKey:LibraryID" json:"-"`
 	Owner   *User    `gorm:"foreignKey:OwnerID" json:"-"`

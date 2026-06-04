@@ -49,6 +49,14 @@ export default defineNuxtConfig({
       sentry: {
         dsn: process.env.NUXT_PUBLIC_SENTRY_DSN || "",
       },
+      // Map (Map view) raster tile source. Defaults to the public OpenStreetMap
+      // tile server so the map works out of the box; self-hosters can point at
+      // their own tile server (the privacy escape hatch — browser tile fetches
+      // leak the viewed area to whoever serves the tiles).
+      mapTileUrl:
+        process.env.NUXT_PUBLIC_MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      mapTileAttribution:
+        process.env.NUXT_PUBLIC_MAP_TILE_ATTRIBUTION || "© OpenStreetMap contributors",
     },
   },
 
