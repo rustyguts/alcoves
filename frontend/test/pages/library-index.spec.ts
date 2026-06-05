@@ -480,10 +480,6 @@ const stubs = {
     template: "<div data-stub='skeleton' />",
     props: ["entryViewMode", "showTrashed"],
   },
-  LibraryTabs: {
-    template: "<div data-stub='tabs' />",
-    props: ["libraryId", "faceRecognitionEnabled", "canManageLibrary"],
-  },
   AlcovesImage: { template: "<img />", props: ["libraryId", "fileId", "alt", "width", "height"] },
   RouterLink: { template: "<a :href='to'><slot /></a>", props: ["to"] },
 };

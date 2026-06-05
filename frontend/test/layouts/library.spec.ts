@@ -87,16 +87,9 @@ const LibraryHeaderStub = defineComponent({
   template: "<div data-stub='header'><slot /></div>",
 });
 
-const LibraryTabsStub = defineComponent({
-  name: "LibraryTabs",
-  props: ["libraryId", "faceRecognitionEnabled", "objectDetectionEnabled", "canManageLibrary"],
-  template: "<div data-stub='tabs' />",
-});
-
 const stubs = {
   AppIcon: { template: "<i />", props: ["name", "class"] },
   LibraryHeader: LibraryHeaderStub,
-  LibraryTabs: LibraryTabsStub,
   RouterView: { template: "<div data-stub='router-view'>Page Content</div>" },
   Transition: { template: "<div><slot /></div>" },
 };
@@ -130,14 +123,7 @@ describe("library layout", () => {
     expect(header.props("name")).toBe("Test Library");
   });
 
-  it.skip("renders LibraryTabs and passes library id via props", () => {
-    const wrapper = mountLayout();
-    const tabs = wrapper.findComponent(LibraryTabsStub);
-    expect(tabs.exists()).toBe(true);
-    expect(tabs.props("libraryId")).toBe("lib-1");
-  });
-
-  it("always shows header and tabs", () => {
+  it("always shows the header across library routes", () => {
     for (const path of [
       "/libraries/lib-1",
       "/libraries/lib-1/trash",
@@ -147,15 +133,7 @@ describe("library layout", () => {
       mocks.routePath = path;
       const wrapper = mountLayout();
       expect(wrapper.find("[data-stub='header']").exists()).toBe(true);
-      expect(wrapper.find("[data-stub='tabs']").exists()).toBe(true);
     }
-  });
-
-  it("passes faceRecognitionEnabled to LibraryTabs", () => {
-    mocks.library.faceRecognitionEnabled = true;
-    const wrapper = mountLayout();
-    const tabs = wrapper.findComponent(LibraryTabsStub);
-    expect(tabs.props("faceRecognitionEnabled")).toBe(true);
   });
 
   it.skip("renders router view slot", () => {

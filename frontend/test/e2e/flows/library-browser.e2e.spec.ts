@@ -35,7 +35,7 @@ test.describe("Library browser @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-personal");
 
-    await expect(page.getByRole("tab", { name: /Files/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Files" })).toBeVisible();
     await snap(page, FLOW, "library-empty");
   });
 
@@ -181,7 +181,7 @@ test.describe("Library browser @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/trash");
 
-    await expect(page.getByRole("tab", { name: /Trash/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Trash" })).toBeVisible();
     await snap(page, FLOW, "library-trash-empty");
   });
 
@@ -192,7 +192,7 @@ test.describe("Library browser @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/trash");
 
-    await expect(page.getByRole("tab", { name: /Trash/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Trash" })).toBeVisible();
     await snap(page, FLOW, "library-trash-items");
   });
 
@@ -242,7 +242,7 @@ test.describe("Library browser dark @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/trash");
 
-    await expect(page.getByRole("tab", { name: /Trash/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Trash" })).toBeVisible();
     await snap(page, FLOW, "library-trash-items-dark");
   });
 
@@ -255,7 +255,7 @@ test.describe("Library browser dark @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-personal");
 
-    await expect(page.getByRole("tab", { name: /Files/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Files" })).toBeVisible();
     await snap(page, FLOW, "library-empty-dark");
   });
 });

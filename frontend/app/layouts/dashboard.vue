@@ -4,8 +4,9 @@ import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
 import UserAvatar from "~/components/UserAvatar.vue";
 import NotificationBell from "~/components/notifications/NotificationBell.vue";
+import SidebarLibraryNav from "~/components/SidebarLibraryNav.vue";
 import type { Library } from "~~/shared/types/api";
-import type { DropdownMenuItem, NavigationMenuItem } from "@nuxt/ui";
+import type { DropdownMenuItem } from "@nuxt/ui";
 
 const { user, logout } = useAuth();
 const router = useRouter();
@@ -36,51 +37,14 @@ function submitGlobalSearch() {
   router.push(q ? { path: "/search", query: { q } } : { path: "/search" });
 }
 
-function isActive(to: string): boolean {
-  return route.path === to || route.path.startsWith(`${to}/`);
-}
-
-const defaultLibraryItems = computed<NavigationMenuItem[]>(() => {
-  const def = libraries.value?.find((l) => l.isDefault);
-  if (!def) return [];
-  const to = `/libraries/${def.id}`;
-  return [
-    {
-      label: def.emoji ? `${def.emoji}  ${def.name}` : def.name,
-      icon: def.emoji ? undefined : "i-lucide-library",
-      to,
-      active: isActive(to),
-    },
-  ];
-});
-
-const libraryItems = computed<NavigationMenuItem[]>(() => {
-  return (
-    libraries.value
-      ?.filter((l) => !l.isDefault)
-      .map((l) => {
-        const to = `/libraries/${l.id}`;
-        return {
-          label: l.emoji ? `${l.emoji}  ${l.name}` : l.name,
-          icon: l.emoji ? undefined : "i-lucide-folder",
-          to,
-          active: isActive(to),
-        };
-      }) ?? []
-  );
-});
-
-const bottomItems = computed<NavigationMenuItem[]>(() => {
-  if (user.value?.role !== "owner") return [];
-  return [
-    {
-      label: "Admin",
-      icon: "i-lucide-shield-check",
-      to: "/admin",
-      active: isActive("/admin"),
-    },
-  ];
-});
+// Close the mobile slideover whenever the route changes so tapping a sidebar
+// link doesn't leave the overlay covering the page.
+watch(
+  () => route.path,
+  () => {
+    sidebarOpen.value = false;
+  },
+);
 
 const userMenuItems = computed<DropdownMenuItem[][]>(() => [
   [
@@ -132,44 +96,12 @@ async function createLibrary() {
               <span class="text-lg font-bold tracking-tight">Alcoves</span>
             </div>
           </NuxtLink>
-          <div class="px-2">
-            <UNavigationMenu
-              orientation="vertical"
-              :items="defaultLibraryItems"
-              variant="pill"
-              class="w-full"
-            />
-          </div>
-          <USeparator class="my-2" />
-          <div class="flex items-center justify-between px-5 pt-1 pb-2">
-            <span class="text-xs font-semibold text-muted uppercase tracking-wide">Libraries</span>
-            <UButton
-              icon="i-lucide-plus"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              square
-              aria-label="Create library"
-              @click="createLibrary"
-            />
-          </div>
-          <div class="px-2 flex-1 overflow-y-auto">
-            <UNavigationMenu
-              orientation="vertical"
-              :items="libraryItems"
-              variant="pill"
-              class="w-full"
-            />
-          </div>
-          <div v-if="bottomItems.length" class="px-2 pb-3 mt-auto">
-            <USeparator class="mb-2" />
-            <UNavigationMenu
-              orientation="vertical"
-              :items="bottomItems"
-              variant="pill"
-              class="w-full"
-            />
-          </div>
+          <SidebarLibraryNav
+            class="min-h-0 flex-1"
+            :libraries="libraries"
+            :user="user"
+            @create="createLibrary"
+          />
         </aside>
       </template>
     </USlideover>
@@ -185,48 +117,12 @@ async function createLibrary() {
         </div>
       </NuxtLink>
 
-      <div class="px-2">
-        <UNavigationMenu
-          orientation="vertical"
-          :items="defaultLibraryItems"
-          variant="pill"
-          class="w-full"
-        />
-      </div>
-
-      <USeparator class="my-2" />
-
-      <div class="flex items-center justify-between px-5 pt-1 pb-2">
-        <span class="text-xs font-semibold text-muted uppercase tracking-wide">Libraries</span>
-        <UButton
-          icon="i-lucide-plus"
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          square
-          aria-label="Create library"
-          @click="createLibrary"
-        />
-      </div>
-
-      <div class="px-2 flex-1 overflow-y-auto">
-        <UNavigationMenu
-          orientation="vertical"
-          :items="libraryItems"
-          variant="pill"
-          class="w-full"
-        />
-      </div>
-
-      <div v-if="bottomItems.length" class="px-2 pb-3 mt-auto">
-        <USeparator class="mb-2" />
-        <UNavigationMenu
-          orientation="vertical"
-          :items="bottomItems"
-          variant="pill"
-          class="w-full"
-        />
-      </div>
+      <SidebarLibraryNav
+        class="min-h-0 flex-1"
+        :libraries="libraries"
+        :user="user"
+        @create="createLibrary"
+      />
     </aside>
 
     <!-- Main content -->

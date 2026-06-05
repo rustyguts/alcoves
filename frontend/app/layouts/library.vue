@@ -2,7 +2,6 @@
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useAuth } from "~/composables/useAuth";
 import LibraryHeader from "~/components/LibraryHeader.vue";
-import LibraryTabs from "~/components/LibraryTabs.vue";
 import type { Library } from "~~/shared/types/api";
 
 const route = useRoute();
@@ -36,14 +35,7 @@ provide("canManageLibrary", canManageLibrary);
 <template>
   <NuxtLayout name="dashboard">
     <div class="flex flex-col gap-4 flex-1 min-h-0">
-      <LibraryHeader :library-id="libraryId" :name="library?.name" :emoji="library?.emoji">
-        <LibraryTabs
-          :library-id="libraryId"
-          :face-recognition-enabled="library?.faceRecognitionEnabled"
-          :object-detection-enabled="library?.objectDetectionEnabled"
-          :can-manage-library="canManageLibrary"
-        />
-      </LibraryHeader>
+      <LibraryHeader :library-id="libraryId" :name="library?.name" :emoji="library?.emoji" />
 
       <div class="relative flex flex-col flex-1 min-h-0">
         <slot />
