@@ -64,7 +64,7 @@ watch(open, (val) => {
         color="primary"
         variant="soft"
         size="sm"
-        icon="i-lucide-upload"
+        icon="i-lineicons-upload"
         :disabled="!selectedFileCount"
         @click="handleUpload"
       >

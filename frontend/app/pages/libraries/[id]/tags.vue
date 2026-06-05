@@ -248,14 +248,14 @@ onBeforeUnmount(() => {
               size="sm"
               square
               :loading="loadingUsage"
-              icon="i-lucide-refresh-cw"
+              icon="i-lineicons-reload"
               @click="refreshTagUsageCounts"
             />
           </UTooltip>
         </div>
       </template>
 
-      <div class="relative rounded-xl border border-default overflow-hidden">
+      <div class="relative rounded-md overflow-hidden">
         <table class="w-full text-sm sm:table-fixed">
           <thead class="bg-elevated">
             <tr class="text-left">
@@ -296,7 +296,7 @@ onBeforeUnmount(() => {
                     variant="soft"
                     size="sm"
                     square
-                    icon="i-lucide-plus"
+                    icon="i-lineicons-plus"
                     :loading="creatingTag"
                     :disabled="!createTagName.trim() || creatingTag"
                     @click="createTagAndRefresh"
@@ -309,7 +309,7 @@ onBeforeUnmount(() => {
             <tr v-if="loading">
               <td colspan="3" class="px-4 py-3">
                 <div class="flex items-center gap-2 text-sm text-muted">
-                  <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+                  <UIcon name="i-lineicons-spinner-solid" class="size-4 animate-spin" />
                   Loading tags
                 </div>
               </td>
@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
                     variant="soft"
                     size="sm"
                     square
-                    icon="i-lucide-trash-2"
+                    icon="i-lineicons-trash-can"
                     @click="deleteTagAndRefresh(tag.id)"
                   />
                 </div>

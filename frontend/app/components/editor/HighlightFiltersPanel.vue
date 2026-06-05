@@ -120,7 +120,7 @@ const sortedFilters = computed(() =>
 </script>
 
 <template>
-  <div v-if="hasSignals || filters.length > 0" class="rounded-lg border border-default bg-default">
+  <div v-if="hasSignals || filters.length > 0" class="rounded-md bg-elevated/50">
     <button
       type="button"
       class="flex items-center justify-between gap-2 w-full px-3 py-2 border-b border-default text-left hover:bg-elevated/40 transition-colors"
@@ -129,16 +129,16 @@ const sortedFilters = computed(() =>
     >
       <div class="flex items-center gap-2 min-w-0">
         <UIcon
-          :name="collapsed ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'"
+          :name="collapsed ? 'i-lineicons-chevron-right' : 'i-lineicons-chevron-down'"
           class="size-3.5 text-muted shrink-0"
         />
-        <UIcon name="i-lucide-sparkles" class="size-4 text-primary" />
+        <UIcon name="i-lineicons-star-fat" class="size-4 text-primary" />
         <p class="text-sm font-semibold">Highlight filters</p>
         <UBadge color="neutral" variant="subtle" size="xs">{{ filters.length }}</UBadge>
         <UTooltip
           text="Comma = OR · &amp; = AND · word:foo = transcript · audio:foo = label · :25 = min %"
         >
-          <UIcon name="i-lucide-help-circle" class="size-3.5 text-muted" />
+          <UIcon name="i-lineicons-question-circle" class="size-3.5 text-muted" />
         </UTooltip>
       </div>
       <div class="flex items-center gap-1 shrink-0" @click.stop>
@@ -147,7 +147,7 @@ const sortedFilters = computed(() =>
           color="primary"
           variant="soft"
           size="xs"
-          icon="i-lucide-wand-2"
+          icon="i-lineicons-brush"
           :loading="loading"
           @click="emit('load-presets')"
         >
@@ -158,7 +158,7 @@ const sortedFilters = computed(() =>
           color="primary"
           variant="solid"
           size="xs"
-          icon="i-lucide-plus"
+          icon="i-lineicons-plus"
           @click="startAdd"
         >
           Add filter
@@ -210,7 +210,7 @@ const sortedFilters = computed(() =>
               <UButton color="neutral" variant="ghost" size="xs" @click="cancelAdd">
                 Cancel
               </UButton>
-              <UButton color="primary" size="xs" icon="i-lucide-check" @click="submitAdd">
+              <UButton color="primary" size="xs" icon="i-lineicons-check" @click="submitAdd">
                 Save
               </UButton>
             </div>
@@ -255,7 +255,7 @@ const sortedFilters = computed(() =>
               <UButton color="neutral" variant="ghost" size="xs" @click="cancelEdit">
                 Cancel
               </UButton>
-              <UButton color="primary" size="xs" icon="i-lucide-check" @click="submitEdit(f.id)">
+              <UButton color="primary" size="xs" icon="i-lineicons-check" @click="submitEdit(f.id)">
                 Save
               </UButton>
             </div>
@@ -269,7 +269,7 @@ const sortedFilters = computed(() =>
               @click="toggleExpand(f.id)"
             >
               <UIcon
-                :name="expanded.has(f.id) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                :name="expanded.has(f.id) ? 'i-lineicons-chevron-down' : 'i-lineicons-chevron-right'"
                 class="size-3.5 text-muted shrink-0"
               />
               <span class="size-2.5 rounded-full shrink-0" :style="{ backgroundColor: f.color }" />
@@ -306,7 +306,7 @@ const sortedFilters = computed(() =>
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                icon="i-lucide-pencil"
+                icon="i-lineicons-pencil"
                 square
                 @click="startEdit(f)"
               />
@@ -314,7 +314,7 @@ const sortedFilters = computed(() =>
                 color="error"
                 variant="ghost"
                 size="xs"
-                icon="i-lucide-trash-2"
+                icon="i-lineicons-trash-can"
                 square
                 @click="emit('remove', f.id)"
               />
@@ -333,7 +333,7 @@ const sortedFilters = computed(() =>
                 :title="joinEvidence(m.evidence)"
                 @click="emit('seek', m.startSeconds)"
               >
-                <UIcon name="i-lucide-play" class="size-2.5" />
+                <UIcon name="i-lineicons-play" class="size-2.5" />
                 {{ formatTime(m.startSeconds) }}
                 <span class="text-muted">· {{ (m.score * 100).toFixed(0) }}%</span>
                 <span class="text-dimmed truncate max-w-[220px]">

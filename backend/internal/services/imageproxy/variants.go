@@ -6,7 +6,7 @@ package imageproxy
 // bumping this constant — together with a one-line migration that resets
 // image_proxy_warmed_version for affected rows — re-warms every file against the
 // new set without any other code change.
-const VariantsVersion = 1
+const VariantsVersion = 2
 
 // Variant describes one named image-proxy transform the app requests. This
 // registry is the SINGLE SOURCE OF TRUTH for every (size, format, quality)
@@ -41,13 +41,13 @@ type Variant struct {
 // uses. Mirrored 1:1 by frontend/shared/image-variants.ts.
 //
 //	search   80×80   q70 jpeg  fixed — search-result avatars (search.vue)
-//	timeline 240×240 q70 webp  fixed — timeline grid (timeline.vue)
+//	timeline 384×384 q80 webp  fixed — timeline grid (timeline.vue)
 //	face     300×300 q80 jpeg  fixed — people / face grid (people/[personId].vue)
 //	card     720×360 q82 jpeg  capped — library browser cards (LibraryEntryCard.vue)
 //	preview  1920×1080 q90 jpeg capped — full-screen lightbox (FilePreview.vue)
 var Variants = []Variant{
 	{Name: "search", MaxWidth: 80, MaxHeight: 80, Quality: 70, Format: "jpeg", Cap: false},
-	{Name: "timeline", MaxWidth: 240, MaxHeight: 240, Quality: 70, Format: "webp", Cap: false},
+	{Name: "timeline", MaxWidth: 384, MaxHeight: 384, Quality: 80, Format: "webp", Cap: false},
 	{Name: "face", MaxWidth: 300, MaxHeight: 300, Quality: 80, Format: "jpeg", Cap: false},
 	{Name: "card", MaxWidth: 720, MaxHeight: 360, Quality: 82, Format: "jpeg", Cap: true},
 	{Name: "preview", MaxWidth: 1920, MaxHeight: 1080, Quality: 90, Format: "jpeg", Cap: true},

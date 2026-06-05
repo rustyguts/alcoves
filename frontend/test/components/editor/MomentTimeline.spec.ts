@@ -78,7 +78,7 @@ describe("MomentTimeline", () => {
   it("emits create-moment and open-shortcuts from the toolbar", async () => {
     const wrapper = mountTimeline();
     await wrapper.findAll("button").find((b) => b.text().includes("New moment"))!.trigger("click");
-    await wrapper.find("[data-icon='i-lucide-keyboard']").trigger("click");
+    await wrapper.find("[data-icon='i-lineicons-keyboard']").trigger("click");
     expect(wrapper.emitted("create-moment")).toHaveLength(1);
     expect(wrapper.emitted("open-shortcuts")).toHaveLength(1);
   });

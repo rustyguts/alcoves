@@ -153,20 +153,17 @@ describe("search.vue", () => {
     return mount(SearchPage, { global: { stubs } });
   }
 
-  it("renders search page with title", () => {
-    const wrapper = mountPage();
-    expect(wrapper.text()).toContain("Global Search");
-  });
-
   it("shows minimum character message when query is short", () => {
     const wrapper = mountPage();
     expect(wrapper.text()).toContain("Enter at least 2 characters");
   });
 
-  it("renders search form", () => {
+  // The page no longer renders its own search bar or "Global Search" card —
+  // the only search input is the global one in the dashboard header.
+  it("does not render a duplicate in-page search bar", () => {
     const wrapper = mountPage();
-    expect(wrapper.find("input").exists()).toBe(true);
-    expect(wrapper.find("button").exists()).toBe(true);
+    expect(wrapper.find("input").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("Global Search");
   });
 
   it("displays total match count when results exist", () => {

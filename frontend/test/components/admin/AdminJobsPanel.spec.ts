@@ -241,8 +241,8 @@ describe("AdminJobsPanel", () => {
     await wrapper.vm.$nextTick();
 
     const rowHtml = wrapper.findAll("table")[1]!.html();
-    expect(rowHtml).toContain("i-lucide-rotate-cw");
-    expect(rowHtml).toContain("i-lucide-trash-2");
+    expect(rowHtml).toContain("i-lineicons-reload");
+    expect(rowHtml).toContain("i-lineicons-trash-can");
   });
 
   it("calls retry API on retry button click", async () => {
@@ -254,7 +254,7 @@ describe("AdminJobsPanel", () => {
 
     const retryBtn = wrapper
       .findAll("button")
-      .find((b) => b.attributes("data-icon") === "i-lucide-rotate-cw");
+      .find((b) => b.attributes("data-icon") === "i-lineicons-reload");
     await retryBtn?.trigger("click");
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
       method: "POST",
@@ -273,7 +273,7 @@ describe("AdminJobsPanel", () => {
     const jobsTable = wrapper.findAll("table")[1]!;
     const removeBtn = jobsTable
       .findAll("button")
-      .find((b) => b.attributes("data-icon") === "i-lucide-trash-2");
+      .find((b) => b.attributes("data-icon") === "i-lineicons-trash-can");
     await removeBtn?.trigger("click");
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
       method: "POST",
@@ -298,7 +298,7 @@ describe("AdminJobsPanel", () => {
       props: { embedded: false },
       global: { stubs },
     });
-    expect(wrapper.find("[data-icon='i-lucide-loader-2']").exists()).toBe(true);
+    expect(wrapper.find("[data-icon='i-lineicons-spinner-solid']").exists()).toBe(true);
   });
 
   it("closes EventSource on unmount", async () => {

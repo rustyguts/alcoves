@@ -139,9 +139,9 @@ function getStatusMessage(error: unknown): string | null {
 }
 
 const themeOptions: { label: string; value: ColorPreference; icon: string }[] = [
-  { label: "System", value: "auto", icon: "i-lucide-monitor" },
-  { label: "Light", value: "light", icon: "i-lucide-sun" },
-  { label: "Dark", value: "dark", icon: "i-lucide-moon" },
+  { label: "System", value: "auto", icon: "i-lineicons-monitor" },
+  { label: "Light", value: "light", icon: "i-lineicons-sun" },
+  { label: "Dark", value: "dark", icon: "i-lineicons-night" },
 ];
 </script>
 
@@ -164,7 +164,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
           <span
             class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition group-hover:opacity-100"
           >
-            <UIcon name="i-lucide-camera" class="size-6 text-white" />
+            <UIcon name="i-lineicons-camera" class="size-6 text-white" />
           </span>
         </button>
 
@@ -181,7 +181,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
 
           <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <span class="inline-flex max-w-full items-center gap-1.5 text-sm text-muted">
-              <UIcon name="i-lucide-mail" class="size-4 shrink-0" />
+              <UIcon name="i-lineicons-envelope" class="size-4 shrink-0" />
               <span class="break-all">{{ user?.email }}</span>
             </span>
             <UBadge
@@ -199,7 +199,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
             color="primary"
             :loading="saving"
             :disabled="!hasProfileChanges"
-            icon="i-lucide-save"
+            icon="i-lineicons-save"
             @click="save"
           >
             Save changes
@@ -217,17 +217,17 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
     </UCard>
 
     <!-- Appearance -->
-    <AppPanel title="Appearance" icon="i-lucide-palette">
+    <AppPanel title="Appearance" icon="i-lineicons-colour-palette-3">
       <div class="grid grid-cols-3 gap-3">
         <button
           v-for="opt in themeOptions"
           :key="opt.value"
           type="button"
-          class="flex flex-col items-center gap-2 rounded-lg border p-4 transition hover:border-primary-500 hover:bg-primary-500/5"
+          class="flex flex-col items-center gap-2 rounded-md p-4 transition"
           :class="
             themePreference === opt.value
-              ? 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500'
-              : 'border-default'
+              ? 'bg-primary-500/10 ring-1 ring-primary-500'
+              : 'bg-elevated/50 hover:bg-elevated'
           "
           @click="themePreference = opt.value"
         >
@@ -247,11 +247,11 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
         <div
           v-for="session in sessions"
           :key="session.id"
-          class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default bg-elevated/40 px-4 py-3"
+          class="flex flex-wrap items-center justify-between gap-3 rounded-md bg-elevated px-4 py-3"
         >
           <div class="min-w-0 space-y-1">
             <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-monitor" class="size-4 shrink-0 text-muted" />
+              <UIcon name="i-lineicons-monitor" class="size-4 shrink-0 text-muted" />
               <span class="truncate font-medium">{{ parseBrowser(session.userAgent) }}</span>
               <UBadge v-if="session.isCurrent" color="primary" size="sm">Current</UBadge>
             </div>
@@ -276,7 +276,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
         v-else
         color="info"
         variant="soft"
-        icon="i-lucide-shield-check"
+        icon="i-lineicons-shield-2-check"
         title="No other active sessions"
         description="Only this browser session is active right now."
       />

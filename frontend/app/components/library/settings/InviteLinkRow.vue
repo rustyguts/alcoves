@@ -57,7 +57,7 @@ const uses = computed(() => props.invite.uses ?? []);
           color="neutral"
           variant="ghost"
           size="sm"
-          :icon="expanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+          :icon="expanded ? 'i-lineicons-chevron-up' : 'i-lineicons-chevron-down'"
           @click="expanded = !expanded"
         >
           {{ uses.length }}
@@ -66,7 +66,7 @@ const uses = computed(() => props.invite.uses ?? []);
           color="neutral"
           variant="soft"
           size="sm"
-          icon="i-lucide-copy"
+          icon="i-lineicons-clipboard"
           square
           @click="emit('copy', invite.inviteUrl)"
         />
@@ -74,7 +74,7 @@ const uses = computed(() => props.invite.uses ?? []);
           color="error"
           variant="soft"
           size="sm"
-          icon="i-lucide-trash-2"
+          icon="i-lineicons-trash-can"
           square
           :loading="revoking"
           :disabled="revoking"

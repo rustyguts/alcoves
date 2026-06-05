@@ -6,7 +6,8 @@ import LibrarySwitcher from "~/components/LibrarySwitcher.vue";
 /**
  * The sidebar library region: a library switcher (account-switcher style) at the
  * top, then a divider, then the current library's actions/sections (Files,
- * Timeline, Map, Tags, Feed, People, Objects, Settings, Trash) as a static nav.
+ * Timeline, Map, Tags, Feed, People, Settings, Trash) as a static nav. Objects
+ * is an advanced owner feature reached from the library Settings page, not here.
  * The actions always target the active library (or the default library when no
  * library is open). Shared between the desktop sidebar and the mobile slideover.
  */
@@ -78,39 +79,30 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
   const items: NavigationMenuItem[] = [
     {
       label: "Files",
-      icon: "i-lucide-folder",
+      icon: "i-lineicons-folder",
       to: base,
       active: active === "files",
       onSelect: forceNav(base),
     },
-    { label: "Timeline", icon: "i-lucide-clock", to: `${base}/timeline`, active: active === "timeline" },
-    { label: "Map", icon: "i-lucide-map-pin", to: `${base}/map`, active: active === "map" },
-    { label: "Tags", icon: "i-lucide-tags", to: `${base}/tags`, active: active === "tags" },
-    { label: "Feed", icon: "i-lucide-rss", to: `${base}/feed`, active: active === "feed" },
+    { label: "Timeline", icon: "i-lineicons-alarm-clock", to: `${base}/timeline`, active: active === "timeline" },
+    { label: "Map", icon: "i-lineicons-map-marker", to: `${base}/map`, active: active === "map" },
+    { label: "Tags", icon: "i-lineicons-tag", to: `${base}/tags`, active: active === "tags" },
+    { label: "Feed", icon: "i-lineicons-rss-feed", to: `${base}/feed`, active: active === "feed" },
   ];
 
   if (l.faceRecognitionEnabled) {
     items.push({
       label: "People",
-      icon: "i-lucide-scan-face",
+      icon: "i-lineicons-id-card",
       to: `${base}/people`,
       active: active === "people",
-    });
-  }
-
-  if (l.objectDetectionEnabled) {
-    items.push({
-      label: "Objects",
-      icon: "i-lucide-scan-search",
-      to: `${base}/objects`,
-      active: active === "objects",
     });
   }
 
   if (canManage(l)) {
     items.push({
       label: "Settings",
-      icon: "i-lucide-settings",
+      icon: "i-lineicons-cog",
       to: `${base}/settings`,
       active: active === "settings",
     });
@@ -118,7 +110,7 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
 
   items.push({
     label: "Trash",
-    icon: "i-lucide-trash-2",
+    icon: "i-lineicons-trash-can",
     to: `${base}/trash`,
     active: active === "trash",
     onSelect: forceNav(`${base}/trash`),
@@ -132,12 +124,20 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
   return [
     {
       label: "Admin",
-      icon: "i-lucide-shield-check",
+      icon: "i-lineicons-shield-2-check",
       to: "/admin",
       active: route.path === "/admin" || route.path.startsWith("/admin/"),
     },
   ];
 });
+
+// Larger, more generously spaced sidebar items: bigger tap target + label, a
+// roomier icon, and vertical breathing room between entries.
+const navUi = {
+  list: "gap-1",
+  link: "px-3 py-2.5 text-base gap-3",
+  linkLeadingIcon: "size-5",
+};
 </script>
 
 <template>
@@ -158,12 +158,19 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
         :items="actionItems"
         variant="pill"
         class="w-full"
+        :ui="navUi"
       />
     </div>
 
     <div v-if="bottomItems.length" class="px-2 pb-3 mt-auto">
       <USeparator class="mb-2" />
-      <UNavigationMenu orientation="vertical" :items="bottomItems" variant="pill" class="w-full" />
+      <UNavigationMenu
+        orientation="vertical"
+        :items="bottomItems"
+        variant="pill"
+        class="w-full"
+        :ui="navUi"
+      />
     </div>
   </div>
 </template>

@@ -126,12 +126,12 @@ const contextMenuItems = computed<ContextMenuItem[]>(() => {
   return [
     {
       label: "Update cover photo",
-      icon: "i-lucide-image-up",
+      icon: "i-lineicons-image",
       onSelect: () => updateCoverPhoto(face.id),
     },
     {
       label: "New person",
-      icon: "i-lucide-user-round-plus",
+      icon: "i-lineicons-user-4",
       onSelect: () => createNewPerson(face.id),
     },
   ];
@@ -149,7 +149,7 @@ watch(
 <template>
   <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 p-2">
     <div class="flex items-center gap-3">
-      <UButton color="neutral" variant="ghost" size="sm" icon="i-lucide-arrow-left" @click="goBack">
+      <UButton color="neutral" variant="ghost" size="sm" icon="i-lineicons-arrow-left" @click="goBack">
         Back
       </UButton>
       <div class="min-w-0">
@@ -161,7 +161,7 @@ watch(
     </div>
 
     <div v-if="loading" class="flex items-center justify-center py-16">
-      <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+      <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-muted" />
     </div>
 
     <div v-else-if="!person" class="flex flex-col items-center justify-center py-16 px-4 gap-3">
@@ -174,7 +174,7 @@ watch(
         <div
           v-for="face in faces"
           :key="face.id"
-          class="relative overflow-hidden rounded-xl border border-default bg-elevated cursor-pointer transition hover:border-accented"
+          class="relative overflow-hidden rounded-md bg-elevated cursor-pointer transition hover:bg-accented"
           @click="openFacePreview(face)"
           @contextmenu="showFaceContextMenu(face)"
         >
@@ -189,7 +189,7 @@ watch(
             v-if="actionFaceId === face.id"
             class="absolute inset-0 bg-black/40 flex items-center justify-center"
           >
-            <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white" />
+            <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-white" />
           </div>
         </div>
       </div>

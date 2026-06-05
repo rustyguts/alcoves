@@ -10,7 +10,7 @@ definePageMeta({ layout: "dashboard" });
       to="/admin"
       color="neutral"
       variant="ghost"
-      icon="i-lucide-arrow-left"
+      icon="i-lineicons-arrow-left"
       size="sm"
       class="self-start"
     >

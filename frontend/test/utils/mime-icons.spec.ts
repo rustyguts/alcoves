@@ -8,43 +8,43 @@ import {
 
 describe("getMimeIcon", () => {
   it("returns PDF icon for PDF mime type", () => {
-    expect(getMimeIcon("application/pdf")).toBe("i-lucide-file-text");
+    expect(getMimeIcon("application/pdf")).toBe("i-lineicons-empty-file");
   });
 
   it("returns archive icon for ZIP mime types", () => {
-    expect(getMimeIcon("application/zip")).toBe("i-lucide-file-archive");
-    expect(getMimeIcon("application/x-zip-compressed")).toBe("i-lucide-file-archive");
-    expect(getMimeIcon("application/gzip")).toBe("i-lucide-file-archive");
+    expect(getMimeIcon("application/zip")).toBe("i-lineicons-file-format-zip");
+    expect(getMimeIcon("application/x-zip-compressed")).toBe("i-lineicons-file-format-zip");
+    expect(getMimeIcon("application/gzip")).toBe("i-lineicons-file-format-zip");
   });
 
   it("returns JSON icon for JSON mime type", () => {
-    expect(getMimeIcon("application/json")).toBe("i-lucide-file-json");
+    expect(getMimeIcon("application/json")).toBe("i-lineicons-empty-file");
   });
 
   it("returns image icon for image/* mime types", () => {
-    expect(getMimeIcon("image/jpeg")).toBe("i-lucide-image");
-    expect(getMimeIcon("image/png")).toBe("i-lucide-image");
-    expect(getMimeIcon("image/gif")).toBe("i-lucide-image");
+    expect(getMimeIcon("image/jpeg")).toBe("i-lineicons-image");
+    expect(getMimeIcon("image/png")).toBe("i-lineicons-image");
+    expect(getMimeIcon("image/gif")).toBe("i-lineicons-image");
   });
 
   it("returns video icon for video/* mime types", () => {
-    expect(getMimeIcon("video/mp4")).toBe("i-lucide-video");
-    expect(getMimeIcon("video/webm")).toBe("i-lucide-video");
+    expect(getMimeIcon("video/mp4")).toBe("i-lineicons-video");
+    expect(getMimeIcon("video/webm")).toBe("i-lineicons-video");
   });
 
   it("returns audio icon for audio/* mime types", () => {
-    expect(getMimeIcon("audio/mpeg")).toBe("i-lucide-music");
-    expect(getMimeIcon("audio/wav")).toBe("i-lucide-music");
+    expect(getMimeIcon("audio/mpeg")).toBe("i-lineicons-music");
+    expect(getMimeIcon("audio/wav")).toBe("i-lineicons-music");
   });
 
   it("returns code icon for text/* mime types", () => {
-    expect(getMimeIcon("text/plain")).toBe("i-lucide-file-code");
-    expect(getMimeIcon("text/html")).toBe("i-lucide-file-code");
+    expect(getMimeIcon("text/plain")).toBe("i-lineicons-empty-file");
+    expect(getMimeIcon("text/html")).toBe("i-lineicons-empty-file");
   });
 
   it("returns default file icon for unknown mime types", () => {
-    expect(getMimeIcon("application/unknown")).toBe("i-lucide-file");
-    expect(getMimeIcon("unknown/type")).toBe("i-lucide-file");
+    expect(getMimeIcon("application/unknown")).toBe("i-lineicons-empty-file");
+    expect(getMimeIcon("unknown/type")).toBe("i-lineicons-empty-file");
   });
 });
 

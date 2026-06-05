@@ -27,9 +27,11 @@ const current = computed(() => {
   );
 });
 
+// Don't preventDefault here: the dropdown items are not links, so the only
+// effect of preventDefault on a menu item's select event is to suppress the
+// menu's auto-close — which left the switcher stuck open after a selection.
 function go(id: string) {
-  return (e: Event) => {
-    e.preventDefault();
+  return () => {
     router.push({ path: `/libraries/${id}`, force: true });
   };
 }
@@ -37,7 +39,7 @@ function go(id: string) {
 function toItem(l: Library): DropdownMenuItem {
   return {
     label: l.emoji ? `${l.emoji}  ${l.name}` : l.name,
-    icon: l.emoji ? undefined : l.isDefault ? "i-lucide-library" : "i-lucide-folder",
+    icon: l.emoji ? undefined : l.isDefault ? "i-lineicons-library" : "i-lineicons-folder",
     slot: l.id === current.value?.id ? "active" : undefined,
     onSelect: go(l.id),
   };
@@ -52,7 +54,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
   if (def) groups.push([toItem(def)]);
   if (others.length) groups.push(others.map(toItem));
   groups.push([
-    { label: "New library", icon: "i-lucide-plus", onSelect: () => emit("create") },
+    { label: "New library", icon: "i-lineicons-plus", onSelect: () => emit("create") },
   ]);
   return groups;
 });
@@ -70,15 +72,15 @@ const items = computed<DropdownMenuItem[][]>(() => {
       :aria-label="`Switch library, current: ${current?.name ?? 'none'}`"
     >
       <span v-if="current?.emoji" class="shrink-0 text-lg leading-none">{{ current.emoji }}</span>
-      <UIcon v-else name="i-lucide-library" class="size-5 shrink-0 text-muted" />
+      <UIcon v-else name="i-lineicons-library" class="size-5 shrink-0 text-muted" />
       <span class="min-w-0 flex-1 truncate text-sm font-semibold">{{
         current?.name ?? "Select library"
       }}</span>
-      <UIcon name="i-lucide-chevrons-up-down" class="size-4 shrink-0 text-dimmed" />
+      <UIcon name="i-lineicons-sort-high-to-low" class="size-4 shrink-0 text-dimmed" />
     </button>
 
     <template #active-trailing>
-      <UIcon name="i-lucide-check" class="size-4 text-primary" />
+      <UIcon name="i-lineicons-check" class="size-4 text-primary" />
     </template>
   </UDropdownMenu>
 </template>

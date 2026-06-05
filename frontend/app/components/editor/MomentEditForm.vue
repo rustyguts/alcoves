@@ -65,7 +65,7 @@ function onDelete() {
               color="primary"
               variant="soft"
               size="xs"
-              icon="i-lucide-refresh-cw"
+              icon="i-lineicons-reload"
               :disabled="moment.exportStatus === 'queued' || moment.exportStatus === 'processing'"
               @click="emit('export', moment.id)"
             >
@@ -77,7 +77,7 @@ function onDelete() {
               color="neutral"
               variant="ghost"
               size="xs"
-              icon="i-lucide-download"
+              icon="i-lineicons-download"
               square
               :loading="downloadPending"
               @click="emit('download', moment.id)"
@@ -88,7 +88,7 @@ function onDelete() {
               color="neutral"
               variant="ghost"
               size="xs"
-              icon="i-lucide-share-2"
+              icon="i-lineicons-share-2"
               square
               @click="emit('share', moment.id)"
             />
@@ -97,7 +97,7 @@ function onDelete() {
             color="neutral"
             variant="ghost"
             size="xs"
-            icon="i-lucide-x"
+            icon="i-lineicons-x"
             square
             aria-label="Close"
             @click="emit('close')"
@@ -142,7 +142,7 @@ function onDelete() {
               color="primary"
               variant="ghost"
               size="xs"
-              icon="i-lucide-crosshair"
+              icon="i-lineicons-target"
               square
               @click="emit('set-to-playhead', 'start')"
             />
@@ -165,7 +165,7 @@ function onDelete() {
               color="primary"
               variant="ghost"
               size="xs"
-              icon="i-lucide-crosshair"
+              icon="i-lineicons-target"
               square
               @click="emit('set-to-playhead', 'end')"
             />
@@ -176,10 +176,10 @@ function onDelete() {
 
     <template #footer>
       <div class="flex items-center justify-end gap-2 w-full">
-        <UButton color="error" variant="soft" size="xs" icon="i-lucide-trash-2" @click="onDelete">
+        <UButton color="error" variant="soft" size="xs" icon="i-lineicons-trash-can" @click="onDelete">
           Delete
         </UButton>
-        <UButton color="primary" size="xs" icon="i-lucide-save" @click="onSave"> Save </UButton>
+        <UButton color="primary" size="xs" icon="i-lineicons-save" @click="onSave"> Save </UButton>
       </div>
     </template>
   </UCard>

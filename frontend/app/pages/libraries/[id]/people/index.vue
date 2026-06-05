@@ -72,7 +72,7 @@ onMounted(() => {
   <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 px-0.5">
     <div class="grid gap-4">
       <div v-if="selectedPeople.size >= 2" class="flex items-center gap-2">
-        <UButton color="primary" size="sm" icon="i-lucide-merge" @click="mergePeople">
+        <UButton color="primary" size="sm" icon="i-lineicons-link" @click="mergePeople">
           Merge Selected
         </UButton>
         <span class="text-sm text-muted">{{ selectedPeople.size }} selected</span>
@@ -82,7 +82,7 @@ onMounted(() => {
       </div>
 
       <div v-if="peopleLoading" class="flex items-center justify-center py-16">
-        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-muted" />
       </div>
 
       <div v-else-if="libraryPeople.length" class="space-y-2 p-2">
@@ -91,11 +91,11 @@ onMounted(() => {
             v-for="person in libraryPeople"
             :key="person.id"
             type="button"
-            class="group relative size-40 shrink-0 overflow-hidden rounded-xl border border-default bg-elevated cursor-pointer select-none transition"
+            class="group relative size-40 shrink-0 overflow-hidden rounded-md bg-elevated cursor-pointer select-none transition"
             :class="
               selectedPeople.has(person.id)
                 ? 'ring-2 ring-primary ring-offset-2 ring-offset-default'
-                : 'hover:border-accented'
+                : 'hover:bg-accented'
             "
             :title="person.name?.trim() || 'Unnamed person'"
             @click="togglePersonSelection(person.id)"
@@ -128,7 +128,7 @@ onMounted(() => {
 
       <div v-else class="flex flex-col items-center justify-center py-16 px-4">
         <div class="size-16 rounded-full bg-elevated flex items-center justify-center mb-4">
-          <UIcon name="i-lucide-scan-face" class="size-8 text-muted" />
+          <UIcon name="i-lineicons-id-card" class="size-8 text-muted" />
         </div>
         <p class="text-lg font-medium text-default mb-1">No faces detected yet</p>
         <p class="text-sm text-muted text-center max-w-md">

@@ -3,9 +3,11 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useLibraryTimeline, type TimelineGroup } from "~/composables/useLibraryTimeline";
 import type { LibraryFile } from "~~/shared/types/api";
 import type { GalleryGroup, GalleryItem } from "~/utils/gallery-types";
+import { formatDuration } from "~/utils/format-duration";
 import AppIcon from "~/components/AppIcon.vue";
 import FilePreview from "~/components/FilePreview.vue";
 import JustifiedGallery from "~/components/JustifiedGallery.vue";
+import TimelineScrubber from "~/components/TimelineScrubber.vue";
 
 definePageMeta({ layout: "library" });
 
@@ -13,6 +15,8 @@ const route = useRoute();
 const libraryId = computed(() => route.params.id as string);
 
 const timeline = useLibraryTimeline(libraryId);
+// Timeline is photos & videos only — there is no file/all toggle here.
+timeline.typeFilter.value = "media";
 
 const previewFile = ref<LibraryFile | null>(null);
 const previewOpen = ref(false);
@@ -50,18 +54,15 @@ function handleFileUpdate(updated: LibraryFile) {
 
 const thisYear = new Date().getUTCFullYear();
 
-// Map the composable's day groups into gallery groups, attaching a large month
-// heading at each month boundary (groups arrive newest-first).
-const galleryGroups = computed<GalleryGroup<LibraryFile>[]>(() => {
-  let lastMonth = "";
-  return timeline.groups.value.map((g: TimelineGroup) => {
+// Map the composable's day groups into gallery groups. The gallery runs in
+// `continuous` mode, so days flow across shared rows to maximise space; each
+// day's first tile carries a compact date marker instead of a full-width band.
+const galleryGroups = computed<GalleryGroup<LibraryFile>[]>(() =>
+  timeline.groups.value.map((g: TimelineGroup) => {
     const d = dayDate(g.key);
-    const monthKey = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
-    const sectionLabel = monthKey !== lastMonth ? formatMonth(d) : null;
-    lastMonth = monthKey;
     return {
       key: g.key,
-      sectionLabel,
+      sectionLabel: null,
       heading: formatDay(d),
       count: g.files.length,
       items: g.files.map(
@@ -73,29 +74,36 @@ const galleryGroups = computed<GalleryGroup<LibraryFile>[]>(() => {
           mime: f.mimeType,
           name: f.name,
           isVideo: isVideo(f),
+          durationLabel: isVideo(f) ? formatDuration(f.duration) : null,
           sourceWidth: f.width,
           sourceHeight: f.height,
           raw: f,
         }),
       ),
     };
-  });
+  }),
+);
+
+// Distinct years (newest-first) for the custom scrubber rail. Groups arrive
+// sorted newest-first by day, so years are monotonic and the first group seen
+// for a year is its newest day — the anchor we scroll to.
+const years = computed<{ year: number; key: string }[]>(() => {
+  const out: { year: number; key: string }[] = [];
+  let seen = Number.NaN;
+  for (const g of timeline.groups.value) {
+    const y = Number(g.key.split("-")[0]);
+    if (y !== seen) {
+      out.push({ year: y, key: g.key });
+      seen = y;
+    }
+  }
+  return out;
 });
 
 // `Y-M-D` (UTC) key → Date. Month is the 0-based value emitted by the composable.
 function dayDate(key: string): Date {
   const [y, m, day] = key.split("-").map(Number);
   return new Date(Date.UTC(y ?? 1970, m ?? 0, day ?? 1));
-}
-
-function formatMonth(d: Date): string {
-  if (Number.isNaN(d.getTime())) return "Unknown";
-  const sameYear = d.getUTCFullYear() === thisYear;
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    ...(sameYear ? {} : { year: "numeric" }),
-    timeZone: "UTC",
-  });
 }
 
 function formatDay(d: Date): string {
@@ -110,6 +118,15 @@ function formatDay(d: Date): string {
   });
 }
 
+const scrollEl = ref<HTMLElement | null>(null);
+
+// Jump the scroll viewport to a year's newest day. The gallery tags the first
+// tile of each day with `data-group-key`, so we scroll that anchor into view.
+function scrollToYear(key: string) {
+  const el = scrollEl.value?.querySelector<HTMLElement>(`[data-group-key="${key}"]`);
+  el?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 // Infinite scroll: observe a sentinel near the bottom and pull the next page.
 const sentinel = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
@@ -121,7 +138,7 @@ onMounted(async () => {
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) timeline.loadMore();
       },
-      { rootMargin: "800px" },
+      { root: scrollEl.value, rootMargin: "800px" },
     );
     observer.observe(sentinel.value);
   }
@@ -133,52 +150,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
-    <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-default">
-      <div class="min-w-0">
-        <h2 class="text-base font-semibold text-default">Timeline</h2>
-        <p class="text-xs text-muted mt-0.5">
-          {{ timeline.totalCount.value }}
-          {{ timeline.typeFilter.value === "media" ? "photos & videos" : "files" }}, newest first.
-        </p>
-      </div>
-
-      <!-- Media / all toggle -->
-      <div class="flex items-center rounded-md border border-default overflow-hidden shrink-0">
-        <button
-          type="button"
-          class="px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="
-            timeline.typeFilter.value === 'media'
-              ? 'bg-primary/15 text-primary'
-              : 'text-muted hover:text-default'
-          "
-          @click="timeline.setType('media')"
-        >
-          Photos &amp; videos
-        </button>
-        <button
-          type="button"
-          class="px-3 py-1.5 text-sm font-medium border-l border-default transition-colors"
-          :class="
-            timeline.typeFilter.value === 'all'
-              ? 'bg-primary/15 text-primary'
-              : 'text-muted hover:text-default'
-          "
-          @click="timeline.setType('all')"
-        >
-          All files
-        </button>
-      </div>
-    </div>
-
-    <div class="flex-1 min-h-0 overflow-y-auto">
+  <div class="flex h-full min-h-0">
+    <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
       <!-- Loading -->
       <div
         v-if="timeline.loading.value && timeline.entries.value.length === 0"
         class="px-4 py-12 text-center text-sm text-muted"
       >
-        <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin inline-block" />
+        <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin inline-block" />
         <p class="mt-2">Loading timeline…</p>
       </div>
 
@@ -192,7 +171,7 @@ onBeforeUnmount(() => {
         v-else-if="timeline.entries.value.length === 0"
         class="px-4 py-16 text-center text-sm text-muted"
       >
-        <AppIcon name="i-lucide-clock" class="size-8 mx-auto mb-3 opacity-40" />
+        <AppIcon name="i-lineicons-alarm-clock" class="size-8 mx-auto mb-3 opacity-40" />
         <p>Nothing to show yet.</p>
         <p class="mt-1 text-xs">
           Capture dates are extracted in the background — check back shortly after uploading.
@@ -200,13 +179,13 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Justified gallery -->
-      <div v-else class="px-4 pb-6">
-        <JustifiedGallery :groups="galleryGroups" @select="openPreview" />
+      <div v-else class="px-2 pt-2 pb-6 sm:px-3">
+        <JustifiedGallery continuous :groups="galleryGroups" @select="openPreview" />
 
         <!-- Infinite-scroll sentinel + load-more fallback -->
         <div ref="sentinel" class="h-px" />
         <div v-if="timeline.loadingMore.value" class="py-4 text-center text-sm text-muted">
-          <AppIcon name="i-lucide-loader-2" class="size-4 animate-spin inline-block" />
+          <AppIcon name="i-lineicons-spinner-solid" class="size-4 animate-spin inline-block" />
         </div>
         <div v-else-if="timeline.nextCursor.value" class="py-4 text-center">
           <button
@@ -219,6 +198,8 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <TimelineScrubber v-if="years.length > 1" :years="years" @jump="scrollToYear" />
 
     <FilePreview
       v-if="previewFile"

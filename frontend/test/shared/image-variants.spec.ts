@@ -11,7 +11,7 @@ describe("image-variants registry", () => {
     // in the same PR and bump its VariantsVersion.
     expect(IMAGE_VARIANTS).toEqual({
       search: { name: "search", maxWidth: 80, maxHeight: 80, quality: 70, format: "jpeg", cap: false },
-      timeline: { name: "timeline", maxWidth: 240, maxHeight: 240, quality: 70, format: "webp", cap: false },
+      timeline: { name: "timeline", maxWidth: 384, maxHeight: 384, quality: 80, format: "webp", cap: false },
       face: { name: "face", maxWidth: 300, maxHeight: 300, quality: 80, format: "jpeg", cap: false },
       card: { name: "card", maxWidth: 720, maxHeight: 360, quality: 82, format: "jpeg", cap: true },
       preview: { name: "preview", maxWidth: 1920, maxHeight: 1080, quality: 90, format: "jpeg", cap: true },
@@ -23,7 +23,7 @@ describe("resolveVariant", () => {
   it("returns fixed dimensions for non-capped variants regardless of source size", () => {
     expect(resolveVariant("search")).toEqual({ width: 80, height: 80, quality: 70, format: "jpeg" });
     expect(resolveVariant("search", 40, 40)).toEqual({ width: 80, height: 80, quality: 70, format: "jpeg" });
-    expect(resolveVariant("timeline", 10, 10)).toEqual({ width: 240, height: 240, quality: 70, format: "webp" });
+    expect(resolveVariant("timeline", 10, 10)).toEqual({ width: 384, height: 384, quality: 80, format: "webp" });
     expect(resolveVariant("face")).toEqual({ width: 300, height: 300, quality: 80, format: "jpeg" });
   });
 

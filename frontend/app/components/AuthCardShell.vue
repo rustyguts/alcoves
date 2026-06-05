@@ -13,7 +13,9 @@ withDefaults(defineProps<Props>(), {
 <template>
   <div class="flex min-h-svh items-center justify-center p-4 bg-neutral-50 dark:bg-neutral-950">
     <div class="w-full max-w-md">
-      <UCard>
+      <!-- The auth box is intentionally elevated (a focused, floating panel),
+           unlike the flat tonal panels used for in-page content. -->
+      <UCard :ui="{ root: 'bg-default ring ring-default shadow-lg rounded-lg' }">
         <div class="flex flex-col items-center gap-3 mb-6">
           <img src="/logo.webp" alt="Alcoves" width="72" height="72" class="rounded-xl" />
           <h2 class="text-2xl font-bold text-highlighted">{{ title }}</h2>

@@ -90,7 +90,7 @@ watch(
       <div class="space-y-3">
         <UButton
           color="primary"
-          icon="i-lucide-link"
+          icon="i-lineicons-link"
           :disabled="!sharingEnabled || creating"
           :loading="creating"
           @click="onCreate"
@@ -104,7 +104,7 @@ watch(
           <div
             v-for="s in shares"
             :key="s.id"
-            class="rounded-lg border border-default bg-elevated/40 p-3 flex items-center gap-2"
+            class="rounded-md bg-elevated/50 p-3 flex items-center gap-2"
           >
             <code class="text-xs truncate flex-1">{{ s.url }}</code>
             <UButton
@@ -112,7 +112,7 @@ watch(
               variant="ghost"
               size="xs"
               square
-              icon="i-lucide-copy"
+              icon="i-lineicons-clipboard"
               aria-label="Copy link"
               @click="copy(s.url)"
             />
@@ -120,7 +120,7 @@ watch(
               color="error"
               variant="soft"
               size="xs"
-              icon="i-lucide-x"
+              icon="i-lineicons-x"
               @click="onRevoke(s.token)"
             >
               Revoke

@@ -154,14 +154,14 @@ const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelec
     [
       {
         label: "Upload",
-        icon: "i-lucide-upload",
+        icon: "i-lineicons-upload",
         onSelect: () => {
           uploadOpen.value = true;
         },
       },
       {
         label: "Folder",
-        icon: "i-lucide-folder-plus",
+        icon: "i-lineicons-folder",
         onSelect: openCreateFolderModal,
       },
     ],
@@ -839,7 +839,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     if (targetFileIds.length) {
       restoreItems.push({
         label: targetFileIds.length > 1 ? `Restore ${targetFileIds.length} files` : "Restore",
-        icon: "i-lucide-undo-2",
+        icon: "i-lineicons-reply",
         onSelect: () => restoreFiles(targetFileIds),
       });
       purgeItems.push({
@@ -847,7 +847,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           targetFileIds.length > 1
             ? `Permanently delete ${targetFileIds.length} files`
             : "Permanently delete",
-        icon: "i-lucide-trash-2",
+        icon: "i-lineicons-trash-can",
         color: "error" as const,
         onSelect: () => openPurgeModal(targetFileIds),
       });
@@ -858,7 +858,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           targetFolderIds.length > 1
             ? `Restore ${targetFolderIds.length} folders`
             : "Restore folder",
-        icon: "i-lucide-undo-2",
+        icon: "i-lineicons-reply",
         onSelect: () => restoreFolders(targetFolderIds),
       });
       purgeItems.push({
@@ -866,7 +866,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           targetFolderIds.length > 1
             ? `Permanently delete ${targetFolderIds.length} folders`
             : "Permanently delete folder",
-        icon: "i-lucide-trash-2",
+        icon: "i-lineicons-trash-can",
         color: "error" as const,
         onSelect: () => openPurgeFolderModal(targetFolderIds),
       });
@@ -883,7 +883,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     return [
       [
         ...(entry.kind === "folder" && !isMulti
-          ? [{ label: "Open", icon: "i-lucide-folder-open", onSelect: () => openFolder(entry.id) }]
+          ? [{ label: "Open", icon: "i-lineicons-folder", onSelect: () => openFolder(entry.id) }]
           : []),
         {
           label:
@@ -892,7 +892,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
               : entry.kind === "folder"
                 ? "Download as ZIP"
                 : "Download",
-          icon: "i-lucide-download",
+          icon: "i-lineicons-download",
           onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
         },
       ],
@@ -904,7 +904,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     const multiTagItems = libraryTags.value.length
       ? libraryTags.value.map((tag) => ({
           label: tag.name,
-          icon: areAllFilesTagged(targetFileIds, tag.id) ? "i-lucide-check" : "i-lucide-tag",
+          icon: areAllFilesTagged(targetFileIds, tag.id) ? "i-lineicons-check" : "i-lineicons-tag",
           onSelect: () => toggleTagForFiles(targetFileIds, tag.id),
         }))
       : [{ label: "No tags yet", disabled: true }];
@@ -913,38 +913,38 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
       [
         {
           label: `Download ${totalCount} items as ZIP`,
-          icon: "i-lucide-download",
+          icon: "i-lineicons-download",
           onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
         },
         ...(targetFileIds.length
           ? [
               {
                 label: targetFileIds.length > 1 ? `Move ${targetFileIds.length} files` : "Move",
-                icon: "i-lucide-folder-input",
+                icon: "i-lineicons-folder",
                 onSelect: () => openMoveFilesModal(targetFileIds),
               },
               {
                 label: `Transcribe ${targetFileIds.length} file(s)`,
-                icon: "i-lucide-captions",
+                icon: "i-lineicons-comment-1-text",
                 onSelect: () => runBulkAction("transcribe", targetFileIds),
               },
               {
                 label: `Detect audio in ${targetFileIds.length} file(s)`,
-                icon: "i-lucide-audio-waveform",
+                icon: "i-lineicons-pulse",
                 onSelect: () => runBulkAction("audio-detect", targetFileIds),
               },
             ]
           : []),
         {
           label: `Tags`,
-          icon: "i-lucide-tags",
+          icon: "i-lineicons-tag",
           children: multiTagItems,
         },
       ],
       [
         {
           label: `Delete ${totalCount} items`,
-          icon: "i-lucide-trash-2",
+          icon: "i-lineicons-trash-can",
           color: "error" as const,
           onSelect: () => {
             if (targetFileIds.length) void trashFiles(targetFileIds);
@@ -960,7 +960,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     const folderTagItems = libraryTags.value.length
       ? libraryTags.value.map((tag) => ({
           label: tag.name,
-          icon: isFolderTagAssigned(entry, tag.id) ? "i-lucide-check" : "i-lucide-tag",
+          icon: isFolderTagAssigned(entry, tag.id) ? "i-lineicons-check" : "i-lineicons-tag",
           onSelect: () => toggleTagForFolder(entry, tag.id),
         }))
       : [{ label: "No tags yet", disabled: true }];
@@ -969,34 +969,34 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
       [
         {
           label: "Open",
-          icon: "i-lucide-folder-open",
+          icon: "i-lineicons-folder",
           onSelect: () => openFolder(entry.id),
         },
         {
           label: "Download as ZIP",
-          icon: "i-lucide-download",
+          icon: "i-lineicons-download",
           onSelect: () => downloadFolders([entry.id]),
         },
         {
           label: "Rename",
-          icon: "i-lucide-pencil",
+          icon: "i-lineicons-pencil",
           onSelect: () => startEntryRename(entry),
         },
         {
           label: "Move",
-          icon: "i-lucide-folder-input",
+          icon: "i-lineicons-folder",
           onSelect: () => openMoveFolderModal(entry),
         },
         {
           label: "Tags",
-          icon: "i-lucide-tags",
+          icon: "i-lineicons-tag",
           children: folderTagItems,
         },
       ],
       [
         {
           label: "Delete folder",
-          icon: "i-lucide-trash-2",
+          icon: "i-lineicons-trash-can",
           color: "error" as const,
           onSelect: () => deleteFolder(entry),
         },
@@ -1008,7 +1008,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
   const tagItems = libraryTags.value.length
     ? libraryTags.value.map((tag) => ({
         label: tag.name,
-        icon: areAllFilesTagged([entry.id], tag.id) ? "i-lucide-check" : "i-lucide-tag",
+        icon: areAllFilesTagged([entry.id], tag.id) ? "i-lineicons-check" : "i-lineicons-tag",
         onSelect: () => toggleTagForFiles([entry.id], tag.id),
       }))
     : [{ label: "No tags yet", disabled: true }];
@@ -1017,24 +1017,24 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     [
       {
         label: "Download",
-        icon: "i-lucide-download",
+        icon: "i-lineicons-download",
         onSelect: () => downloadFiles([entry.id]),
       },
       {
         label: "Move",
-        icon: "i-lucide-folder-input",
+        icon: "i-lineicons-folder",
         onSelect: () => openMoveFilesModal([entry.id]),
       },
       {
         label: "Rename",
-        icon: "i-lucide-pencil",
+        icon: "i-lineicons-pencil",
         onSelect: () => startEntryRename(entry),
       },
       ...(entry.kind === "file" && entry.mimeType.startsWith("video/")
         ? [
             {
               label: "Editor",
-              icon: "i-lucide-video",
+              icon: "i-lineicons-video",
               onSelect: () =>
                 router.push({
                   path: `/libraries/${libraryId.value}/edit/${entry.id}`,
@@ -1051,26 +1051,26 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
         ? [
             {
               label: "Transcribe",
-              icon: "i-lucide-captions",
+              icon: "i-lineicons-comment-1-text",
               onSelect: () => runBulkAction("transcribe", [entry.id]),
             },
             {
               label: "Detect audio",
-              icon: "i-lucide-audio-waveform",
+              icon: "i-lineicons-pulse",
               onSelect: () => runBulkAction("audio-detect", [entry.id]),
             },
           ]
         : []),
       {
         label: "Tags",
-        icon: "i-lucide-tags",
+        icon: "i-lineicons-tag",
         children: tagItems,
       },
     ],
     [
       {
         label: "Delete",
-        icon: "i-lucide-trash-2",
+        icon: "i-lineicons-trash-can",
         color: "error" as const,
         onSelect: () => trashFiles([entry.id]),
       },
@@ -1117,7 +1117,7 @@ const emptyStateDescription = computed(() => {
         color="primary"
         variant="solid"
         size="lg"
-        icon="i-lucide-upload-cloud"
+        icon="i-lineicons-cloud-upload"
         class="px-4 py-3 text-sm font-medium shadow-lg"
       >
         Drop files to upload to this folder
@@ -1133,7 +1133,7 @@ const emptyStateDescription = computed(() => {
               variant="soft"
               size="sm"
               square
-              icon="i-lucide-list"
+              icon="i-lineicons-list"
               @click="entryViewMode = 'file'"
             />
           </UTooltip>
@@ -1143,7 +1143,7 @@ const emptyStateDescription = computed(() => {
               variant="soft"
               size="sm"
               square
-              icon="i-lucide-layout-grid"
+              icon="i-lineicons-grid"
               @click="entryViewMode = 'card'"
             />
           </UTooltip>
@@ -1154,7 +1154,7 @@ const emptyStateDescription = computed(() => {
           color="error"
           variant="soft"
           size="sm"
-          icon="i-lucide-trash-2"
+          icon="i-lineicons-trash-can"
           @click="openPurgeAllModal()"
         >
           <span class="hidden sm:inline">Delete All</span>
@@ -1165,7 +1165,7 @@ const emptyStateDescription = computed(() => {
           :items="newDropdownMenuItems"
           :content="{ align: 'end' }"
         >
-          <UButton color="primary" variant="soft" size="sm" icon="i-lucide-plus">
+          <UButton color="primary" variant="soft" size="sm" icon="i-lineicons-plus">
             <span class="hidden sm:inline">New</span>
           </UButton>
         </UDropdownMenu>
@@ -1179,9 +1179,9 @@ const emptyStateDescription = computed(() => {
           class="flex min-h-64 items-center justify-center"
         >
           <div
-            class="inline-flex items-center gap-2 rounded-xl border border-default bg-elevated/70 px-3 py-2 text-sm text-muted shadow-sm"
+            class="inline-flex items-center gap-2 rounded-full bg-elevated px-3 py-2 text-sm text-muted"
           >
-            <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+            <UIcon name="i-lineicons-spinner-solid" class="size-4 animate-spin" />
             Loading {{ showTrashed ? "trash" : "files" }}
           </div>
         </div>
@@ -1195,7 +1195,7 @@ const emptyStateDescription = computed(() => {
             variant="soft"
             size="md"
             class="gap-2 px-3 py-3"
-            icon="i-lucide-loader-2"
+            icon="i-lineicons-spinner-solid"
             :ui="{ leadingIcon: 'animate-spin' }"
           >
             Loading
@@ -1267,7 +1267,7 @@ const emptyStateDescription = computed(() => {
 
         <div ref="sentinel" class="h-px" />
         <div v-if="loadingMore" class="flex items-center justify-center py-4">
-          <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+          <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-muted" />
         </div>
       </UContextMenu>
     </div>
@@ -1312,7 +1312,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="primary"
             variant="soft"
-            icon="i-lucide-folder-plus"
+            icon="i-lineicons-folder"
             :loading="creatingFolder"
             :disabled="!createFolderName.trim() || creatingFolder"
             @click="createFolder"
@@ -1352,7 +1352,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="primary"
             variant="soft"
-            icon="i-lucide-folder-input"
+            icon="i-lineicons-folder"
             :loading="moveFolderSaving"
             :disabled="moveLoading || moveFolderSaving"
             @click="moveFolder"
@@ -1390,7 +1390,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="primary"
             variant="soft"
-            icon="i-lucide-folder-input"
+            icon="i-lineicons-folder"
             :loading="moveFilesSaving"
             :disabled="moveFilesLoading || moveFilesSaving"
             @click="moveFiles"
@@ -1408,7 +1408,7 @@ const emptyStateDescription = computed(() => {
           <UAlert
             color="error"
             variant="soft"
-            icon="i-lucide-alert-triangle"
+            icon="i-lineicons-warning"
             :title="`Delete ${purgeFileCount} ${purgeFileCount === 1 ? 'item' : 'items'}`"
             description="This will permanently delete these items from disk. This action cannot be undone."
           />
@@ -1427,7 +1427,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="error"
             variant="soft"
-            icon="i-lucide-trash-2"
+            icon="i-lineicons-trash-can"
             :disabled="purgeConfirmation !== 'delete'"
             @click="handlePermanentDelete"
           >
@@ -1444,15 +1444,15 @@ const emptyStateDescription = computed(() => {
           <UAlert
             color="warning"
             variant="soft"
-            icon="i-lucide-alert-triangle"
+            icon="i-lineicons-warning"
             description="This download is very large and may take a while."
           />
           <div class="grid grid-cols-2 gap-3 text-sm">
-            <div class="rounded-xl border border-default bg-elevated/50 p-3">
+            <div class="rounded-md bg-elevated/50 p-3">
               <p class="text-muted text-xs uppercase tracking-wide">Estimated Size</p>
               <p class="font-medium text-default mt-1">{{ formattedEstimatedSize }}</p>
             </div>
-            <div class="rounded-xl border border-default bg-elevated/50 p-3">
+            <div class="rounded-md bg-elevated/50 p-3">
               <p class="text-muted text-xs uppercase tracking-wide">Files</p>
               <p class="font-medium text-default mt-1">
                 {{ estimatedFileCount.toLocaleString("en-US") }}
@@ -1468,7 +1468,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="primary"
             variant="soft"
-            icon="i-lucide-download"
+            icon="i-lineicons-download"
             :loading="zipDownloading"
             :disabled="zipDownloading"
             @click="confirmLargeDownload"

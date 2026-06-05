@@ -105,7 +105,7 @@ onMounted(() => {
         v-if="map.loading.value && map.points.value.length === 0"
         class="absolute inset-0 z-10 flex items-center justify-center text-sm text-muted"
       >
-        <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin" />
+        <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin" />
       </div>
 
       <!-- Error -->
@@ -121,7 +121,7 @@ onMounted(() => {
         v-else-if="!map.loading.value && map.points.value.length === 0"
         class="absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center text-sm text-muted"
       >
-        <AppIcon name="i-lucide-map-pin" class="size-8 mb-3 opacity-40" />
+        <AppIcon name="i-lineicons-map-marker" class="size-8 mb-3 opacity-40" />
         <p>No geotagged photos yet.</p>
         <p class="mt-1 text-xs">
           Photos with GPS metadata appear here once their location is extracted.
