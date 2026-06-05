@@ -34,7 +34,7 @@ func loadAudioOrSkip(t *testing.T) (*sessionInfo, []string, int) {
 	}
 	spec, _ := LookupSpec(DefaultModelID)
 	modelsDir := testsupport.ModelsCacheDir()
-	modelPath, labelsPath, err := EnsureAssets(modelsDir, spec.ModelFile, mirrorBaseURL+"/"+spec.ModelFile, labelsURL)
+	modelPath, labelsPath, err := EnsureAssets(context.Background(), modelsDir, spec.ModelFile, mirrorBaseURL+"/"+spec.ModelFile, labelsURL)
 	if err != nil {
 		t.Skipf("audio model/labels unavailable: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestRealAudioDetect_WorkerEndToEnd(t *testing.T) {
 
 	// Pre-flight the model so a download/runtime failure skips rather than fails.
 	spec, _ := LookupSpec(DefaultModelID)
-	if mp, _, err := EnsureAssets(cfg.ModelsPath, spec.ModelFile, mirrorBaseURL+"/"+spec.ModelFile, labelsURL); err != nil {
+	if mp, _, err := EnsureAssets(context.Background(), cfg.ModelsPath, spec.ModelFile, mirrorBaseURL+"/"+spec.ModelFile, labelsURL); err != nil {
 		t.Skipf("audio model unavailable: %v", err)
 	} else if _, err := getSession(mp, spec.SampleRate); err != nil {
 		t.Skipf("audio ONNX runtime unavailable: %v", err)

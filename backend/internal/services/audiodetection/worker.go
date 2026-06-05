@@ -193,7 +193,7 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		return nil
 	}
 
-	modelPath, labelsPath, err := EnsureAssets(h.cfg.ModelsPath, spec.ModelFile, h.modelURL(spec), h.cfg.AudioDetectLabelsURL)
+	modelPath, labelsPath, err := EnsureAssets(ctx, h.cfg.ModelsPath, spec.ModelFile, h.modelURL(spec), h.cfg.AudioDetectLabelsURL)
 	if err != nil {
 		h.fail(fileID, err)
 		return err

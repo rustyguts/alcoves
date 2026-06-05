@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -24,6 +22,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/config"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
+	"github.com/alcoves/alcoves-backend/internal/services/modelfetch"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
@@ -279,67 +278,13 @@ func ensureModel(ctx context.Context, modelsDir, modelName, baseURL string) (str
 	}
 	fileName := fmt.Sprintf("ggml-%s.bin", modelName)
 	fullPath := filepath.Join(modelsDir, fileName)
-	if _, err := os.Stat(fullPath); err == nil {
-		return fullPath, nil
-	}
 
 	url := strings.TrimRight(baseURL, "/") + "/" + fileName
-	const maxAttempts = 6
-	var lastErr error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Printf("transcribe: downloading whisper model %s from %s (attempt %d/%d)", modelName, url, attempt, maxAttempts)
-		err := whisperFetch(ctx, url, fullPath)
-		if err == nil {
-			log.Printf("transcribe: saved whisper model to %s", fullPath)
-			return fullPath, nil
-		}
-		lastErr = err
-		// Retry only on transient errors (5xx / network).
-		s := err.Error()
-		if !(strings.Contains(s, "http 5") || strings.Contains(s, "connection reset") || strings.Contains(s, "unexpected EOF") || strings.Contains(s, "EOF")) {
-			return "", err
-		}
-		backoff := min(time.Duration(1<<uint(attempt-1))*time.Second, 30*time.Second)
-		log.Printf("transcribe: transient error (%v), retrying in %s", err, backoff)
-		select {
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case <-time.After(backoff):
-		}
+	if err := modelfetch.FetchToFile(ctx, url, fullPath, modelfetch.Options{}); err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("whisper model download failed after %d attempts: %w", maxAttempts, lastErr)
-}
-
-func whisperFetch(ctx context.Context, url, fullPath string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	client := &http.Client{Timeout: 30 * time.Minute}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("model download failed: http %d", resp.StatusCode)
-	}
-
-	tmpPath := fullPath + ".part"
-	f, err := os.Create(tmpPath)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		f.Close()
-		os.Remove(tmpPath)
-		return err
-	}
-	if err := f.Close(); err != nil {
-		os.Remove(tmpPath)
-		return err
-	}
-	return os.Rename(tmpPath, fullPath)
+	log.Printf("transcribe: saved whisper model to %s", fullPath)
+	return fullPath, nil
 }
 
 var (
