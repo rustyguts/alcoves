@@ -167,17 +167,52 @@ higher-priority queues while they have a backlog.
 
 ### Periodic maintenance jobs
 
-Two background loops run on `worker`/`all` nodes without any user action:
+Three background loops run on `worker`/`all` nodes without any user action:
 
 - **Metadata backfill** enqueues EXIF/media-metadata extraction for media files
   that have never been extracted.
 - **Image-proxy variant pre-warm** (hourly) generates every cache variant for
   each image so the first view is instant rather than waiting on a transform.
   Disable it with `ALCOVES_IMAGE_PROXY_PREWARM_ENABLED=false`.
+- **Job reaper** (every 5 minutes) recovers jobs that crashed mid-flight — see
+  below.
 
-Both give up on a file after **3 failed attempts**, so a permanently-broken
-file (e.g. a corrupted image) is never re-queued forever — it shows up as a
-failed job at most three times and is then dropped from the backfill scan.
+The first two give up on a file after **3 failed attempts**, so a
+permanently-broken file (e.g. a corrupted image) is never re-queued forever — it
+shows up as a failed job at most three times and is then dropped from the
+backfill scan.
+
+### Stuck-job recovery (the reaper)
+
+A worker can die part-way through a job — an out-of-memory kill, a pod eviction,
+or Asynq exhausting its retries and archiving the task. When that happens the
+queue no longer holds the task, but the database row still advertises the job as
+`processing` (or `queued`): a thumbnail or transcript spinner that never
+resolves. Left alone, that row stays dirty forever.
+
+The **job reaper** reconciles the database against the queue every five minutes.
+A job is treated as orphaned only when **both** are true:
+
+- its status column is non-terminal (`queued` / `processing`), **and**
+- the Asynq inspector reports **no live task** (active, pending, scheduled, or
+  retrying) for that file or moment.
+
+Using the queue itself as the source of truth is what keeps this safe for
+**long-running jobs**: a multi-hour whisper transcribe is "active" in the queue
+the entire time it runs, so the reaper never touches it — there is no wall-clock
+timeout that could kill a healthy job. Only rows whose task has genuinely
+vanished are recovered.
+
+Recovery marks the row **failed** (clearing its progress bar and recording an
+"orphaned" reason) rather than re-running it. A failed job is a clean terminal
+state: the spinner stops, the breakage is visible in the dashboard, and it can
+be retried manually. The reaper deliberately does not auto-re-enqueue, because
+the usual cause of orphaning is an input that crashes its worker — blindly
+retrying it would just crash the worker pool again in a loop.
+
+It covers transcription, video proxy, audio-event detection, waveform
+generation, and moment export. (Metadata and image pre-warm aren't reaped here —
+their own backfill loops above already recover stuck rows.)
 
 ### Reading the dashboard
 

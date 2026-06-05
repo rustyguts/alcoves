@@ -71,17 +71,27 @@ backend:
 # =============================================================================
   worker:
     enabled: true
-    replicaCount: 1
-    # Whisper medium needs ~2.5GB RAM at runtime (f16 weights + KV cache).
-    # Combined with a concurrent ffmpeg transcode and ONNX detect job, the
-    # worker can spike past 4GB. Request 4Gi so the scheduler reserves
-    # enough; cap at 10Gi for long videos with multiple in-flight tasks.
-    # No CPU limit — whisper.cpp + ffmpeg can soak whatever the node has,
-    # and CFS throttling at a hard limit hurts more than it helps for these
-    # bursty, latency-sensitive jobs. Request 2 cores for scheduling.
+    # Scale throughput OUT, not up: each pod runs asynq at concurrency 2 (see
+    # cmd/server/main.go), so to process more jobs in parallel add replicas
+    # rather than raising per-pod concurrency. More pods spread peak memory
+    # across nodes and fail independently — a single fat, high-concurrency pod
+    # concentrates OOM risk, which is exactly what was orphaning jobs. Default to
+    # 3 workers so a couple of heavy long-runners (whisper/transcode) don't block
+    # the rest of the queue.
+    replicaCount: 3
+    # Memory is sized for asynq concurrency 2 (two in-flight heavy jobs per pod).
+    # Each is RAM-hungry: whisper medium ~2.5GB (f16 weights + KV cache), whisper
+    # large ~4-5GB, plus ffmpeg transcodes and ONNX detect jobs holding decoded
+    # frames/tensors. Two large jobs at once can approach ~10GB, so request 4Gi
+    # for a realistic working set and cap at 12Gi to absorb a worst-case pair
+    # without the kernel reaping the pod. Raise these in lockstep if you raise
+    # per-pod concurrency.
+    # No CPU limit — whisper.cpp + ffmpeg can soak whatever the node has, and
+    # CFS throttling at a hard limit hurts more than it helps for these bursty,
+    # latency-sensitive jobs. Request 2 cores for scheduling.
     resources:
       requests: { cpu: 2, memory: 4Gi }
-      limits:   { memory: 10Gi }
+      limits:   { memory: 12Gi }
     podAnnotations: {}
     nodeSelector: {}
     affinity: {}
