@@ -79,21 +79,21 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
   const items: NavigationMenuItem[] = [
     {
       label: "Files",
-      icon: "i-lucide-folder",
+      icon: "i-lineicons-folder",
       to: base,
       active: active === "files",
       onSelect: forceNav(base),
     },
-    { label: "Timeline", icon: "i-lucide-clock", to: `${base}/timeline`, active: active === "timeline" },
-    { label: "Map", icon: "i-lucide-map-pin", to: `${base}/map`, active: active === "map" },
-    { label: "Tags", icon: "i-lucide-tags", to: `${base}/tags`, active: active === "tags" },
-    { label: "Feed", icon: "i-lucide-rss", to: `${base}/feed`, active: active === "feed" },
+    { label: "Timeline", icon: "i-lineicons-alarm-clock", to: `${base}/timeline`, active: active === "timeline" },
+    { label: "Map", icon: "i-lineicons-map-marker", to: `${base}/map`, active: active === "map" },
+    { label: "Tags", icon: "i-lineicons-tag", to: `${base}/tags`, active: active === "tags" },
+    { label: "Feed", icon: "i-lineicons-rss-feed", to: `${base}/feed`, active: active === "feed" },
   ];
 
   if (l.faceRecognitionEnabled) {
     items.push({
       label: "People",
-      icon: "i-lucide-scan-face",
+      icon: "i-lineicons-id-card",
       to: `${base}/people`,
       active: active === "people",
     });
@@ -102,7 +102,7 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
   if (canManage(l)) {
     items.push({
       label: "Settings",
-      icon: "i-lucide-settings",
+      icon: "i-lineicons-cog",
       to: `${base}/settings`,
       active: active === "settings",
     });
@@ -110,7 +110,7 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
 
   items.push({
     label: "Trash",
-    icon: "i-lucide-trash-2",
+    icon: "i-lineicons-trash-can",
     to: `${base}/trash`,
     active: active === "trash",
     onSelect: forceNav(`${base}/trash`),
@@ -124,7 +124,7 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
   return [
     {
       label: "Admin",
-      icon: "i-lucide-shield-check",
+      icon: "i-lineicons-shield-2-check",
       to: "/admin",
       active: route.path === "/admin" || route.path.startsWith("/admin/"),
     },

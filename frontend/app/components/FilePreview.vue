@@ -407,7 +407,7 @@ onUnmounted(() => {
           <media-video-layout />
         </media-player>
         <div v-else class="flex items-center justify-center">
-          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
+          <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-white/60" />
         </div>
       </div>
 
@@ -427,7 +427,7 @@ onUnmounted(() => {
           <media-audio-layout />
         </media-player>
         <div v-else class="flex items-center justify-center">
-          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
+          <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-white/60" />
         </div>
       </div>
 
@@ -464,7 +464,7 @@ onUnmounted(() => {
           >{{ textContent }}</pre
         >
         <div v-else class="flex items-center justify-center">
-          <AppIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white/60" />
+          <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-white/60" />
         </div>
       </div>
 
@@ -484,7 +484,7 @@ onUnmounted(() => {
             class="inline-flex items-center justify-center size-10 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors"
             @click="closePreview"
           >
-            <AppIcon name="i-lucide-x" class="size-5" />
+            <AppIcon name="i-lineicons-x" class="size-5" />
           </button>
           <span class="text-white text-sm font-medium truncate">{{ file.name }}</span>
           <div v-if="previewType === 'video'" class="flex items-center gap-2">
@@ -492,7 +492,7 @@ onUnmounted(() => {
               color="primary"
               variant="soft"
               size="xs"
-              icon="i-lucide-clapperboard"
+              icon="i-lineicons-camera-movie-1"
               :loading="generatingProxy"
               :disabled="generatingProxy"
               @click="generateProxy"
@@ -519,7 +519,7 @@ onUnmounted(() => {
           class="inline-flex items-center justify-center size-10 rounded-full text-white/80 hover:text-white hover:bg-white/20 shrink-0 pointer-events-auto transition-colors"
           @click="downloadFile"
         >
-          <AppIcon name="i-lucide-download" class="size-5" />
+          <AppIcon name="i-lineicons-download" class="size-5" />
         </button>
       </div>
 
@@ -549,7 +549,7 @@ onUnmounted(() => {
         class="absolute left-4 top-1/2 z-20 -translate-y-1/2 inline-flex items-center justify-center size-10 rounded-full text-white bg-black/40 hover:bg-black/70 transition-colors"
         @click="goToPrevious"
       >
-        <AppIcon name="i-lucide-chevron-left" class="size-5" />
+        <AppIcon name="i-lineicons-chevron-left" class="size-5" />
       </button>
 
       <!-- Overlay: next button -->
@@ -558,7 +558,7 @@ onUnmounted(() => {
         class="absolute right-4 top-1/2 z-20 -translate-y-1/2 inline-flex items-center justify-center size-10 rounded-full text-white bg-black/40 hover:bg-black/70 transition-colors"
         @click="goToNext"
       >
-        <AppIcon name="i-lucide-chevron-right" class="size-5" />
+        <AppIcon name="i-lineicons-chevron-right" class="size-5" />
       </button>
     </div>
   </Teleport>

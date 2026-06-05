@@ -20,7 +20,7 @@ const emit = defineEmits<{
   <div class="flex flex-col items-center justify-center py-16 px-4">
     <div class="size-16 rounded-full bg-elevated flex items-center justify-center mb-4">
       <AppIcon
-        :name="showTrashed ? 'i-lucide-trash-2' : 'i-lucide-folder-open'"
+        :name="showTrashed ? 'i-lineicons-trash-can' : 'i-lineicons-folder'"
         class="size-8 text-muted"
       />
     </div>
@@ -30,12 +30,12 @@ const emit = defineEmits<{
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lucide-folder-plus"
+        icon="i-lineicons-folder"
         @click="emit('createFolder')"
       >
         Create folder
       </UButton>
-      <UButton color="primary" variant="soft" icon="i-lucide-upload" @click="emit('uploadFiles')">
+      <UButton color="primary" variant="soft" icon="i-lineicons-upload" @click="emit('uploadFiles')">
         Upload files
       </UButton>
     </div>

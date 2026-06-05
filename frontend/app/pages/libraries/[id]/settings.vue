@@ -392,7 +392,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Library Name"
       description="Rename this library and pick an emoji. The emoji saves as soon as you choose it."
-      icon="i-lucide-folder-pen"
+      icon="i-lineicons-folder"
     >
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <EmojiPicker
@@ -410,7 +410,7 @@ async function deleteLibrary() {
         <UButton
           color="primary"
           variant="soft"
-          icon="i-lucide-check"
+          icon="i-lineicons-check"
           :loading="savingLibraryName"
           :disabled="
             savingLibraryName ||
@@ -429,7 +429,7 @@ async function deleteLibrary() {
       v-if="!library?.isDefault"
       title="Library Members"
       description="Manage who has access to this library and their permissions."
-      icon="i-lucide-users"
+      icon="i-lineicons-users"
     >
       <div class="space-y-6">
         <div class="space-y-3">
@@ -460,7 +460,7 @@ async function deleteLibrary() {
             </UFormField>
             <UButton
               color="primary"
-              icon="i-lucide-link"
+              icon="i-lineicons-link"
               :loading="createInviteLinkLoading"
               :disabled="createInviteLinkLoading"
               @click="submitCreateInviteLink"
@@ -534,7 +534,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Facial Recognition"
       description="Detect and group faces from image uploads. Disabling removes all face data."
-      icon="i-lucide-scan-face"
+      icon="i-lineicons-id-card"
     >
       <div class="space-y-4">
         <AppPanelRow
@@ -557,7 +557,7 @@ async function deleteLibrary() {
           <UButton
             color="warning"
             variant="soft"
-            icon="i-lucide-refresh-cw"
+            icon="i-lineicons-reload"
             :loading="faceRecReprocessing"
             :disabled="!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing"
             @click="faceRecReprocessOpen = true"
@@ -572,7 +572,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Object Detection"
       description="Detect objects in image uploads using YOLO26. Disabling removes all detection data."
-      icon="i-lucide-scan-search"
+      icon="i-lineicons-magnifier"
     >
       <div class="space-y-4">
         <AppPanelRow
@@ -595,7 +595,7 @@ async function deleteLibrary() {
           <UButton
             color="neutral"
             variant="soft"
-            icon="i-lucide-scan-search"
+            icon="i-lineicons-magnifier"
             :to="`/libraries/${libraryId}/objects`"
             :disabled="!library?.objectDetectionEnabled"
           >
@@ -612,7 +612,7 @@ async function deleteLibrary() {
           <UButton
             color="warning"
             variant="soft"
-            icon="i-lucide-refresh-cw"
+            icon="i-lineicons-reload"
             :loading="objDetReprocessing"
             :disabled="!library?.objectDetectionEnabled || objDetToggling || objDetReprocessing"
             @click="objDetReprocessOpen = true"
@@ -627,7 +627,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Transcription"
       description="Generate searchable text + WebVTT cues from video and audio files using whisper.cpp."
-      icon="i-lucide-captions"
+      icon="i-lineicons-comment-1-text"
     >
       <AppPanelRow
         title="Re-transcribe all videos"
@@ -636,7 +636,7 @@ async function deleteLibrary() {
         <UButton
           color="warning"
           variant="soft"
-          icon="i-lucide-captions"
+          icon="i-lineicons-comment-1-text"
           :loading="transcribeReprocessing"
           :disabled="transcribeReprocessing"
           @click="transcribeReprocessOpen = true"
@@ -650,7 +650,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Audio Event Detection"
       description="Tag audio segments with PANNs CNN14 (music, speech, applause, …). Requires the file's transcript to be ready."
-      icon="i-lucide-audio-waveform"
+      icon="i-lineicons-pulse"
     >
       <AppPanelRow
         title="Re-run audio detection on all videos"
@@ -659,7 +659,7 @@ async function deleteLibrary() {
         <UButton
           color="warning"
           variant="soft"
-          icon="i-lucide-audio-waveform"
+          icon="i-lineicons-pulse"
           :loading="audioDetectReprocessing"
           :disabled="audioDetectReprocessing"
           @click="audioDetectReprocessOpen = true"
@@ -673,7 +673,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Sharing"
       description="Allow members to create public share links for moments in this library."
-      icon="i-lucide-share-2"
+      icon="i-lineicons-share-2"
     >
       <AppPanelRow
         title="Enable sharing"
@@ -692,13 +692,13 @@ async function deleteLibrary() {
       v-if="isLibraryOwner"
       title="Video Thumbnails"
       description="Regenerate JPG thumbnails for all source videos in this library."
-      icon="i-lucide-image-up"
+      icon="i-lineicons-image"
     >
       <div class="flex sm:justify-end">
         <UButton
           color="warning"
           variant="soft"
-          icon="i-lucide-image-up"
+          icon="i-lineicons-image"
           :loading="videoThumbReprocessing"
           :disabled="videoThumbReprocessing"
           @click="videoThumbReprocessOpen = true"
@@ -713,13 +713,13 @@ async function deleteLibrary() {
       v-if="isLibraryOwner"
       title="Photo Metadata"
       description="Re-extract capture date & GPS location (EXIF) for all photos and videos. Powers the Timeline and Map views."
-      icon="i-lucide-map-pin"
+      icon="i-lineicons-map-marker"
     >
       <div class="flex sm:justify-end">
         <UButton
           color="warning"
           variant="soft"
-          icon="i-lucide-refresh-cw"
+          icon="i-lineicons-reload"
           :loading="metadataReprocessing"
           :disabled="metadataReprocessing"
           @click="metadataReprocessOpen = true"
@@ -733,7 +733,7 @@ async function deleteLibrary() {
     <AppPanel>
       <template #title>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-triangle-alert" class="size-4 shrink-0 text-error" />
+          <UIcon name="i-lineicons-warning" class="size-4 shrink-0 text-error" />
           <h2 class="text-sm font-semibold text-error">Delete Library</h2>
         </div>
       </template>
@@ -745,7 +745,7 @@ async function deleteLibrary() {
         <UButton
           color="error"
           variant="soft"
-          icon="i-lucide-trash-2"
+          icon="i-lineicons-trash-can"
           :disabled="!canDeleteLibrary"
           @click="deleteLibraryOpen = true"
         >
@@ -760,7 +760,7 @@ async function deleteLibrary() {
       message="This will permanently delete all detected faces and people data for this library. This action cannot be undone."
       confirm-label="Disable & Delete Data"
       confirm-class="btn-soft btn-error"
-      confirm-icon="i-lucide-trash-2"
+      confirm-icon="i-lineicons-trash-can"
       :pending="faceRecToggling"
       @confirm="confirmDisableFaceRecognition"
     />
@@ -771,7 +771,7 @@ async function deleteLibrary() {
       message="This re-extracts capture date and GPS location for every photo and video in the library, refreshing the Timeline and Map. Existing metadata is overwritten as each file completes."
       confirm-label="Queue Reprocessing"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lucide-refresh-cw"
+      confirm-icon="i-lineicons-reload"
       :pending="metadataReprocessing"
       @confirm="reprocessMetadata"
     />
@@ -782,7 +782,7 @@ async function deleteLibrary() {
       message="This queues thumbnail regeneration for all source videos in this library. Existing generated thumbnails will be replaced as new ones complete."
       confirm-label="Queue Regeneration"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lucide-image-up"
+      confirm-icon="i-lineicons-image"
       :pending="videoThumbReprocessing"
       @confirm="reprocessVideoThumbnails"
     />
@@ -793,7 +793,7 @@ async function deleteLibrary() {
       message="This deletes all existing face inference data and queues a full rebuild. Results may change, including how photos are grouped into people."
       confirm-label="Delete Data & Requeue"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lucide-refresh-cw"
+      confirm-icon="i-lineicons-reload"
       :pending="faceRecReprocessing"
       @confirm="reprocessFaceRecognition"
     />
@@ -804,7 +804,7 @@ async function deleteLibrary() {
       message="This queues transcription for every video and audio file in the library. Existing transcripts will be overwritten when each job completes."
       confirm-label="Queue Reprocessing"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lucide-captions"
+      confirm-icon="i-lineicons-comment-1-text"
       :pending="transcribeReprocessing"
       @confirm="reprocessTranscripts"
     />
@@ -815,7 +815,7 @@ async function deleteLibrary() {
       message="This queues PANNs audio-event detection for every video and audio file with a ready transcript. Existing audio-event tags will be overwritten when each job completes."
       confirm-label="Queue Reprocessing"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lucide-audio-waveform"
+      confirm-icon="i-lineicons-pulse"
       :pending="audioDetectReprocessing"
       @confirm="reprocessAudioDetections"
     />
@@ -838,7 +838,7 @@ async function deleteLibrary() {
           </UButton>
           <UButton
             color="error"
-            icon="i-lucide-trash-2"
+            icon="i-lineicons-trash-can"
             :loading="objDetToggling"
             :disabled="objDetToggling"
             @click="confirmDisableObjectDetection"
@@ -867,7 +867,7 @@ async function deleteLibrary() {
           </UButton>
           <UButton
             color="warning"
-            icon="i-lucide-refresh-cw"
+            icon="i-lineicons-reload"
             :loading="objDetReprocessing"
             :disabled="objDetReprocessing"
             @click="reprocessObjectDetection"
@@ -903,7 +903,7 @@ async function deleteLibrary() {
           <UButton
             color="error"
             variant="soft"
-            icon="i-lucide-trash-2"
+            icon="i-lineicons-trash-can"
             :disabled="deleteLibraryConfirmation !== 'delete'"
             @click="deleteLibrary"
           >

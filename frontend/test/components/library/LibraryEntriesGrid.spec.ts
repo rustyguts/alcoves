@@ -244,7 +244,7 @@ describe("LibraryEntriesGrid", () => {
       }),
       global: { stubs },
     });
-    expect(wrapper.find("[data-icon='i-lucide-loader-2']").exists()).toBe(true);
+    expect(wrapper.find("[data-icon='i-lineicons-spinner-solid']").exists()).toBe(true);
   });
 
   it("renders tags as colored dots", () => {

@@ -384,7 +384,7 @@ useEditorShortcuts({
       message="This moment will be moved to trash. Any cached exports will be deleted."
       confirm-label="Delete"
       confirm-class="btn-error"
-      confirm-icon="i-lucide-trash-2"
+      confirm-icon="i-lineicons-trash-can"
       @update:open="(v) => (pendingDeleteId = v ? pendingDeleteId : null)"
       @confirm="onDeleteConfirm"
     />

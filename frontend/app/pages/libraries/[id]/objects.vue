@@ -27,14 +27,14 @@ const totalDetections = computed(() => labels.value.reduce((sum, l) => sum + l.f
 <template>
   <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 px-0.5">
     <div v-if="status === 'pending'" class="flex items-center justify-center py-12">
-      <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+      <UIcon name="i-lineicons-spinner-solid" class="size-6 animate-spin text-muted" />
     </div>
 
     <UAlert
       v-else-if="!labels.length"
       color="neutral"
       variant="soft"
-      icon="i-lucide-scan-search"
+      icon="i-lineicons-magnifier"
       title="No objects detected yet"
       description="Upload images to start detecting objects."
     />

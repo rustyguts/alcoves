@@ -607,8 +607,8 @@ describe("library index page", () => {
   it("shows list/grid view toggle buttons", () => {
     const wrapper = mountPage();
     const buttons = wrapper.findAll("button");
-    const listBtn = buttons.find((b) => b.attributes("data-icon") === "i-lucide-list");
-    const gridBtn = buttons.find((b) => b.attributes("data-icon") === "i-lucide-layout-grid");
+    const listBtn = buttons.find((b) => b.attributes("data-icon") === "i-lineicons-list");
+    const gridBtn = buttons.find((b) => b.attributes("data-icon") === "i-lineicons-grid");
     expect(listBtn).toBeDefined();
     expect(gridBtn).toBeDefined();
   });
@@ -617,8 +617,8 @@ describe("library index page", () => {
     mocks.showTrashed = true;
     const wrapper = mountPage();
     const buttons = wrapper.findAll("button");
-    const listBtn = buttons.find((b) => b.attributes("data-icon") === "i-lucide-list");
-    const gridBtn = buttons.find((b) => b.attributes("data-icon") === "i-lucide-layout-grid");
+    const listBtn = buttons.find((b) => b.attributes("data-icon") === "i-lineicons-list");
+    const gridBtn = buttons.find((b) => b.attributes("data-icon") === "i-lineicons-grid");
     expect(listBtn).toBeUndefined();
     expect(gridBtn).toBeUndefined();
   });
@@ -649,7 +649,7 @@ describe("library index page", () => {
     const wrapper = mountPage();
     const listBtn = wrapper
       .findAll("button")
-      .find((b) => b.attributes("data-icon") === "i-lucide-list");
+      .find((b) => b.attributes("data-icon") === "i-lineicons-list");
     expect(listBtn?.attributes("data-color")).toBe("primary");
   });
 
@@ -658,7 +658,7 @@ describe("library index page", () => {
     const wrapper = mountPage();
     const gridBtn = wrapper
       .findAll("button")
-      .find((b) => b.attributes("data-icon") === "i-lucide-layout-grid");
+      .find((b) => b.attributes("data-icon") === "i-lineicons-grid");
     expect(gridBtn?.attributes("data-color")).toBe("primary");
   });
 });

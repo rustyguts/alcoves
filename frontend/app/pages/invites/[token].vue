@@ -114,7 +114,7 @@ async function acceptInvite() {
       </template>
 
       <div v-if="status === 'pending'" class="flex items-center justify-center py-8">
-        <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+        <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-muted" />
       </div>
 
       <div v-else class="flex flex-col gap-4">
@@ -124,7 +124,7 @@ async function acceptInvite() {
           <UButton
             v-if="invite?.canAccept"
             color="primary"
-            icon="i-lucide-check"
+            icon="i-lineicons-check"
             :loading="accepting"
             @click="acceptInvite"
           >
@@ -135,7 +135,7 @@ async function acceptInvite() {
             :to="`/libraries/${invite.library.id}`"
             color="neutral"
             variant="soft"
-            trailing-icon="i-lucide-arrow-right"
+            trailing-icon="i-lineicons-arrow-right"
           >
             Go to library
           </UButton>

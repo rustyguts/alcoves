@@ -43,7 +43,7 @@ const expanded = ref(true);
               {{ formatFileSize(uploadSpeed) }}/s
             </span>
             <AppIcon
-              :name="expanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
+              :name="expanded ? 'i-lineicons-chevron-down' : 'i-lineicons-chevron-up'"
               class="size-4 text-muted"
             />
           </div>
@@ -97,7 +97,7 @@ const expanded = ref(true);
             </div>
 
             <div v-else-if="item.status === 'done'" class="flex items-center gap-1">
-              <AppIcon name="i-lucide-check" class="size-4 text-success" />
+              <AppIcon name="i-lineicons-check" class="size-4 text-success" />
               <span class="text-xs text-success">Complete</span>
             </div>
 

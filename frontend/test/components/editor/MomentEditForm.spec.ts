@@ -79,9 +79,9 @@ describe("MomentEditForm", () => {
   it("emits export/download/share/close from the header actions", async () => {
     const wrapper = mountForm();
     await wrapper.findAll("button").find((b) => b.text().includes("Reprocess"))!.trigger("click");
-    await byIcon(wrapper, "i-lucide-download")[0]!.trigger("click");
-    await byIcon(wrapper, "i-lucide-share-2")[0]!.trigger("click");
-    await byIcon(wrapper, "i-lucide-x")[0]!.trigger("click");
+    await byIcon(wrapper, "i-lineicons-download")[0]!.trigger("click");
+    await byIcon(wrapper, "i-lineicons-share-2")[0]!.trigger("click");
+    await byIcon(wrapper, "i-lineicons-x")[0]!.trigger("click");
     expect(wrapper.emitted("export")?.[0]).toEqual(["m1"]);
     expect(wrapper.emitted("download")?.[0]).toEqual(["m1"]);
     expect(wrapper.emitted("share")?.[0]).toEqual(["m1"]);
@@ -90,7 +90,7 @@ describe("MomentEditForm", () => {
 
   it("emits set-to-playhead for start and end", async () => {
     const wrapper = mountForm();
-    const crosshairs = byIcon(wrapper, "i-lucide-crosshair");
+    const crosshairs = byIcon(wrapper, "i-lineicons-target");
     await crosshairs[0]!.trigger("click");
     await crosshairs[1]!.trigger("click");
     expect(wrapper.emitted("set-to-playhead")).toEqual([["start"], ["end"]]);

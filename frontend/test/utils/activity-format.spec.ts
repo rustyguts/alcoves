@@ -130,7 +130,7 @@ describe("formatActivity", () => {
     });
     const out = formatActivity({ head, items: [head], count: 1 });
     expect(out.text).toBe("Waveform ready for song.mp3");
-    expect(out.icon).toMatch(/audio-waveform/);
+    expect(out.icon).toMatch(/pulse/);
   });
 
   it("formats folder.renamed showing old -> new", () => {

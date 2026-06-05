@@ -53,7 +53,7 @@ const emit = defineEmits<{
           color="error"
           variant="soft"
           size="sm"
-          icon="i-lucide-user-minus"
+          icon="i-lineicons-user"
           square
           :loading="removing"
           :disabled="removing"

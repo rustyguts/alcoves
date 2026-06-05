@@ -90,7 +90,7 @@ function formatDate(value: string | null): string {
     <template #header>
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-key-round" class="size-5 text-primary" />
+          <UIcon name="i-lineicons-key" class="size-5 text-primary" />
           <div>
             <h2 class="text-base font-semibold">MCP access tokens</h2>
             <p class="text-sm text-muted">
@@ -121,7 +121,7 @@ function formatDate(value: string | null): string {
         </UFormField>
         <UButton
           color="primary"
-          icon="i-lucide-plus"
+          icon="i-lineicons-plus"
           :loading="creating"
           :disabled="creating"
           @click="createToken"
@@ -158,7 +158,7 @@ function formatDate(value: string | null): string {
             color="error"
             variant="soft"
             size="sm"
-            icon="i-lucide-trash-2"
+            icon="i-lineicons-trash-can"
             :loading="revokingId === token.id"
             :disabled="revokingId === token.id"
             @click="revokeToken(token.id)"
@@ -171,7 +171,7 @@ function formatDate(value: string | null): string {
         v-else
         color="neutral"
         variant="soft"
-        icon="i-lucide-key-round"
+        icon="i-lineicons-key"
         title="No access tokens yet"
         description="Create one to connect an MCP client to your Alcoves libraries."
       />
@@ -192,12 +192,12 @@ function formatDate(value: string | null): string {
               class="w-full font-mono text-xs"
               :ui="{ root: 'w-full' }"
             />
-            <UButton color="neutral" icon="i-lucide-copy" square @click="copyToken" />
+            <UButton color="neutral" icon="i-lineicons-clipboard" square @click="copyToken" />
           </div>
           <UAlert
             color="warning"
             variant="soft"
-            icon="i-lucide-shield-alert"
+            icon="i-lineicons-shield-2"
             title="Treat it like a password"
             description="Anyone with this token can access your libraries as you. Revoke it if it leaks."
           />

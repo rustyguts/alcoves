@@ -90,7 +90,7 @@ watch(
       <div class="space-y-3">
         <UButton
           color="primary"
-          icon="i-lucide-link"
+          icon="i-lineicons-link"
           :disabled="!sharingEnabled || creating"
           :loading="creating"
           @click="onCreate"
@@ -112,7 +112,7 @@ watch(
               variant="ghost"
               size="xs"
               square
-              icon="i-lucide-copy"
+              icon="i-lineicons-clipboard"
               aria-label="Copy link"
               @click="copy(s.url)"
             />
@@ -120,7 +120,7 @@ watch(
               color="error"
               variant="soft"
               size="xs"
-              icon="i-lucide-x"
+              icon="i-lineicons-x"
               @click="onRevoke(s.token)"
             >
               Revoke

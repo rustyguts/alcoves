@@ -120,84 +120,84 @@ export function formatActivity(g: ActivityGroup): FormattedActivity {
     case "file.created":
       if (g.count <= 1) {
         const name = (md.name as string) ?? "a file";
-        return { icon: "i-lucide-file-plus", text: `${actor} added ${name}`, href: hrefForFile(g) };
+        return { icon: "i-lineicons-file-plus-circle", text: `${actor} added ${name}`, href: hrefForFile(g) };
       }
-      return { icon: "i-lucide-files", text: `${actor} added ${g.count} files`, href: hrefForFolder(g) };
+      return { icon: "i-lineicons-files", text: `${actor} added ${g.count} files`, href: hrefForFolder(g) };
     case "file.deleted": {
       if (g.count <= 1) {
         const name = (md.name as string) ?? "a file";
-        return { icon: "i-lucide-trash-2", text: `${actor} deleted ${name}`, href: null };
+        return { icon: "i-lineicons-trash-can", text: `${actor} deleted ${name}`, href: null };
       }
-      return { icon: "i-lucide-trash-2", text: `${actor} deleted ${g.count} files`, href: null };
+      return { icon: "i-lineicons-trash-can", text: `${actor} deleted ${g.count} files`, href: null };
     }
     case "folder.created":
       return {
-        icon: "i-lucide-folder-plus",
+        icon: "i-lineicons-folder",
         text: `${actor} created folder ${(md.name as string) ?? ""}`,
         href: hrefForFolder(g),
       };
     case "folder.renamed":
       return {
-        icon: "i-lucide-edit-3",
+        icon: "i-lineicons-pencil",
         text: `${actor} renamed ${(md.oldName as string) ?? "a folder"} → ${(md.newName as string) ?? ""}`,
         href: hrefForFolder(g),
       };
     case "folder.deleted":
       return {
-        icon: "i-lucide-folder-x",
+        icon: "i-lineicons-folder",
         text: `${actor} deleted folder ${(md.name as string) ?? ""}`,
         href: null,
       };
     case "tag.created":
       return {
-        icon: "i-lucide-tag",
+        icon: "i-lineicons-tag",
         text: `${actor} created tag ${(md.name as string) ?? ""}`,
         href: `/libraries/${g.head.libraryId}/tags`,
       };
     case "moment.created":
       return {
-        icon: "i-lucide-film",
+        icon: "i-lineicons-camera-movie-1",
         text: `${actor} created moment ${(md.name as string) ?? ""}`,
         href: hrefForMoment(g),
       };
     case "moment.shared":
       return {
-        icon: "i-lucide-share-2",
+        icon: "i-lineicons-share-2",
         text: `${actor} shared moment ${(md.momentName as string) ?? ""}`,
         href: hrefForMoment(g),
       };
     case "member.joined":
       return {
-        icon: "i-lucide-user-plus",
+        icon: "i-lineicons-user-4",
         text: `${(md.displayName as string) ?? actor} joined`,
         href: `/libraries/${g.head.libraryId}/settings`,
       };
     case "member.removed":
       return {
-        icon: "i-lucide-user-minus",
+        icon: "i-lineicons-user",
         text: `${actor} removed ${(md.displayName as string) ?? "a member"}`,
         href: `/libraries/${g.head.libraryId}/settings`,
       };
     case "system.waveform_ready":
       return {
-        icon: "i-lucide-audio-waveform",
+        icon: "i-lineicons-pulse",
         text: `Waveform ready for ${(md.fileName as string) ?? "a file"}`,
         href: hrefForFile(g),
       };
     case "system.transcribe_ready":
       return {
-        icon: "i-lucide-captions",
+        icon: "i-lineicons-comment-1-text",
         text: `Transcript ready for ${(md.fileName as string) ?? "a file"}`,
         href: hrefForFile(g),
       };
     case "system.video_proxy_ready":
       return {
-        icon: "i-lucide-video",
+        icon: "i-lineicons-video",
         text: `Video processed for ${(md.fileName as string) ?? "a file"}`,
         href: hrefForFile(g),
       };
     default:
-      return { icon: "i-lucide-bell", text: `${actor} ${g.head.action}`, href: null };
+      return { icon: "i-lineicons-bell-1", text: `${actor} ${g.head.action}`, href: null };
   }
 }
 

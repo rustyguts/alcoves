@@ -132,14 +132,14 @@ async function onSubmit() {
 <template>
   <AuthCardShell title="Create an account" subtitle="Get started with Alcoves." :error="error">
     <div v-if="bootLoading" class="flex justify-center py-8">
-      <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+      <UIcon name="i-lineicons-spinner-solid" class="size-6 animate-spin text-muted" />
     </div>
 
     <div v-else-if="!canRegister" class="space-y-3 py-2">
       <UAlert
         color="warning"
         variant="subtle"
-        icon="i-lucide-lock"
+        icon="i-lineicons-lock"
         title="Registration disabled"
         :description="disabledMessage || 'Registration is not available right now.'"
       />
@@ -150,7 +150,7 @@ async function onSubmit() {
         v-if="invite && invite.library"
         color="info"
         variant="subtle"
-        icon="i-lucide-mail"
+        icon="i-lineicons-envelope"
         :title="`You've been invited to ${invite.library.name}`"
       >
         <template #description>
@@ -166,7 +166,7 @@ async function onSubmit() {
         <UInput
           v-model="state.name"
           placeholder="Your full name"
-          icon="i-lucide-user"
+          icon="i-lineicons-user"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"
@@ -178,7 +178,7 @@ async function onSubmit() {
           v-model="state.email"
           type="email"
           placeholder="you@example.com"
-          icon="i-lucide-mail"
+          icon="i-lineicons-envelope"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"
@@ -190,7 +190,7 @@ async function onSubmit() {
           v-model="state.password"
           type="password"
           placeholder="At least 8 characters"
-          icon="i-lucide-lock"
+          icon="i-lineicons-lock"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"
@@ -202,7 +202,7 @@ async function onSubmit() {
           v-model="state.confirmPassword"
           type="password"
           placeholder="Re-enter password"
-          icon="i-lucide-lock"
+          icon="i-lineicons-lock"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"
