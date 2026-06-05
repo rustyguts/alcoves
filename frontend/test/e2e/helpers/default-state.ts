@@ -201,15 +201,18 @@ const files: MockFile[] = [
   makeFile("file-vid-1", "road-trip.mp4", "video/mp4", 52_428_800, {
     width: 1920,
     height: 1080,
+    duration: 247,
     posterUrl: "/poster/road-trip.jpg",
   }),
   makeFile("file-vid-2", "birthday.mov", "video/quicktime", 31_457_280, {
     width: 1280,
     height: 720,
+    duration: 3729,
   }),
   makeFile("file-vid-3", "drone-flight.mp4", "video/mp4", 104_857_600, {
     width: 3840,
     height: 2160,
+    duration: 42,
     thumbnailReady: false,
   }),
   makeFile("file-doc-1", "Quarterly Plan.pdf", "application/pdf", 245_760),

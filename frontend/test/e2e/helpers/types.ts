@@ -64,6 +64,7 @@ export interface MockFile {
   size: number;
   width: number | null;
   height: number | null;
+  duration?: number | null;
   thumbnailReady: boolean;
   posterUrl: string | null;
   trashedAt: string | null;
