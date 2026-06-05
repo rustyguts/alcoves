@@ -291,6 +291,8 @@ export interface GlobalSearchResult {
   mimeType?: string;
   size?: number;
   thumbnailFileId?: string;
+  width?: number | null;
+  height?: number | null;
   updatedAt: string;
   matchReason?: "name" | "object" | "name+object";
   matchedLabels?: string[];

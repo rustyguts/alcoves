@@ -2,11 +2,11 @@
 import type { GlobalSearchResponse, GlobalSearchResult, LibraryFile } from "~~/shared/types/api";
 
 definePageMeta({ layout: "dashboard" });
-import { formatDate, formatFileSize, getMimeIcon } from "~/utils/mime-icons";
+import type { GalleryGroup } from "~/utils/gallery-types";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
-import AlcovesImage from "~/components/AlcovesImage.vue";
 import FilePreview from "~/components/FilePreview.vue";
+import JustifiedGallery from "~/components/JustifiedGallery.vue";
 
 const MIN_QUERY_LENGTH = 2;
 const SEARCH_LIMIT = 80;
@@ -62,44 +62,61 @@ async function submitSearch() {
 }
 
 const results = computed(() => searchData.value?.results ?? []);
-const groupedResults = computed(() => {
-  const groups: Array<{
-    libraryId: string;
-    libraryName: string;
-    results: GlobalSearchResult[];
-  }> = [];
-  const byLibraryId = new Map<
-    string,
-    { libraryId: string; libraryName: string; results: GlobalSearchResult[] }
-  >();
 
-  for (const result of results.value) {
-    let group = byLibraryId.get(result.libraryId);
-    if (!group) {
-      group = { libraryId: result.libraryId, libraryName: result.libraryName, results: [] };
-      byLibraryId.set(result.libraryId, group);
-      groups.push(group);
-    }
-    group.results.push(result);
-  }
-
-  return groups;
-});
-
-function getResultIcon(result: GlobalSearchResult): string {
-  if (result.kind === "folder") return "i-lucide-folder";
-  return getMimeIcon(result.mimeType ?? "application/octet-stream");
+function isVideoResult(result: GlobalSearchResult): boolean {
+  return (result.mimeType ?? "").startsWith("video/");
 }
 
-const failedThumbnails = reactive(new Set<string>());
-
+// Thumbnail source: the file itself for images, the generated poster for videos,
+// null (→ icon tile) for folders and non-media files.
 function getThumbnailFileId(result: GlobalSearchResult): string | null {
-  if (result.kind !== "file" || failedThumbnails.has(result.id)) return null;
+  if (result.kind !== "file") return null;
   const mime = result.mimeType ?? "";
   if (mime.startsWith("image/")) return result.id;
   if (mime.startsWith("video/") && result.thumbnailFileId) return result.thumbnailFileId;
   return null;
 }
+
+function aspectOf(result: GlobalSearchResult): number {
+  if (result.width && result.height && result.width > 0 && result.height > 0) {
+    return result.width / result.height;
+  }
+  // Folders read as wide tiles; everything else falls back to square.
+  return result.kind === "folder" ? 1.6 : 1;
+}
+
+// Group results by library, mapped into the shared gallery shape. The library
+// name is the sticky heading; matched object labels become a tile badge.
+const galleryGroups = computed<GalleryGroup<GlobalSearchResult>[]>(() => {
+  const groups: GalleryGroup<GlobalSearchResult>[] = [];
+  const byLibraryId = new Map<string, GalleryGroup<GlobalSearchResult>>();
+
+  for (const result of results.value) {
+    let group = byLibraryId.get(result.libraryId);
+    if (!group) {
+      group = { key: result.libraryId, heading: result.libraryName, count: 0, items: [] };
+      byLibraryId.set(result.libraryId, group);
+      groups.push(group);
+    }
+    group.items.push({
+      id: `${result.kind}-${result.id}`,
+      libraryId: result.libraryId,
+      thumbnailFileId: getThumbnailFileId(result),
+      aspect: aspectOf(result),
+      mime:
+        result.kind === "folder" ? "inode/directory" : (result.mimeType ?? "application/octet-stream"),
+      name: result.name,
+      isVideo: isVideoResult(result),
+      sourceWidth: result.width,
+      sourceHeight: result.height,
+      badge: result.matchedLabels?.length ? result.matchedLabels.join(", ") : null,
+      raw: result,
+    });
+    group.count = group.items.length;
+  }
+
+  return groups;
+});
 
 const previewFile = ref<LibraryFile | null>(null);
 const previewOpen = ref(false);
@@ -185,72 +202,8 @@ async function openPreview(result: GlobalSearchResult) {
       :description="`No results found for “${activeQuery}”.`"
     />
 
-    <div v-else class="space-y-4">
-      <AppPanel
-        v-for="group in groupedResults"
-        :key="group.libraryId"
-        :title="group.libraryName"
-        icon="i-lucide-library"
-        body-class="p-1"
-      >
-        <template #actions>
-          <UBadge color="neutral" variant="subtle" size="sm">
-            {{ group.results.length }}
-          </UBadge>
-        </template>
-
-        <div class="space-y-1">
-          <div
-            v-for="result in group.results"
-            :key="`${result.kind}-${result.id}`"
-            class="group flex items-center gap-3 rounded-lg px-4 py-3 transition-colors hover:bg-elevated/70"
-            :class="result.kind === 'file' ? 'cursor-pointer' : ''"
-            @dblclick="openPreview(result)"
-          >
-            <div
-              class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated overflow-hidden"
-            >
-              <AlcovesImage
-                v-if="getThumbnailFileId(result)"
-                :library-id="result.libraryId"
-                :file-id="getThumbnailFileId(result)!"
-                :alt="result.name"
-                variant="search"
-                class="size-full object-cover"
-                @error="failedThumbnails.add(result.id)"
-              />
-              <UIcon v-else :name="getResultIcon(result)" class="size-4 text-primary" />
-            </div>
-
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">{{ result.name }}</p>
-              <p class="truncate font-mono text-[11px] text-muted">{{ result.locationPath }}</p>
-              <p
-                v-if="result.matchedLabels?.length"
-                class="truncate text-[11px] text-primary md:hidden"
-              >
-                contains: {{ result.matchedLabels.join(", ") }}
-              </p>
-            </div>
-
-            <div class="hidden shrink-0 items-center gap-2 md:flex">
-              <UBadge v-if="result.matchedLabels?.length" color="primary" variant="soft" size="sm">
-                contains: {{ result.matchedLabels.join(", ") }}
-              </UBadge>
-              <span class="text-xs text-muted">{{ formatDate(result.updatedAt) }}</span>
-              <UBadge color="neutral" variant="soft" size="sm">{{ result.kind }}</UBadge>
-              <UBadge
-                v-if="result.kind === 'file' && typeof result.size === 'number'"
-                color="neutral"
-                variant="subtle"
-                size="sm"
-              >
-                {{ formatFileSize(result.size) }}
-              </UBadge>
-            </div>
-          </div>
-        </div>
-      </AppPanel>
+    <div v-else>
+      <JustifiedGallery :groups="galleryGroups" @select="openPreview" />
     </div>
 
     <FilePreview
