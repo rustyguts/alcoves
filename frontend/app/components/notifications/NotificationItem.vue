@@ -67,7 +67,7 @@ function onDismiss(event: MouseEvent) {
       aria-label="Dismiss notification"
       @click="onDismiss"
     >
-      <AppIcon name="i-lucide-x" class="size-4" />
+      <AppIcon name="i-lineicons-x" class="size-4" />
     </button>
   </component>
 </template>

@@ -213,7 +213,7 @@ describe("invites/[token].vue", () => {
   it("shows loading spinner when status is pending", async () => {
     mocks.status = "pending";
     const wrapper = await mountPage();
-    expect(wrapper.find("[data-icon='i-lucide-loader-2']").exists()).toBe(true);
+    expect(wrapper.find("[data-icon='i-lineicons-spinner-solid']").exists()).toBe(true);
   });
 
   it("shows fallback invite title when invite is null", async () => {

@@ -252,7 +252,7 @@ defineExpose({ seek, togglePlay, currentTime, duration, paused });
         <media-video-layout />
       </media-player>
       <div v-else class="flex items-center justify-center py-16">
-        <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-white/60" />
+        <UIcon name="i-lineicons-spinner-solid" class="size-6 animate-spin text-white/60" />
       </div>
       <div
         v-show="active"

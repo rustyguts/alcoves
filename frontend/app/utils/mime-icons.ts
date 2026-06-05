@@ -1,26 +1,26 @@
 const mimeIconMap: Record<string, string> = {
-  "inode/directory": "i-lucide-folder",
-  "application/pdf": "i-lucide-file-text",
-  "application/zip": "i-lucide-file-archive",
-  "application/x-zip-compressed": "i-lucide-file-archive",
-  "application/gzip": "i-lucide-file-archive",
-  "application/x-tar": "i-lucide-file-archive",
-  "application/x-rar-compressed": "i-lucide-file-archive",
-  "application/json": "i-lucide-file-json",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "i-lucide-file-text",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "i-lucide-file-spreadsheet",
+  "inode/directory": "i-lineicons-folder",
+  "application/pdf": "i-lineicons-empty-file",
+  "application/zip": "i-lineicons-file-format-zip",
+  "application/x-zip-compressed": "i-lineicons-file-format-zip",
+  "application/gzip": "i-lineicons-file-format-zip",
+  "application/x-tar": "i-lineicons-file-format-zip",
+  "application/x-rar-compressed": "i-lineicons-file-format-zip",
+  "application/json": "i-lineicons-empty-file",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "i-lineicons-empty-file",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "i-lineicons-empty-file",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-    "i-lucide-file-image",
-  "application/msword": "i-lucide-file-text",
-  "application/vnd.ms-excel": "i-lucide-file-spreadsheet",
-  "application/vnd.ms-powerpoint": "i-lucide-file-image",
+    "i-lineicons-image",
+  "application/msword": "i-lineicons-empty-file",
+  "application/vnd.ms-excel": "i-lineicons-empty-file",
+  "application/vnd.ms-powerpoint": "i-lineicons-image",
 };
 
 const prefixIconMap: [string, string][] = [
-  ["image/", "i-lucide-image"],
-  ["video/", "i-lucide-video"],
-  ["audio/", "i-lucide-music"],
-  ["text/", "i-lucide-file-code"],
+  ["image/", "i-lineicons-image"],
+  ["video/", "i-lineicons-video"],
+  ["audio/", "i-lineicons-music"],
+  ["text/", "i-lineicons-empty-file"],
 ];
 
 export function getMimeIcon(mimeType: string): string {
@@ -32,7 +32,7 @@ export function getMimeIcon(mimeType: string): string {
       return icon;
     }
   }
-  return "i-lucide-file";
+  return "i-lineicons-empty-file";
 }
 
 const extensionMimeMap: Record<string, string> = {

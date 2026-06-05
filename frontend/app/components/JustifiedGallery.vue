@@ -126,7 +126,7 @@ const laidOut = computed<LaidOutGroup[]>(() =>
                 v-if="box.item.isVideo"
                 class="absolute bottom-1.5 right-1.5 rounded bg-black/60 p-0.5 text-white"
               >
-                <AppIcon name="i-lucide-play" class="size-3" />
+                <AppIcon name="i-lineicons-play" class="size-3" />
               </span>
             </button>
           </div>

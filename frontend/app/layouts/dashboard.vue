@@ -60,14 +60,14 @@ const userMenuItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
       label: "Profile",
-      icon: "i-lucide-user",
+      icon: "i-lineicons-user",
       onSelect: () => router.push("/profile"),
     },
   ],
   [
     {
       label: "Sign out",
-      icon: "i-lucide-log-out",
+      icon: "i-lineicons-exit",
       color: "error",
       onSelect: async () => {
         await logout();
@@ -132,7 +132,7 @@ async function createLibrary() {
         class="h-16 flex items-center gap-3 px-4 lg:px-6 bg-white dark:bg-neutral-900 border-b border-default shrink-0"
       >
         <UButton
-          icon="i-lucide-menu"
+          icon="i-lineicons-menu"
           color="neutral"
           variant="ghost"
           square
@@ -143,7 +143,7 @@ async function createLibrary() {
         <form class="flex-1 max-w-lg" @submit.prevent="submitGlobalSearch">
           <UInput
             v-model="globalSearchQuery"
-            icon="i-lucide-search"
+            icon="i-lineicons-search"
             placeholder="Search everything…"
             type="search"
             size="md"

@@ -462,19 +462,19 @@ function formatTime(seconds: number): string {
           color="neutral"
           variant="subtle"
           size="xs"
-          icon="i-lucide-keyboard"
+          icon="i-lineicons-keyboard"
           square
           @click="emit('open-shortcuts')"
         />
       </UTooltip>
-      <UButton color="primary" size="xs" icon="i-lucide-plus" @click="emit('create-moment')">
+      <UButton color="primary" size="xs" icon="i-lineicons-plus" @click="emit('create-moment')">
         New moment
       </UButton>
       <UButton
         :color="hasPending ? 'warning' : 'neutral'"
         :variant="hasPending ? 'solid' : 'subtle'"
         size="xs"
-        icon="i-lucide-save"
+        icon="i-lineicons-save"
         :disabled="!hasPending || savingPending"
         :loading="savingPending"
         @click="savePending"
@@ -578,19 +578,19 @@ function formatTime(seconds: number): string {
                     transform="rotate(-90 8 8)"
                   />
                 </svg>
-                <UIcon v-else name="i-lucide-loader-2" class="size-3 animate-spin" />
+                <UIcon v-else name="i-lineicons-spinner-solid" class="size-3 animate-spin" />
               </template>
               <UIcon
                 v-else-if="momentStatus(m).kind === 'processed'"
-                name="i-lucide-check-circle-2"
+                name="i-lineicons-checkmark-circle"
                 class="size-3 text-success-400"
               />
               <UIcon
                 v-else-if="momentStatus(m).kind === 'failed'"
-                name="i-lucide-alert-circle"
+                name="i-lineicons-warning"
                 class="size-3 text-error-400"
               />
-              <UIcon v-else name="i-lucide-circle-dashed" class="size-3 text-white/70" />
+              <UIcon v-else name="i-lineicons-spinner" class="size-3 text-white/70" />
               <span>{{ momentStatus(m).label }}</span>
             </div>
 
@@ -611,7 +611,7 @@ function formatTime(seconds: number): string {
               @mousedown.stop="beginDrag('start', m, $event)"
               @click.stop
             >
-              <UIcon name="i-lucide-grip-vertical" class="size-3 text-white/90" />
+              <UIcon name="i-lineicons-menu-meatballs-1" class="size-3 text-white/90" />
             </div>
 
             <!-- Right handle -->
@@ -623,7 +623,7 @@ function formatTime(seconds: number): string {
               @mousedown.stop="beginDrag('end', m, $event)"
               @click.stop
             >
-              <UIcon name="i-lucide-grip-vertical" class="size-3 text-white/90" />
+              <UIcon name="i-lineicons-menu-meatballs-1" class="size-3 text-white/90" />
             </div>
           </div>
 

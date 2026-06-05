@@ -65,7 +65,7 @@ describe("HighlightFiltersPanel", () => {
   it("shows Load presets only when there are no filters and emits it", async () => {
     const wrapper = mountPanel({ filters: [] });
     await open(wrapper);
-    const presets = wrapper.find("[data-icon='i-lucide-wand-2']");
+    const presets = wrapper.find("[data-icon='i-lineicons-brush']");
     expect(presets.exists()).toBe(true);
     await presets.trigger("click");
     expect(wrapper.emitted("load-presets")).toHaveLength(1);
@@ -74,7 +74,7 @@ describe("HighlightFiltersPanel", () => {
   it("opens the add form and emits create with trimmed values", async () => {
     const wrapper = mountPanel();
     await open(wrapper);
-    await wrapper.find("[data-icon='i-lucide-plus']").trigger("click");
+    await wrapper.find("[data-icon='i-lineicons-plus']").trigger("click");
     const inputs = wrapper.findAll("input");
     await inputs[0]!.setValue("  Funny  ");
     await inputs[1]!.setValue("  laughter  ");
@@ -87,7 +87,7 @@ describe("HighlightFiltersPanel", () => {
   it("does not emit create when name or expression is blank", async () => {
     const wrapper = mountPanel();
     await open(wrapper);
-    await wrapper.find("[data-icon='i-lucide-plus']").trigger("click");
+    await wrapper.find("[data-icon='i-lineicons-plus']").trigger("click");
     // leave fields blank
     await wrapper.findAll("button").find((b) => b.text().trim() === "Save")!.trigger("click");
     expect(wrapper.emitted("create")).toBeUndefined();
@@ -96,7 +96,7 @@ describe("HighlightFiltersPanel", () => {
   it("cancels the add form", async () => {
     const wrapper = mountPanel();
     await open(wrapper);
-    await wrapper.find("[data-icon='i-lucide-plus']").trigger("click");
+    await wrapper.find("[data-icon='i-lineicons-plus']").trigger("click");
     expect(wrapper.find("input").exists()).toBe(true);
     await wrapper.findAll("button").find((b) => b.text().trim() === "Cancel")!.trigger("click");
     expect(wrapper.text()).toContain("No filters yet");
@@ -164,7 +164,7 @@ describe("HighlightFiltersPanel", () => {
       aggregates: { a: agg() },
     });
     await open(wrapper);
-    await wrapper.find("[data-icon='i-lucide-pencil']").trigger("click");
+    await wrapper.find("[data-icon='i-lineicons-pencil']").trigger("click");
     const inputs = wrapper.findAll("input");
     await inputs[0]!.setValue("Updated");
     await wrapper.findAll("button").find((b) => b.text().trim() === "Save")!.trigger("click");
@@ -179,7 +179,7 @@ describe("HighlightFiltersPanel", () => {
       aggregates: { a: agg() },
     });
     await open(wrapper);
-    await wrapper.find("[data-icon='i-lucide-pencil']").trigger("click");
+    await wrapper.find("[data-icon='i-lineicons-pencil']").trigger("click");
     await wrapper.findAll("button").find((b) => b.text().trim() === "Cancel")!.trigger("click");
     expect(wrapper.emitted("update")).toBeUndefined();
   });
@@ -190,7 +190,7 @@ describe("HighlightFiltersPanel", () => {
       aggregates: { a: agg() },
     });
     await open(wrapper);
-    await wrapper.find("[data-icon='i-lucide-trash-2']").trigger("click");
+    await wrapper.find("[data-icon='i-lineicons-trash-can']").trigger("click");
     expect(wrapper.emitted("remove")?.[0]).toEqual(["a"]);
   });
 });

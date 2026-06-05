@@ -49,7 +49,7 @@ const emit = defineEmits<{
         >
           <AppIcon
             v-if="entry === color.toUpperCase()"
-            name="i-lucide-check"
+            name="i-lineicons-check"
             class="absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow"
           />
         </button>

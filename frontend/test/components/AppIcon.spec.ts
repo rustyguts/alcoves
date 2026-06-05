@@ -3,8 +3,8 @@ import AppIcon from "~/components/AppIcon.vue";
 
 describe("AppIcon", () => {
   it("forwards the name prop to UIcon", () => {
-    const wrapper = mount(AppIcon, { props: { name: "i-lucide-chevron-left" } });
-    const icon = wrapper.find("[data-icon='i-lucide-chevron-left']");
+    const wrapper = mount(AppIcon, { props: { name: "i-lineicons-chevron-left" } });
+    const icon = wrapper.find("[data-icon='i-lineicons-chevron-left']");
     expect(icon.exists()).toBe(true);
   });
 

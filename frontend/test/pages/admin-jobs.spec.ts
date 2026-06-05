@@ -235,8 +235,8 @@ describe("admin/jobs.vue", () => {
 
     const jobsTable = wrapper.findAll("table")[1]!;
     const html = jobsTable.html();
-    expect(html).toContain("i-lucide-rotate-cw");
-    expect(html).toContain("i-lucide-trash-2");
+    expect(html).toContain("i-lineicons-reload");
+    expect(html).toContain("i-lineicons-trash-can");
   });
 
   it("calls retry API when retry button is clicked", async () => {
@@ -250,7 +250,7 @@ describe("admin/jobs.vue", () => {
 
     const retryBtn = wrapper
       .findAll("button")
-      .find((b) => b.attributes("data-icon") === "i-lucide-rotate-cw");
+      .find((b) => b.attributes("data-icon") === "i-lineicons-reload");
     await retryBtn?.trigger("click");
 
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {
@@ -272,7 +272,7 @@ describe("admin/jobs.vue", () => {
     const jobsTable = wrapper.findAll("table")[1]!;
     const removeBtn = jobsTable
       .findAll("button")
-      .find((b) => b.attributes("data-icon") === "i-lucide-trash-2");
+      .find((b) => b.attributes("data-icon") === "i-lineicons-trash-can");
     await removeBtn?.trigger("click");
 
     expect(mocks.apiFetch).toHaveBeenCalledWith("/api/admin/jobs/%7Bvideo-processing%7D/job-2", {

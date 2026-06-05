@@ -19,7 +19,7 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
-        "@iconify-json/lucide": "^1.2.111",
+        "@iconify-json/lineicons": "^1.2.4",
         "@nuxt/test-utils": "^4.0.3",
         "@playwright/test": "^1.60.0",
         "@testing-library/dom": "^10.4.1",
@@ -209,7 +209,7 @@
 
     "@fontsource-variable/ibm-plex-sans": ["@fontsource-variable/ibm-plex-sans@5.2.8", "", {}, "sha512-n5PF2iFa0CZT0QYTPzxvZ39opC9LnU0zdoRccoADbs+Dtsd+lbXOZF7RNuIPHcQX1dKjF63sxnRImQIB5eD0Ag=="],
 
-    "@iconify-json/lucide": ["@iconify-json/lucide@1.2.111", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-S6oXom2YOKuXFxWofhHa2oq++Z3WeZ78dRFDA7aEEJqyNCJlQd1UGAfN8u2gD2NzvYotmm+j5kH678viWfZbGQ=="],
+    "@iconify-json/lineicons": ["@iconify-json/lineicons@1.2.6", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-XDOzb5xUNxpOj0j2JPadPq4udrhYb92d6jT7jey9CAJfGhSyYMzk5vmNqWormZy0ETxiHojs2ERpY9KjLjt7rA=="],
 
     "@iconify/collections": ["@iconify/collections@1.0.692", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-+5uvZPvTtE+rskWeIJZ3lwhltkBXu1epBr1LoAugRQSIekq4yb9ZIu3huswHgD+EgZufpDuSjVyc/z3aeYMHGg=="],
 

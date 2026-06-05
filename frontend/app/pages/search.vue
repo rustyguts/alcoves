@@ -153,12 +153,12 @@ async function openPreview(result: GlobalSearchResult) {
             v-model="searchInput"
             type="search"
             placeholder="Search all libraries…"
-            icon="i-lucide-search"
+            icon="i-lineicons-search"
             size="lg"
             class="w-full"
             :ui="{ root: 'w-full' }"
           />
-          <UButton type="submit" color="primary" size="lg" icon="i-lucide-search"> Search </UButton>
+          <UButton type="submit" color="primary" size="lg" icon="i-lineicons-search"> Search </UButton>
         </form>
 
         <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -177,19 +177,19 @@ async function openPreview(result: GlobalSearchResult) {
       v-if="activeQuery.length < MIN_QUERY_LENGTH"
       color="info"
       variant="soft"
-      icon="i-lucide-search-check"
+      icon="i-lineicons-search-1"
       :description="`Enter at least ${MIN_QUERY_LENGTH} characters to start searching.`"
     />
 
     <div v-else-if="status === 'pending'" class="flex items-center justify-center py-12">
-      <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+      <UIcon name="i-lineicons-spinner-solid" class="size-6 animate-spin text-muted" />
     </div>
 
     <UAlert
       v-else-if="error"
       color="error"
       variant="soft"
-      icon="i-lucide-alert-circle"
+      icon="i-lineicons-warning"
       title="Search failed"
       description="Try again in a moment."
     />
@@ -198,7 +198,7 @@ async function openPreview(result: GlobalSearchResult) {
       v-else-if="!results.length"
       color="neutral"
       variant="soft"
-      icon="i-lucide-folder-search"
+      icon="i-lineicons-folder"
       :description="`No results found for “${activeQuery}”.`"
     />
 

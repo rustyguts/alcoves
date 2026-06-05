@@ -179,7 +179,7 @@ onUnmounted(() => {
       @click.stop="open = !open"
     >
       <span v-if="modelValue" class="text-2xl leading-none">{{ modelValue }}</span>
-      <AppIcon v-else name="i-lucide-smile-plus" class="size-5 text-muted" />
+      <AppIcon v-else name="i-lineicons-emoji-smile" class="size-5 text-muted" />
     </button>
 
     <div

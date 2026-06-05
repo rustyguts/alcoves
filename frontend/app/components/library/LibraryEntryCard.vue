@@ -98,7 +98,7 @@ const durationLabel = computed(() =>
       :class="props.entry.kind === 'folder' ? 'py-3' : 'pt-2 pb-2'"
     >
       <AppIcon
-        :name="props.entry.kind === 'folder' ? 'i-lucide-folder' : getMimeIcon(props.entry.mimeType)"
+        :name="props.entry.kind === 'folder' ? 'i-lineicons-folder' : getMimeIcon(props.entry.mimeType)"
         class="size-4 mt-0.5 shrink-0 text-muted"
         :class="showTrashed && props.entry.kind === 'file' ? 'opacity-50' : ''"
       />
@@ -128,7 +128,7 @@ const durationLabel = computed(() =>
         v-if="props.entry.kind === 'file' && props.entry.hasDuplicates"
         text="Duplicate of another file in this library"
       >
-        <UIcon name="i-lucide-copy" class="size-4 mt-0.5 shrink-0 text-warning" />
+        <UIcon name="i-lineicons-clipboard" class="size-4 mt-0.5 shrink-0 text-warning" />
       </UTooltip>
       <div v-if="props.entry.tags?.length" class="flex items-center gap-1 shrink-0">
         <span
@@ -169,12 +169,12 @@ const durationLabel = computed(() =>
             crossorigin="use-credentials"
             @error="emit('thumbnailError', props.entry.id)"
           />
-          <AppIcon v-else name="i-lucide-film" class="size-10 text-muted" />
+          <AppIcon v-else name="i-lineicons-camera-movie-1" class="size-10 text-muted" />
           <div
             v-if="props.entry.proxyStatus === 'processing'"
             class="absolute inset-0 flex items-center justify-center bg-black/40"
           >
-            <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white" />
+            <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-white" />
           </div>
           <span
             v-if="durationLabel"
@@ -196,7 +196,7 @@ const durationLabel = computed(() =>
           :class="props.isSmallImage(props.entry) ? 'object-contain' : 'w-full h-full object-cover'"
           @error="emit('thumbnailError', props.entry.id)"
         />
-        <AppIcon v-else name="i-lucide-image" class="size-10 text-muted" />
+        <AppIcon v-else name="i-lineicons-image" class="size-10 text-muted" />
       </template>
       <template v-else-if="props.entry.kind === 'file'">
         <AppIcon

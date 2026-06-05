@@ -10,7 +10,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   confirmClass: "",
-  confirmIcon: "i-lucide-check",
+  confirmIcon: "i-lineicons-check",
   pending: false,
 });
 

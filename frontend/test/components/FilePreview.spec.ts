@@ -140,8 +140,8 @@ describe("FilePreview", () => {
 
     // Should have both previous and next navigation buttons (identified by icon name)
     const svgs = wrapper.findAll("svg");
-    const prevIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-left");
-    const nextIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-right");
+    const prevIcon = svgs.find((s) => s.attributes("data-name") === "i-lineicons-chevron-left");
+    const nextIcon = svgs.find((s) => s.attributes("data-name") === "i-lineicons-chevron-right");
 
     expect(prevIcon?.exists()).toBe(true);
     expect(nextIcon?.exists()).toBe(true);
@@ -159,7 +159,7 @@ describe("FilePreview", () => {
     });
 
     const svgs = wrapper.findAll("svg");
-    const prevIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-left");
+    const prevIcon = svgs.find((s) => s.attributes("data-name") === "i-lineicons-chevron-left");
     expect(prevIcon).toBeUndefined();
   });
 
@@ -175,7 +175,7 @@ describe("FilePreview", () => {
     });
 
     const svgs = wrapper.findAll("svg");
-    const nextIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-right");
+    const nextIcon = svgs.find((s) => s.attributes("data-name") === "i-lineicons-chevron-right");
     expect(nextIcon).toBeUndefined();
   });
 
@@ -192,7 +192,7 @@ describe("FilePreview", () => {
 
     // Find the next button by looking for the button containing the chevron-right icon
     const svgs = wrapper.findAll("svg");
-    const nextIcon = svgs.find((s) => s.attributes("data-name") === "i-lucide-chevron-right");
+    const nextIcon = svgs.find((s) => s.attributes("data-name") === "i-lineicons-chevron-right");
     // Click the parent button
     await nextIcon?.element.closest("button")?.click();
     await nextTick();
