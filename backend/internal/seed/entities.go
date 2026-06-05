@@ -9,6 +9,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
+	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
 // --- small pointer helpers -------------------------------------------------
@@ -242,7 +243,7 @@ func (s *seeder) addFile(spec fileSpec) *models.File {
 			s.fail(terr)
 			return &models.File{}
 		}
-		cacheKey := fmt.Sprintf("%s/%s/thumbnail.webp", spec.lib.String(), fid.String())
+		cacheKey := storage.ThumbnailKey(spec.lib.String(), fid.String())
 		if serr := s.st.StoreCacheBuffer(cacheKey, thumb); serr != nil {
 			s.fail(fmt.Errorf("store thumbnail for %s: %w", spec.name, serr))
 			return &models.File{}

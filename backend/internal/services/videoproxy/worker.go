@@ -687,7 +687,7 @@ func (h *TaskHandler) storeThumbnail(libraryID, fileID, thumbPath string) {
 		log.Printf("video:proxy — failed to read thumbnail for %s: %v", fileID, err)
 		return
 	}
-	cacheKey := fmt.Sprintf("%s/%s/thumbnail.webp", libraryID, fileID)
+	cacheKey := storage.ThumbnailKey(libraryID, fileID)
 	if err := h.storage.StoreCacheBuffer(cacheKey, data); err != nil {
 		log.Printf("video:proxy — failed to store thumbnail for %s: %v", fileID, err)
 	}

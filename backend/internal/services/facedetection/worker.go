@@ -272,7 +272,7 @@ func (h *TaskHandler) generateFaceThumbnail(imageData []byte, face DetectedFace,
 	}
 
 	// Store in cache
-	cacheKey := fmt.Sprintf("%s/faces/%s.webp", libraryID, detectionID)
+	cacheKey := storage.FaceCropKey(libraryID, detectionID)
 	return h.storage.StoreCacheBuffer(cacheKey, webpData)
 }
 

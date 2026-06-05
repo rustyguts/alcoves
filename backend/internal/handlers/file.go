@@ -737,7 +737,7 @@ func (h *FileHandler) PlaybackSources(c echo.Context) error {
 	}
 
 	if len(proxies) == 0 && source.ProxyStatus != nil && *source.ProxyStatus == "ready" {
-		cacheKey := fmt.Sprintf("%s/%s/proxy.mp4", libraryID, source.ID.String())
+		cacheKey := storage.ProxyKey(libraryID, source.ID.String())
 		if exists, _ := h.storageSvc.CacheExists(cacheKey); exists {
 			defaultSourceID = source.ID.String() + "::legacy-proxy"
 			sources = append(sources, playbackSourceResponse{
@@ -865,7 +865,7 @@ func (h *FileHandler) GetWaveform(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Waveform not ready")
 	}
 
-	cacheKey := fmt.Sprintf("%s/%s/waveform.json", libraryID, fileID)
+	cacheKey := storage.WaveformKey(libraryID, fileID)
 	// Stream the waveform JSON without loading it fully into RAM.
 	rc, err := h.storageSvc.OpenCacheReadStream(cacheKey)
 	if err != nil {
@@ -1051,7 +1051,7 @@ func (h *FileHandler) Proxy(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, msg)
 	}
 
-	cacheKey := fmt.Sprintf("%s/%s/proxy.mp4", libraryID, fileID)
+	cacheKey := storage.ProxyKey(libraryID, fileID)
 	exists, _ := h.storageSvc.CacheExists(cacheKey)
 	if !exists {
 		return echo.NewHTTPError(http.StatusNotFound, "Proxy file not found")
@@ -1124,7 +1124,7 @@ func (h *FileHandler) Thumbnail(c echo.Context) error {
 		return c.Redirect(http.StatusFound, fmt.Sprintf("/api/libraries/%s/files/%s?inline=true", libraryID, file.ThumbnailFileID.String()))
 	}
 
-	cacheKey := fmt.Sprintf("%s/%s/thumbnail.webp", libraryID, fileID)
+	cacheKey := storage.ThumbnailKey(libraryID, fileID)
 	exists, _ := h.storageSvc.CacheExists(cacheKey)
 	if !exists {
 		return echo.NewHTTPError(http.StatusNotFound, "Thumbnail not found")

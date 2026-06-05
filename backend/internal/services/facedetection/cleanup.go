@@ -75,7 +75,7 @@ func DeleteFaceDataForFiles(db *gorm.DB, storageSvc *storage.Service, libraryID 
 
 	// Clean up cached thumbnails
 	for _, d := range detections {
-		cacheKey := fmt.Sprintf("%s/faces/%s.webp", libraryID, d.ID.String())
+		cacheKey := storage.FaceCropKey(libraryID, d.ID.String())
 		if err := storageSvc.DeleteCachePrefix(cacheKey); err != nil {
 			log.Printf("failed to delete face thumbnail cache %s: %v", cacheKey, err)
 		}

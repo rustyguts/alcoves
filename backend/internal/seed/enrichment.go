@@ -13,6 +13,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
+	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
 // --- faces & people --------------------------------------------------------
@@ -72,7 +73,7 @@ func (s *seeder) addFace(idName string, file *models.File, lib uuid.UUID, person
 			s.fail(cerr)
 			return fd
 		}
-		if serr := s.st.StoreCacheBuffer(fmt.Sprintf("%s/faces/%s.webp", lib.String(), fd.ID.String()), crop); serr != nil {
+		if serr := s.st.StoreCacheBuffer(storage.FaceCropKey(lib.String(), fd.ID.String()), crop); serr != nil {
 			s.fail(fmt.Errorf("store face crop %s: %w", idName, serr))
 			return fd
 		}
@@ -259,7 +260,7 @@ func (s *seeder) addWaveform(file *models.File, lib uuid.UUID, duration int) {
 		"peaksPerSecond": peaksPerSecond,
 		"sampleRate":     16000,
 	})
-	cacheKey := fmt.Sprintf("%s/%s/waveform.json", lib.String(), file.ID.String())
+	cacheKey := storage.WaveformKey(lib.String(), file.ID.String())
 	if err := s.st.StoreCacheBuffer(cacheKey, payload); err != nil {
 		s.fail(fmt.Errorf("store waveform: %w", err))
 		return

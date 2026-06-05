@@ -156,6 +156,26 @@ func avatarKey(userID string) string {
 	return fmt.Sprintf("%s/avatar.webp", userID)
 }
 
+// ThumbnailKey returns the cache key for a file's generated thumbnail.
+func ThumbnailKey(libraryID, fileID string) string {
+	return fmt.Sprintf("%s/%s/thumbnail.webp", libraryID, fileID)
+}
+
+// ProxyKey returns the cache key for a file's transcoded video proxy.
+func ProxyKey(libraryID, fileID string) string {
+	return fmt.Sprintf("%s/%s/proxy.mp4", libraryID, fileID)
+}
+
+// WaveformKey returns the cache key for a file's audio waveform JSON.
+func WaveformKey(libraryID, fileID string) string {
+	return fmt.Sprintf("%s/%s/waveform.json", libraryID, fileID)
+}
+
+// FaceCropKey returns the cache key for a detected face's cropped thumbnail.
+func FaceCropKey(libraryID, faceID string) string {
+	return fmt.Sprintf("%s/faces/%s.webp", libraryID, faceID)
+}
+
 // LocalDriver implements Driver using the local filesystem.
 type LocalDriver struct {
 	roots map[Scope]string
