@@ -5,7 +5,6 @@ describe("formatDuration", () => {
 	it("renders sub-minute durations as m:ss", () => {
 		expect(formatDuration(42)).toBe("0:42");
 		expect(formatDuration(5)).toBe("0:05");
-		expect(formatDuration(0)).toBe("0:00");
 	});
 
 	it("renders minutes as m:ss without leading zero on minutes", () => {
@@ -24,11 +23,15 @@ describe("formatDuration", () => {
 		expect(formatDuration(12.4)).toBe("0:12");
 	});
 
-	it("returns null for missing or invalid input", () => {
+	it("returns null for missing, invalid, or non-positive input", () => {
 		expect(formatDuration(null)).toBeNull();
 		expect(formatDuration(undefined)).toBeNull();
 		expect(formatDuration(-1)).toBeNull();
 		expect(formatDuration(Number.NaN)).toBeNull();
 		expect(formatDuration(Number.POSITIVE_INFINITY)).toBeNull();
+		// 0 (and anything that rounds to 0:00) means unknown / still-processing —
+		// hide the badge rather than render a misleading 0:00.
+		expect(formatDuration(0)).toBeNull();
+		expect(formatDuration(0.4)).toBeNull();
 	});
 });

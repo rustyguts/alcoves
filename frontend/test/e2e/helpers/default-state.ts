@@ -168,6 +168,7 @@ function makeFile(
     size,
     width: null,
     height: null,
+    duration: null,
     thumbnailReady: true,
     posterUrl: null,
     trashedAt: null,
