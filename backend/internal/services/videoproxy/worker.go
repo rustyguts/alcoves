@@ -1,14 +1,11 @@
 package videoproxy
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,6 +19,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
+	"github.com/alcoves/alcoves-backend/internal/services/ffmpeg"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -193,7 +191,7 @@ func (h *TaskHandler) processVideo(ctx context.Context, libraryID, fileID string
 	proxyID := uuid.New()
 	proxyName := buildProxyName(file.Name)
 	proxyFile := models.File{
-		ID:           proxyID,
+		BaseModel:    models.BaseModel{ID: proxyID},
 		LibraryID:    file.LibraryID,
 		Name:         proxyName,
 		MimeType:     "video/mp4",
@@ -303,7 +301,7 @@ func (h *TaskHandler) processVideoThumbnail(ctx context.Context, libraryID, file
 
 	thumbID := uuid.New()
 	thumb := models.File{
-		ID:           thumbID,
+		BaseModel:    models.BaseModel{ID: thumbID},
 		LibraryID:    file.LibraryID,
 		Name:         buildThumbnailName(file.Name),
 		MimeType:     "image/jpeg",
@@ -470,84 +468,8 @@ func transcodeVideo(
 
 	args = append(args, dstPath)
 
-	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
-	cmd.Stdout = io.Discard
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create ffmpeg stderr pipe: %w", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start ffmpeg: %w", err)
-	}
-
-	lastProgress := -1
-	lastETA := -1
-	currentOutTimeSeconds := 0.0
-	currentSpeed := 0.0
-
-	scanner := bufio.NewScanner(stderrPipe)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := parts[0]
-		value := parts[1]
-
-		switch key {
-		case "out_time":
-			if parsed, parseErr := parseFFmpegOutTime(value); parseErr == nil {
-				currentOutTimeSeconds = parsed
-			}
-		case "speed":
-			if parsed, parseErr := parseFFmpegSpeed(value); parseErr == nil {
-				currentSpeed = parsed
-			}
-		case "progress":
-			if durationSeconds <= 0 || onProgress == nil {
-				continue
-			}
-
-			percent := int(math.Round((currentOutTimeSeconds / durationSeconds) * 100))
-			if percent < 0 {
-				percent = 0
-			}
-			if percent > 100 {
-				percent = 100
-			}
-
-			var etaSeconds *int
-			etaVal := -1
-			if currentSpeed > 0 && currentOutTimeSeconds < durationSeconds {
-				remaining := durationSeconds - currentOutTimeSeconds
-				eta := int(math.Ceil(remaining / currentSpeed))
-				if eta < 0 {
-					eta = 0
-				}
-				etaSeconds = &eta
-				etaVal = eta
-			}
-
-			if percent != lastProgress || etaVal != lastETA {
-				onProgress(percent, etaSeconds)
-				lastProgress = percent
-				lastETA = etaVal
-			}
-		}
-	}
-
-	if scanErr := scanner.Err(); scanErr != nil {
-		log.Printf("video:proxy — ffmpeg progress parse warning: %v", scanErr)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("ffmpeg exited with error: %w", err)
+	if err := ffmpeg.RunWithProgress(ctx, "ffmpeg", args, durationSeconds, onProgress); err != nil {
+		return err
 	}
 
 	if onProgress != nil {
@@ -562,45 +484,6 @@ func transcodeVideo(
 	}
 
 	return nil
-}
-
-func parseFFmpegOutTime(value string) (float64, error) {
-	parts := strings.Split(value, ":")
-	if len(parts) != 3 {
-		return 0, fmt.Errorf("invalid out_time: %q", value)
-	}
-
-	hours, err := strconv.ParseFloat(parts[0], 64)
-	if err != nil {
-		return 0, err
-	}
-	minutes, err := strconv.ParseFloat(parts[1], 64)
-	if err != nil {
-		return 0, err
-	}
-	seconds, err := strconv.ParseFloat(parts[2], 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return (hours * 3600) + (minutes * 60) + seconds, nil
-}
-
-func parseFFmpegSpeed(value string) (float64, error) {
-	trimmed := strings.TrimSuffix(strings.TrimSpace(value), "x")
-	if trimmed == "" {
-		return 0, fmt.Errorf("empty speed")
-	}
-
-	speed, err := strconv.ParseFloat(trimmed, 64)
-	if err != nil {
-		return 0, err
-	}
-	if speed <= 0 {
-		return 0, fmt.Errorf("invalid speed: %f", speed)
-	}
-
-	return speed, nil
 }
 
 // thumbnailColorFilter normalizes arbitrary SDR/HDR inputs to SDR BT.709
@@ -687,7 +570,7 @@ func (h *TaskHandler) storeThumbnail(libraryID, fileID, thumbPath string) {
 		log.Printf("video:proxy — failed to read thumbnail for %s: %v", fileID, err)
 		return
 	}
-	cacheKey := fmt.Sprintf("%s/%s/thumbnail.webp", libraryID, fileID)
+	cacheKey := storage.ThumbnailKey(libraryID, fileID)
 	if err := h.storage.StoreCacheBuffer(cacheKey, data); err != nil {
 		log.Printf("video:proxy — failed to store thumbnail for %s: %v", fileID, err)
 	}

@@ -242,10 +242,10 @@ func (h *MemberHandler) RemoveMember(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Member not found")
 	}
 
-	if h.activitySvc != nil {
+	{
 		libUUID, _ := uuid.Parse(libraryID)
 		actor := userID
-		h.activitySvc.EmitAsync(activity.EmitParams{
+		emitActivity(h.activitySvc, activity.EmitParams{
 			LibraryID:   libUUID,
 			ActorID:     &actor,
 			Action:      activity.ActionMemberRemoved,

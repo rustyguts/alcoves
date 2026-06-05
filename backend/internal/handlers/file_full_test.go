@@ -42,7 +42,6 @@ func fullFileHandler(t *testing.T) (*FileHandler, *gorm.DB, *storage.Service, pu
 	t.Cleanup(func() { _ = client.Close() })
 
 	activitySvc := activity.NewService(db, activity.NewHub(), activity.NewBus(nil))
-	fileSvc := files.NewService(db)
 	cfg := &config.Config{}
 	settingsSvc, _ := settings.NewService(db)
 
@@ -53,7 +52,20 @@ func fullFileHandler(t *testing.T) (*FileHandler, *gorm.DB, *storage.Service, pu
 	audioDetectSvc := audiodetection.NewService(db, st, client, cfg, settingsSvc)
 	waveformSvc := waveform.NewService(db, st, client, cfg, activitySvc)
 
-	h := NewFileHandler(db, fileSvc, st, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, nil, activitySvc)
+	// Ingest-configured service so Upload's IngestStream call works, matching
+	// the production wiring (the direct-upload handler shares the ingest svc).
+	fileSvc := files.NewServiceWithIngest(db, files.IngestDeps{
+		Storage:     st,
+		Face:        faceSvc,
+		Object:      objSvc,
+		Video:       videoSvc,
+		Waveform:    waveformSvc,
+		Transcribe:  transcribeSvc,
+		AudioDetect: audioDetectSvc,
+		Activity:    activitySvc,
+	})
+
+	h := NewFileHandler(db, fileSvc, st, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, nil, activitySvc)
 	fix := seedLibrary(t, db)
 	return h, db, st, fix
 }
@@ -94,7 +106,7 @@ func ffCtx(method, target, body string, fix purgeTestFixture, params map[string]
 func mkVideo(t *testing.T, db *gorm.DB, fix purgeTestFixture) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
-	f := models.File{ID: id, LibraryID: fix.LibraryID, Name: "v.mp4", MimeType: "video/mp4", Size: 10, OwnerID: &fix.UserID}
+	f := models.File{BaseModel: models.BaseModel{ID: id}, LibraryID: fix.LibraryID, Name: "v.mp4", MimeType: "video/mp4", Size: 10, OwnerID: &fix.UserID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create video: %v", err)
 	}
@@ -530,7 +542,7 @@ func TestFile_PlaybackSources_WithProxy(t *testing.T) {
 	db.Model(&models.File{}).Where("id = ?", srcID).Update("proxy_status", &ready)
 	// proxy file referencing source
 	proxyID := uuid.New()
-	proxy := models.File{ID: proxyID, LibraryID: fix.LibraryID, Name: "p.mp4", MimeType: "video/mp4", Size: 5, OwnerID: &fix.UserID, SourceFileID: &srcID}
+	proxy := models.File{BaseModel: models.BaseModel{ID: proxyID}, LibraryID: fix.LibraryID, Name: "p.mp4", MimeType: "video/mp4", Size: 5, OwnerID: &fix.UserID, SourceFileID: &srcID}
 	if err := db.Create(&proxy).Error; err != nil {
 		t.Fatalf("create proxy: %v", err)
 	}
@@ -594,7 +606,7 @@ func TestFile_GenerateProxy_ProxyFile(t *testing.T) {
 	h, db, _, fix := fullFileHandler(t)
 	src := mkVideo(t, db, fix)
 	pid := uuid.New()
-	p := models.File{ID: pid, LibraryID: fix.LibraryID, Name: "p.mp4", MimeType: "video/mp4", Size: 5, OwnerID: &fix.UserID, SourceFileID: &src}
+	p := models.File{BaseModel: models.BaseModel{ID: pid}, LibraryID: fix.LibraryID, Name: "p.mp4", MimeType: "video/mp4", Size: 5, OwnerID: &fix.UserID, SourceFileID: &src}
 	db.Create(&p)
 	c, _ := ffCtx(http.MethodPost, "/", "", fix, map[string]string{"id": fix.LibraryID.String(), "fileId": pid.String()})
 	if httpCode(t, h.GenerateProxy(c)) != http.StatusBadRequest {
@@ -605,7 +617,7 @@ func TestFile_GenerateProxy_ProxyFile(t *testing.T) {
 func TestFile_GenerateProxy_NilSvc(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	st := setupPurgeStorage(t)
-	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil)
 	fix := seedLibrary(t, db)
 	id := mkVideo(t, db, fix)
 	c, _ := ffCtx(http.MethodPost, "/", "", fix, map[string]string{"id": fix.LibraryID.String(), "fileId": id.String()})
@@ -697,7 +709,7 @@ func TestFile_GenerateAudioDetections_OK(t *testing.T) {
 func TestFile_ListAudioDetections_NilSvc(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	st := setupPurgeStorage(t)
-	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil)
 	fix := seedLibrary(t, db)
 	id := mkVideo(t, db, fix)
 	c, rec := ffCtx(http.MethodGet, "/", "", fix, map[string]string{"id": fix.LibraryID.String(), "fileId": id.String()})
@@ -744,7 +756,7 @@ func TestFile_Proxy_RedirectProxyFile(t *testing.T) {
 	h, db, _, fix := fullFileHandler(t)
 	src := mkVideo(t, db, fix)
 	pid := uuid.New()
-	p := models.File{ID: pid, LibraryID: fix.LibraryID, Name: "p.mp4", MimeType: "video/mp4", Size: 5, OwnerID: &fix.UserID, SourceFileID: &src}
+	p := models.File{BaseModel: models.BaseModel{ID: pid}, LibraryID: fix.LibraryID, Name: "p.mp4", MimeType: "video/mp4", Size: 5, OwnerID: &fix.UserID, SourceFileID: &src}
 	db.Create(&p)
 	c, rec := ffCtx(http.MethodGet, "/", "", fix, map[string]string{"id": fix.LibraryID.String(), "fileId": pid.String()})
 	if err := h.Proxy(c); err != nil {
@@ -759,7 +771,7 @@ func TestFile_Proxy_RedirectToProxy(t *testing.T) {
 	h, db, _, fix := fullFileHandler(t)
 	src := mkVideo(t, db, fix)
 	pid := uuid.New()
-	p := models.File{ID: pid, LibraryID: fix.LibraryID, Name: "p.mp4", MimeType: "video/mp4", Size: 5, OwnerID: &fix.UserID, SourceFileID: &src}
+	p := models.File{BaseModel: models.BaseModel{ID: pid}, LibraryID: fix.LibraryID, Name: "p.mp4", MimeType: "video/mp4", Size: 5, OwnerID: &fix.UserID, SourceFileID: &src}
 	db.Create(&p)
 	c, rec := ffCtx(http.MethodGet, "/", "", fix, map[string]string{"id": fix.LibraryID.String(), "fileId": src.String()})
 	if err := h.Proxy(c); err != nil {
@@ -865,7 +877,7 @@ func TestFile_Thumbnail_RedirectFileID(t *testing.T) {
 	h, db, _, fix := fullFileHandler(t)
 	thumbID := createFile(t, db, fix.LibraryID, fix.UserID, "t.webp", false, nil)
 	id := uuid.New()
-	f := models.File{ID: id, LibraryID: fix.LibraryID, Name: "a.jpg", MimeType: "image/jpeg", Size: 1, OwnerID: &fix.UserID, ThumbnailFileID: &thumbID}
+	f := models.File{BaseModel: models.BaseModel{ID: id}, LibraryID: fix.LibraryID, Name: "a.jpg", MimeType: "image/jpeg", Size: 1, OwnerID: &fix.UserID, ThumbnailFileID: &thumbID}
 	db.Create(&f)
 	c, rec := ffCtx(http.MethodGet, "/", "", fix, map[string]string{"id": fix.LibraryID.String(), "fileId": id.String()})
 	if err := h.Thumbnail(c); err != nil {
@@ -914,7 +926,7 @@ func TestFile_ReprocessVideoThumbnails_NotOwner(t *testing.T) {
 func TestFile_ReprocessVideoThumbnails_NilSvc(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	st := setupPurgeStorage(t)
-	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil)
 	fix := seedLibrary(t, db)
 	c, _ := ffCtx(http.MethodPost, "/", "", fix, map[string]string{"id": fix.LibraryID.String()})
 	if httpCode(t, h.ReprocessVideoThumbnails(c)) != http.StatusServiceUnavailable {
@@ -964,7 +976,7 @@ func TestFile_BulkAudioDetect_All(t *testing.T) {
 func TestFile_BulkTranscribe_NilSvc(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	st := setupPurgeStorage(t)
-	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil)
 	fix := seedLibrary(t, db)
 	c, _ := ffCtx(http.MethodPost, "/", `{}`, fix, map[string]string{"id": fix.LibraryID.String()})
 	if httpCode(t, h.BulkTranscribe(c)) != http.StatusServiceUnavailable {

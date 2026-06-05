@@ -150,20 +150,20 @@ func genVideo(t *testing.T, dir, name string) string {
 
 func seedMoment(t *testing.T, db *gorm.DB, start, end float64, exportVersion int) (libID, fileID, momentID uuid.UUID) {
 	t.Helper()
-	owner := models.User{ID: uuid.New(), Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
+	owner := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
 	if err := db.Create(&owner).Error; err != nil {
 		t.Fatalf("create owner: %v", err)
 	}
-	lib := models.Library{ID: uuid.New(), Name: "Lib", OwnerID: owner.ID}
+	lib := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "Lib", OwnerID: owner.ID}
 	if err := db.Create(&lib).Error; err != nil {
 		t.Fatalf("create library: %v", err)
 	}
-	file := models.File{ID: uuid.New(), LibraryID: lib.ID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &owner.ID}
+	file := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: lib.ID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &owner.ID}
 	if err := db.Create(&file).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
 	moment := models.Moment{
-		ID:            uuid.New(),
+		BaseModel:     models.BaseModel{ID: uuid.New()},
 		FileID:        file.ID,
 		LibraryID:     lib.ID,
 		CreatedByID:   owner.ID,
@@ -202,70 +202,8 @@ func TestStringPtr(t *testing.T) {
 	}
 }
 
-func TestParseOutTime(t *testing.T) {
-	cases := []struct {
-		in      string
-		want    float64
-		wantErr bool
-	}{
-		{"00:00:01.500000", 1.5, false},
-		{"01:02:03.0", 3723.0, false},
-		{"00:00:00.0", 0, false},
-		{"bad", 0, true},
-		{"1:2", 0, true},
-		{"aa:00:00", 0, true},
-		{"00:bb:00", 0, true},
-		{"00:00:cc", 0, true},
-	}
-	for _, tc := range cases {
-		got, err := parseOutTime(tc.in)
-		if tc.wantErr {
-			if err == nil {
-				t.Errorf("parseOutTime(%q): expected error", tc.in)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("parseOutTime(%q): %v", tc.in, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("parseOutTime(%q) = %v, want %v", tc.in, got, tc.want)
-		}
-	}
-}
-
-func TestParseSpeed(t *testing.T) {
-	cases := []struct {
-		in      string
-		want    float64
-		wantErr bool
-	}{
-		{"1.5x", 1.5, false},
-		{" 2x ", 2, false},
-		{"x", 0, true},
-		{"", 0, true},
-		{"0x", 0, true},
-		{"-1x", 0, true},
-		{"abcx", 0, true},
-	}
-	for _, tc := range cases {
-		got, err := parseSpeed(tc.in)
-		if tc.wantErr {
-			if err == nil {
-				t.Errorf("parseSpeed(%q): expected error", tc.in)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("parseSpeed(%q): %v", tc.in, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("parseSpeed(%q) = %v, want %v", tc.in, got, tc.want)
-		}
-	}
-}
+// NOTE: out_time/speed parsing moved to internal/services/ffmpeg; its tests now
+// live in that package (ffmpeg_test.go).
 
 func TestNewServiceAndHandler(t *testing.T) {
 	s := NewService(nil, nil, nil)

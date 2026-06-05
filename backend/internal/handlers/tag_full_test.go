@@ -127,7 +127,7 @@ func TestTag_Create_BadBody(t *testing.T) {
 func TestTag_Create_AutoColorAfterPaletteUsed(t *testing.T) {
 	h, db, fix := fullTagHandler(t)
 	for i, color := range TagColorPalette {
-		tag := models.Tag{ID: uuid.New(), LibraryID: fix.LibraryID, Name: fmt.Sprintf("t%d", i), Color: color}
+		tag := models.Tag{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: fix.LibraryID, Name: fmt.Sprintf("t%d", i), Color: color}
 		db.Create(&tag)
 	}
 	c, rec := tagCtx(http.MethodPost, `{"name":"overflow"}`, fix, map[string]string{"id": fix.LibraryID.String()})

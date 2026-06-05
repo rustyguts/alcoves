@@ -168,11 +168,11 @@ func genSilentVideo(t *testing.T, dir, name string) string {
 
 func seedLibrary(t *testing.T, db *gorm.DB) (uuid.UUID, uuid.UUID) {
 	t.Helper()
-	owner := models.User{ID: uuid.New(), Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
+	owner := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
 	if err := db.Create(&owner).Error; err != nil {
 		t.Fatalf("create owner: %v", err)
 	}
-	lib := models.Library{ID: uuid.New(), Name: "Lib", OwnerID: owner.ID}
+	lib := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "Lib", OwnerID: owner.ID}
 	if err := db.Create(&lib).Error; err != nil {
 		t.Fatalf("create library: %v", err)
 	}
@@ -368,7 +368,7 @@ func TestCopySourceToTemp_MissingBlob(t *testing.T) {
 func TestSetStateAndFail(t *testing.T) {
 	db := setupTestDB(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "a.wav", MimeType: "audio/wav", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "a.wav", MimeType: "audio/wav", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestSetStateAndFail(t *testing.T) {
 func TestComplete(t *testing.T) {
 	db := setupTestDB(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "a.wav", MimeType: "audio/wav", OwnerID: &ownerID, WaveformVersion: 3}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "a.wav", MimeType: "audio/wav", OwnerID: &ownerID, WaveformVersion: 3}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestRun_NotFound(t *testing.T) {
 func TestRun_NotAudioOrVideo(t *testing.T) {
 	db := setupTestDB(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "doc.txt", MimeType: "text/plain", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "doc.txt", MimeType: "text/plain", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -455,7 +455,7 @@ func TestRun_OpenSourceFails(t *testing.T) {
 	db := setupTestDB(t)
 	store := setupTestStorage(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "a.wav", MimeType: "audio/wav", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "a.wav", MimeType: "audio/wav", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -489,7 +489,7 @@ func TestRun_VideoOnly_FailsViaExtractPCM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -515,7 +515,7 @@ func TestStoreEmptyWaveform_DirectlyCovered(t *testing.T) {
 	db := setupTestDB(t)
 	store := setupTestStorage(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "x.wav", MimeType: "audio/wav", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "x.wav", MimeType: "audio/wav", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -540,7 +540,7 @@ func TestRun_WithAudioFullFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "a.wav", MimeType: "audio/wav", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "a.wav", MimeType: "audio/wav", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}

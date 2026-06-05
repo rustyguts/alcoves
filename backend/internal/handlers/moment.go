@@ -237,23 +237,21 @@ func (h *MomentHandler) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create moment")
 	}
 
-	if h.activitySvc != nil {
-		aid := userID
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   libraryID,
-			ActorID:     &aid,
-			Action:      activity.ActionMomentCreated,
-			SubjectType: activity.SubjectMoment,
-			SubjectID:   &moment.ID,
-			Metadata: map[string]any{
-				"name":         moment.Name,
-				"fileId":       file.ID.String(),
-				"fileName":     file.Name,
-				"startSeconds": moment.StartSeconds,
-				"endSeconds":   moment.EndSeconds,
-			},
-		})
-	}
+	aid := userID
+	emitActivity(h.activitySvc, activity.EmitParams{
+		LibraryID:   libraryID,
+		ActorID:     &aid,
+		Action:      activity.ActionMomentCreated,
+		SubjectType: activity.SubjectMoment,
+		SubjectID:   &moment.ID,
+		Metadata: map[string]any{
+			"name":         moment.Name,
+			"fileId":       file.ID.String(),
+			"fileName":     file.Name,
+			"startSeconds": moment.StartSeconds,
+			"endSeconds":   moment.EndSeconds,
+		},
+	})
 
 	return c.JSON(http.StatusCreated, h.toMomentResponse(&moment, nil))
 }

@@ -190,7 +190,7 @@ func (h *PeopleHandler) Thumbnail(c echo.Context) error {
 	}
 
 	// Try to serve cached face crop
-	cacheKey := fmt.Sprintf("%s/faces/%s.webp", libraryID, face.ID.String())
+	cacheKey := storage.FaceCropKey(libraryID, face.ID.String())
 	exists, _ := h.storageSvc.CacheExists(cacheKey)
 	if exists {
 		data, err := h.storageSvc.ReadCacheBuffer(cacheKey)

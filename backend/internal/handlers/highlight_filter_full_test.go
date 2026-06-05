@@ -50,7 +50,7 @@ func hfCtx(method, body string, fix purgeTestFixture, params map[string]string) 
 func mkHF(t *testing.T, db *gorm.DB, libID uuid.UUID, name string) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
-	f := models.HighlightFilter{ID: id, LibraryID: libID, Name: name, Expression: "word:hello", ProximitySeconds: 5, Color: "#3B82F6"}
+	f := models.HighlightFilter{BaseModel: models.BaseModel{ID: id}, LibraryID: libID, Name: name, Expression: "word:hello", ProximitySeconds: 5, Color: "#3B82F6"}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create hf: %v", err)
 	}

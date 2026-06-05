@@ -45,9 +45,9 @@ func setupSignedTest(t *testing.T) (*SignedHandler, *gorm.DB, *storage.Service, 
 	h := NewSignedHandler(db, st, ingestSvc, signer)
 
 	userID := uuid.New()
-	db.Create(&models.User{ID: userID, Email: "signed@test.com", DisplayName: "Signed", Role: "member"})
+	db.Create(&models.User{BaseModel: models.BaseModel{ID: userID}, Email: "signed@test.com", DisplayName: "Signed", Role: "member"})
 	libID := uuid.New()
-	db.Create(&models.Library{ID: libID, Name: "Signed Lib", OwnerID: userID})
+	db.Create(&models.Library{BaseModel: models.BaseModel{ID: libID}, Name: "Signed Lib", OwnerID: userID})
 
 	return h, db, st, signer, userID, libID
 }
@@ -129,7 +129,7 @@ func TestSignedDownload_RangeAndFull(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Minimal File row so the handler's metadata lookup succeeds.
-	h.db.Create(&models.File{ID: fileID, LibraryID: libID, Name: "f.txt", MimeType: "text/plain", Size: int64(len(content))})
+	h.db.Create(&models.File{BaseModel: models.BaseModel{ID: fileID}, LibraryID: libID, Name: "f.txt", MimeType: "text/plain", Size: int64(len(content))})
 
 	token := signer.SignDownload(libID, fileID, time.Now().Add(time.Hour))
 

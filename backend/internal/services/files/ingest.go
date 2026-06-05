@@ -90,7 +90,7 @@ func (s *Service) IngestStream(ctx context.Context, p IngestParams, r io.Reader)
 
 	hashStr := hr.HexSum()
 	file := models.File{
-		ID:                fileID,
+		BaseModel:         models.BaseModel{ID: fileID},
 		LibraryID:         p.LibraryID,
 		ParentFolderID:    p.FolderID,
 		Name:              p.Name,

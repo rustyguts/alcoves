@@ -2,16 +2,16 @@ package audiodetection
 
 import (
 	"bufio"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/alcoves/alcoves-backend/internal/services/modelfetch"
 	ort "github.com/yalue/onnxruntime_go"
 )
 
@@ -28,113 +28,26 @@ const (
 // missing. modelFile is the per-model filename from the registry; modelURL
 // is the fully-resolved URL the worker constructed from
 // AudioDetectModelBaseURL + modelFile.
-func EnsureAssets(modelsDir, modelFile, modelURL, labelsURL string) (string, string, error) {
+func EnsureAssets(ctx context.Context, modelsDir, modelFile, modelURL, labelsURL string) (string, string, error) {
 	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
 		return "", "", fmt.Errorf("mkdir models: %w", err)
 	}
 	modelPath := filepath.Join(modelsDir, modelFile)
 	labelsPath := filepath.Join(modelsDir, labelsFile)
 
-	if err := downloadIfMissing(modelPath, modelURL, minModelSize); err != nil {
+	if err := modelfetch.FetchToFile(ctx, modelURL, modelPath, modelfetch.Options{
+		MinSize:    minModelSize,
+		RejectHTML: true,
+	}); err != nil {
 		return "", "", fmt.Errorf("download model: %w", err)
 	}
-	if err := downloadIfMissing(labelsPath, labelsURL, 1024); err != nil {
+	if err := modelfetch.FetchToFile(ctx, labelsURL, labelsPath, modelfetch.Options{
+		MinSize:    1024,
+		RejectHTML: false, // csv: html allowed
+	}); err != nil {
 		return "", "", fmt.Errorf("download labels: %w", err)
 	}
 	return modelPath, labelsPath, nil
-}
-
-func downloadIfMissing(dest, url string, minSize int64) error {
-	if info, err := os.Stat(dest); err == nil {
-		if info.Size() >= minSize {
-			return nil
-		}
-		log.Printf("audiodetection: existing file %s too small (%d), re-downloading", dest, info.Size())
-	}
-
-	const maxAttempts = 6
-	var lastErr error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Printf("audiodetection: downloading %s (attempt %d/%d)", url, attempt, maxAttempts)
-		err := doDownload(dest, url)
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		if !isTransient(err) {
-			return err
-		}
-		backoff := time.Duration(1<<uint(attempt-1)) * time.Second
-		if backoff > 30*time.Second {
-			backoff = 30 * time.Second
-		}
-		log.Printf("audiodetection: transient error (%v), retrying in %s", err, backoff)
-		time.Sleep(backoff)
-	}
-	return fmt.Errorf("download failed after %d attempts: %w", maxAttempts, lastErr)
-}
-
-type transientErr struct{ err error }
-
-func (e *transientErr) Error() string { return e.err.Error() }
-func (e *transientErr) Unwrap() error { return e.err }
-
-func isTransient(err error) bool {
-	var t *transientErr
-	return err != nil && (errorAs(err, &t) || strings.Contains(err.Error(), "connection reset") || strings.Contains(err.Error(), "EOF") || strings.Contains(err.Error(), "unexpected EOF"))
-}
-
-func errorAs(err error, target **transientErr) bool {
-	for e := err; e != nil; {
-		if t, ok := e.(*transientErr); ok {
-			*target = t
-			return true
-		}
-		type unwrapper interface{ Unwrap() error }
-		u, ok := e.(unwrapper)
-		if !ok {
-			return false
-		}
-		e = u.Unwrap()
-	}
-	return false
-}
-
-func doDownload(dest, url string) error {
-	client := &http.Client{Timeout: 30 * time.Minute}
-	resp, err := client.Get(url)
-	if err != nil {
-		return &transientErr{err: err}
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 500 {
-		return &transientErr{err: fmt.Errorf("http %d: %s", resp.StatusCode, url)}
-	}
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("http %d: %s", resp.StatusCode, url)
-	}
-
-	ct := resp.Header.Get("Content-Type")
-	if strings.Contains(ct, "text/html") && !strings.HasSuffix(dest, ".csv") {
-		return fmt.Errorf("got HTML response for %s (bad URL?)", url)
-	}
-
-	tmp := dest + ".tmp"
-	f, err := os.Create(tmp)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		f.Close()
-		os.Remove(tmp)
-		return &transientErr{err: err}
-	}
-	if err := f.Close(); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-	return os.Rename(tmp, dest)
 }
 
 // LoadLabels parses an AudioSet class_labels_indices.csv

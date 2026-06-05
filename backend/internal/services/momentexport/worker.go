@@ -1,25 +1,21 @@
 package momentexport
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
-	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
+	"github.com/alcoves/alcoves-backend/internal/services/ffmpeg"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
@@ -202,112 +198,12 @@ func transcodeClip(
 		dstPath,
 	}
 
-	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
-	cmd.Stdout = io.Discard
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("stderr pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start ffmpeg: %w", err)
-	}
-
-	lastProgress := -1
-	lastETA := -1
-	currentOutTime := 0.0
-	currentSpeed := 0.0
-
-	scanner := bufio.NewScanner(stderrPipe)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key := parts[0]
-		value := parts[1]
-		switch key {
-		case "out_time":
-			if v, err := parseOutTime(value); err == nil {
-				currentOutTime = v
-			}
-		case "speed":
-			if v, err := parseSpeed(value); err == nil {
-				currentSpeed = v
-			}
-		case "progress":
-			if onProgress == nil || durationSeconds <= 0 {
-				continue
-			}
-			percent := int(math.Round((currentOutTime / durationSeconds) * 100))
-			if percent < 0 {
-				percent = 0
-			}
-			if percent > 100 {
-				percent = 100
-			}
-			var etaSeconds *int
-			etaVal := -1
-			if currentSpeed > 0 && currentOutTime < durationSeconds {
-				remaining := durationSeconds - currentOutTime
-				eta := int(math.Ceil(remaining / currentSpeed))
-				if eta < 0 {
-					eta = 0
-				}
-				etaSeconds = &eta
-				etaVal = eta
-			}
-			if percent != lastProgress || etaVal != lastETA {
-				onProgress(percent, etaSeconds)
-				lastProgress = percent
-				lastETA = etaVal
-			}
-		}
-	}
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("ffmpeg exited: %w", err)
+	if err := ffmpeg.RunWithProgress(ctx, "ffmpeg", args, durationSeconds, onProgress); err != nil {
+		return err
 	}
 
 	if info, err := os.Stat(dstPath); err != nil || info.Size() == 0 {
 		return fmt.Errorf("ffmpeg produced empty output")
 	}
 	return nil
-}
-
-func parseOutTime(value string) (float64, error) {
-	parts := strings.Split(value, ":")
-	if len(parts) != 3 {
-		return 0, fmt.Errorf("invalid out_time: %q", value)
-	}
-	h, err := strconv.ParseFloat(parts[0], 64)
-	if err != nil {
-		return 0, err
-	}
-	m, err := strconv.ParseFloat(parts[1], 64)
-	if err != nil {
-		return 0, err
-	}
-	s, err := strconv.ParseFloat(parts[2], 64)
-	if err != nil {
-		return 0, err
-	}
-	return h*3600 + m*60 + s, nil
-}
-
-func parseSpeed(value string) (float64, error) {
-	trimmed := strings.TrimSuffix(strings.TrimSpace(value), "x")
-	if trimmed == "" {
-		return 0, fmt.Errorf("empty speed")
-	}
-	speed, err := strconv.ParseFloat(trimmed, 64)
-	if err != nil {
-		return 0, err
-	}
-	if speed <= 0 {
-		return 0, fmt.Errorf("invalid speed")
-	}
-	return speed, nil
 }

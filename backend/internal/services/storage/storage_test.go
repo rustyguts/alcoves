@@ -191,6 +191,21 @@ func TestStorageEnsureReadyCreatesDirectories(t *testing.T) {
 	}
 }
 
+func TestCacheKeyBuilders(t *testing.T) {
+	if got := ThumbnailKey("lib", "file"); got != "lib/file/thumbnail.webp" {
+		t.Fatalf("ThumbnailKey = %q, want %q", got, "lib/file/thumbnail.webp")
+	}
+	if got := ProxyKey("lib", "file"); got != "lib/file/proxy.mp4" {
+		t.Fatalf("ProxyKey = %q, want %q", got, "lib/file/proxy.mp4")
+	}
+	if got := WaveformKey("lib", "file"); got != "lib/file/waveform.json" {
+		t.Fatalf("WaveformKey = %q, want %q", got, "lib/file/waveform.json")
+	}
+	if got := FaceCropKey("lib", "face"); got != "lib/faces/face.webp" {
+		t.Fatalf("FaceCropKey = %q, want %q", got, "lib/faces/face.webp")
+	}
+}
+
 func TestStorageFileNotExists(t *testing.T) {
 	svc, _ := setupTempStorage(t)
 

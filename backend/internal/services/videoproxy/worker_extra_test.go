@@ -182,11 +182,11 @@ func uuidPtr(u uuid.UUID) *uuid.UUID { return &u }
 
 func seedLibrary(t *testing.T, db *gorm.DB) (uuid.UUID, uuid.UUID) {
 	t.Helper()
-	owner := models.User{ID: uuid.New(), Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
+	owner := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
 	if err := db.Create(&owner).Error; err != nil {
 		t.Fatalf("create owner: %v", err)
 	}
-	lib := models.Library{ID: uuid.New(), Name: "Lib", OwnerID: owner.ID}
+	lib := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "Lib", OwnerID: owner.ID}
 	if err := db.Create(&lib).Error; err != nil {
 		t.Fatalf("create library: %v", err)
 	}
@@ -225,71 +225,8 @@ func TestBuildThumbnailName(t *testing.T) {
 	}
 }
 
-func TestParseFFmpegOutTime(t *testing.T) {
-	cases := []struct {
-		in      string
-		want    float64
-		wantErr bool
-	}{
-		{"00:00:01.000000", 1.0, false},
-		{"01:02:03.5", 3723.5, false},
-		{"00:00:00.000000", 0, false},
-		{"bad", 0, true},
-		{"1:2", 0, true},
-		{"aa:00:00", 0, true},
-		{"00:bb:00", 0, true},
-		{"00:00:cc", 0, true},
-	}
-	for _, tc := range cases {
-		got, err := parseFFmpegOutTime(tc.in)
-		if tc.wantErr {
-			if err == nil {
-				t.Errorf("parseFFmpegOutTime(%q): expected error", tc.in)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("parseFFmpegOutTime(%q): %v", tc.in, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("parseFFmpegOutTime(%q) = %v, want %v", tc.in, got, tc.want)
-		}
-	}
-}
-
-func TestParseFFmpegSpeed(t *testing.T) {
-	cases := []struct {
-		in      string
-		want    float64
-		wantErr bool
-	}{
-		{"1.5x", 1.5, false},
-		{"  2x ", 2, false},
-		{"0.25x", 0.25, false},
-		{"x", 0, true},
-		{"", 0, true},
-		{"0x", 0, true},
-		{"-1x", 0, true},
-		{"abcx", 0, true},
-	}
-	for _, tc := range cases {
-		got, err := parseFFmpegSpeed(tc.in)
-		if tc.wantErr {
-			if err == nil {
-				t.Errorf("parseFFmpegSpeed(%q): expected error", tc.in)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("parseFFmpegSpeed(%q): %v", tc.in, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("parseFFmpegSpeed(%q) = %v, want %v", tc.in, got, tc.want)
-		}
-	}
-}
+// NOTE: out_time/speed parsing moved to internal/services/ffmpeg; its tests now
+// live in that package (ffmpeg_test.go).
 
 func TestHasAudioStream(t *testing.T) {
 	type stream = struct {
@@ -624,7 +561,7 @@ func TestProcessVideo_FileNotFound(t *testing.T) {
 func TestProcessVideo_NotAVideo(t *testing.T) {
 	db := setupTestDB(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "doc.txt", MimeType: "text/plain", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "doc.txt", MimeType: "text/plain", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
@@ -638,7 +575,7 @@ func TestProcessVideo_AlreadyReady(t *testing.T) {
 	db := setupTestDB(t)
 	libID, ownerID := seedLibrary(t, db)
 	ready := "ready"
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID, ProxyStatus: &ready}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID, ProxyStatus: &ready}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
@@ -661,7 +598,7 @@ func TestProcessVideo_WebCompatibleNotNeeded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
@@ -695,7 +632,7 @@ func TestProcessVideo_ForceTranscode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
@@ -729,7 +666,7 @@ func TestProcessVideo_StorageOpenFails(t *testing.T) {
 	db := setupTestDB(t)
 	store := setupTestStorage(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -757,7 +694,7 @@ func TestProcessVideoThumbnail_Flow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -784,7 +721,7 @@ func TestProcessVideoThumbnail_SkipDerivative(t *testing.T) {
 	libID, ownerID := seedLibrary(t, db)
 	// A derivative file (SourceFileID set) should be skipped.
 	parent := uuid.New()
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID, SourceFileID: uuidPtr(parent)}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID, SourceFileID: uuidPtr(parent)}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -805,7 +742,7 @@ func TestProcessVideoThumbnail_NotFound(t *testing.T) {
 func TestSetProxyState(t *testing.T) {
 	db := setupTestDB(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
