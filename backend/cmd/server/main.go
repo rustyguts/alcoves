@@ -395,7 +395,7 @@ func main() {
 		})
 
 		// File routes (under /api/libraries)
-		fileHandler := handlers.NewFileHandler(db, ingestSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, metadataSvc, activitySvc)
+		fileHandler := handlers.NewFileHandler(db, ingestSvc, storageSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, metadataSvc, activitySvc)
 		fileHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Folder routes (under /api/libraries)

@@ -65,7 +65,7 @@ func fullFileHandler(t *testing.T) (*FileHandler, *gorm.DB, *storage.Service, pu
 		Activity:    activitySvc,
 	})
 
-	h := NewFileHandler(db, fileSvc, st, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, nil, activitySvc)
+	h := NewFileHandler(db, fileSvc, st, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, nil, activitySvc)
 	fix := seedLibrary(t, db)
 	return h, db, st, fix
 }
@@ -617,7 +617,7 @@ func TestFile_GenerateProxy_ProxyFile(t *testing.T) {
 func TestFile_GenerateProxy_NilSvc(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	st := setupPurgeStorage(t)
-	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil)
 	fix := seedLibrary(t, db)
 	id := mkVideo(t, db, fix)
 	c, _ := ffCtx(http.MethodPost, "/", "", fix, map[string]string{"id": fix.LibraryID.String(), "fileId": id.String()})
@@ -709,7 +709,7 @@ func TestFile_GenerateAudioDetections_OK(t *testing.T) {
 func TestFile_ListAudioDetections_NilSvc(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	st := setupPurgeStorage(t)
-	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil)
 	fix := seedLibrary(t, db)
 	id := mkVideo(t, db, fix)
 	c, rec := ffCtx(http.MethodGet, "/", "", fix, map[string]string{"id": fix.LibraryID.String(), "fileId": id.String()})
@@ -926,7 +926,7 @@ func TestFile_ReprocessVideoThumbnails_NotOwner(t *testing.T) {
 func TestFile_ReprocessVideoThumbnails_NilSvc(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	st := setupPurgeStorage(t)
-	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil)
 	fix := seedLibrary(t, db)
 	c, _ := ffCtx(http.MethodPost, "/", "", fix, map[string]string{"id": fix.LibraryID.String()})
 	if httpCode(t, h.ReprocessVideoThumbnails(c)) != http.StatusServiceUnavailable {
@@ -976,7 +976,7 @@ func TestFile_BulkAudioDetect_All(t *testing.T) {
 func TestFile_BulkTranscribe_NilSvc(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	st := setupPurgeStorage(t)
-	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewFileHandler(db, nil, st, nil, nil, nil, nil, nil, nil)
 	fix := seedLibrary(t, db)
 	c, _ := ffCtx(http.MethodPost, "/", `{}`, fix, map[string]string{"id": fix.LibraryID.String()})
 	if httpCode(t, h.BulkTranscribe(c)) != http.StatusServiceUnavailable {
