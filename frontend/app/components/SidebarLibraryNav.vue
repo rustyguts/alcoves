@@ -6,7 +6,8 @@ import LibrarySwitcher from "~/components/LibrarySwitcher.vue";
 /**
  * The sidebar library region: a library switcher (account-switcher style) at the
  * top, then a divider, then the current library's actions/sections (Files,
- * Timeline, Map, Tags, Feed, People, Objects, Settings, Trash) as a static nav.
+ * Timeline, Map, Tags, Feed, People, Settings, Trash) as a static nav. Objects
+ * is an advanced owner feature reached from the library Settings page, not here.
  * The actions always target the active library (or the default library when no
  * library is open). Shared between the desktop sidebar and the mobile slideover.
  */
@@ -95,15 +96,6 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
       icon: "i-lucide-scan-face",
       to: `${base}/people`,
       active: active === "people",
-    });
-  }
-
-  if (l.objectDetectionEnabled) {
-    items.push({
-      label: "Objects",
-      icon: "i-lucide-scan-search",
-      to: `${base}/objects`,
-      active: active === "objects",
     });
   }
 
