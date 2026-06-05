@@ -73,10 +73,13 @@ test.describe("Mobile @screenshot", () => {
     await page.goto("/libraries/lib-photos");
 
     // Tabs now live in the sidebar (behind the mobile hamburger), so gate on the
-    // breadcrumb library name to confirm the library chrome rendered.
-    // `exact` avoids matching the (emoji-prefixed) sidebar library label, which
-    // also contains the name — gate on the breadcrumb heading specifically.
-    await expect(page.getByText("Photos 2025", { exact: true })).toBeVisible({ timeout: 10_000 });
+    // breadcrumb library name to confirm the library chrome rendered. The sidebar
+    // library switcher renders the same name (and the mobile slideover keeps it in
+    // the DOM), so scope to the breadcrumb nav to avoid a strict-mode match of two
+    // elements once the libraries list populates.
+    await expect(
+      page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Photos 2025", { exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
     await snap(page, FLOW, "mobile-library-header");
   });
 
@@ -86,8 +89,12 @@ test.describe("Mobile @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos");
     // Wait for the library chrome to hydrate (and the libraries list to load)
-    // before opening the slideover, so the nested nav is populated.
-    await expect(page.getByText("Photos 2025", { exact: true })).toBeVisible({ timeout: 10_000 });
+    // before opening the slideover, so the nested nav is populated. Scope to the
+    // breadcrumb nav — the sidebar switcher renders the same name and would make
+    // a bare getByText match two elements.
+    await expect(
+      page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Photos 2025", { exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
 
     // Open the hamburger slideover; the active library expands to reveal its
     // sections (Files / Timeline / … / Settings / Trash) as nested nav items.
