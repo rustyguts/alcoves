@@ -72,16 +72,22 @@ backend:
   worker:
     enabled: true
     replicaCount: 1
-    # Whisper medium needs ~2.5GB RAM at runtime (f16 weights + KV cache).
-    # Combined with a concurrent ffmpeg transcode and ONNX detect job, the
-    # worker can spike past 4GB. Request 4Gi so the scheduler reserves
-    # enough; cap at 10Gi for long videos with multiple in-flight tasks.
-    # No CPU limit — whisper.cpp + ffmpeg can soak whatever the node has,
-    # and CFS throttling at a hard limit hurts more than it helps for these
-    # bursty, latency-sensitive jobs. Request 2 cores for scheduling.
+    # Memory is sized for the worker's asynq concurrency (8 in-flight tasks per
+    # pod). Each heavy job is RAM-hungry: whisper medium ~2.5GB (f16 weights +
+    # KV cache), whisper large ~4-5GB, plus concurrent ffmpeg transcodes and
+    # ONNX detect jobs each holding decoded frames/tensors. Several of these
+    # running at once can easily clear 10GB, which is what was OOM-killing the
+    # pool and orphaning jobs mid-flight. Be generous: request 8Gi so the
+    # scheduler reserves a realistic working set, and cap at 24Gi to absorb a
+    # worst-case burst of multiple large whisper + transcode jobs without the
+    # kernel reaping the pod. Tune down per-deployment if your media is light
+    # or you lower worker concurrency.
+    # No CPU limit — whisper.cpp + ffmpeg can soak whatever the node has, and
+    # CFS throttling at a hard limit hurts more than it helps for these bursty,
+    # latency-sensitive jobs. Request 2 cores for scheduling.
     resources:
-      requests: { cpu: 2, memory: 4Gi }
-      limits:   { memory: 10Gi }
+      requests: { cpu: 2, memory: 8Gi }
+      limits:   { memory: 24Gi }
     podAnnotations: {}
     nodeSelector: {}
     affinity: {}
