@@ -174,7 +174,7 @@ watch(
         <div
           v-for="face in faces"
           :key="face.id"
-          class="relative overflow-hidden rounded-xl border border-default bg-elevated cursor-pointer transition hover:border-accented"
+          class="relative overflow-hidden rounded-md bg-elevated cursor-pointer transition hover:bg-accented"
           @click="openFacePreview(face)"
           @contextmenu="showFaceContextMenu(face)"
         >
