@@ -153,7 +153,7 @@ const flat = computed<{ rows: JustifiedRow<GalleryItem<T>>[]; markers: Map<strin
               v-if="box.item.isVideo"
               class="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded bg-black/65 px-1 py-0.5 text-white"
             >
-              <AppIcon name="i-lucide-play" class="size-3 shrink-0" />
+              <AppIcon name="i-lineicons-play" class="size-3 shrink-0" />
               <span
                 v-if="box.item.durationLabel"
                 class="text-[10px] font-medium leading-none tabular-nums"

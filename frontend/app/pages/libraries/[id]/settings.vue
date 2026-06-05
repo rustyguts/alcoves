@@ -595,7 +595,7 @@ async function deleteLibrary() {
           <UButton
             color="neutral"
             variant="soft"
-            icon="i-lucide-scan-search"
+            icon="i-lineicons-magnifier"
             :to="`/libraries/${libraryId}/objects`"
             :disabled="!library?.objectDetectionEnabled"
           >
