@@ -120,7 +120,7 @@ const sortedFilters = computed(() =>
 </script>
 
 <template>
-  <div v-if="hasSignals || filters.length > 0" class="rounded-lg border border-default bg-default">
+  <div v-if="hasSignals || filters.length > 0" class="rounded-md bg-elevated/50">
     <button
       type="button"
       class="flex items-center justify-between gap-2 w-full px-3 py-2 border-b border-default text-left hover:bg-elevated/40 transition-colors"

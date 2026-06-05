@@ -487,7 +487,7 @@ async function deleteLibrary() {
                 {{ inviteLinks.length }}
               </UBadge>
             </div>
-            <div class="divide-y divide-default overflow-hidden rounded-lg border border-default">
+            <div class="divide-y divide-default overflow-hidden rounded-md bg-elevated">
               <InviteLinkRow
                 v-for="invite in inviteLinks"
                 :key="invite.id"
@@ -504,7 +504,7 @@ async function deleteLibrary() {
           <USeparator />
           <div class="space-y-3">
             <p class="text-sm font-medium text-highlighted">Members</p>
-            <div class="divide-y divide-default overflow-hidden rounded-lg border border-default">
+            <div class="divide-y divide-default overflow-hidden rounded-md bg-elevated">
               <LibraryMemberRow
                 v-for="member in libraryMembers"
                 :key="member.id"

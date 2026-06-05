@@ -135,7 +135,7 @@ function formatDate(value: string | null): string {
       <!-- List -->
       <div
         v-if="tokens?.length"
-        class="divide-y divide-default overflow-hidden rounded-xl border border-default"
+        class="divide-y divide-default overflow-hidden rounded-md bg-elevated"
       >
         <div
           v-for="token in tokens"

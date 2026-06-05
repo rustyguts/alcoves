@@ -223,11 +223,11 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
           v-for="opt in themeOptions"
           :key="opt.value"
           type="button"
-          class="flex flex-col items-center gap-2 rounded-lg border p-4 transition hover:border-primary-500 hover:bg-primary-500/5"
+          class="flex flex-col items-center gap-2 rounded-md p-4 transition"
           :class="
             themePreference === opt.value
-              ? 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500'
-              : 'border-default'
+              ? 'bg-primary-500/10 ring-1 ring-primary-500'
+              : 'bg-elevated/50 hover:bg-elevated'
           "
           @click="themePreference = opt.value"
         >
@@ -247,7 +247,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
         <div
           v-for="session in sessions"
           :key="session.id"
-          class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default bg-elevated/40 px-4 py-3"
+          class="flex flex-wrap items-center justify-between gap-3 rounded-md bg-elevated px-4 py-3"
         >
           <div class="min-w-0 space-y-1">
             <div class="flex items-center gap-2">

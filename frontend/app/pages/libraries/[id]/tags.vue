@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
-      <div class="relative rounded-xl border border-default overflow-hidden">
+      <div class="relative rounded-md overflow-hidden">
         <table class="w-full text-sm sm:table-fixed">
           <thead class="bg-elevated">
             <tr class="text-left">
