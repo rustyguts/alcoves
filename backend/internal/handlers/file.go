@@ -150,22 +150,20 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create file record")
 	}
 
-	if h.activitySvc != nil {
-		uid := userID
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   libraryID,
-			ActorID:     &uid,
-			Action:      activity.ActionFileCreated,
-			SubjectType: activity.SubjectFile,
-			SubjectID:   &fileID,
-			Metadata: map[string]any{
-				"name":           fileName,
-				"mimeType":       mimeType,
-				"parentFolderId": parentFolderID,
-				"size":           bytesWritten,
-			},
-		})
-	}
+	uid := userID
+	emitActivity(h.activitySvc, activity.EmitParams{
+		LibraryID:   libraryID,
+		ActorID:     &uid,
+		Action:      activity.ActionFileCreated,
+		SubjectType: activity.SubjectFile,
+		SubjectID:   &fileID,
+		Metadata: map[string]any{
+			"name":           fileName,
+			"mimeType":       mimeType,
+			"parentFolderId": parentFolderID,
+			"size":           bytesWritten,
+		},
+	})
 
 	// Trigger face detection if library has it enabled and file is an image
 	h.maybeEnqueueFaceDetection(libraryID, fileID, mimeType)
@@ -190,15 +188,15 @@ func (h *FileHandler) Get(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
 
-	var file models.File
-	if err := h.db.Where("id = ? AND library_id = ?", fileID, libraryID).First(&file).Error; err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	file, err := findFileAnyState(h.db, libraryID, fileID)
+	if err != nil {
+		return err
 	}
 
 	// If ?inline=true, serve the actual file data
 	inline := c.QueryParam("inline") == "true"
 	if inline {
-		return h.serveFileData(c, &file)
+		return h.serveFileData(c, file)
 	}
 
 	// Otherwise return metadata
@@ -206,7 +204,7 @@ func (h *FileHandler) Get(c echo.Context) error {
 	if file.Hash != nil && file.SourceFileID == nil {
 		dupes, _ = filehash.FindDuplicates(h.db, file.LibraryID, file.ID, *file.Hash)
 	}
-	return c.JSON(http.StatusOK, fileToJSON(&file, dupes))
+	return c.JSON(http.StatusOK, fileToJSON(file, dupes))
 }
 
 func (h *FileHandler) serveFileData(c echo.Context, file *models.File) error {
@@ -373,21 +371,19 @@ func (h *FileHandler) Delete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
 	}
 
-	if h.activitySvc != nil {
-		aid := actorID
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   libUUID,
-			ActorID:     &aid,
-			Action:      activity.ActionFileDeleted,
-			SubjectType: activity.SubjectFile,
-			SubjectID:   &snapshot.ID,
-			Metadata: map[string]any{
-				"name":           snapshot.Name,
-				"count":          1,
-				"parentFolderId": snapshot.ParentFolderID,
-			},
-		})
-	}
+	aid := actorID
+	emitActivity(h.activitySvc, activity.EmitParams{
+		LibraryID:   libUUID,
+		ActorID:     &aid,
+		Action:      activity.ActionFileDeleted,
+		SubjectType: activity.SubjectFile,
+		SubjectID:   &snapshot.ID,
+		Metadata: map[string]any{
+			"name":           snapshot.Name,
+			"count":          1,
+			"parentFolderId": snapshot.ParentFolderID,
+		},
+	})
 	return c.JSON(http.StatusOK, map[string]int64{"trashed": result.RowsAffected})
 }
 
@@ -684,9 +680,9 @@ func (h *FileHandler) PlaybackSources(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
 
-	var selected models.File
-	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&selected).Error; err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	selected, err := findActiveFile(h.db, libraryID, fileID)
+	if err != nil {
+		return err
 	}
 
 	if !strings.HasPrefix(selected.MimeType, "video/") {
@@ -762,9 +758,9 @@ func (h *FileHandler) GenerateProxy(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
 
-	var file models.File
-	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	file, err := findActiveFile(h.db, libraryID, fileID)
+	if err != nil {
+		return err
 	}
 
 	if !strings.HasPrefix(file.MimeType, "video/") {
@@ -802,7 +798,7 @@ func (h *FileHandler) GenerateProxy(c echo.Context) error {
 	file.ProxyProgress = &zero
 	file.ProxyEtaSeconds = nil
 
-	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(&file))
+	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(file))
 }
 
 func (h *FileHandler) GenerateWaveform(c echo.Context) error {
@@ -813,9 +809,9 @@ func (h *FileHandler) GenerateWaveform(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
 
-	var file models.File
-	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	file, err := findActiveFile(h.db, libraryID, fileID)
+	if err != nil {
+		return err
 	}
 
 	if !strings.HasPrefix(file.MimeType, "video/") && !strings.HasPrefix(file.MimeType, "audio/") {
@@ -850,16 +846,16 @@ func (h *FileHandler) GenerateWaveform(c echo.Context) error {
 	file.WaveformError = nil
 	file.WaveformVersion = newVersion
 
-	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(&file))
+	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(file))
 }
 
 func (h *FileHandler) GetWaveform(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
 
-	var file models.File
-	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	file, err := findActiveFile(h.db, libraryID, fileID)
+	if err != nil {
+		return err
 	}
 	if file.WaveformStatus == nil || *file.WaveformStatus != "ready" {
 		return echo.NewHTTPError(http.StatusNotFound, "Waveform not ready")
@@ -883,9 +879,9 @@ func (h *FileHandler) GenerateTranscript(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
 
-	var file models.File
-	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	file, err := findActiveFile(h.db, libraryID, fileID)
+	if err != nil {
+		return err
 	}
 
 	if !strings.HasPrefix(file.MimeType, "video/") && !strings.HasPrefix(file.MimeType, "audio/") {
@@ -922,16 +918,16 @@ func (h *FileHandler) GenerateTranscript(c echo.Context) error {
 	file.TranscribeError = nil
 	file.TranscribeVersion = newVersion
 
-	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(&file))
+	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(file))
 }
 
 func (h *FileHandler) GetTranscript(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
 
-	var file models.File
-	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	file, err := findActiveFile(h.db, libraryID, fileID)
+	if err != nil {
+		return err
 	}
 	if file.TranscribeStatus == nil || *file.TranscribeStatus != "ready" {
 		return echo.NewHTTPError(http.StatusNotFound, "Transcript not ready")
@@ -953,9 +949,9 @@ func (h *FileHandler) GenerateAudioDetections(c echo.Context) error {
 	libraryID := c.Param("id")
 	fileID := c.Param("fileId")
 
-	var file models.File
-	if err := h.db.Where("id = ? AND library_id = ? AND trashed_at IS NULL", fileID, libraryID).First(&file).Error; err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "File not found")
+	file, err := findActiveFile(h.db, libraryID, fileID)
+	if err != nil {
+		return err
 	}
 	if !strings.HasPrefix(file.MimeType, "video/") && !strings.HasPrefix(file.MimeType, "audio/") {
 		return echo.NewHTTPError(http.StatusBadRequest, "File is not audio/video")
@@ -994,7 +990,7 @@ func (h *FileHandler) GenerateAudioDetections(c echo.Context) error {
 	file.AudioDetectError = nil
 	file.AudioDetectVersion = newVersion
 
-	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(&file))
+	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(file))
 }
 
 func (h *FileHandler) ListAudioDetections(c echo.Context) error {

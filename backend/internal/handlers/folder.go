@@ -103,20 +103,18 @@ func (h *FolderHandler) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folder")
 	}
 
-	if h.activitySvc != nil {
-		aid := userID
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   libraryID,
-			ActorID:     &aid,
-			Action:      activity.ActionFolderCreated,
-			SubjectType: activity.SubjectFolder,
-			SubjectID:   &folder.ID,
-			Metadata: map[string]any{
-				"name":           folder.Name,
-				"parentFolderId": parentFolderID,
-			},
-		})
-	}
+	aid := userID
+	emitActivity(h.activitySvc, activity.EmitParams{
+		LibraryID:   libraryID,
+		ActorID:     &aid,
+		Action:      activity.ActionFolderCreated,
+		SubjectType: activity.SubjectFolder,
+		SubjectID:   &folder.ID,
+		Metadata: map[string]any{
+			"name":           folder.Name,
+			"parentFolderId": parentFolderID,
+		},
+	})
 
 	return c.JSON(http.StatusOK, folderToJSON(&folder))
 }
@@ -198,10 +196,10 @@ func (h *FolderHandler) Delete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Folder not found")
 	}
 
-	if h.activitySvc != nil {
+	{
 		actorID := middleware.GetUserID(c)
 		libUUID, _ := uuid.Parse(libraryID)
-		h.activitySvc.EmitAsync(activity.EmitParams{
+		emitActivity(h.activitySvc, activity.EmitParams{
 			LibraryID:   libUUID,
 			ActorID:     &actorID,
 			Action:      activity.ActionFolderDeleted,

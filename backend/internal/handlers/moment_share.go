@@ -106,21 +106,19 @@ func (h *MomentHandler) CreateShare(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create share")
 	}
 
-	if h.activitySvc != nil {
-		aid := userID
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   moment.LibraryID,
-			ActorID:     &aid,
-			Action:      activity.ActionMomentShared,
-			SubjectType: activity.SubjectShare,
-			SubjectID:   &share.ID,
-			Metadata: map[string]any{
-				"momentId":   moment.ID.String(),
-				"momentName": moment.Name,
-				"token":      share.Token,
-			},
-		})
-	}
+	aid := userID
+	emitActivity(h.activitySvc, activity.EmitParams{
+		LibraryID:   moment.LibraryID,
+		ActorID:     &aid,
+		Action:      activity.ActionMomentShared,
+		SubjectType: activity.SubjectShare,
+		SubjectID:   &share.ID,
+		Metadata: map[string]any{
+			"momentId":   moment.ID.String(),
+			"momentName": moment.Name,
+			"token":      share.Token,
+		},
+	})
 
 	return c.JSON(http.StatusCreated, toMomentShareResponse(&share, h.baseURLFor(c)))
 }
