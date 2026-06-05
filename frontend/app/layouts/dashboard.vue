@@ -169,11 +169,11 @@ async function createLibrary() {
       </header>
 
       <!-- Page content -->
-      <div class="flex-1 min-h-0 overflow-hidden">
+      <main class="flex-1 min-h-0 overflow-hidden">
         <div class="h-full p-4 sm:p-6 flex flex-col">
           <slot />
         </div>
-      </div>
+      </main>
     </div>
   </div>
 </template>
