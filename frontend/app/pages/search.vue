@@ -12,22 +12,12 @@ const MIN_QUERY_LENGTH = 2;
 const SEARCH_LIMIT = 80;
 
 const route = useRoute();
-const router = useRouter();
-const searchInput = ref("");
 
 const routeSearchQuery = computed(() => {
   const raw = route.query.q;
   return typeof raw === "string" ? raw : "";
 });
 const activeQuery = computed(() => routeSearchQuery.value.trim());
-
-watch(
-  routeSearchQuery,
-  (value) => {
-    searchInput.value = value;
-  },
-  { immediate: true },
-);
 
 function createEmptySearchResponse(query = ""): GlobalSearchResponse {
   return { query, totalCount: 0, results: [] };
@@ -55,11 +45,6 @@ watch(
   },
   { immediate: true },
 );
-
-async function submitSearch() {
-  const query = searchInput.value.trim();
-  router.push(query ? { path: "/search", query: { q: query } } : { path: "/search" });
-}
 
 const results = computed(() => searchData.value?.results ?? []);
 
@@ -135,43 +120,16 @@ async function openPreview(result: GlobalSearchResult) {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-6xl space-y-6 overflow-y-auto flex-1 min-h-0 px-0.5">
-    <UCard>
-      <div class="space-y-4">
-        <div class="space-y-1">
-          <h1 class="text-xl font-semibold text-highlighted">Global Search</h1>
-          <p class="text-sm text-muted">
-            Search files and folders across every library you can access.
-          </p>
-        </div>
-
-        <form
-          class="flex flex-col gap-3 md:flex-row md:items-center"
-          @submit.prevent="submitSearch"
-        >
-          <UInput
-            v-model="searchInput"
-            type="search"
-            placeholder="Search all libraries…"
-            icon="i-lineicons-search"
-            size="lg"
-            class="w-full"
-            :ui="{ root: 'w-full' }"
-          />
-          <UButton type="submit" color="primary" size="lg" icon="i-lineicons-search"> Search </UButton>
-        </form>
-
-        <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
-          <UBadge color="neutral" variant="subtle" size="sm">
-            {{ searchData?.totalCount ?? 0 }} total matches
-          </UBadge>
-          <UBadge color="neutral" variant="subtle" size="sm">{{ results.length }} shown</UBadge>
-          <span v-if="(searchData?.totalCount ?? 0) > results.length">
-            Showing the top {{ results.length }} most relevant results.
-          </span>
-        </div>
-      </div>
-    </UCard>
+  <div class="w-full space-y-6 overflow-y-auto flex-1 min-h-0 px-0.5">
+    <div v-if="results.length" class="flex flex-wrap items-center gap-2 text-xs text-muted">
+      <UBadge color="neutral" variant="subtle" size="sm">
+        {{ searchData?.totalCount ?? 0 }} total matches
+      </UBadge>
+      <UBadge color="neutral" variant="subtle" size="sm">{{ results.length }} shown</UBadge>
+      <span v-if="(searchData?.totalCount ?? 0) > results.length">
+        Showing the top {{ results.length }} most relevant results.
+      </span>
+    </div>
 
     <UAlert
       v-if="activeQuery.length < MIN_QUERY_LENGTH"

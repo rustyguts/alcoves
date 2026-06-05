@@ -18,6 +18,8 @@ export interface GalleryItem<T = unknown> {
 	mime: string;
 	name: string;
 	isVideo: boolean;
+	/** Preformatted video duration (e.g. `4:07`); null/undefined hides the label. */
+	durationLabel?: string | null;
 	/** Source dimensions, forwarded to the image proxy for a cache-aligned thumb. */
 	sourceWidth?: number | null;
 	sourceHeight?: number | null;

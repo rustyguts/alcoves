@@ -85,7 +85,7 @@ describe("AlcovesImage", () => {
       props: { libraryId: "lib", fileId: "file", variant: "timeline", quality: 95 },
     });
     expect(wrapper.get("img").attributes("src")).toBe(
-      "/api/files/proxy/lib/file?format=webp&height=240&quality=95&width=240",
+      "/api/files/proxy/lib/file?format=webp&height=384&quality=95&width=384",
     );
   });
 });

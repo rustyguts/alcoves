@@ -27,9 +27,11 @@ const current = computed(() => {
   );
 });
 
+// Don't preventDefault here: the dropdown items are not links, so the only
+// effect of preventDefault on a menu item's select event is to suppress the
+// menu's auto-close — which left the switcher stuck open after a selection.
 function go(id: string) {
-  return (e: Event) => {
-    e.preventDefault();
+  return () => {
     router.push({ path: `/libraries/${id}`, force: true });
   };
 }

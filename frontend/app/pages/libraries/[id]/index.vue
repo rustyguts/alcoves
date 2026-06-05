@@ -1179,7 +1179,7 @@ const emptyStateDescription = computed(() => {
           class="flex min-h-64 items-center justify-center"
         >
           <div
-            class="inline-flex items-center gap-2 rounded-xl border border-default bg-elevated/70 px-3 py-2 text-sm text-muted shadow-sm"
+            class="inline-flex items-center gap-2 rounded-full bg-elevated px-3 py-2 text-sm text-muted"
           >
             <UIcon name="i-lineicons-spinner-solid" class="size-4 animate-spin" />
             Loading {{ showTrashed ? "trash" : "files" }}
@@ -1448,11 +1448,11 @@ const emptyStateDescription = computed(() => {
             description="This download is very large and may take a while."
           />
           <div class="grid grid-cols-2 gap-3 text-sm">
-            <div class="rounded-xl border border-default bg-elevated/50 p-3">
+            <div class="rounded-md bg-elevated/50 p-3">
               <p class="text-muted text-xs uppercase tracking-wide">Estimated Size</p>
               <p class="font-medium text-default mt-1">{{ formattedEstimatedSize }}</p>
             </div>
-            <div class="rounded-xl border border-default bg-elevated/50 p-3">
+            <div class="rounded-md bg-elevated/50 p-3">
               <p class="text-muted text-xs uppercase tracking-wide">Files</p>
               <p class="font-medium text-default mt-1">
                 {{ estimatedFileCount.toLocaleString("en-US") }}

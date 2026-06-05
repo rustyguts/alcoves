@@ -6,7 +6,8 @@ import LibrarySwitcher from "~/components/LibrarySwitcher.vue";
 /**
  * The sidebar library region: a library switcher (account-switcher style) at the
  * top, then a divider, then the current library's actions/sections (Files,
- * Timeline, Map, Tags, Feed, People, Objects, Settings, Trash) as a static nav.
+ * Timeline, Map, Tags, Feed, People, Settings, Trash) as a static nav. Objects
+ * is an advanced owner feature reached from the library Settings page, not here.
  * The actions always target the active library (or the default library when no
  * library is open). Shared between the desktop sidebar and the mobile slideover.
  */
@@ -98,15 +99,6 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
     });
   }
 
-  if (l.objectDetectionEnabled) {
-    items.push({
-      label: "Objects",
-      icon: "i-lineicons-magnifier",
-      to: `${base}/objects`,
-      active: active === "objects",
-    });
-  }
-
   if (canManage(l)) {
     items.push({
       label: "Settings",
@@ -138,6 +130,14 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
     },
   ];
 });
+
+// Larger, more generously spaced sidebar items: bigger tap target + label, a
+// roomier icon, and vertical breathing room between entries.
+const navUi = {
+  list: "gap-1",
+  link: "px-3 py-2.5 text-base gap-3",
+  linkLeadingIcon: "size-5",
+};
 </script>
 
 <template>
@@ -158,12 +158,19 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
         :items="actionItems"
         variant="pill"
         class="w-full"
+        :ui="navUi"
       />
     </div>
 
     <div v-if="bottomItems.length" class="px-2 pb-3 mt-auto">
       <USeparator class="mb-2" />
-      <UNavigationMenu orientation="vertical" :items="bottomItems" variant="pill" class="w-full" />
+      <UNavigationMenu
+        orientation="vertical"
+        :items="bottomItems"
+        variant="pill"
+        class="w-full"
+        :ui="navUi"
+      />
     </div>
   </div>
 </template>

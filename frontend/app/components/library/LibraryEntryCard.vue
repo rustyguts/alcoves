@@ -51,7 +51,7 @@ const durationLabel = computed(() =>
 
 <template>
   <div
-    class="rounded-xl overflow-hidden cursor-pointer transition-colors select-none shadow-sm"
+    class="rounded-md overflow-hidden cursor-pointer transition-colors select-none"
     :class="[
       props.isEntrySelected(props.entry)
         ? 'bg-primary/20 hover:bg-primary/28'

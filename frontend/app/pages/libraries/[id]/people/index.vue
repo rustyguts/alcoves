@@ -91,11 +91,11 @@ onMounted(() => {
             v-for="person in libraryPeople"
             :key="person.id"
             type="button"
-            class="group relative size-40 shrink-0 overflow-hidden rounded-xl border border-default bg-elevated cursor-pointer select-none transition"
+            class="group relative size-40 shrink-0 overflow-hidden rounded-md bg-elevated cursor-pointer select-none transition"
             :class="
               selectedPeople.has(person.id)
                 ? 'ring-2 ring-primary ring-offset-2 ring-offset-default'
-                : 'hover:border-accented'
+                : 'hover:bg-accented'
             "
             :title="person.name?.trim() || 'Unnamed person'"
             @click="togglePersonSelection(person.id)"

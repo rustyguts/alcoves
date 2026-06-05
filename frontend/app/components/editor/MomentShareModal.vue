@@ -104,7 +104,7 @@ watch(
           <div
             v-for="s in shares"
             :key="s.id"
-            class="rounded-lg border border-default bg-elevated/40 p-3 flex items-center gap-2"
+            class="rounded-md bg-elevated/50 p-3 flex items-center gap-2"
           >
             <code class="text-xs truncate flex-1">{{ s.url }}</code>
             <UButton
