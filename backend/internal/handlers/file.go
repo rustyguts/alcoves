@@ -22,6 +22,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
+	"github.com/alcoves/alcoves-backend/internal/services/mediajobs"
 	"github.com/alcoves/alcoves-backend/internal/services/metadata"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
@@ -42,10 +43,11 @@ type FileHandler struct {
 	waveformSvc    *waveform.Service
 	metadataSvc    *metadata.Service
 	activitySvc    *activity.Service
+	mediaJobs      *mediajobs.Service
 }
 
 func NewFileHandler(db *gorm.DB, fileSvc *files.Service, storageSvc *storage.Service, faceSvc *facedetection.Service, objSvc *objectdetection.Service, videoSvc *videoproxy.Service, transcribeSvc *transcribe.Service, audioDetectSvc *audiodetection.Service, waveformSvc *waveform.Service, metadataSvc *metadata.Service, activitySvc *activity.Service) *FileHandler {
-	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc, transcribeSvc: transcribeSvc, audioDetectSvc: audioDetectSvc, waveformSvc: waveformSvc, metadataSvc: metadataSvc, activitySvc: activitySvc}
+	return &FileHandler{db: db, fileSvc: fileSvc, storageSvc: storageSvc, faceSvc: faceSvc, objSvc: objSvc, videoSvc: videoSvc, transcribeSvc: transcribeSvc, audioDetectSvc: audioDetectSvc, waveformSvc: waveformSvc, metadataSvc: metadataSvc, activitySvc: activitySvc, mediaJobs: mediajobs.NewService(db, videoSvc, waveformSvc, transcribeSvc, audioDetectSvc)}
 }
 
 func (h *FileHandler) RegisterRoutes(g *echo.Group) {
@@ -726,33 +728,9 @@ func (h *FileHandler) GenerateProxy(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Cannot generate proxy for proxy file")
 	}
 
-	now := time.Now()
-	if err := h.db.Model(&models.File{}).
-		Where("source_file_id = ? AND library_id = ? AND trashed_at IS NULL", file.ID, libraryID).
-		Updates(map[string]interface{}{"trashed_at": now, "updated_at": now}).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to expire previous proxies")
-	}
-
-	queued := "queued"
-	zero := 0
-	if err := h.db.Model(&models.File{}).
-		Where("id = ?", file.ID).
-		Updates(map[string]interface{}{
-			"proxy_status":      queued,
-			"proxy_progress":    zero,
-			"proxy_eta_seconds": nil,
-			"updated_at":        now,
-		}).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update file proxy status")
-	}
-
-	if err := h.videoSvc.EnqueueVideoProxy(libraryID, fileID, true); err != nil {
+	if err := h.mediaJobs.TriggerProxy(libraryID, file); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue video proxy generation")
 	}
-
-	file.ProxyStatus = &queued
-	file.ProxyProgress = &zero
-	file.ProxyEtaSeconds = nil
 
 	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(file))
 }
@@ -777,30 +755,9 @@ func (h *FileHandler) GenerateWaveform(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Cannot generate waveform for proxy file")
 	}
 
-	now := time.Now()
-	queued := "queued"
-	zero := 0
-	newVersion := file.WaveformVersion + 1
-	if err := h.db.Model(&models.File{}).
-		Where("id = ?", file.ID).
-		Updates(map[string]interface{}{
-			"waveform_status":   queued,
-			"waveform_progress": zero,
-			"waveform_error":    nil,
-			"waveform_version":  newVersion,
-			"updated_at":        now,
-		}).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update file waveform status")
-	}
-
-	if err := h.waveformSvc.EnqueueWaveform(libraryID, fileID); err != nil {
+	if err := h.mediaJobs.TriggerWaveform(libraryID, file); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue waveform generation")
 	}
-
-	file.WaveformStatus = &queued
-	file.WaveformProgress = &zero
-	file.WaveformError = nil
-	file.WaveformVersion = newVersion
 
 	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(file))
 }
@@ -847,32 +804,9 @@ func (h *FileHandler) GenerateTranscript(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Cannot transcribe proxy file")
 	}
 
-	now := time.Now()
-	queued := "queued"
-	zero := 0
-	newVersion := file.TranscribeVersion + 1
-	if err := h.db.Model(&models.File{}).
-		Where("id = ?", file.ID).
-		Updates(map[string]interface{}{
-			"transcribe_status":      queued,
-			"transcribe_progress":    zero,
-			"transcribe_eta_seconds": nil,
-			"transcribe_error":       nil,
-			"transcribe_version":     newVersion,
-			"updated_at":             now,
-		}).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update file transcribe status")
-	}
-
-	if err := h.transcribeSvc.EnqueueTranscribe(libraryID, fileID); err != nil {
+	if err := h.mediaJobs.TriggerTranscribe(libraryID, file); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue transcription")
 	}
-
-	file.TranscribeStatus = &queued
-	file.TranscribeProgress = &zero
-	file.TranscribeEtaSeconds = nil
-	file.TranscribeError = nil
-	file.TranscribeVersion = newVersion
 
 	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(file))
 }
@@ -919,32 +853,9 @@ func (h *FileHandler) GenerateAudioDetections(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Cannot run detection on proxy file")
 	}
 
-	now := time.Now()
-	queued := "queued"
-	zero := 0
-	newVersion := file.AudioDetectVersion + 1
-	if err := h.db.Model(&models.File{}).
-		Where("id = ?", file.ID).
-		Updates(map[string]interface{}{
-			"audio_detect_status":      queued,
-			"audio_detect_progress":    zero,
-			"audio_detect_eta_seconds": nil,
-			"audio_detect_error":       nil,
-			"audio_detect_version":     newVersion,
-			"updated_at":               now,
-		}).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update audio detection status")
-	}
-
-	if err := h.audioDetectSvc.EnqueueDetect(libraryID, fileID); err != nil {
+	if err := h.mediaJobs.TriggerAudioDetect(libraryID, file); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue audio detection")
 	}
-
-	file.AudioDetectStatus = &queued
-	file.AudioDetectProgress = &zero
-	file.AudioDetectEtaSeconds = nil
-	file.AudioDetectError = nil
-	file.AudioDetectVersion = newVersion
 
 	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(file))
 }
@@ -1212,7 +1123,6 @@ func (h *FileHandler) BulkTranscribe(c echo.Context) error {
 	}
 
 	resp := bulkActionResponse{Enqueued: []string{}, Skipped: map[string]string{}}
-	now := time.Now()
 	for _, f := range files {
 		fid := f.ID.String()
 		if f.SourceFileID != nil {
@@ -1223,22 +1133,8 @@ func (h *FileHandler) BulkTranscribe(c echo.Context) error {
 			resp.Skipped[fid] = "not audio/video"
 			continue
 		}
-		queued := "queued"
-		zero := 0
-		newVersion := f.TranscribeVersion + 1
-		if err := h.db.Model(&models.File{}).Where("id = ?", f.ID).Updates(map[string]interface{}{
-			"transcribe_status":      queued,
-			"transcribe_progress":    zero,
-			"transcribe_eta_seconds": nil,
-			"transcribe_error":       nil,
-			"transcribe_version":     newVersion,
-			"updated_at":             now,
-		}).Error; err != nil {
-			resp.Skipped[fid] = "update failed: " + err.Error()
-			continue
-		}
-		if err := h.transcribeSvc.EnqueueTranscribe(libraryID, fid); err != nil {
-			resp.Skipped[fid] = "enqueue failed: " + err.Error()
+		if err := h.mediaJobs.TriggerTranscribe(libraryID, &f); err != nil {
+			resp.Skipped[fid] = err.Error()
 			continue
 		}
 		resp.Enqueued = append(resp.Enqueued, fid)
@@ -1261,7 +1157,6 @@ func (h *FileHandler) BulkAudioDetect(c echo.Context) error {
 	}
 
 	resp := bulkActionResponse{Enqueued: []string{}, Skipped: map[string]string{}}
-	now := time.Now()
 	for _, f := range files {
 		fid := f.ID.String()
 		if f.SourceFileID != nil {
@@ -1276,22 +1171,8 @@ func (h *FileHandler) BulkAudioDetect(c echo.Context) error {
 			resp.Skipped[fid] = "transcript not ready"
 			continue
 		}
-		queued := "queued"
-		zero := 0
-		newVersion := f.AudioDetectVersion + 1
-		if err := h.db.Model(&models.File{}).Where("id = ?", f.ID).Updates(map[string]interface{}{
-			"audio_detect_status":      queued,
-			"audio_detect_progress":    zero,
-			"audio_detect_eta_seconds": nil,
-			"audio_detect_error":       nil,
-			"audio_detect_version":     newVersion,
-			"updated_at":               now,
-		}).Error; err != nil {
-			resp.Skipped[fid] = "update failed: " + err.Error()
-			continue
-		}
-		if err := h.audioDetectSvc.EnqueueDetect(libraryID, fid); err != nil {
-			resp.Skipped[fid] = "enqueue failed: " + err.Error()
+		if err := h.mediaJobs.TriggerAudioDetect(libraryID, &f); err != nil {
+			resp.Skipped[fid] = err.Error()
 			continue
 		}
 		resp.Enqueued = append(resp.Enqueued, fid)
