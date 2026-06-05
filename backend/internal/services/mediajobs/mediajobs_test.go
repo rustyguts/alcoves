@@ -2,6 +2,7 @@ package mediajobs
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -93,8 +94,17 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	if isoDBErr != nil {
 		t.Skipf("Skipping test: could not create isolated database: %v", isoDBErr)
 	}
-	t.Cleanup(dropIsolatedDB)
+	// NB: the isolated DB is a per-binary singleton shared across tests; it is
+	// torn down once in TestMain, NOT per-test (a per-test Cleanup would close
+	// the shared connection out from under later tests → "database is closed").
 	return isoDB
+}
+
+// TestMain drops the per-binary isolated database after all tests complete.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	dropIsolatedDB()
+	os.Exit(code)
 }
 
 func seedLibrary(t *testing.T, db *gorm.DB) (uuid.UUID, uuid.UUID) {
