@@ -37,6 +37,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
+	"github.com/alcoves/alcoves-backend/internal/services/jobreaper"
 	"github.com/alcoves/alcoves-backend/internal/services/metadata"
 	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
@@ -264,6 +265,13 @@ func main() {
 		} else {
 			log.Println("image:prewarm — disabled via ALCOVES_IMAGE_PROXY_PREWARM_ENABLED=false")
 		}
+
+		// Job reaper: periodically reconcile every async job's status column
+		// against the queue and mark genuinely orphaned jobs (worker died
+		// mid-flight, no task left in Redis) as "failed", clearing rows stuck
+		// forever on "queued"/"processing". Safe for long-runners: a job still
+		// active in the queue is never touched, so there is no wall-clock timeout.
+		jobreaper.Start(context.Background(), db, asynqInspector)
 	}
 
 	// Echo setup
