@@ -146,10 +146,11 @@ content. **Log in with `test@alcoves.io` / `password123`** (an owner/admin).
 
 - Entry point: `backend/cmd/server/main.go`
 - `backend/internal/` contains all application code
+- `backend/internal/config/` — env-var config loading; `database/` — GORM open + Goose migration runner; `version/` — build-time version embedding
 - `backend/internal/handlers/` — HTTP request handlers (one file per resource)
 - `backend/internal/middleware/` — Auth + library-access-control middleware
 - `backend/internal/models/` — GORM entity definitions
-- `backend/internal/services/` — Business logic: auth, storage, facedetection, objectdetection, imageproxy, videoproxy, momentexport
+- `backend/internal/services/` — Business logic. 17 packages: `access`, `activity`, `audiodetection`, `auth`, `avatarproc`, `facedetection`, `filehash`, `files`, `imageproxy`, `invites`, `momentexport`, `objectdetection`, `settings`, `storage`, `transcribe`, `videoproxy`, `waveform`
 - Database migrations use [Goose](https://github.com/pressly/goose) format, located in `migrations/`
 - Async processing uses [Asynq](https://github.com/hibiken/asynq) backed by Dragonfly (Redis-compatible); workers run when `ALCOVES_MODE=all` or `ALCOVES_MODE=worker`
 - Image processing: `govips` (libvips wrapper); object/face detection: ONNX Runtime via `onnxruntime_go`
@@ -157,17 +158,21 @@ content. **Log in with `test@alcoves.io` / `password123`** (an owner/admin).
 
 Route groups registered in `main.go`:
 ```
-/api/auth            → Auth (login, register, OAuth, session)
-/api/libraries       → Library CRUD
-/api/libraries/:id/* → Files, folders, tags, members, invites, people, moments
-/api/invites         → Invite acceptance
-/api/search          → Global search
-/api/admin           → Admin + job queue dashboard
-/api/tus             → TUS resumable uploads
-/api/files           → File proxy (image transform, video)
-/api/share/:token/*  → Public moment share metadata + video + thumbnail (no auth)
-/api/_auth/session   → Session validation (used by frontend auth guard)
-/api/health          → Health check
+/api/auth                    → Auth (login, register, session), avatar, OAuth
+/api/libraries               → Library CRUD
+/api/libraries/:id/*         → Files, folders, tags, highlight filters, moments,
+                               members, people, objects, downloads, notifications
+/api/invites                 → Invite acceptance
+/api/notifications           → Global notification feed (RegisterGlobalRoutes)
+/api/search                  → Global search
+/api/admin                   → Admin + Asynq job-queue dashboard (owner-gated)
+/api/tus                     → TUS resumable uploads
+/api/files                   → File proxy (image transform, video)
+/api/share/:token/*          → Public moment share metadata + video + thumbnail (no auth)
+/api/_auth/session           → Session validation (used by frontend auth guard)
+/api/_meta/registration-mode → Public: is open registration enabled
+/api/health                  → Health check
+/api/version                 → Embedded build version
 ```
 
 ### Frontend (`frontend/`)
