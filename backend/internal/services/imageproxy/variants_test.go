@@ -29,7 +29,7 @@ func TestVariantResolveCacheKeys(t *testing.T) {
 		// Fixed variants ignore source dimensions entirely.
 		{"search", nil, nil, "lib/file/transforms/w80_h80_q70.jpeg", "image/jpeg"},
 		{"search", iptr(40), iptr(40), "lib/file/transforms/w80_h80_q70.jpeg", "image/jpeg"},
-		{"timeline", iptr(50), iptr(50), "lib/file/transforms/w240_h240_q70.webp", "image/webp"},
+		{"timeline", iptr(50), iptr(50), "lib/file/transforms/w384_h384_q80.webp", "image/webp"},
 		{"face", nil, nil, "lib/file/transforms/w300_h300_q80.jpeg", "image/jpeg"},
 		// Capped variants clamp down to source size when smaller than the box.
 		{"card", nil, nil, "lib/file/transforms/w720_h360_q82.jpeg", "image/jpeg"},
@@ -61,7 +61,7 @@ func TestVariantResolveCacheKeys(t *testing.T) {
 func TestVariantsRegistryStable(t *testing.T) {
 	want := []imageproxy.Variant{
 		{Name: "search", MaxWidth: 80, MaxHeight: 80, Quality: 70, Format: "jpeg", Cap: false},
-		{Name: "timeline", MaxWidth: 240, MaxHeight: 240, Quality: 70, Format: "webp", Cap: false},
+		{Name: "timeline", MaxWidth: 384, MaxHeight: 384, Quality: 80, Format: "webp", Cap: false},
 		{Name: "face", MaxWidth: 300, MaxHeight: 300, Quality: 80, Format: "jpeg", Cap: false},
 		{Name: "card", MaxWidth: 720, MaxHeight: 360, Quality: 82, Format: "jpeg", Cap: true},
 		{Name: "preview", MaxWidth: 1920, MaxHeight: 1080, Quality: 90, Format: "jpeg", Cap: true},
