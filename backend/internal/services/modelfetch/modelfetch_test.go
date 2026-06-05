@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -236,7 +237,8 @@ func TestFetchToFile_SHA256MismatchPermanent(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	dest := filepath.Join(t.TempDir(), "model.onnx")
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "model.onnx")
 	err := FetchToFile(context.Background(), srv.URL, dest, Options{SHA256: "deadbeef", MaxAttempts: 6})
 	if err == nil || !strings.Contains(err.Error(), "hash mismatch") {
 		t.Fatalf("expected hash mismatch error, got %v", err)
@@ -247,7 +249,47 @@ func TestFetchToFile_SHA256MismatchPermanent(t *testing.T) {
 	if _, err := os.Stat(dest); !os.IsNotExist(err) {
 		t.Errorf("dest should not exist on hash mismatch")
 	}
-	if _, err := os.Stat(dest + ".part"); !os.IsNotExist(err) {
-		t.Errorf("temp file should be removed on hash mismatch")
+	if leftovers, _ := filepath.Glob(filepath.Join(dir, "*.part")); len(leftovers) > 0 {
+		t.Errorf("temp files should be removed on hash mismatch, found: %v", leftovers)
+	}
+}
+
+// TestFetchToFile_ConcurrentSameDest runs many hash-verified downloads to the same
+// destination at once — the shared-NFS scenario. A unique temp file per download
+// means they can't clobber each other, so every one succeeds and no scratch remains.
+func TestFetchToFile_ConcurrentSameDest(t *testing.T) {
+	body := make([]byte, 8192)
+	for i := range body {
+		body[i] = byte(i)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "model.onnx")
+
+	const n = 8
+	errs := make(chan error, n)
+	var wg sync.WaitGroup
+	for range n {
+		wg.Go(func() {
+			errs <- FetchToFile(context.Background(), srv.URL, dest, Options{SHA256: sha256hex(body)})
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Errorf("concurrent FetchToFile error: %v", err)
+		}
+	}
+	got, _ := os.ReadFile(dest)
+	if sha256hex(got) != sha256hex(body) {
+		t.Errorf("final file hash mismatch")
+	}
+	if leftovers, _ := filepath.Glob(filepath.Join(dir, "*.part")); len(leftovers) > 0 {
+		t.Errorf("temp files should not remain, found: %v", leftovers)
 	}
 }

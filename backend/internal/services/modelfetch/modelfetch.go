@@ -164,18 +164,30 @@ func doDownload(ctx context.Context, url, dest, label string, opts Options) erro
 		}
 	}
 
-	tmp := dest + ".part"
-	f, err := os.Create(tmp)
+	// Unique temp file per download (not a fixed dest+".part"): on a shared RWX
+	// models volume two pods can fetch the same model at once, and a fixed temp
+	// path lets them clobber each other's bytes — which, with SHA256 verification,
+	// deterministically fails both. os.CreateTemp keeps each download isolated; the
+	// atomic rename below still publishes a complete, verified file.
+	tmpF, err := os.CreateTemp(filepath.Dir(dest), filepath.Base(dest)+".*.part")
 	if err != nil {
 		return err
 	}
+	tmp := tmpF.Name()
 
 	var src io.Reader = resp.Body
 	if opts.LogProgress {
 		src = &progressReader{r: resp.Body, total: resp.ContentLength, label: label}
 	}
-	written, copyErr := io.Copy(f, src)
-	closeErr := f.Close()
+	// Hash while streaming to disk via TeeReader, so we never re-read the (large,
+	// NFS-backed) file just to verify it — one pass instead of two.
+	h := sha256.New()
+	var sink io.Writer = tmpF
+	if opts.SHA256 != "" {
+		sink = io.MultiWriter(tmpF, h)
+	}
+	written, copyErr := io.Copy(sink, src)
+	closeErr := tmpF.Close()
 	if copyErr != nil {
 		os.Remove(tmp)
 		return transient(copyErr)
@@ -195,11 +207,7 @@ func doDownload(ctx context.Context, url, dest, label string, opts Options) erro
 	}
 
 	if opts.SHA256 != "" {
-		got, err := fileSHA256(tmp)
-		if err != nil {
-			os.Remove(tmp)
-			return fmt.Errorf("failed to hash downloaded file: %w", err)
-		}
+		got := hex.EncodeToString(h.Sum(nil))
 		if got != opts.SHA256 {
 			os.Remove(tmp)
 			return fmt.Errorf("downloaded %s hash mismatch (have %s, want %s)", label, got, opts.SHA256)
