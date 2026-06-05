@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -358,167 +357,11 @@ func (h *FileHandler) Purge(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 	}
 
-	var filesToPurge []models.File
-	var folderIDsToPurge []string
-
-	if len(req.FileIDs) > 0 {
-		// Purge specific files — must be trashed
-		if err := h.db.Where("id IN ? AND library_id = ? AND trashed_at IS NOT NULL", req.FileIDs, libraryID).Find(&filesToPurge).Error; err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load files for purge")
-		}
-	} else if len(req.FolderIDs) > 0 {
-		// Purge specific trashed folders and their descendants
-		allFolderSet := make(map[string]struct{})
-		for _, fid := range req.FolderIDs {
-			allFolderSet[fid] = struct{}{}
-			for _, descendantID := range h.getDescendantFolderIDs(libraryID, fid) {
-				allFolderSet[descendantID] = struct{}{}
-			}
-		}
-		for id := range allFolderSet {
-			folderIDsToPurge = append(folderIDsToPurge, id)
-		}
-
-		if len(folderIDsToPurge) > 0 {
-			if err := h.db.Where("parent_folder_id IN ? AND library_id = ? AND trashed_at IS NOT NULL", folderIDsToPurge, libraryID).Find(&filesToPurge).Error; err != nil {
-				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folder files for purge")
-			}
-		}
-	} else {
-		// Purge all trashed items in the library
-		if err := h.db.Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Find(&filesToPurge).Error; err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load files for purge")
-		}
-		var trashedFolders []models.Folder
-		if err := h.db.Select("id").Where("library_id = ? AND trashed_at IS NOT NULL", libraryID).Find(&trashedFolders).Error; err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folders for purge")
-		}
-		for _, folder := range trashedFolders {
-			folderIDsToPurge = append(folderIDsToPurge, folder.ID.String())
-		}
-	}
-
-	// Collect IDs for the source files being purged.
-	fileIDs := make([]string, 0, len(filesToPurge))
-	for _, f := range filesToPurge {
-		fileIDs = append(fileIDs, f.ID.String())
-	}
-
-	// Load all derived files (proxies, thumbnails) whose source is being purged.
-	// These are stored in the files table with source_file_id pointing at a source file.
-	var derivedFiles []models.File
-	if len(fileIDs) > 0 {
-		if err := h.db.Where("source_file_id IN ?", fileIDs).Find(&derivedFiles).Error; err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load derived files for purge")
-		}
-	}
-
-	// Delete blobs for all source files and their derived files (proxies, thumbnails) from disk
-	// first, before touching the DB. If any storage delete fails we stop early and leave the DB intact.
-	for _, f := range filesToPurge {
-		// Delete the source blob and legacy cache artifacts (proxy.mp4, thumbnail.webp).
-		if err := h.storageSvc.DeleteFile(f.LibraryID.String(), f.ID.String()); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete file from disk")
-		}
-	}
-	for _, f := range derivedFiles {
-		// Delete the derived file blob (proxy or thumbnail stored under its own file ID).
-		if err := h.storageSvc.DeleteFileBlob(f.LibraryID.String(), f.ID.String()); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete derived file from disk")
-		}
-	}
-
-	// Collect derived file IDs for DB cleanup.
-	derivedFileIDs := make([]string, 0, len(derivedFiles))
-	for _, f := range derivedFiles {
-		derivedFileIDs = append(derivedFileIDs, f.ID.String())
-	}
-
-	purgedCount := 0
-
-	// All DB mutations inside a transaction.
-	err := h.db.Transaction(func(tx *gorm.DB) error {
-		if len(fileIDs) > 0 {
-			// Remove file-tag associations for source files.
-			if err := tx.Where("file_id IN ?", fileIDs).Delete(&models.FileTag{}).Error; err != nil {
-				return fmt.Errorf("failed to delete file tags: %w", err)
-			}
-
-			// Delete derived file rows (proxies and thumbnails) that reference the source files.
-			// These are never user-visible but must be cleaned up when the source is purged.
-			if len(derivedFileIDs) > 0 {
-				if err := tx.Where("id IN ?", derivedFileIDs).Delete(&models.File{}).Error; err != nil {
-					return fmt.Errorf("failed to delete derived files: %w", err)
-				}
-			}
-
-			// Delete the source file records.
-			result := tx.Where("id IN ? AND library_id = ?", fileIDs, libraryID).Delete(&models.File{})
-			if result.Error != nil {
-				return fmt.Errorf("failed to delete files: %w", result.Error)
-			}
-			purgedCount += int(result.RowsAffected)
-		}
-
-		if len(folderIDsToPurge) > 0 {
-			// Remove folder-tag associations
-			if err := tx.Where("folder_id IN ?", folderIDsToPurge).Delete(&models.FolderTag{}).Error; err != nil {
-				return fmt.Errorf("failed to delete folder tags: %w", err)
-			}
-
-			result := tx.Where("id IN ? AND library_id = ?", folderIDsToPurge, libraryID).Delete(&models.Folder{})
-			if result.Error != nil {
-				return fmt.Errorf("failed to delete folders: %w", result.Error)
-			}
-			purgedCount += int(result.RowsAffected)
-		}
-
-		return nil
-	})
+	purged, err := h.fileSvc.Purge(libraryID, files.PurgeParams{FileIDs: req.FileIDs, FolderIDs: req.FolderIDs})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to purge items")
 	}
-
-	// Clean up face data for purged files (best-effort, outside transaction).
-	if len(fileIDs) > 0 && h.faceSvc != nil {
-		if err := h.faceSvc.DeleteFaceDataForFiles(libraryID, fileIDs); err != nil {
-			log.Printf("failed to clean face data for purged files: %v", err)
-		}
-	}
-
-	// Clean up object detection data for purged files (best-effort, outside transaction).
-	if len(fileIDs) > 0 && h.objSvc != nil {
-		if err := h.objSvc.DeleteObjectDataForFiles(libraryID, fileIDs); err != nil {
-			log.Printf("failed to clean object detection data for purged files: %v", err)
-		}
-	}
-
-	return c.JSON(http.StatusOK, map[string]int{"purged": purgedCount})
-}
-
-func (h *FileHandler) getDescendantFolderIDs(libraryID, rootFolderID string) []string {
-	var descendants []string
-	visited := map[string]bool{}
-	queue := []string{rootFolderID}
-
-	for len(queue) > 0 {
-		currentID := queue[0]
-		queue = queue[1:]
-		if visited[currentID] {
-			continue
-		}
-		visited[currentID] = true
-
-		var children []struct {
-			ID string `gorm:"column:id"`
-		}
-		h.db.Raw("SELECT id FROM folders WHERE library_id = ? AND parent_folder_id = ?", libraryID, currentID).Scan(&children)
-		for _, child := range children {
-			descendants = append(descendants, child.ID)
-			queue = append(queue, child.ID)
-		}
-	}
-	return descendants
+	return c.JSON(http.StatusOK, map[string]int{"purged": purged})
 }
 
 type restoreRequest struct {
