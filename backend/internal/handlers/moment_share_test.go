@@ -45,10 +45,15 @@ func TestMomentHandler_baseURLFor_Priority(t *testing.T) {
 		fwdHost string
 		want    string
 	}{
-		{name: "Origin header wins", baseURL: "https://cfg", host: "h", origin: "https://web.example.com", want: "https://web.example.com"},
-		{name: "Origin null falls through", baseURL: "https://cfg", host: "h", origin: "null", want: "https://cfg"},
-		{name: "X-Forwarded next", baseURL: "https://cfg", host: "h", fwdHost: "tunnel.example.com", want: "http://tunnel.example.com"},
-		{name: "config when none", baseURL: "https://cfg.example.com/", host: "h", want: "https://cfg.example.com"},
+		// Config wins over attacker-controllable headers (Origin / X-Forwarded-Host)
+		// so share links + OG tags cannot be pointed at an attacker host.
+		{name: "config beats Origin", baseURL: "https://cfg", host: "h", origin: "https://web.example.com", want: "https://cfg"},
+		{name: "config beats X-Forwarded-Host", baseURL: "https://cfg", host: "h", fwdHost: "tunnel.example.com", want: "https://cfg"},
+		{name: "config trailing slash trimmed", baseURL: "https://cfg.example.com/", host: "h", want: "https://cfg.example.com"},
+		// Headers are only consulted as a fallback when no base URL is configured.
+		{name: "Origin fallback when no config", host: "h", origin: "https://web.example.com", want: "https://web.example.com"},
+		{name: "Origin null falls through to host", host: "h", origin: "null", want: "http://h"},
+		{name: "X-Forwarded-Host fallback when no config", host: "h", fwdHost: "tunnel.example.com", want: "http://tunnel.example.com"},
 		{name: "host fallback", host: "fallback:3001", want: "http://fallback:3001"},
 	}
 	for _, tc := range cases {

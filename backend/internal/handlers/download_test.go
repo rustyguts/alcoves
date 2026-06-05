@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -838,5 +839,30 @@ func TestParseTransformOptions_DimensionClamped(t *testing.T) {
 				t.Errorf("height: expected %d, got %d", tt.expectedHeight, opts.Height)
 			}
 		})
+	}
+}
+
+func TestSafeZipName(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"photo.jpg", "photo.jpg"},
+		{"a/b/c.txt", "c.txt"},
+		{"../../../../etc/passwd", "passwd"},
+		{"..\\..\\windows\\system32\\cmd.exe", "cmd.exe"},
+		{"/.ssh/authorized_keys", "authorized_keys"},
+		{"..", "file"},
+		{"", "file"},
+		{"/", "file"},
+		{"....//evil", "evil"},
+	}
+	for _, tc := range cases {
+		if got := safeZipName(tc.in); got != tc.want {
+			t.Errorf("safeZipName(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+		if strings.Contains(safeZipName(tc.in), "..") || strings.ContainsAny(safeZipName(tc.in), "/\\") {
+			t.Errorf("safeZipName(%q) = %q still contains traversal", tc.in, safeZipName(tc.in))
+		}
 	}
 }

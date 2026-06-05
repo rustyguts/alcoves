@@ -33,9 +33,16 @@ func TestShareHandler_resolveBase(t *testing.T) {
 		fwdProt string
 		want    string
 	}{
-		{name: "x-forwarded headers win", baseURL: "https://config", host: "internal:3001",
-			fwdHost: "share.example.com", fwdProt: "https", want: "https://share.example.com"},
+		// Config wins over the attacker-controllable X-Forwarded-Host header so the
+		// public share endpoint cannot be made to emit attacker-host OG/share URLs.
+		{name: "config beats x-forwarded headers", baseURL: "https://config", host: "internal:3001",
+			fwdHost: "share.example.com", fwdProt: "https", want: "https://config"},
 		{name: "config baseURL when no forwarded", baseURL: "https://config.example.com/", host: "x", want: "https://config.example.com"},
+		// Header is only a fallback when no base URL is configured.
+		{name: "x-forwarded fallback when no config", baseURL: "", host: "internal:3001",
+			fwdHost: "share.example.com", fwdProt: "https", want: "https://share.example.com"},
+		{name: "x-forwarded with path rejected", baseURL: "", host: "internal:3001",
+			fwdHost: "evil.example.com/path", want: "http://internal:3001"},
 		{name: "fallback to host", baseURL: "", host: "fallback.local:3001", want: "http://fallback.local:3001"},
 	}
 	for _, tc := range cases {

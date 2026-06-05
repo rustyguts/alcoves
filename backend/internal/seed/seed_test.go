@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gorm.io/gorm"
@@ -162,9 +163,13 @@ func TestRun(t *testing.T) {
 		t.Errorf("share count = %d, want 1", shareCount)
 	}
 
-	// Dev PAT stored as a hash of the known plaintext.
+	// Dev PAT is randomly generated per seed (no compiled-in constant), returned
+	// via Result, and stored as a hash of that plaintext.
+	if !strings.HasPrefix(res.AccessToken, "alc_pat_") {
+		t.Errorf("dev access token = %q, want alc_pat_ prefix", res.AccessToken)
+	}
 	var patCount int64
-	db.Model(&models.PersonalAccessToken{}).Where("token_hash = ?", hashToken(DevAccessToken)).Count(&patCount)
+	db.Model(&models.PersonalAccessToken{}).Where("token_hash = ?", hashToken(res.AccessToken)).Count(&patCount)
 	if patCount != 1 {
 		t.Errorf("dev PAT count = %d, want 1", patCount)
 	}
@@ -240,4 +245,21 @@ func TestMaybeRunGating(t *testing.T) {
 			t.Errorf("users after re-run = %d, want %d (no-op)", n, first)
 		}
 	})
+}
+
+func TestGenerateDevToken(t *testing.T) {
+	a, err := generateDevToken()
+	if err != nil {
+		t.Fatalf("generateDevToken: %v", err)
+	}
+	if !strings.HasPrefix(a, "alc_pat_") {
+		t.Errorf("token %q missing alc_pat_ prefix", a)
+	}
+	if len(a) != len("alc_pat_")+32 {
+		t.Errorf("token %q wrong length %d", a, len(a))
+	}
+	b, _ := generateDevToken()
+	if a == b {
+		t.Error("two generated tokens are identical; not random")
+	}
 }
