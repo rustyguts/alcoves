@@ -23,6 +23,18 @@ const (
 	minModelSize = 1 * 1024 * 1024 // 1MB — anything smaller is likely an LFS pointer or error page
 )
 
+// Expected SHA-256 of each canonical model. A cached file must match its hash
+// or it is re-downloaded. Size alone is NOT enough: a stale file of the wrong
+// model can pass a size check yet expose ONNX input/output names that no loader
+// combination matches, which silently breaks recognition (faces are detected but
+// no embedding is computed, so nobody is ever clustered into the People view).
+// If you change a model URL, update its hash here too. These are vars (not consts)
+// only so tests can point them at fixture content; treat them as constants.
+var (
+	detectionModelSHA256   = "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
+	recognitionModelSHA256 = "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43"
+)
+
 var (
 	ortInitOnce sync.Once
 	ortInitErr  error
@@ -48,9 +60,10 @@ func EnsureModelsDownloaded(modelsPath string) error {
 	models := []struct {
 		filename string
 		url      string
+		sha256   string
 	}{
-		{detectionModelFile, detectionModelURL},
-		{recognitionModelFile, recognitionModelURL},
+		{detectionModelFile, detectionModelURL, detectionModelSHA256},
+		{recognitionModelFile, recognitionModelURL, recognitionModelSHA256},
 	}
 
 	for _, m := range models {
@@ -59,6 +72,7 @@ func EnsureModelsDownloaded(modelsPath string) error {
 			MinSize:     minModelSize,
 			RejectHTML:  true,
 			LogProgress: true,
+			SHA256:      m.sha256,
 		}); err != nil {
 			return fmt.Errorf("failed to download %s: %w", m.filename, err)
 		}

@@ -2,6 +2,8 @@ package modelfetch
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +13,11 @@ import (
 	"testing"
 	"time"
 )
+
+func sha256hex(b []byte) string {
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
+}
 
 func TestFetchToFile_Success(t *testing.T) {
 	body := []byte("model-payload-bytes")
@@ -154,5 +161,93 @@ func TestFetchToFile_CtxCanceled(t *testing.T) {
 	}
 	if time.Since(start) > 2*time.Second {
 		t.Errorf("canceled fetch should return promptly, took %v", time.Since(start))
+	}
+}
+
+// TestFetchToFile_SHA256MatchSkipsServer reuses a cached file whose hash matches
+// without contacting the server.
+func TestFetchToFile_SHA256MatchSkipsServer(t *testing.T) {
+	body := make([]byte, 4096)
+	for i := range body {
+		body[i] = byte(i)
+	}
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "model.onnx")
+	if err := os.WriteFile(dest, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := FetchToFile(context.Background(), srv.URL, dest, Options{SHA256: sha256hex(body)}); err != nil {
+		t.Fatalf("FetchToFile: %v", err)
+	}
+	if n := atomic.LoadInt32(&hits); n != 0 {
+		t.Errorf("server hit %d times, expected 0 (hash-match skip)", n)
+	}
+}
+
+// TestFetchToFile_SHA256WrongCacheRedownloads re-downloads when an existing file
+// is the right size but the wrong contents — the stale-model bug this guards.
+func TestFetchToFile_SHA256WrongCacheRedownloads(t *testing.T) {
+	good := make([]byte, 4096)
+	for i := range good {
+		good[i] = 0xAB
+	}
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		_, _ = w.Write(good)
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "model.onnx")
+	// Existing file passes any size gate but is the wrong model (wrong hash).
+	stale := make([]byte, 4096)
+	for i := range stale {
+		stale[i] = 0xCD
+	}
+	if err := os.WriteFile(dest, stale, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := FetchToFile(context.Background(), srv.URL, dest, Options{SHA256: sha256hex(good)}); err != nil {
+		t.Fatalf("FetchToFile: %v", err)
+	}
+	if n := atomic.LoadInt32(&hits); n != 1 {
+		t.Errorf("server hit %d times, expected 1 (wrong-hash redownload)", n)
+	}
+	got, _ := os.ReadFile(dest)
+	if sha256hex(got) != sha256hex(good) {
+		t.Errorf("stale file was not replaced")
+	}
+}
+
+// TestFetchToFile_SHA256MismatchPermanent treats a downloaded file whose hash
+// doesn't match as a permanent error, leaving no dest or temp file behind.
+func TestFetchToFile_SHA256MismatchPermanent(t *testing.T) {
+	body := make([]byte, 4096)
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "model.onnx")
+	err := FetchToFile(context.Background(), srv.URL, dest, Options{SHA256: "deadbeef", MaxAttempts: 6})
+	if err == nil || !strings.Contains(err.Error(), "hash mismatch") {
+		t.Fatalf("expected hash mismatch error, got %v", err)
+	}
+	if n := atomic.LoadInt32(&hits); n != 1 {
+		t.Errorf("server hit %d times, expected 1 (no retry on hash mismatch)", n)
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Errorf("dest should not exist on hash mismatch")
+	}
+	if _, err := os.Stat(dest + ".part"); !os.IsNotExist(err) {
+		t.Errorf("temp file should be removed on hash mismatch")
 	}
 }

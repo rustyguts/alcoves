@@ -2,6 +2,8 @@ package facedetection
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,10 +14,23 @@ func bigBody() []byte {
 	return bytes.Repeat([]byte{0xAB}, minModelSize+1024)
 }
 
-// TestEnsureModelsDownloaded_Success short-circuits when both model files
-// already exist at a valid size (modelfetch's pre-stat path).
+// bigBodyHash is the SHA-256 of bigBody(), used as the "expected" hash in tests.
+func bigBodyHash() string {
+	sum := sha256.Sum256(bigBody())
+	return hex.EncodeToString(sum[:])
+}
+
+// TestEnsureModelsDownloaded_Success short-circuits when both model files already
+// exist at a valid size with a matching hash (modelfetch's pre-stat path). The
+// expected hashes are pointed at the fixture content so EnsureModelsDownloaded
+// never contacts the real model URLs.
 func TestEnsureModelsDownloaded_Success(t *testing.T) {
 	body := bigBody()
+	origDet, origRec := detectionModelSHA256, recognitionModelSHA256
+	detectionModelSHA256 = bigBodyHash()
+	recognitionModelSHA256 = bigBodyHash()
+	defer func() { detectionModelSHA256, recognitionModelSHA256 = origDet, origRec }()
+
 	dir := filepath.Join(t.TempDir(), "models")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
