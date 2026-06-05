@@ -14,8 +14,11 @@ test.describe("Admin @screenshot", () => {
     await page.goto("/admin");
 
     await expect(page.getByRole("heading", { name: "Admin dashboard" })).toBeVisible();
-    await expect(page.getByText("Files", { exact: true })).toBeVisible();
-    await expect(page.getByText("Storage", { exact: true })).toBeVisible();
+    // Scope to the page's <main> landmark: the sidebar library nav also renders a
+    // "Files" action item, so an unscoped exact-text match is ambiguous.
+    const content = page.getByRole("main");
+    await expect(content.getByText("Files", { exact: true })).toBeVisible();
+    await expect(content.getByText("Storage", { exact: true })).toBeVisible();
     await snap(page, FLOW, "admin-dashboard-stats");
   });
 
