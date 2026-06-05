@@ -589,6 +589,23 @@ async function deleteLibrary() {
         <USeparator />
 
         <AppPanelRow
+          title="Browse detected objects"
+          description="View detected object labels and their frequency across the library."
+        >
+          <UButton
+            color="neutral"
+            variant="soft"
+            icon="i-lucide-scan-search"
+            :to="`/libraries/${libraryId}/objects`"
+            :disabled="!library?.objectDetectionEnabled"
+          >
+            View Objects
+          </UButton>
+        </AppPanelRow>
+
+        <USeparator />
+
+        <AppPanelRow
           title="Queue full reprocessing"
           description="Deletes current object detection data, then re-runs detection on all images."
         >

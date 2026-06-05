@@ -32,7 +32,7 @@ When enabled, Alcoves scans every image in a library, detects faces, and automat
 **Click any face crop** to open the full source image.
 
 :::tip
-The People and Objects tabs only appear in the library navigation when the corresponding feature is enabled. If you don't see them, check **Library → Settings**.
+The People tab only appears in the library navigation when face recognition is enabled. Objects is an advanced owner feature and is not in the sidebar — reach it from **Library → Settings → Object Detection → View Objects**.
 :::
 
 ### How faces are recognized
@@ -79,7 +79,7 @@ Object labels also power global search: searching for "dog" or "car" returns pho
 
 ### What you can do
 
-**Browse the Objects tab** — a read-only table showing each detected label and the number of photos in the library that contain it, sorted by frequency.
+**Browse detected objects** — from **Library → Settings → Object Detection**, click **View Objects** to open a read-only table showing each detected label and the number of photos in the library that contain it, sorted by frequency.
 
 **Search by object** — use the global search bar to find photos by what's in them. Search results annotate matches with the labels that matched and why.
 

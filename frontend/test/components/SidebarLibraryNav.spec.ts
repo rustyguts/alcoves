@@ -83,17 +83,20 @@ describe("SidebarLibraryNav", () => {
     expect(trashIdx).toBeGreaterThan(0);
   });
 
-  it("includes People/Objects only when detection flags are enabled", () => {
+  it("includes People only when face recognition is enabled", () => {
     mountNav(
       [lib({ isDefault: true, faceRecognitionEnabled: true, objectDetectionEnabled: true })],
       owner,
     );
-    expect(actionLabels()).toEqual(expect.arrayContaining(["People", "Objects"]));
+    expect(actionLabels()).toContain("People");
 
     mountNav([lib({ isDefault: true })], owner);
-    const plain = actionLabels();
-    expect(plain).not.toContain("People");
-    expect(plain).not.toContain("Objects");
+    expect(actionLabels()).not.toContain("People");
+  });
+
+  it("never shows Objects in the sidebar — it lives on the Settings page", () => {
+    mountNav([lib({ isDefault: true, objectDetectionEnabled: true })], owner);
+    expect(actionLabels()).not.toContain("Objects");
   });
 
   it("shows Settings only when the user can manage the library", () => {
