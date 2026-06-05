@@ -189,7 +189,10 @@ func TestShare_Thumbnail_UnknownToken(t *testing.T) {
 	}
 }
 
-func TestShare_ResolveBase_ForwardedHost(t *testing.T) {
+func TestShare_ResolveBase_ConfigBeatsForwardedHost(t *testing.T) {
+	// fullShareHandler is configured with baseURL http://share.example.com. A
+	// spoofed X-Forwarded-Host must NOT override it (open-redirect / share-link
+	// spoofing), so the configured base URL wins.
 	h, _, _, _ := fullShareHandler(t)
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -197,8 +200,8 @@ func TestShare_ResolveBase_ForwardedHost(t *testing.T) {
 	req.Header.Set("X-Forwarded-Proto", "https")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	if base := h.resolveBase(c); base != "https://proxy.example.com" {
-		t.Fatalf("got %q", base)
+	if base := h.resolveBase(c); base != "http://share.example.com" {
+		t.Fatalf("got %q, want configured base URL to win", base)
 	}
 }
 

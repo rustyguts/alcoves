@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -304,6 +305,19 @@ func (s *seeder) addActivity(idName string, lib uuid.UUID, actor *uuid.UUID, act
 func hashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// generateDevToken returns a fresh random personal access token (alc_pat_ +
+// 32 hex chars, 128 bits of entropy). The dev PAT must NOT be a compiled-in
+// constant: a fixed value published in the open-source repo means anyone could
+// authenticate to any seeded-and-reachable instance. A per-seed random token,
+// printed once to the seed log, keeps the dev convenience without that risk.
+func generateDevToken() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return "alc_pat_" + hex.EncodeToString(buf), nil
 }
 
 func (s *seeder) addPAT(idName string, user uuid.UUID, name, plaintext string, createdAt time.Time) {

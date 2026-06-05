@@ -162,19 +162,30 @@ func generateShareToken() (string, error) {
 }
 
 // baseURLFor resolves the public-facing base URL for the current request.
+//
+// The persisted/returned share link and its OG tags must not be controllable by
+// request headers: both Origin and X-Forwarded-Host are client/proxy-supplied and
+// would otherwise let an attacker mint share URLs pointing at an attacker host.
+// The operator-configured ALCOVES_BASE_URL is therefore trusted first; the headers
+// are only a fallback for deployments that have not configured a base URL.
+//
 // Order:
-//   1. Origin header  — browsers set this on fetch(). Most reliable for our SPA.
-//   2. X-Forwarded-Proto + X-Forwarded-Host — reverse proxies / tunnels.
-//   3. cfg.BaseURL (ALCOVES_BASE_URL).
-//   4. request scheme + Host — last resort, may be internal docker hostname.
+//  1. cfg.BaseURL (ALCOVES_BASE_URL) — trusted operator config.
+//  2. Origin header — fallback for SPA dev with no configured base URL.
+//  3. X-Forwarded-Proto + X-Forwarded-Host — reverse proxies / tunnels.
+//  4. request scheme + Host — last resort, may be internal docker hostname.
 func (h *MomentHandler) baseURLFor(c echo.Context) string {
 	req := c.Request()
+
+	if h.baseURL != "" {
+		return strings.TrimRight(h.baseURL, "/")
+	}
 
 	if origin := strings.TrimSpace(req.Header.Get("Origin")); origin != "" && origin != "null" {
 		return strings.TrimRight(origin, "/")
 	}
 
-	if fwdHost := strings.TrimSpace(req.Header.Get("X-Forwarded-Host")); fwdHost != "" {
+	if fwdHost := safeForwardedHost(req.Header.Get("X-Forwarded-Host")); fwdHost != "" {
 		proto := strings.TrimSpace(req.Header.Get("X-Forwarded-Proto"))
 		if proto == "" {
 			proto = c.Scheme()
@@ -183,10 +194,6 @@ func (h *MomentHandler) baseURLFor(c echo.Context) string {
 			proto = "http"
 		}
 		return proto + "://" + fwdHost
-	}
-
-	if h.baseURL != "" {
-		return strings.TrimRight(h.baseURL, "/")
 	}
 
 	scheme := c.Scheme()
