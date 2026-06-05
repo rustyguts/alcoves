@@ -1,8 +1,56 @@
 package handlers
 
 import (
+	"strings"
 	"testing"
 )
+
+// Fuzzy object-label matching: query variants must let "birds" reach the
+// "bird" label and "planes" reach the "airplane" label.
+
+func termsContain(terms []string, want string) bool {
+	for _, t := range terms {
+		if t == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestExpandSearchTerms_PluralToSingular(t *testing.T) {
+	terms := expandSearchTerms("birds")
+	if !termsContain(terms, "bird") {
+		t.Fatalf("expected 'bird' in %v", terms)
+	}
+}
+
+func TestExpandSearchTerms_PlanesMatchesAirplane(t *testing.T) {
+	// "planes" → "plane", which is a substring of the "airplane" label.
+	terms := expandSearchTerms("planes")
+	if !termsContain(terms, "plane") {
+		t.Fatalf("expected 'plane' in %v", terms)
+	}
+	if !strings.Contains("airplane", "plane") {
+		t.Fatal("sanity: 'airplane' should contain 'plane'")
+	}
+}
+
+func TestExpandSearchTerms_SingularAddsPlural(t *testing.T) {
+	terms := expandSearchTerms("bird")
+	if !termsContain(terms, "bird") || !termsContain(terms, "birds") {
+		t.Fatalf("expected both 'bird' and 'birds' in %v", terms)
+	}
+}
+
+func TestBuildLabelMatchClause_IncludesLabelSubstringCheck(t *testing.T) {
+	clause, args := buildLabelMatchClause("planes")
+	if !strings.Contains(clause, "? ILIKE '%' || od.label || '%'") {
+		t.Fatalf("clause missing label-substring branch: %s", clause)
+	}
+	if len(args) == 0 {
+		t.Fatal("expected non-empty args")
+	}
+}
 
 // Port of TypeScript search service helper tests
 
