@@ -558,7 +558,16 @@ function handleClickOutsideNewDropdown(event: MouseEvent) {
   }
 }
 
-onMounted(() => document.addEventListener("click", handleClickOutsideNewDropdown));
+// The library layout renders a `#library-header-actions` slot on the breadcrumb
+// row; teleport the toolbar there so it shares that line (more room for files).
+// When the target is absent (e.g. unit tests), the Teleport is disabled and the
+// toolbar renders inline instead.
+const headerActionsReady = ref(false);
+
+onMounted(() => {
+  document.addEventListener("click", handleClickOutsideNewDropdown);
+  headerActionsReady.value = !!document.getElementById("library-header-actions");
+});
 onUnmounted(() => document.removeEventListener("click", handleClickOutsideNewDropdown));
 
 watch(createFolderOpen, async (open) => {
@@ -1115,8 +1124,8 @@ const emptyStateDescription = computed(() => {
       </UBadge>
     </div>
 
-    <div class="flex min-h-10 w-full items-center justify-end gap-2">
-      <div class="flex shrink-0 items-center gap-2">
+    <Teleport to="#library-header-actions" :disabled="!headerActionsReady">
+      <div class="flex shrink-0 items-center gap-1.5">
         <template v-if="!showTrashed">
           <UTooltip text="List view">
             <UButton
@@ -1136,26 +1145,6 @@ const emptyStateDescription = computed(() => {
               square
               icon="i-lucide-layout-grid"
               @click="entryViewMode = 'card'"
-            />
-          </UTooltip>
-          <UTooltip text="Timeline">
-            <UButton
-              color="neutral"
-              variant="soft"
-              size="sm"
-              square
-              icon="i-lucide-clock"
-              :to="`/libraries/${libraryId}/timeline`"
-            />
-          </UTooltip>
-          <UTooltip text="Map">
-            <UButton
-              color="neutral"
-              variant="soft"
-              size="sm"
-              square
-              icon="i-lucide-map-pin"
-              :to="`/libraries/${libraryId}/map`"
             />
           </UTooltip>
         </template>
@@ -1181,7 +1170,7 @@ const emptyStateDescription = computed(() => {
           </UButton>
         </UDropdownMenu>
       </div>
-    </div>
+    </Teleport>
 
     <div class="relative overflow-y-auto flex-1 min-h-0 px-0.5">
       <UContextMenu :items="contextMenuGroups" :ui="{ content: 'w-56' }">

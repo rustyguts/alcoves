@@ -13,7 +13,7 @@ test.describe("People @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/people");
 
-    await expect(page.getByRole("tab", { name: /People/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "People" })).toBeVisible();
     await snap(page, FLOW, "people-list");
   });
 
@@ -52,7 +52,7 @@ test.describe("People @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos");
 
-    await expect(page.getByRole("tab", { name: /Files/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Files" })).toBeVisible();
     await snap(page, FLOW, "people-disabled");
   });
 });
@@ -183,7 +183,7 @@ test.describe("People dark @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/people");
 
-    await expect(page.getByRole("tab", { name: /People/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "People" })).toBeVisible();
     await snap(page, FLOW, "people-list-dark");
   });
 });

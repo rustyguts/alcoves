@@ -123,7 +123,7 @@ test.describe("Notifications flow", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-personal/feed");
 
-    await expect(page.getByRole("tab", { name: "Feed" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Feed" })).toBeVisible();
     await expect(page.getByText("Alice created tag vacation")).toBeVisible();
     await expect(page.getByText("Alice added photo.jpg")).toBeVisible();
   });

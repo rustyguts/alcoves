@@ -35,8 +35,22 @@ test.describe("Library browser @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-personal");
 
-    await expect(page.getByRole("tab", { name: /Files/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Files" })).toBeVisible();
     await snap(page, FLOW, "library-empty");
+  });
+
+  test("library switcher dropdown @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await createMockApi(page, state);
+    await page.goto("/libraries/lib-photos");
+
+    await expect(page.getByRole("link", { name: "Files" })).toBeVisible();
+    // Open the account-switcher style library dropdown: default library pinned
+    // at the top, the others below, current library checked.
+    await page.getByRole("button", { name: /Switch library/ }).first().click();
+    await expect(page.getByRole("menuitem", { name: /Shared Team Library/ })).toBeVisible();
+    await snap(page, FLOW, "library-switcher-open");
   });
 
   test("library loading skeleton @screenshot", async ({ page }) => {
@@ -181,7 +195,7 @@ test.describe("Library browser @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/trash");
 
-    await expect(page.getByRole("tab", { name: /Trash/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Trash" })).toBeVisible();
     await snap(page, FLOW, "library-trash-empty");
   });
 
@@ -192,7 +206,7 @@ test.describe("Library browser @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/trash");
 
-    await expect(page.getByRole("tab", { name: /Trash/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Trash" })).toBeVisible();
     await snap(page, FLOW, "library-trash-items");
   });
 
@@ -242,7 +256,7 @@ test.describe("Library browser dark @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/trash");
 
-    await expect(page.getByRole("tab", { name: /Trash/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Trash" })).toBeVisible();
     await snap(page, FLOW, "library-trash-items-dark");
   });
 
@@ -255,7 +269,7 @@ test.describe("Library browser dark @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-personal");
 
-    await expect(page.getByRole("tab", { name: /Files/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Files" })).toBeVisible();
     await snap(page, FLOW, "library-empty-dark");
   });
 });

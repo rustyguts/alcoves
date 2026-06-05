@@ -72,10 +72,36 @@ test.describe("Mobile @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos");
 
-    // The library name now lives in the breadcrumb heading (a nav, not a
-    // heading element); gate on the Files tab to confirm the chrome rendered.
-    await expect(page.getByRole("tab", { name: /Files/ })).toBeVisible();
+    // Tabs now live in the sidebar (behind the mobile hamburger), so gate on the
+    // breadcrumb library name to confirm the library chrome rendered. The sidebar
+    // library switcher renders the same name (and the mobile slideover keeps it in
+    // the DOM), so scope to the breadcrumb nav to avoid a strict-mode match of two
+    // elements once the libraries list populates.
+    await expect(
+      page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Photos 2025", { exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
     await snap(page, FLOW, "mobile-library-header");
+  });
+
+  test("mobile sidebar with nested library tabs @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await createMockApi(page, state);
+    await page.goto("/libraries/lib-photos");
+    // Wait for the library chrome to hydrate (and the libraries list to load)
+    // before opening the slideover, so the nested nav is populated. Scope to the
+    // breadcrumb nav — the sidebar switcher renders the same name and would make
+    // a bare getByText match two elements.
+    await expect(
+      page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Photos 2025", { exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Open the hamburger slideover; the active library expands to reveal its
+    // sections (Files / Timeline / … / Settings / Trash) as nested nav items.
+    await page.getByRole("button", { name: "Open sidebar" }).click();
+    await expect(page.getByRole("link", { name: "Files" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    await snap(page, FLOW, "mobile-sidebar-nav");
   });
 
   test("mobile search @screenshot", async ({ page }) => {

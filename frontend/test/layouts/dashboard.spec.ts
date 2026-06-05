@@ -143,20 +143,22 @@ describe("dashboard.vue", () => {
     expect(wrapper.text()).toContain("Alcoves");
   });
 
-  it("renders default library in navigation", () => {
+  it("shows the current library in the switcher trigger", () => {
+    // On "/" the switcher falls back to the default library.
     const wrapper = mountLayout();
     expect(wrapper.text()).toContain("My Files");
   });
 
-  it("renders non-default libraries in navigation", () => {
+  it("renders the current library's action items", () => {
     const wrapper = mountLayout();
-    expect(wrapper.text()).toContain("Projects");
-    expect(wrapper.text()).toContain("Archives");
+    // The library sections render as a static nav under the switcher.
+    expect(wrapper.text()).toContain("Files");
+    expect(wrapper.text()).toContain("Trash");
   });
 
-  it("renders Libraries header", () => {
+  it("exposes a library switcher control", () => {
     const wrapper = mountLayout();
-    expect(wrapper.text()).toContain("Libraries");
+    expect(wrapper.find("[aria-label^='Switch library']").exists()).toBe(true);
   });
 
   it("shows Admin link for owners", () => {
@@ -171,10 +173,11 @@ describe("dashboard.vue", () => {
     expect(wrapper.text()).not.toContain("Admin");
   });
 
-  it("shows emoji when library has emoji set", () => {
-    mocks.libraries[1]!.emoji = "\u{1F680}";
+  it("shows emoji for the current library in the switcher", () => {
+    // The switcher shows the default library on "/", so emoji goes there.
+    mocks.libraries[0]!.emoji = "\u{1F680}";
     const wrapper = mountLayout();
     expect(wrapper.text()).toContain("\u{1F680}");
-    mocks.libraries[1]!.emoji = null;
+    mocks.libraries[0]!.emoji = null;
   });
 });
