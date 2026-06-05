@@ -35,7 +35,13 @@ provide("canManageLibrary", canManageLibrary);
 <template>
   <NuxtLayout name="dashboard">
     <div class="flex flex-col gap-4 flex-1 min-h-0">
-      <LibraryHeader :library-id="libraryId" :name="library?.name" :emoji="library?.emoji" />
+      <LibraryHeader :library-id="libraryId" :name="library?.name" :emoji="library?.emoji">
+        <template #actions>
+          <!-- Teleport target: library pages (e.g. Files) inject their toolbar
+               here so it shares the breadcrumb row instead of taking its own. -->
+          <div id="library-header-actions" class="flex items-center gap-1.5" />
+        </template>
+      </LibraryHeader>
 
       <div class="relative flex flex-col flex-1 min-h-0">
         <slot />

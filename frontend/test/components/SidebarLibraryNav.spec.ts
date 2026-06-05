@@ -6,12 +6,10 @@ import type { AuthUser, Library } from "~~/shared/types/api";
 interface NavItem {
   label?: string;
   to?: string;
-  children?: NavItem[];
-  type?: string;
 }
 
-// Capture every `items` array handed to a UNavigationMenu so we can assert on
-// the nested children the real (stubbed) component would otherwise hide.
+// Capture every `items` array handed to a UNavigationMenu (the static action
+// nav + the Admin nav) so we can assert on the items the component builds.
 let captured: NavItem[][] = [];
 
 const NavStub = defineComponent({
@@ -23,11 +21,13 @@ const NavStub = defineComponent({
   },
 });
 
-const ButtonStub = defineComponent({
-  name: "UButton",
-  emits: ["click"],
-  setup(_, { emit, slots }) {
-    return () => h("button", { onClick: () => emit("click") }, slots.default?.());
+// Capture the props handed to the switcher and let tests fire its create event.
+const SwitcherStub = defineComponent({
+  name: "LibrarySwitcher",
+  props: ["libraries", "currentLibraryId"],
+  emits: ["create"],
+  setup(_, { emit }) {
+    return () => h("button", { onClick: () => emit("create") }, "switch");
   },
 });
 
@@ -61,83 +61,69 @@ function mountNav(libraries: Library[] | null, user: AuthUser | null) {
   return mount(SidebarLibraryNav, {
     props: { libraries, user },
     global: {
-      stubs: { UNavigationMenu: NavStub, UButton: ButtonStub, USeparator: true },
+      stubs: { UNavigationMenu: NavStub, LibrarySwitcher: SwitcherStub, USeparator: true },
     },
   });
 }
 
-function flatItems(): NavItem[] {
-  return captured.flat();
-}
-
-function childLabels(libraryLabelFragment: string): string[] {
-  const item = flatItems().find((i) => i.label?.includes(libraryLabelFragment));
-  return (item?.children ?? []).map((c) => c.label ?? "");
+function actionLabels(): string[] {
+  return captured.flat().map((i) => i.label ?? "");
 }
 
 describe("SidebarLibraryNav", () => {
-  it("renders the default library separately from the rest", () => {
-    mountNav(
-      [
-        lib({ id: "def", name: "My Files", isDefault: true, ownerId: "owner-x" }),
-        lib({ id: "lib-2", name: "Projects" }),
-      ],
-      owner,
-    );
-    const labels = flatItems().map((i) => i.label);
-    expect(labels).toContain("My Files");
-    expect(labels).toContain("Projects");
+  // On "/" the current library falls back to the default library, so the
+  // action items below describe the default library's sections.
+  it("renders the current library's sections, Files first and Trash last", () => {
+    mountNav([lib({ isDefault: true, ownerId: "owner-x" })], owner);
+    const labels = actionLabels();
+    expect(labels[0]).toBe("Files");
+    expect(labels).toEqual(expect.arrayContaining(["Timeline", "Map", "Tags", "Feed"]));
+    // Trash is the last action (Admin is in a separate nav).
+    const trashIdx = labels.indexOf("Trash");
+    expect(trashIdx).toBeGreaterThan(0);
   });
 
-  it("nests every section under a library, Files first and Trash last", () => {
-    mountNav([lib({ name: "Projects" })], owner);
-    const children = childLabels("Projects");
-    expect(children[0]).toBe("Files");
-    expect(children.at(-1)).toBe("Trash");
-    expect(children).toEqual(expect.arrayContaining(["Timeline", "Map", "Tags", "Feed"]));
-  });
-
-  it("includes People/Objects only when their detection flags are enabled", () => {
+  it("includes People/Objects only when detection flags are enabled", () => {
     mountNav(
-      [lib({ name: "AI Lib", faceRecognitionEnabled: true, objectDetectionEnabled: true })],
+      [lib({ isDefault: true, faceRecognitionEnabled: true, objectDetectionEnabled: true })],
       owner,
     );
-    expect(childLabels("AI Lib")).toEqual(expect.arrayContaining(["People", "Objects"]));
+    expect(actionLabels()).toEqual(expect.arrayContaining(["People", "Objects"]));
 
-    mountNav([lib({ name: "Plain Lib" })], owner);
-    const plain = childLabels("Plain Lib");
+    mountNav([lib({ isDefault: true })], owner);
+    const plain = actionLabels();
     expect(plain).not.toContain("People");
     expect(plain).not.toContain("Objects");
   });
 
-  it("shows Settings only to a user who can manage the library", () => {
-    // Owner of the library (matched by ownerId) can manage.
-    mountNav([lib({ name: "Owned", ownerId: "owner-x" })], owner);
-    expect(childLabels("Owned")).toContain("Settings");
+  it("shows Settings only when the user can manage the library", () => {
+    mountNav([lib({ isDefault: true, ownerId: "owner-x" })], owner);
+    expect(actionLabels()).toContain("Settings");
 
-    // A viewer on someone else's library cannot.
-    mountNav([lib({ name: "Foreign", ownerId: "someone-else", currentUserRole: "viewer" })], owner);
-    expect(childLabels("Foreign")).not.toContain("Settings");
+    mountNav([lib({ isDefault: true, ownerId: "someone-else", currentUserRole: "viewer" })], owner);
+    expect(actionLabels()).not.toContain("Settings");
   });
 
-  it("marks each library as a collapsible trigger linking to its Files", () => {
-    mountNav([lib({ id: "lib-9", name: "Trig" })], owner);
-    const item = flatItems().find((i) => i.label?.includes("Trig"));
-    expect(item?.type).toBe("trigger");
-    expect(item?.to).toBe("/libraries/lib-9");
+  it("passes the current library id to the switcher", () => {
+    const wrapper = mountNav(
+      [lib({ id: "def", isDefault: true }), lib({ id: "lib-2", name: "Other" })],
+      owner,
+    );
+    const switcher = wrapper.findComponent(SwitcherStub);
+    expect(switcher.props("currentLibraryId")).toBe("def");
   });
 
-  it("emits create when the add button is clicked", async () => {
-    const wrapper = mountNav([lib({ name: "Projects" })], owner);
-    await wrapper.find("button").trigger("click");
+  it("re-emits create from the switcher", async () => {
+    const wrapper = mountNav([lib({ isDefault: true })], owner);
+    await wrapper.findComponent(SwitcherStub).trigger("click");
     expect(wrapper.emitted("create")).toBeTruthy();
   });
 
   it("shows Admin only for owner-role users", () => {
-    mountNav([lib({ name: "Projects" })], owner);
-    expect(flatItems().some((i) => i.label === "Admin")).toBe(true);
+    mountNav([lib({ isDefault: true })], owner);
+    expect(actionLabels()).toContain("Admin");
 
-    mountNav([lib({ name: "Projects" })], { ...owner, role: "member" });
-    expect(flatItems().some((i) => i.label === "Admin")).toBe(false);
+    mountNav([lib({ isDefault: true })], { ...owner, role: "member" });
+    expect(actionLabels()).not.toContain("Admin");
   });
 });

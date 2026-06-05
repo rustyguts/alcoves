@@ -39,6 +39,20 @@ test.describe("Library browser @screenshot", () => {
     await snap(page, FLOW, "library-empty");
   });
 
+  test("library switcher dropdown @screenshot", async ({ page }) => {
+    const state = createDefaultState();
+    await setupDeterminism(page);
+    await createMockApi(page, state);
+    await page.goto("/libraries/lib-photos");
+
+    await expect(page.getByRole("link", { name: "Files" })).toBeVisible();
+    // Open the account-switcher style library dropdown: default library pinned
+    // at the top, the others below, current library checked.
+    await page.getByRole("button", { name: /Switch library/ }).first().click();
+    await expect(page.getByRole("menuitem", { name: /Shared Team Library/ })).toBeVisible();
+    await snap(page, FLOW, "library-switcher-open");
+  });
+
   test("library loading skeleton @screenshot", async ({ page }) => {
     const state = createDefaultState();
     addOverride(state, async (route, url) => {

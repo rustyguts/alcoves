@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import type { AuthUser, Library } from "~~/shared/types/api";
 import type { NavigationMenuItem } from "@nuxt/ui";
+import LibrarySwitcher from "~/components/LibrarySwitcher.vue";
 
 /**
- * The library navigation that lives in the app sidebar. Each library is a
- * collapsible group; the active library expands to reveal its sections
- * (Files / Timeline / Map / Tags / Feed / People / Objects / Settings / Trash)
- * as nested items. Clicking a library name navigates to its Files and opens it,
- * so switching libraries — and jumping to any of a library's tabs — is one
- * click from anywhere. Shared between the desktop sidebar and the mobile
- * slideover so both stay in sync.
+ * The sidebar library region: a library switcher (account-switcher style) at the
+ * top, then a divider, then the current library's actions/sections (Files,
+ * Timeline, Map, Tags, Feed, People, Objects, Settings, Trash) as a static nav.
+ * The actions always target the active library (or the default library when no
+ * library is open). Shared between the desktop sidebar and the mobile slideover.
  */
 const props = defineProps<{
   libraries: Library[] | null;
@@ -30,16 +29,20 @@ function isActiveLibrary(id: string): boolean {
   return route.path === base || route.path.startsWith(`${base}/`);
 }
 
-const activeLibraryId = computed(() => {
-  for (const l of props.libraries ?? []) {
-    if (isActiveLibrary(l.id)) return l.id;
-  }
-  return null;
+// The library whose actions the sidebar shows: the one open in the route, else
+// the default library, else the first available.
+const currentLibrary = computed(() => {
+  const libs = props.libraries ?? [];
+  return (
+    libs.find((l) => isActiveLibrary(l.id)) ??
+    libs.find((l) => l.isDefault) ??
+    libs[0] ??
+    null
+  );
 });
 
-// Mirror of LibraryTabs' route → tab-key detection, scoped to the active library.
 function activeTabKey(id: string): string | null {
-  if (activeLibraryId.value !== id) return null;
+  if (!isActiveLibrary(id)) return null;
   const p = route.path;
   if (p.endsWith("/timeline")) return "timeline";
   if (p.endsWith("/map")) return "map";
@@ -58,8 +61,7 @@ function canManage(l: Library): boolean {
 }
 
 // `/libraries/:id/trash` is an alias of `/libraries/:id`, so vue-router treats
-// navigating between Files and Trash as a same-record no-op. Force the push so
-// the URL (and active tab) actually flips.
+// navigating between Files and Trash as a same-record no-op. Force the push.
 function forceNav(to: string) {
   return (e: Event) => {
     e.preventDefault();
@@ -67,9 +69,12 @@ function forceNav(to: string) {
   };
 }
 
-function tabChildren(l: Library): NavigationMenuItem[] {
+const actionItems = computed<NavigationMenuItem[]>(() => {
+  const l = currentLibrary.value;
+  if (!l) return [];
   const base = libBase(l.id);
   const active = activeTabKey(l.id);
+
   const items: NavigationMenuItem[] = [
     {
       label: "Files",
@@ -120,31 +125,7 @@ function tabChildren(l: Library): NavigationMenuItem[] {
   });
 
   return items;
-}
-
-function libraryItem(l: Library): NavigationMenuItem {
-  const base = libBase(l.id);
-  const open = isActiveLibrary(l.id);
-  return {
-    label: l.emoji ? `${l.emoji}  ${l.name}` : l.name,
-    icon: l.emoji ? undefined : l.isDefault ? "i-lucide-library" : "i-lucide-folder",
-    to: base,
-    type: "trigger",
-    active: open,
-    defaultOpen: open,
-    children: tabChildren(l),
-    onSelect: forceNav(base),
-  };
-}
-
-const defaultLibraryItems = computed<NavigationMenuItem[]>(() => {
-  const def = props.libraries?.find((l) => l.isDefault);
-  return def ? [libraryItem(def)] : [];
 });
-
-const libraryItems = computed<NavigationMenuItem[]>(
-  () => props.libraries?.filter((l) => !l.isDefault).map(libraryItem) ?? [],
-);
 
 const bottomItems = computed<NavigationMenuItem[]>(() => {
   if (props.user?.role !== "owner") return [];
@@ -157,44 +138,24 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
     },
   ];
 });
-
-// `defaultOpen` only seeds the accordion's initial state, so remount the menus
-// when the active library changes to re-open the new one and collapse the old.
-const navKey = computed(() => activeLibraryId.value ?? "none");
 </script>
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <div v-if="defaultLibraryItems.length" class="px-2">
-      <UNavigationMenu
-        :key="`default-${navKey}`"
-        orientation="vertical"
-        :items="defaultLibraryItems"
-        variant="pill"
-        class="w-full"
+    <div class="px-2 pt-1">
+      <LibrarySwitcher
+        :libraries="libraries"
+        :current-library-id="currentLibrary?.id ?? null"
+        @create="emit('create')"
       />
     </div>
 
     <USeparator class="my-2" />
 
-    <div class="flex items-center justify-between px-5 pt-1 pb-2">
-      <span class="text-xs font-semibold text-muted uppercase tracking-wide">Libraries</span>
-      <UButton
-        icon="i-lucide-plus"
-        size="xs"
-        color="neutral"
-        variant="ghost"
-        square
-        aria-label="Create library"
-        @click="emit('create')"
-      />
-    </div>
-
     <div class="px-2 flex-1 overflow-y-auto">
       <UNavigationMenu
-        :key="`libs-${navKey}`"
         orientation="vertical"
-        :items="libraryItems"
+        :items="actionItems"
         variant="pill"
         class="w-full"
       />
