@@ -138,6 +138,14 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
     },
   ];
 });
+
+// Larger, more generously spaced sidebar items: bigger tap target + label, a
+// roomier icon, and vertical breathing room between entries.
+const navUi = {
+  list: "gap-1",
+  link: "px-3 py-2.5 text-base gap-3",
+  linkLeadingIcon: "size-5",
+};
 </script>
 
 <template>
@@ -158,12 +166,19 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
         :items="actionItems"
         variant="pill"
         class="w-full"
+        :ui="navUi"
       />
     </div>
 
     <div v-if="bottomItems.length" class="px-2 pb-3 mt-auto">
       <USeparator class="mb-2" />
-      <UNavigationMenu orientation="vertical" :items="bottomItems" variant="pill" class="w-full" />
+      <UNavigationMenu
+        orientation="vertical"
+        :items="bottomItems"
+        variant="pill"
+        class="w-full"
+        :ui="navUi"
+      />
     </div>
   </div>
 </template>
