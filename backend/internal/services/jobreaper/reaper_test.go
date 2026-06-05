@@ -145,9 +145,9 @@ func setupReaperTestDB(t *testing.T) (*gorm.DB, uuid.UUID) {
 	db.Exec("DELETE FROM users")
 
 	userID := uuid.New()
-	db.Create(&models.User{ID: userID, Email: userID.String()[:8] + "@t.com", DisplayName: "U", Role: "owner"})
+	db.Create(&models.User{BaseModel: models.BaseModel{ID: userID}, Email: userID.String()[:8] + "@t.com", DisplayName: "U", Role: "owner"})
 	libID := uuid.New()
-	db.Create(&models.Library{ID: libID, Name: "L", OwnerID: userID})
+	db.Create(&models.Library{BaseModel: models.BaseModel{ID: libID}, Name: "L", OwnerID: userID})
 	return db, libID
 }
 
@@ -265,7 +265,7 @@ func TestCandidatesAndMarkFailed_Moments(t *testing.T) {
 		t.Fatal(err)
 	}
 	userID := uuid.New()
-	db.Create(&models.User{ID: userID, Email: userID.String()[:8] + "@t.com", DisplayName: "C", Role: "viewer"})
+	db.Create(&models.User{BaseModel: models.BaseModel{ID: userID}, Email: userID.String()[:8] + "@t.com", DisplayName: "C", Role: "viewer"})
 
 	m := models.Moment{
 		FileID: file.ID, LibraryID: libID, CreatedByID: userID,
