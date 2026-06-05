@@ -10,6 +10,34 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.23.0](https://github.com/rustyguts/alcoves/compare/v0.22.0...v0.23.0) (2026-06-05)
+
+
+### Added
+
+* **frontend:** justified Google-Photos gallery for timeline and global search ([#573](https://github.com/rustyguts/alcoves/issues/573)) ([d2e81d5](https://github.com/rustyguts/alcoves/commit/d2e81d5528cfc9f78655e6bd8a552359044fc1c4))
+* **frontend:** move library tabs into the sidebar ([#572](https://github.com/rustyguts/alcoves/issues/572)) ([50d9464](https://github.com/rustyguts/alcoves/commit/50d94640f399dabacc150246907150453a81d486))
+* **frontend:** video duration badges and full-width grid view ([#571](https://github.com/rustyguts/alcoves/issues/571)) ([9002afe](https://github.com/rustyguts/alcoves/commit/9002afee6922c81d670e7bfda3847698f325f2b7))
+* **queue:** dedicated per-job-type queues ranked by importance and complexity ([#566](https://github.com/rustyguts/alcoves/issues/566)) ([64c065b](https://github.com/rustyguts/alcoves/commit/64c065be67edfe2e00dff7259f7a921d315e73ce))
+* **queue:** reap async jobs stuck in a non-terminal state ([#574](https://github.com/rustyguts/alcoves/issues/574)) ([8a3d774](https://github.com/rustyguts/alcoves/commit/8a3d7748331449e2f84ee5a2aba5e16d2e353a6b))
+
+
+### Fixed
+
+* **facedetection:** verify model SHA-256 to replace stale cached models ([#570](https://github.com/rustyguts/alcoves/issues/570)) ([a70a715](https://github.com/rustyguts/alcoves/commit/a70a715c48491b658b52aad92dd733d5d8a99e56))
+* **jobreaper:** set User/Library ID via embedded BaseModel in tests ([#576](https://github.com/rustyguts/alcoves/issues/576)) ([4a7d196](https://github.com/rustyguts/alcoves/commit/4a7d196a605767f21a3beb496d20f333ffc41171))
+* **security:** zip-slip, share-link host spoofing, hardcoded dev PAT ([#569](https://github.com/rustyguts/alcoves/issues/569)) ([0d18474](https://github.com/rustyguts/alcoves/commit/0d18474050777ce74fd82b73a9dccb1ecbdb7cb9))
+
+
+### Changed
+
+* **backend:** detangle media-job duplication across layers (10-step audit) ([#575](https://github.com/rustyguts/alcoves/issues/575)) ([1e019e1](https://github.com/rustyguts/alcoves/commit/1e019e1ccef674568d07696570d52da3f9c98331))
+
+
+### Documentation
+
+* **claude:** full CLAUDE.md rewrite from multi-agent codebase scan ([#568](https://github.com/rustyguts/alcoves/issues/568)) ([27eed72](https://github.com/rustyguts/alcoves/commit/27eed72cce73ed6a3ac9754c1b5b3215ce52a064))
+
 ## [0.22.0](https://github.com/rustyguts/alcoves/compare/v0.21.0...v0.22.0) (2026-06-04)
 
 
