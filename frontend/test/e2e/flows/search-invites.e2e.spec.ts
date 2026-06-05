@@ -50,7 +50,8 @@ test.describe("Search @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/search?q=plan");
 
-    await expect(page.getByText("Quarterly Plan.pdf")).toBeVisible();
+    // Names live in tile tooltips now; the library heading is the visible anchor.
+    await expect(page.getByRole("heading", { name: "Photos 2025" })).toBeVisible();
     await snap(page, FLOW, "search-file-results");
   });
 
@@ -60,7 +61,7 @@ test.describe("Search @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/search?q=folder");
 
-    await expect(page.getByText("Project Folder")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Personal" })).toBeVisible();
     await snap(page, FLOW, "search-folder-results");
   });
 
@@ -70,8 +71,8 @@ test.describe("Search @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/search?q=mix");
 
-    await expect(page.getByText("sunset.jpg")).toBeVisible();
-    await expect(page.getByText("Family")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Photos 2025" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Personal" })).toBeVisible();
     await snap(page, FLOW, "search-mixed-results");
   });
 });
@@ -86,7 +87,7 @@ test.describe("Search dark theme @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/search?q=plan");
 
-    await expect(page.getByText("Quarterly Plan.pdf")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Photos 2025" })).toBeVisible();
     await snap(page, FLOW, "search-file-results-dark");
   });
 });

@@ -23,13 +23,13 @@ Search matches on three independent signals and merges them into one ranked list
 
 Object-label search relies on the AI object-detection pipeline. It works automatically for any library where object detection is enabled; files are indexed in the background after they are uploaded.
 
-Each result shows why it matched — a `name` match, an `object` match, or both — along with matched label chips so you can see exactly which detected objects triggered the result.
+When a result matched on detected objects, the matching labels appear as a small badge on its tile so you can see exactly which objects triggered the result.
 
 ### Using search
 
 1. Type at least two characters into the header search box and press **Enter**.
-2. The results page groups matches by library and shows a thumbnail, the file's location path, and match badges.
-3. Double-click any file result to open a full preview.
+2. Results render as a justified, Google-Photos-style gallery grouped by library — each library is a labelled section of thumbnails sized to their native aspect ratio. Non-media files and folders appear as icon tiles; the file name shows on hover.
+3. Click any file tile to open a full preview.
 
 :::tip
 Try searching for common objects like `car`, `person`, `cat`, or `food`. If object detection has run on your library, these queries find matching files even when the filenames give no hint.

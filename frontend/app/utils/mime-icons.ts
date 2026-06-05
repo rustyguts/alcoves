@@ -1,4 +1,5 @@
 const mimeIconMap: Record<string, string> = {
+  "inode/directory": "i-lucide-folder",
   "application/pdf": "i-lucide-file-text",
   "application/zip": "i-lucide-file-archive",
   "application/x-zip-compressed": "i-lucide-file-archive",

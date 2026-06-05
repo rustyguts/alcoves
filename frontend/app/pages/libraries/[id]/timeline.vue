@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from "vue";
-import { useLibraryTimeline } from "~/composables/useLibraryTimeline";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useLibraryTimeline, type TimelineGroup } from "~/composables/useLibraryTimeline";
 import type { LibraryFile } from "~~/shared/types/api";
-import { getMimeIcon } from "~/utils/mime-icons";
-import AlcovesImage from "~/components/AlcovesImage.vue";
+import type { GalleryGroup, GalleryItem } from "~/utils/gallery-types";
 import AppIcon from "~/components/AppIcon.vue";
 import FilePreview from "~/components/FilePreview.vue";
+import JustifiedGallery from "~/components/JustifiedGallery.vue";
 
 definePageMeta({ layout: "library" });
 
@@ -30,6 +30,12 @@ function thumbId(f: LibraryFile): string | null {
   if (isVideo(f)) return f.thumbnailFileId ?? null;
   return null;
 }
+// Native aspect ratio of the media; files without extracted dimensions fall back
+// to square.
+function aspectOf(f: LibraryFile): number {
+  if (f.width && f.height && f.width > 0 && f.height > 0) return f.width / f.height;
+  return 1;
+}
 
 function openPreview(file: LibraryFile) {
   previewFile.value = file;
@@ -40,6 +46,68 @@ function handleFileUpdate(updated: LibraryFile) {
   if (previewFile.value?.id === updated.id) {
     previewFile.value = { ...previewFile.value, ...updated };
   }
+}
+
+const thisYear = new Date().getUTCFullYear();
+
+// Map the composable's day groups into gallery groups, attaching a large month
+// heading at each month boundary (groups arrive newest-first).
+const galleryGroups = computed<GalleryGroup<LibraryFile>[]>(() => {
+  let lastMonth = "";
+  return timeline.groups.value.map((g: TimelineGroup) => {
+    const d = dayDate(g.key);
+    const monthKey = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+    const sectionLabel = monthKey !== lastMonth ? formatMonth(d) : null;
+    lastMonth = monthKey;
+    return {
+      key: g.key,
+      sectionLabel,
+      heading: formatDay(d),
+      count: g.files.length,
+      items: g.files.map(
+        (f): GalleryItem<LibraryFile> => ({
+          id: f.id,
+          libraryId: libraryId.value,
+          thumbnailFileId: thumbId(f),
+          aspect: aspectOf(f),
+          mime: f.mimeType,
+          name: f.name,
+          isVideo: isVideo(f),
+          sourceWidth: f.width,
+          sourceHeight: f.height,
+          raw: f,
+        }),
+      ),
+    };
+  });
+});
+
+// `Y-M-D` (UTC) key → Date. Month is the 0-based value emitted by the composable.
+function dayDate(key: string): Date {
+  const [y, m, day] = key.split("-").map(Number);
+  return new Date(Date.UTC(y ?? 1970, m ?? 0, day ?? 1));
+}
+
+function formatMonth(d: Date): string {
+  if (Number.isNaN(d.getTime())) return "Unknown";
+  const sameYear = d.getUTCFullYear() === thisYear;
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    ...(sameYear ? {} : { year: "numeric" }),
+    timeZone: "UTC",
+  });
+}
+
+function formatDay(d: Date): string {
+  if (Number.isNaN(d.getTime())) return "Unknown date";
+  const sameYear = d.getUTCFullYear() === thisYear;
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+    timeZone: "UTC",
+  });
 }
 
 // Infinite scroll: observe a sentinel near the bottom and pull the next page.
@@ -53,7 +121,7 @@ onMounted(async () => {
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) timeline.loadMore();
       },
-      { rootMargin: "600px" },
+      { rootMargin: "800px" },
     );
     observer.observe(sentinel.value);
   }
@@ -131,44 +199,9 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <!-- Grouped timeline -->
-      <div v-else class="px-4 py-4">
-        <section v-for="group in timeline.groups.value" :key="group.key" class="mb-6">
-          <h3
-            class="sticky top-0 z-10 -mx-4 px-4 py-1.5 bg-default/80 backdrop-blur text-sm font-semibold text-default"
-          >
-            {{ group.label }}
-          </h3>
-          <div class="mt-2 grid gap-1.5 grid-cols-[repeat(auto-fill,minmax(120px,1fr))]">
-            <button
-              v-for="file in group.files"
-              :key="file.id"
-              type="button"
-              class="group relative aspect-square overflow-hidden rounded-md bg-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              :title="file.name"
-              @click="openPreview(file)"
-            >
-              <AlcovesImage
-                v-if="thumbId(file)"
-                :library-id="libraryId"
-                :file-id="thumbId(file)!"
-                variant="timeline"
-                class="h-full w-full object-cover transition-transform group-hover:scale-105"
-              />
-              <span v-else class="flex h-full w-full items-center justify-center text-dimmed">
-                <AppIcon :name="getMimeIcon(file.mimeType)" class="size-8" />
-              </span>
-
-              <!-- Video play badge -->
-              <span
-                v-if="isVideo(file)"
-                class="absolute bottom-1 right-1 rounded bg-black/60 p-0.5 text-white"
-              >
-                <AppIcon name="i-lucide-play" class="size-3" />
-              </span>
-            </button>
-          </div>
-        </section>
+      <!-- Justified gallery -->
+      <div v-else class="px-4 pb-6">
+        <JustifiedGallery :groups="galleryGroups" @select="openPreview" />
 
         <!-- Infinite-scroll sentinel + load-more fallback -->
         <div ref="sentinel" class="h-px" />

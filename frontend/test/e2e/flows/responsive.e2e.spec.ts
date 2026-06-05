@@ -84,7 +84,8 @@ test.describe("Mobile @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/search?q=plan");
 
-    await expect(page.getByText("Quarterly Plan.pdf")).toBeVisible();
+    // Result names live in tile tooltips now; assert on the library heading.
+    await expect(page.getByRole("heading", { name: "Photos 2025" })).toBeVisible();
     await snap(page, FLOW, "mobile-search");
   });
 });

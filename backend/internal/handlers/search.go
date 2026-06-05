@@ -36,6 +36,8 @@ type searchResult struct {
 	MimeType        *string  `gorm:"column:mime_type" json:"mimeType,omitempty"`
 	Size            *int64   `gorm:"column:size" json:"size,omitempty"`
 	ThumbnailFileID *string  `gorm:"column:thumbnail_file_id" json:"thumbnailFileId,omitempty"`
+	Width           *int     `gorm:"column:width" json:"width,omitempty"`
+	Height          *int     `gorm:"column:height" json:"height,omitempty"`
 	UpdatedAt       string   `gorm:"column:updated_at" json:"updatedAt"`
 	MatchReason    string   `gorm:"-" json:"matchReason,omitempty"`
 	MatchedLabels  []string `gorm:"-" json:"matchedLabels,omitempty"`
@@ -63,6 +65,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 	if err := h.db.Raw(`
 		SELECT f.id, f.library_id, l.name as library_name, f.parent_folder_id,
 		       f.name, 'file' as kind, f.mime_type, f.size, f.thumbnail_file_id,
+		       f.width, f.height,
 		       to_char(f.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
 		FROM files f
 		INNER JOIN libraries l ON l.id = f.library_id
@@ -81,7 +84,8 @@ func (h *SearchHandler) Search(c echo.Context) error {
 	var folderResults []searchResult
 	if err := h.db.Raw(`
 		SELECT fo.id, fo.library_id, l.name as library_name, fo.parent_folder_id,
-		       fo.name, 'folder' as kind, NULL as mime_type, NULL as size,
+		       fo.name, 'folder' as kind, NULL as mime_type, NULL as size, NULL as thumbnail_file_id,
+		       NULL as width, NULL as height,
 		       to_char(fo.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
 		FROM folders fo
 		INNER JOIN libraries l ON l.id = fo.library_id
@@ -106,6 +110,8 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		MimeType        *string `gorm:"column:mime_type"`
 		Size            *int64  `gorm:"column:size"`
 		ThumbnailFileID *string `gorm:"column:thumbnail_file_id"`
+		Width           *int    `gorm:"column:width"`
+		Height          *int    `gorm:"column:height"`
 		UpdatedAt       string  `gorm:"column:updated_at"`
 		MatchedLabel    string  `gorm:"column:matched_label"`
 	}
@@ -114,6 +120,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		SELECT DISTINCT ON (f.id)
 		       f.id, f.library_id, l.name as library_name, f.parent_folder_id,
 		       f.name, 'file' as kind, f.mime_type, f.size, f.thumbnail_file_id,
+		       f.width, f.height,
 		       to_char(f.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
 		       od.label as matched_label
 		FROM files f
@@ -196,6 +203,8 @@ func (h *SearchHandler) Search(c echo.Context) error {
 			MimeType:        r.MimeType,
 			Size:            r.Size,
 			ThumbnailFileID: r.ThumbnailFileID,
+			Width:           r.Width,
+			Height:          r.Height,
 			UpdatedAt:       r.UpdatedAt,
 			LocationPath:    r.LibraryName,
 			MatchReason:     "object",
