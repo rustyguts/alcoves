@@ -10,6 +10,32 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.24.0](https://github.com/rustyguts/alcoves/compare/v0.23.0...v0.24.0) (2026-06-05)
+
+
+### Added
+
+* **frontend:** enlarge and space out sidebar nav items ([#579](https://github.com/rustyguts/alcoves/issues/579)) ([abfc68a](https://github.com/rustyguts/alcoves/commit/abfc68ad4907b0e612594b9f3b0a96b8fb1cf5fb))
+* **frontend:** replace Lucide icons with Lineicons app-wide ([#583](https://github.com/rustyguts/alcoves/issues/583)) ([5ec2c12](https://github.com/rustyguts/alcoves/commit/5ec2c12ab6ce3398d0dd0ca875e77df0d3d6f681))
+* **search:** fuzzy-match object tags and simplify search page ([#578](https://github.com/rustyguts/alcoves/issues/578)) ([01f74e9](https://github.com/rustyguts/alcoves/commit/01f74e9f1013cc9bd9341cb6bc0731a319a1cdc8))
+* **timeline:** full-bleed Google-Photos gallery with year scrubber ([#581](https://github.com/rustyguts/alcoves/issues/581)) ([45f9a5a](https://github.com/rustyguts/alcoves/commit/45f9a5a86ddba8e7b66983a03a4760607f1333bb))
+
+
+### Fixed
+
+* **frontend:** close library switcher after selecting a library ([#577](https://github.com/rustyguts/alcoves/issues/577)) ([9a65fec](https://github.com/rustyguts/alcoves/commit/9a65fec9f0b17b5007766a81bbc555a3f61ce010))
+
+
+### Changed
+
+* **frontend:** move Objects link from sidebar to library Settings ([#580](https://github.com/rustyguts/alcoves/issues/580)) ([2cc77d1](https://github.com/rustyguts/alcoves/commit/2cc77d11864dad258b4062619c8a480acb94a6c4))
+* **ui:** replace card-centric design with flat tonal panels ([#582](https://github.com/rustyguts/alcoves/issues/582)) ([5857894](https://github.com/rustyguts/alcoves/commit/5857894fadb5917cfce0065a9ae857539d6966d4))
+
+
+### Documentation
+
+* **vision:** rewrite vision.md as a non-technical, vettable product vision ([#584](https://github.com/rustyguts/alcoves/issues/584)) ([7170aee](https://github.com/rustyguts/alcoves/commit/7170aee889a31982dfe07a3a36cef3d8edbd40b8))
+
 ## [0.23.0](https://github.com/rustyguts/alcoves/compare/v0.22.0...v0.23.0) (2026-06-05)
 
 
