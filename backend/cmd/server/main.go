@@ -93,7 +93,6 @@ func main() {
 	}
 
 	accessSvc := access.NewService(db)
-	fileSvc := files.NewService(db)
 
 	settingsSvc, err := settings.NewService(db)
 	if err != nil {
@@ -379,8 +378,24 @@ func main() {
 		libraryHandler := handlers.NewLibraryHandler(db, accessSvc, faceSvc, objSvc)
 		libraryHandler.RegisterRoutes(api.Group("/libraries"))
 
+		// Ingest-configured files service shared by the direct-upload handler,
+		// signed uploads, and MCP. A single instance owns the file-ingest
+		// pipeline (stream/hash/store, File record, activity, dedup, post-upload
+		// jobs) so all upload paths behave identically.
+		ingestSvc := files.NewServiceWithIngest(db, files.IngestDeps{
+			Storage:     storageSvc,
+			Face:        faceSvc,
+			Object:      objSvc,
+			Video:       videoSvc,
+			Waveform:    waveformSvc,
+			Transcribe:  transcribeSvc,
+			AudioDetect: audioDetectSvc,
+			Metadata:    metadataSvc,
+			Activity:    activitySvc,
+		})
+
 		// File routes (under /api/libraries)
-		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, metadataSvc, activitySvc)
+		fileHandler := handlers.NewFileHandler(db, ingestSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, metadataSvc, activitySvc)
 		fileHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Folder routes (under /api/libraries)
@@ -472,19 +487,6 @@ func main() {
 		// Public file proxy (skipped by auth middleware)
 		fileProxyHandler := handlers.NewFileProxyHandler(db, storageSvc, imgSvc)
 		fileProxyHandler.RegisterRoutes(api.Group("/files"))
-
-		// Ingest-configured files service shared by signed uploads + MCP.
-		ingestSvc := files.NewServiceWithIngest(db, files.IngestDeps{
-			Storage:     storageSvc,
-			Face:        faceSvc,
-			Object:      objSvc,
-			Video:       videoSvc,
-			Waveform:    waveformSvc,
-			Transcribe:  transcribeSvc,
-			AudioDetect: audioDetectSvc,
-			Metadata:    metadataSvc,
-			Activity:    activitySvc,
-		})
 
 		// Signed curl upload/download endpoints (skipped by auth middleware;
 		// authenticated by a signed token). Used by remote MCP clients.

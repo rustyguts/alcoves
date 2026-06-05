@@ -42,7 +42,6 @@ func fullFileHandler(t *testing.T) (*FileHandler, *gorm.DB, *storage.Service, pu
 	t.Cleanup(func() { _ = client.Close() })
 
 	activitySvc := activity.NewService(db, activity.NewHub(), activity.NewBus(nil))
-	fileSvc := files.NewService(db)
 	cfg := &config.Config{}
 	settingsSvc, _ := settings.NewService(db)
 
@@ -52,6 +51,19 @@ func fullFileHandler(t *testing.T) (*FileHandler, *gorm.DB, *storage.Service, pu
 	transcribeSvc := transcribe.NewService(db, st, client, cfg, activitySvc, settingsSvc)
 	audioDetectSvc := audiodetection.NewService(db, st, client, cfg, settingsSvc)
 	waveformSvc := waveform.NewService(db, st, client, cfg, activitySvc)
+
+	// Ingest-configured service so Upload's IngestStream call works, matching
+	// the production wiring (the direct-upload handler shares the ingest svc).
+	fileSvc := files.NewServiceWithIngest(db, files.IngestDeps{
+		Storage:     st,
+		Face:        faceSvc,
+		Object:      objSvc,
+		Video:       videoSvc,
+		Waveform:    waveformSvc,
+		Transcribe:  transcribeSvc,
+		AudioDetect: audioDetectSvc,
+		Activity:    activitySvc,
+	})
 
 	h := NewFileHandler(db, fileSvc, st, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, nil, activitySvc)
 	fix := seedLibrary(t, db)

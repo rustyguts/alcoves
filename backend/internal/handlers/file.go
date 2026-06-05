@@ -123,65 +123,21 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		parentFolderID = &parsed
 	}
 
-	fileID := uuid.New()
-
-	// Stream body directly to storage, computing SHA256 as we go
-	hr := filehash.NewHashingReader(c.Request().Body)
-	bytesWritten, err := h.storageSvc.StoreFileStream(libraryID.String(), fileID.String(), hr)
+	// Delegate the full ingest pipeline (stream/hash/store, File record,
+	// activity, dedup, post-upload jobs) to the shared IngestStream — the same
+	// source of truth used by the tus finalize path and the MCP upload tool.
+	result, err := h.fileSvc.IngestStream(c.Request().Context(), files.IngestParams{
+		LibraryID: libraryID,
+		OwnerID:   userID,
+		FolderID:  parentFolderID,
+		Name:      fileName,
+		MimeType:  mimeType,
+	}, c.Request().Body)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to store file")
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to upload file")
 	}
 
-	hashStr := hr.HexSum()
-	file := models.File{
-		BaseModel:      models.BaseModel{ID: fileID},
-		LibraryID:      libraryID,
-		ParentFolderID: parentFolderID,
-		Name:           fileName,
-		MimeType:       mimeType,
-		Size:           bytesWritten,
-		OwnerID:        &userID,
-		Hash:           &hashStr,
-	}
-
-	if err := h.db.Create(&file).Error; err != nil {
-		// Clean up storage on DB failure
-		h.storageSvc.DeleteFile(libraryID.String(), fileID.String())
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create file record")
-	}
-
-	uid := userID
-	emitActivity(h.activitySvc, activity.EmitParams{
-		LibraryID:   libraryID,
-		ActorID:     &uid,
-		Action:      activity.ActionFileCreated,
-		SubjectType: activity.SubjectFile,
-		SubjectID:   &fileID,
-		Metadata: map[string]any{
-			"name":           fileName,
-			"mimeType":       mimeType,
-			"parentFolderId": parentFolderID,
-			"size":           bytesWritten,
-		},
-	})
-
-	// Trigger face detection if library has it enabled and file is an image
-	h.maybeEnqueueFaceDetection(libraryID, fileID, mimeType)
-
-	// Trigger object detection if library has it enabled and file is an image
-	h.maybeEnqueueObjectDetection(libraryID, fileID, mimeType)
-
-	// Trigger video proxy generation for video files
-	h.maybeEnqueueVideoProxy(libraryID, fileID, mimeType)
-	h.maybeEnqueueVideoThumbnail(libraryID, fileID, mimeType)
-	h.maybeEnqueueWaveform(libraryID, fileID, mimeType)
-
-	// Trigger EXIF / media-metadata extraction (Timeline + Map). Mirrors the tus
-	// path so direct uploads don't have to wait for the maintenance backfill.
-	h.maybeEnqueueMetadata(libraryID, fileID, mimeType)
-
-	dupes, _ := filehash.FindDuplicates(h.db, libraryID, fileID, hashStr)
-	return c.JSON(http.StatusOK, fileToJSON(&file, dupes))
+	return c.JSON(http.StatusOK, fileToJSON(result.File, result.DuplicateIDs))
 }
 
 func (h *FileHandler) Get(c echo.Context) error {
@@ -1225,108 +1181,6 @@ func timeStr(t *time.Time) *string {
 	}
 	s := t.Format(time.RFC3339Nano)
 	return &s
-}
-
-// maybeEnqueueFaceDetection triggers face detection if the library has it enabled
-// and the file is an image.
-func (h *FileHandler) maybeEnqueueFaceDetection(libraryID, fileID uuid.UUID, mimeType string) {
-	if h.faceSvc == nil || !strings.HasPrefix(mimeType, "image/") {
-		return
-	}
-
-	var library models.Library
-	if err := h.db.Select("face_recognition_enabled").Where("id = ?", libraryID).First(&library).Error; err != nil {
-		return
-	}
-
-	if library.FaceRecognitionEnabled {
-		if err := h.faceSvc.EnqueueFaceDetection(libraryID.String(), fileID.String()); err != nil {
-			log.Printf("failed to enqueue face detection for file %s: %v", fileID, err)
-		}
-	}
-}
-
-// maybeEnqueueObjectDetection triggers object detection if the library has it enabled
-// and the file is an image.
-func (h *FileHandler) maybeEnqueueObjectDetection(libraryID, fileID uuid.UUID, mimeType string) {
-	if h.objSvc == nil || !strings.HasPrefix(mimeType, "image/") {
-		return
-	}
-
-	var library models.Library
-	if err := h.db.Select("object_detection_enabled").Where("id = ?", libraryID).First(&library).Error; err != nil {
-		return
-	}
-
-	if library.ObjectDetectionEnabled {
-		if err := h.objSvc.EnqueueObjectDetection(libraryID.String(), fileID.String()); err != nil {
-			log.Printf("failed to enqueue object detection for file %s: %v", fileID, err)
-		}
-	}
-}
-
-// maybeEnqueueVideoProxy triggers video proxy generation for video uploads.
-func (h *FileHandler) maybeEnqueueVideoProxy(libraryID, fileID uuid.UUID, mimeType string) {
-	if h.videoSvc == nil || !strings.HasPrefix(mimeType, "video/") {
-		return
-	}
-	if !videoproxy.ShouldCreateProxyByDefault(mimeType) {
-		notNeeded := "not_needed"
-		h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-			"proxy_status":      notNeeded,
-			"proxy_progress":    nil,
-			"proxy_eta_seconds": nil,
-		})
-		return
-	}
-
-	queued := "queued"
-	zero := 0
-	h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-		"proxy_status":      queued,
-		"proxy_progress":    zero,
-		"proxy_eta_seconds": nil,
-	})
-
-	if err := h.videoSvc.EnqueueVideoProxy(libraryID.String(), fileID.String(), false); err != nil {
-		log.Printf("failed to enqueue video proxy for file %s: %v", fileID, err)
-	}
-}
-
-func (h *FileHandler) maybeEnqueueVideoThumbnail(libraryID, fileID uuid.UUID, mimeType string) {
-	if h.videoSvc == nil || !strings.HasPrefix(mimeType, "video/") {
-		return
-	}
-
-	if err := h.videoSvc.EnqueueVideoThumbnail(libraryID.String(), fileID.String()); err != nil {
-		log.Printf("failed to enqueue video thumbnail for file %s: %v", fileID, err)
-	}
-}
-
-func (h *FileHandler) maybeEnqueueWaveform(libraryID, fileID uuid.UUID, mimeType string) {
-	if h.waveformSvc == nil || !strings.HasPrefix(mimeType, "video/") {
-		return
-	}
-	if err := h.waveformSvc.EnqueueWaveform(libraryID.String(), fileID.String()); err != nil {
-		log.Printf("failed to enqueue waveform for file %s: %v", fileID, err)
-	}
-}
-
-// maybeEnqueueMetadata triggers EXIF / media-metadata extraction for image and
-// video uploads (powers the Timeline + Map views). No library-setting gate —
-// it's always cheap and useful. metadata_status is set so the maintenance
-// backfill scan skips this freshly-enqueued file.
-func (h *FileHandler) maybeEnqueueMetadata(libraryID, fileID uuid.UUID, mimeType string) {
-	if h.metadataSvc == nil || (!strings.HasPrefix(mimeType, "image/") && !strings.HasPrefix(mimeType, "video/")) {
-		return
-	}
-	h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-		"metadata_status":  "queued",
-		"metadata_version": 1,
-	})
-	if err := h.metadataSvc.EnqueueMetadata(libraryID.String(), fileID.String()); err != nil {
-		log.Printf("failed to enqueue metadata extraction for file %s: %v", fileID, err)
-	}
 }
 
 // bulkActionRequest is the shared shape for bulk-transcribe / bulk-audio-detect.
