@@ -222,7 +222,7 @@ Dev PAT: `alc_pat_localdev0000000000000000000000000000`.
 | `/api/invites/:token` | Lookup (GET, public) + Accept (POST, auth in handler) |
 | `/api/search` | Cross-library search |
 | `/api/admin/*` | Owner-gated: stats, users, settings, backfill, Asynq job dashboard (list/purge/control/SSE stream) (`admin.go`, `admin_jobs.go`) |
-| `/api/_meta/registration-mode` | Public; returns `{mode: open\|invite-only\|closed}` |
+| `/api/_meta/registration-mode` | Public; returns `{mode: open\|invite_only\|closed}` |
 | `/api/tus` | TUS v1.0 resumable upload (`tus.go`) |
 | `/api/files/proxy/*` | On-demand image transform / video proxy (`download.go`) |
 | `/api/files/signed` · `/api/files/upload-signed` | Signed MCP curl download / upload (`signed.go`; public) |
