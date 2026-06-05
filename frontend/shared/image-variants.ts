@@ -32,14 +32,14 @@ export interface ImageVariant {
  * The canonical variant set. Mirror of imageproxy.Variants (Go).
  *
  *  search   80×80     q70 jpeg  fixed  — search-result avatars
- *  timeline 240×240   q70 webp  fixed  — timeline grid
+ *  timeline 384×384   q80 webp  fixed  — timeline grid
  *  face     300×300   q80 jpeg  fixed  — people / face grid
  *  card     720×360   q82 jpeg  capped — library browser cards
  *  preview  1920×1080 q90 jpeg  capped — full-screen lightbox
  */
 export const IMAGE_VARIANTS = {
   search: { name: "search", maxWidth: 80, maxHeight: 80, quality: 70, format: "jpeg", cap: false },
-  timeline: { name: "timeline", maxWidth: 240, maxHeight: 240, quality: 70, format: "webp", cap: false },
+  timeline: { name: "timeline", maxWidth: 384, maxHeight: 384, quality: 80, format: "webp", cap: false },
   face: { name: "face", maxWidth: 300, maxHeight: 300, quality: 80, format: "jpeg", cap: false },
   card: { name: "card", maxWidth: 720, maxHeight: 360, quality: 82, format: "jpeg", cap: true },
   preview: { name: "preview", maxWidth: 1920, maxHeight: 1080, quality: 90, format: "jpeg", cap: true },
