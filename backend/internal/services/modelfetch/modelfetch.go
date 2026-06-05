@@ -5,6 +5,8 @@ package modelfetch
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +26,27 @@ type Options struct {
 	MaxAttempts int           // 0 → 6.
 	Label       string        // progress log label. "" → filepath.Base(dest).
 	LogProgress bool          // periodic (~5s) download-progress logging.
+	// SHA256 is the expected lowercase-hex SHA-256 of the file. When set, a
+	// cached file is reused only if its hash matches (a stale file of the wrong
+	// model — right size, wrong contents — is re-downloaded rather than silently
+	// used), and a finished download whose hash mismatches is a permanent error.
+	// "" disables hash verification.
+	SHA256 string
+}
+
+// fileSHA256 returns the lowercase hex SHA-256 of the file at path.
+func fileSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // errTransient marks an error as worth retrying. Network failures, HTTP 5xx,
@@ -67,12 +90,23 @@ func FetchToFile(ctx context.Context, url, dest string, opts Options) error {
 		label = filepath.Base(dest)
 	}
 
-	// Pre-stat: a present, big-enough file means we're done.
+	// Pre-stat: a present, big-enough, correct-hash file means we're done.
 	if info, err := os.Stat(dest); err == nil {
-		if opts.MinSize == 0 || info.Size() >= opts.MinSize {
+		switch {
+		case opts.MinSize > 0 && info.Size() < opts.MinSize:
+			log.Printf("modelfetch: existing file %s too small (%d bytes), re-downloading", dest, info.Size())
+		case opts.SHA256 != "":
+			got, herr := fileSHA256(dest)
+			if herr != nil {
+				log.Printf("modelfetch: existing file %s could not be hashed (%v), re-downloading", dest, herr)
+			} else if got == opts.SHA256 {
+				return nil
+			} else {
+				log.Printf("modelfetch: existing file %s hash mismatch (have %s, want %s), re-downloading", dest, got, opts.SHA256)
+			}
+		default:
 			return nil
 		}
-		log.Printf("modelfetch: existing file %s too small (%d bytes), re-downloading", dest, info.Size())
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
@@ -130,18 +164,30 @@ func doDownload(ctx context.Context, url, dest, label string, opts Options) erro
 		}
 	}
 
-	tmp := dest + ".part"
-	f, err := os.Create(tmp)
+	// Unique temp file per download (not a fixed dest+".part"): on a shared RWX
+	// models volume two pods can fetch the same model at once, and a fixed temp
+	// path lets them clobber each other's bytes — which, with SHA256 verification,
+	// deterministically fails both. os.CreateTemp keeps each download isolated; the
+	// atomic rename below still publishes a complete, verified file.
+	tmpF, err := os.CreateTemp(filepath.Dir(dest), filepath.Base(dest)+".*.part")
 	if err != nil {
 		return err
 	}
+	tmp := tmpF.Name()
 
 	var src io.Reader = resp.Body
 	if opts.LogProgress {
 		src = &progressReader{r: resp.Body, total: resp.ContentLength, label: label}
 	}
-	written, copyErr := io.Copy(f, src)
-	closeErr := f.Close()
+	// Hash while streaming to disk via TeeReader, so we never re-read the (large,
+	// NFS-backed) file just to verify it — one pass instead of two.
+	h := sha256.New()
+	var sink io.Writer = tmpF
+	if opts.SHA256 != "" {
+		sink = io.MultiWriter(tmpF, h)
+	}
+	written, copyErr := io.Copy(sink, src)
+	closeErr := tmpF.Close()
 	if copyErr != nil {
 		os.Remove(tmp)
 		return transient(copyErr)
@@ -158,6 +204,14 @@ func doDownload(ctx context.Context, url, dest, label string, opts Options) erro
 	if opts.MinSize > 0 && written < opts.MinSize {
 		os.Remove(tmp)
 		return fmt.Errorf("downloaded file too small (%d bytes)", written)
+	}
+
+	if opts.SHA256 != "" {
+		got := hex.EncodeToString(h.Sum(nil))
+		if got != opts.SHA256 {
+			os.Remove(tmp)
+			return fmt.Errorf("downloaded %s hash mismatch (have %s, want %s)", label, got, opts.SHA256)
+		}
 	}
 
 	return os.Rename(tmp, dest)

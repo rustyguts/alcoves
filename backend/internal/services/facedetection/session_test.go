@@ -2,6 +2,8 @@ package facedetection
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -14,6 +16,12 @@ import (
 // modelsDirWithDummies returns a temp dir pre-populated with oversized dummy
 // model files so EnsureModelsDownloaded short-circuits (no network), while ORT
 // session creation still fails because the bytes aren't a valid ONNX model.
+//
+// EnsureModelsDownloaded now verifies a cached file's SHA-256, so the expected
+// model hashes are pointed at the dummy content for the duration of the test —
+// otherwise the hash mismatch would trigger a real download of the canonical
+// model (defeating both the "no network" guarantee and the "invalid model"
+// premise of these tests).
 func modelsDirWithDummies(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -21,6 +29,13 @@ func modelsDirWithDummies(t *testing.T) string {
 	for i := range dummy {
 		dummy[i] = byte(i % 251)
 	}
+	sum := sha256.Sum256(dummy)
+	dummyHash := hex.EncodeToString(sum[:])
+	origDet, origRec := detectionModelSHA256, recognitionModelSHA256
+	detectionModelSHA256 = dummyHash
+	recognitionModelSHA256 = dummyHash
+	t.Cleanup(func() { detectionModelSHA256, recognitionModelSHA256 = origDet, origRec })
+
 	for _, name := range []string{detectionModelFile, recognitionModelFile} {
 		if err := os.WriteFile(filepath.Join(dir, name), dummy, 0o644); err != nil {
 			t.Fatalf("write dummy model %s: %v", name, err)
