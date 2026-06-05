@@ -1,15 +1,78 @@
 package jobreaper
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/testsupport"
 )
+
+// TestCollectLiveIDs_CompletePage: a single partial page ends pagination and the
+// matching-type payload ids land in the live set (wrong-type tasks are skipped).
+func TestCollectLiveIDs_CompletePage(t *testing.T) {
+	sp := specByName(t, "transcribe")
+	calls := 0
+	list := func(_ string, _ ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
+		calls++
+		return []*asynq.TaskInfo{
+			{Type: sp.taskType, Payload: []byte(`{"fileId":"f1"}`)},
+			{Type: "file:other", Payload: []byte(`{"fileId":"f2"}`)}, // wrong type, ignored
+		}, nil
+	}
+	live := map[string]struct{}{}
+	if err := collectLiveIDs(list, sp, live); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := live["f1"]; !ok || len(live) != 1 {
+		t.Fatalf("live = %v, want {f1}", live)
+	}
+	if calls != 1 {
+		t.Fatalf("expected 1 page call, got %d", calls)
+	}
+}
+
+// TestCollectLiveIDs_PaginationCapErrors: when every page comes back full the
+// liveness set is incomplete, so collectLiveIDs must error rather than silently
+// return a partial set (which would let live jobs be marked orphaned).
+func TestCollectLiveIDs_PaginationCapErrors(t *testing.T) {
+	sp := specByName(t, "transcribe")
+	full := make([]*asynq.TaskInfo, 500)
+	for i := range full {
+		full[i] = &asynq.TaskInfo{Type: sp.taskType, Payload: []byte(`{"fileId":"x"}`)}
+	}
+	list := func(_ string, _ ...asynq.ListOption) ([]*asynq.TaskInfo, error) { return full, nil }
+
+	err := collectLiveIDs(list, sp, map[string]struct{}{})
+	if err == nil {
+		t.Fatal("expected an error when pagination cap is hit, got nil")
+	}
+	if !strings.Contains(err.Error(), "liveness set incomplete") {
+		t.Fatalf("unexpected error text: %v", err)
+	}
+}
+
+// TestCollectLiveIDs_QueueNotFound: a never-seen queue is zero live tasks, not a
+// failure — collectLiveIDs swallows the wrapped ErrQueueNotFound.
+func TestCollectLiveIDs_QueueNotFound(t *testing.T) {
+	sp := specByName(t, "transcribe")
+	list := func(_ string, _ ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
+		return nil, fmt.Errorf("asynq: %w", asynq.ErrQueueNotFound)
+	}
+	live := map[string]struct{}{}
+	if err := collectLiveIDs(list, sp, live); err != nil {
+		t.Fatalf("queue-not-found should be a nil error, got %v", err)
+	}
+	if len(live) != 0 {
+		t.Fatalf("live = %v, want empty", live)
+	}
+}
 
 func strPtr(s string) *string { return &s }
 func intPtr(i int) *int       { return &i }

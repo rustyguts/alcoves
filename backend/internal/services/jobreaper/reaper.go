@@ -10,8 +10,8 @@
 // queue state. A row is considered orphaned only when BOTH hold:
 //
 //   - its status column is non-terminal ("queued"/"processing"), and
-//   - the Asynq inspector reports NO live task (active/pending/scheduled/retry/
-//     aggregating) of the matching type for that entity.
+//   - the Asynq inspector reports NO live task (active/pending/scheduled/retry)
+//     of the matching type for that entity.
 //
 // Using the inspector as the liveness oracle is what makes this safe for
 // genuinely long-running jobs: a multi-hour whisper transcribe is "active" in
@@ -212,7 +212,10 @@ func (s *Service) reapSpec(sp spec) (int, error) {
 }
 
 // candidates returns ids of rows in a non-terminal state that have not been
-// touched for at least reapGrace.
+// touched for at least reapGrace. Oldest-stale first (ORDER BY updated_at): with
+// a bounded batch this guarantees the longest-stuck rows are always recovered
+// rather than being starved by a churn of newer ones, and keeps row selection
+// deterministic across passes.
 func (s *Service) candidates(sp spec) ([]string, error) {
 	var ids []string
 	q := fmt.Sprintf(`
@@ -220,6 +223,7 @@ func (s *Service) candidates(sp spec) ([]string, error) {
 		WHERE %s IN ('queued', 'processing')
 		  AND trashed_at IS NULL
 		  AND updated_at < NOW() - ? * INTERVAL '1 second'
+		ORDER BY updated_at ASC
 		LIMIT ?`, sp.table, sp.statusColumn)
 	err := s.db.Raw(q, int(reapGrace.Seconds()), reapBatch).Scan(&ids).Error
 	return ids, err
@@ -255,7 +259,8 @@ func collectLiveIDs(
 ) error {
 	const pageSize = 500
 	// Bound total pages as a runaway backstop (250 * 500 = 125k tasks per state).
-	for page := 1; page <= 250; page++ {
+	const maxPages = 250
+	for page := 1; page <= maxPages; page++ {
 		tasks, err := list(sp.queue, asynq.PageSize(pageSize), asynq.Page(page))
 		if err != nil {
 			// A queue Redis has never seen yields a wrapped ErrQueueNotFound; that
@@ -274,10 +279,19 @@ func collectLiveIDs(
 			}
 		}
 		if len(tasks) < pageSize {
-			break
+			return nil // last (partial) page reached — liveness set is complete
 		}
 	}
-	return nil
+	// Every page up to the cap came back full, so there are still more live tasks
+	// we haven't seen. Reporting this partial set would let the caller mark
+	// genuinely-live jobs as orphaned, so fail loudly instead: reapSpec turns this
+	// into a logged skip for this pass, leaving the rows untouched until the
+	// backlog drains. (maxPages*pageSize live tasks in one queue is far beyond any
+	// real backlog; this is a safety backstop, not an expected path.)
+	return fmt.Errorf(
+		"liveness set incomplete: queue %q exceeded the %d-task pagination cap; skipping reap to avoid false orphaning",
+		sp.queue, maxPages*pageSize,
+	)
 }
 
 // payloadID extracts a string field from a task's JSON payload, returning "" if
