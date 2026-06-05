@@ -78,50 +78,10 @@ func (h *LibraryHandler) List(c echo.Context) error {
 		return err
 	}
 
-	// Get libraries the user owns
-	var ownedLibs []models.Library
-	h.db.Where("owner_id = ?", userID).Order("created_at").Find(&ownedLibs)
-
-	// Get libraries the user is a member of
-	var memberEntries []models.LibraryMember
-	h.db.Where("user_id = ?", userID).Find(&memberEntries)
-
-	memberLibIDs := make([]uuid.UUID, len(memberEntries))
-	memberRoles := make(map[uuid.UUID]string)
-	for i, m := range memberEntries {
-		memberLibIDs[i] = m.LibraryID
-		memberRoles[m.LibraryID] = m.Role
-	}
-
-	var memberLibs []models.Library
-	if len(memberLibIDs) > 0 {
-		h.db.Where("id IN ?", memberLibIDs).Order("created_at").Find(&memberLibs)
-	}
-
-	// Build response
-	results := make([]libraryResponse, 0, len(ownedLibs)+len(memberLibs))
-	for i := range ownedLibs {
-		lib := &ownedLibs[i]
-		la := &access.LibraryAccess{
-			LibraryID: lib.ID,
-			Role:      access.RoleOwner,
-			IsOwner:   true,
-			IsAdmin:   true,
-			IsDefault: lib.IsDefault,
-		}
-		results = append(results, toLibraryResponse(lib, la))
-	}
-	for i := range memberLibs {
-		lib := &memberLibs[i]
-		role := access.LibraryAccessRole(memberRoles[lib.ID])
-		la := &access.LibraryAccess{
-			LibraryID: lib.ID,
-			Role:      role,
-			IsOwner:   false,
-			IsAdmin:   role == access.RoleAdmin,
-			IsDefault: lib.IsDefault,
-		}
-		results = append(results, toLibraryResponse(lib, la))
+	libs, _ := h.accessSvc.ListAccessibleLibraries(userID)
+	results := make([]libraryResponse, 0, len(libs))
+	for i := range libs {
+		results = append(results, toLibraryResponse(&libs[i].Library, &libs[i].Access))
 	}
 
 	return c.JSON(http.StatusOK, results)

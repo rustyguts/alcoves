@@ -90,6 +90,73 @@ func (s *Service) GetLibraryAccess(userID, libraryID uuid.UUID) (*LibraryAccess,
 	}, nil
 }
 
+// LibraryWithAccess bundles a library row with the requesting user's derived access.
+type LibraryWithAccess struct {
+	Library models.Library
+	Access  LibraryAccess
+}
+
+// ListAccessibleLibraries returns every library the user owns or is a member of,
+// each paired with the user's derived access. Owned libraries come first
+// (role=owner, admin), then member libraries (role from membership, admin iff
+// role==admin), each group ordered by created_at — matching the prior inline
+// implementations exactly.
+func (s *Service) ListAccessibleLibraries(userID uuid.UUID) ([]LibraryWithAccess, error) {
+	// Owned libraries (full rows — callers need Name/Emoji/flags).
+	var owned []models.Library
+	s.db.Where("owner_id = ?", userID).Order("created_at").Find(&owned)
+
+	// Libraries the user is a member of.
+	var members []models.LibraryMember
+	s.db.Where("user_id = ?", userID).Find(&members)
+	roles := make(map[uuid.UUID]string, len(members))
+	memberIDs := make([]uuid.UUID, 0, len(members))
+	for _, m := range members {
+		roles[m.LibraryID] = m.Role
+		memberIDs = append(memberIDs, m.LibraryID)
+	}
+
+	var memberLibs []models.Library
+	if len(memberIDs) > 0 {
+		s.db.Where("id IN ?", memberIDs).Order("created_at").Find(&memberLibs)
+	}
+
+	result := make([]LibraryWithAccess, 0, len(owned)+len(memberLibs))
+	for i := range owned {
+		lib := owned[i]
+		result = append(result, LibraryWithAccess{
+			Library: lib,
+			Access: LibraryAccess{
+				LibraryID:   lib.ID,
+				LibraryName: lib.Name,
+				OwnerID:     lib.OwnerID,
+				IsDefault:   lib.IsDefault,
+				Role:        RoleOwner,
+				IsOwner:     true,
+				IsAdmin:     true,
+			},
+		})
+	}
+	for i := range memberLibs {
+		lib := memberLibs[i]
+		role := LibraryAccessRole(roles[lib.ID])
+		result = append(result, LibraryWithAccess{
+			Library: lib,
+			Access: LibraryAccess{
+				LibraryID:   lib.ID,
+				LibraryName: lib.Name,
+				OwnerID:     lib.OwnerID,
+				IsDefault:   lib.IsDefault,
+				Role:        role,
+				IsOwner:     false,
+				IsAdmin:     role == RoleAdmin,
+			},
+		})
+	}
+
+	return result, nil
+}
+
 // RequireLibraryAccess checks access and returns 404 if none.
 func (s *Service) RequireLibraryAccess(c echo.Context, userID, libraryID uuid.UUID) (*LibraryAccess, error) {
 	access, err := s.GetLibraryAccess(userID, libraryID)
