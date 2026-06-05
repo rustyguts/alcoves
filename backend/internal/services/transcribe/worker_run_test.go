@@ -77,7 +77,7 @@ func seedFile(t *testing.T, db *gorm.DB, mime string) (libID, fileID uuid.UUID) 
 	t.Helper()
 	userID := uuid.New()
 	if err := db.Create(&models.User{
-		ID:          userID,
+		BaseModel:   models.BaseModel{ID: userID},
 		Email:       userID.String()[:12] + "@test.com",
 		DisplayName: "Transcribe Test User",
 		Role:        "owner",
@@ -85,7 +85,7 @@ func seedFile(t *testing.T, db *gorm.DB, mime string) (libID, fileID uuid.UUID) 
 		t.Fatalf("create user: %v", err)
 	}
 	libID = uuid.New()
-	if err := db.Create(&models.Library{ID: libID, Name: "Transcribe Lib", OwnerID: userID}).Error; err != nil {
+	if err := db.Create(&models.Library{BaseModel: models.BaseModel{ID: libID}, Name: "Transcribe Lib", OwnerID: userID}).Error; err != nil {
 		t.Fatalf("create library: %v", err)
 	}
 	f := models.File{

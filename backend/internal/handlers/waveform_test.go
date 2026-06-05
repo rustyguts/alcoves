@@ -130,7 +130,7 @@ func createVideoFile(t *testing.T, db *gorm.DB, libraryID, ownerID uuid.UUID, st
 	fileID := uuid.New()
 	s := status
 	file := models.File{
-		ID:             fileID,
+		BaseModel:      models.BaseModel{ID: fileID},
 		LibraryID:      libraryID,
 		Name:           "clip.mp4",
 		MimeType:       "video/mp4",

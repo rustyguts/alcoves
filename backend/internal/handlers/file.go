@@ -134,7 +134,7 @@ func (h *FileHandler) Upload(c echo.Context) error {
 
 	hashStr := hr.HexSum()
 	file := models.File{
-		ID:             fileID,
+		BaseModel:      models.BaseModel{ID: fileID},
 		LibraryID:      libraryID,
 		ParentFolderID: parentFolderID,
 		Name:           fileName,
@@ -1471,6 +1471,3 @@ func (h *FileHandler) bulkResolveFiles(c echo.Context, libraryID string) ([]mode
 	}
 	return files, nil
 }
-
-// Ensure errors import is used (for future use)
-var _ = errors.New

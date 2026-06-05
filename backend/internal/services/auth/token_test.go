@@ -32,7 +32,7 @@ func setupTokenTestDB(t *testing.T) (*Service, *gorm.DB, models.User) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	user := models.User{ID: uuid.New(), Email: "pat@test.com", DisplayName: "PAT User", Role: "member"}
+	user := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: "pat@test.com", DisplayName: "PAT User", Role: "member"}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}

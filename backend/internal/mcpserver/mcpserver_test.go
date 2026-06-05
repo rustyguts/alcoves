@@ -49,7 +49,7 @@ func setup(t *testing.T) fixture {
 	}
 
 	mk := func(email string) *models.User {
-		u := &models.User{ID: uuid.New(), Email: email, DisplayName: email, Role: "member"}
+		u := &models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: email, DisplayName: email, Role: "member"}
 		if err := db.Create(u).Error; err != nil {
 			t.Fatalf("create user: %v", err)
 		}
@@ -57,8 +57,8 @@ func setup(t *testing.T) fixture {
 	}
 	userA, userB, userC := mk("a@test.com"), mk("b@test.com"), mk("c@test.com")
 
-	libA := models.Library{ID: uuid.New(), Name: "Library A", OwnerID: userA.ID}
-	libShared := models.Library{ID: uuid.New(), Name: "Shared", OwnerID: userA.ID}
+	libA := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "Library A", OwnerID: userA.ID}
+	libShared := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "Shared", OwnerID: userA.ID}
 	db.Create(&libA)
 	db.Create(&libShared)
 	db.Create(&models.LibraryMember{ID: uuid.New(), LibraryID: libShared.ID, UserID: userB.ID, Role: "admin"})
@@ -167,10 +167,10 @@ func TestListFiles_AccessControl(t *testing.T) {
 func TestListFiles_RootAndFolderScope(t *testing.T) {
 	fx := setup(t)
 	db := fx.deps.DB
-	folder := models.Folder{ID: uuid.New(), LibraryID: fx.libA, Name: "sub", OwnerID: &fx.userA.ID}
+	folder := models.Folder{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: fx.libA, Name: "sub", OwnerID: &fx.userA.ID}
 	db.Create(&folder)
-	db.Create(&models.File{ID: uuid.New(), LibraryID: fx.libA, Name: "root.txt", MimeType: "text/plain", OwnerID: &fx.userA.ID})
-	db.Create(&models.File{ID: uuid.New(), LibraryID: fx.libA, Name: "inside.txt", MimeType: "text/plain", ParentFolderID: &folder.ID, OwnerID: &fx.userA.ID})
+	db.Create(&models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: fx.libA, Name: "root.txt", MimeType: "text/plain", OwnerID: &fx.userA.ID})
+	db.Create(&models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: fx.libA, Name: "inside.txt", MimeType: "text/plain", ParentFolderID: &folder.ID, OwnerID: &fx.userA.ID})
 
 	root := decode[listFilesOutput](t, call(t, fx.deps, fx.userA, "list_files", map[string]any{"libraryId": fx.libA.String()}))
 	names := map[string]string{}

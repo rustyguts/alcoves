@@ -182,11 +182,11 @@ func uuidPtr(u uuid.UUID) *uuid.UUID { return &u }
 
 func seedLibrary(t *testing.T, db *gorm.DB) (uuid.UUID, uuid.UUID) {
 	t.Helper()
-	owner := models.User{ID: uuid.New(), Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
+	owner := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
 	if err := db.Create(&owner).Error; err != nil {
 		t.Fatalf("create owner: %v", err)
 	}
-	lib := models.Library{ID: uuid.New(), Name: "Lib", OwnerID: owner.ID}
+	lib := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "Lib", OwnerID: owner.ID}
 	if err := db.Create(&lib).Error; err != nil {
 		t.Fatalf("create library: %v", err)
 	}
@@ -624,7 +624,7 @@ func TestProcessVideo_FileNotFound(t *testing.T) {
 func TestProcessVideo_NotAVideo(t *testing.T) {
 	db := setupTestDB(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "doc.txt", MimeType: "text/plain", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "doc.txt", MimeType: "text/plain", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
@@ -638,7 +638,7 @@ func TestProcessVideo_AlreadyReady(t *testing.T) {
 	db := setupTestDB(t)
 	libID, ownerID := seedLibrary(t, db)
 	ready := "ready"
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID, ProxyStatus: &ready}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID, ProxyStatus: &ready}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
@@ -661,7 +661,7 @@ func TestProcessVideo_WebCompatibleNotNeeded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
@@ -695,7 +695,7 @@ func TestProcessVideo_ForceTranscode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
@@ -729,7 +729,7 @@ func TestProcessVideo_StorageOpenFails(t *testing.T) {
 	db := setupTestDB(t)
 	store := setupTestStorage(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -757,7 +757,7 @@ func TestProcessVideoThumbnail_Flow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "clip.mp4", MimeType: "video/mp4", OwnerID: &ownerID, Size: int64(len(data))}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -784,7 +784,7 @@ func TestProcessVideoThumbnail_SkipDerivative(t *testing.T) {
 	libID, ownerID := seedLibrary(t, db)
 	// A derivative file (SourceFileID set) should be skipped.
 	parent := uuid.New()
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID, SourceFileID: uuidPtr(parent)}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID, SourceFileID: uuidPtr(parent)}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -805,7 +805,7 @@ func TestProcessVideoThumbnail_NotFound(t *testing.T) {
 func TestSetProxyState(t *testing.T) {
 	db := setupTestDB(t)
 	libID, ownerID := seedLibrary(t, db)
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatal(err)
 	}

@@ -33,7 +33,7 @@ func setupTokenHandler(t *testing.T) (*TokenHandler, *gorm.DB, models.User) {
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}
-	user := models.User{ID: uuid.New(), Email: "owner@test.com", DisplayName: "Owner", Role: "member"}
+	user := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: "owner@test.com", DisplayName: "Owner", Role: "member"}
 	db.Create(&user)
 	return NewTokenHandler(db, authSvc), db, user
 }
@@ -109,7 +109,7 @@ func TestTokenHandler_CreateListDelete(t *testing.T) {
 
 func TestTokenHandler_ScopedToUser(t *testing.T) {
 	h, db, user := setupTokenHandler(t)
-	other := models.User{ID: uuid.New(), Email: "other@test.com", DisplayName: "Other", Role: "member"}
+	other := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: "other@test.com", DisplayName: "Other", Role: "member"}
 	db.Create(&other)
 
 	// `user` creates a token.

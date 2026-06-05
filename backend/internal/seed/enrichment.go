@@ -131,7 +131,7 @@ func (s *seeder) addMoment(idName string, file *models.File, lib, creator uuid.U
 		return &models.Moment{}
 	}
 	m := &models.Moment{
-		ID:            id(idName),
+		BaseModel:     models.BaseModel{ID: id(idName), CreatedAt: createdAt, UpdatedAt: createdAt},
 		FileID:        file.ID,
 		LibraryID:     lib,
 		CreatedByID:   creator,
@@ -140,8 +140,6 @@ func (s *seeder) addMoment(idName string, file *models.File, lib, creator uuid.U
 		StartSeconds:  start,
 		EndSeconds:    end,
 		ExportVersion: 1,
-		CreatedAt:     createdAt,
-		UpdatedAt:     createdAt,
 	}
 	s.create(m)
 	if s.err == nil {
@@ -191,15 +189,13 @@ func (s *seeder) exportAndShare(m *models.Moment, lib, creator uuid.UUID, clipAs
 
 func (s *seeder) addHighlightFilter(idName string, lib uuid.UUID, creator *uuid.UUID, name, expr, color string, proximity int, createdAt time.Time) {
 	s.create(&models.HighlightFilter{
-		ID:               id(idName),
+		BaseModel:        models.BaseModel{ID: id(idName), CreatedAt: createdAt, UpdatedAt: createdAt},
 		LibraryID:        lib,
 		CreatedByID:      creator,
 		Name:             name,
 		Expression:       expr,
 		ProximitySeconds: proximity,
 		Color:            color,
-		CreatedAt:        createdAt,
-		UpdatedAt:        createdAt,
 	})
 }
 

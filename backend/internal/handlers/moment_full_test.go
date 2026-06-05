@@ -61,7 +61,7 @@ func momentCtx(method, body string, fix purgeTestFixture, params map[string]stri
 func mkMoment(t *testing.T, db *gorm.DB, fix purgeTestFixture, fileID uuid.UUID, start, end float64) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
-	m := models.Moment{ID: id, FileID: fileID, LibraryID: fix.LibraryID, CreatedByID: fix.UserID, Name: "M", StartSeconds: start, EndSeconds: end, ExportVersion: 1}
+	m := models.Moment{BaseModel: models.BaseModel{ID: id}, FileID: fileID, LibraryID: fix.LibraryID, CreatedByID: fix.UserID, Name: "M", StartSeconds: start, EndSeconds: end, ExportVersion: 1}
 	if err := db.Create(&m).Error; err != nil {
 		t.Fatalf("create moment: %v", err)
 	}

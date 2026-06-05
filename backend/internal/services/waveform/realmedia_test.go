@@ -158,7 +158,7 @@ func TestWaveform_FullPipeline_RealSpeech(t *testing.T) {
 	libID, ownerID := seedLibrary(t, db)
 
 	data := testsupport.FixtureBytes(t, "audio/speech_hello.wav")
-	f := models.File{ID: uuid.New(), LibraryID: libID, Name: "speech.wav", MimeType: "audio/wav", OwnerID: &ownerID, Size: int64(len(data))}
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "speech.wav", MimeType: "audio/wav", OwnerID: &ownerID, Size: int64(len(data))}
 	if err := db.Create(&f).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}

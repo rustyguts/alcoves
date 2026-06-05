@@ -43,13 +43,11 @@ func (s *seeder) createUser(idName, email, name, role, avatarAsset string, creat
 	}
 	uid := id(idName)
 	u := &models.User{
-		ID:           uid,
+		BaseModel:    models.BaseModel{ID: uid, CreatedAt: createdAt, UpdatedAt: createdAt},
 		Email:        strings.ToLower(email),
 		PasswordHash: &hash,
 		DisplayName:  name,
 		Role:         role,
-		CreatedAt:    createdAt,
-		UpdatedAt:    createdAt,
 	}
 	if avatarAsset != "" {
 		data, aerr := asset(avatarAsset)
@@ -85,7 +83,7 @@ func (s *seeder) createLibrary(idName, name, emoji string, isDefault, face, obj,
 		return &models.Library{}
 	}
 	lib := &models.Library{
-		ID:                     id(idName),
+		BaseModel:              models.BaseModel{ID: id(idName), CreatedAt: createdAt, UpdatedAt: createdAt},
 		Name:                   name,
 		Emoji:                  sp(emoji),
 		IsDefault:              isDefault,
@@ -93,8 +91,6 @@ func (s *seeder) createLibrary(idName, name, emoji string, isDefault, face, obj,
 		ObjectDetectionEnabled: obj,
 		SharingEnabled:         share,
 		OwnerID:                owner,
-		CreatedAt:              createdAt,
-		UpdatedAt:              createdAt,
 	}
 	s.create(lib)
 	if s.err == nil {
@@ -121,13 +117,11 @@ func (s *seeder) createFolder(idName string, lib uuid.UUID, parent *uuid.UUID, n
 		return &models.Folder{}
 	}
 	f := &models.Folder{
-		ID:             id(idName),
+		BaseModel:      models.BaseModel{ID: id(idName), CreatedAt: createdAt, UpdatedAt: createdAt},
 		LibraryID:      lib,
 		ParentFolderID: parent,
 		OwnerID:        up(owner),
 		Name:           name,
-		CreatedAt:      createdAt,
-		UpdatedAt:      createdAt,
 	}
 	s.create(f)
 	if s.err == nil {
@@ -143,12 +137,10 @@ func (s *seeder) createTag(idName string, lib uuid.UUID, name, color string, cre
 		return &models.Tag{}
 	}
 	t := &models.Tag{
-		ID:        id(idName),
+		BaseModel: models.BaseModel{ID: id(idName), CreatedAt: createdAt, UpdatedAt: createdAt},
 		LibraryID: lib,
 		Name:      name,
 		Color:     color,
-		CreatedAt: createdAt,
-		UpdatedAt: createdAt,
 	}
 	s.create(t)
 	if s.err == nil {
@@ -215,7 +207,7 @@ func (s *seeder) addFile(spec fileSpec) *models.File {
 	}
 
 	f := &models.File{
-		ID:             fid,
+		BaseModel:      models.BaseModel{ID: fid, CreatedAt: spec.createdAt, UpdatedAt: spec.createdAt},
 		LibraryID:      spec.lib,
 		ParentFolderID: spec.parent,
 		Name:           spec.name,
@@ -227,8 +219,6 @@ func (s *seeder) addFile(spec fileSpec) *models.File {
 		GpsLon:         spec.gpsLon,
 		CameraMake:     spec.cameraMake,
 		CameraModel:    spec.camera,
-		CreatedAt:      spec.createdAt,
-		UpdatedAt:      spec.createdAt,
 	}
 	if w > 0 {
 		f.Width, f.Height = ip(w), ip(h)

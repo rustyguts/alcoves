@@ -198,18 +198,6 @@ func TestNormalizeFolderID_PathTraversalRejected(t *testing.T) {
 	}
 }
 
-func TestEscapeSQLString(t *testing.T) {
-	if v := escapeSQLString("hello"); v != "hello" {
-		t.Fatalf("Expected 'hello', got %q", v)
-	}
-	if v := escapeSQLString("it's"); v != "it''s" {
-		t.Fatalf("Expected escaped single quote, got %q", v)
-	}
-	if v := escapeSQLString("a''b"); v != "a''''b" {
-		t.Fatalf("Expected double-escaped, got %q", v)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Query builder tests (no DB required) — new parameterized signatures
 // ---------------------------------------------------------------------------
@@ -491,7 +479,7 @@ func seedListingLibrary(t *testing.T, db *gorm.DB) listingFixture {
 
 	userID := uuid.New()
 	db.Create(&models.User{
-		ID:          userID,
+		BaseModel:   models.BaseModel{ID: userID},
 		Email:       fmt.Sprintf("%s@test.com", userID.String()[:8]),
 		DisplayName: "Listing Test User",
 		Role:        "owner",
@@ -499,9 +487,9 @@ func seedListingLibrary(t *testing.T, db *gorm.DB) listingFixture {
 
 	libID := uuid.New()
 	db.Create(&models.Library{
-		ID:      libID,
-		Name:    "Listing Test Library",
-		OwnerID: userID,
+		BaseModel: models.BaseModel{ID: libID},
+		Name:      "Listing Test Library",
+		OwnerID:   userID,
 	})
 
 	return listingFixture{UserID: userID, LibraryID: libID}

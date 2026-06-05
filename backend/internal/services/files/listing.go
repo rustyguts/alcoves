@@ -781,9 +781,3 @@ func sortTags(tags []TagResponse) {
 		return tags[i].Name < tags[j].Name
 	})
 }
-
-// escapeSQLString doubles single quotes in a string.
-// Retained for backward compatibility but no longer used in query construction.
-func escapeSQLString(s string) string {
-	return strings.ReplaceAll(s, "'", "''")
-}

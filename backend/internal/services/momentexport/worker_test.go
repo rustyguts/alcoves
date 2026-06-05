@@ -150,20 +150,20 @@ func genVideo(t *testing.T, dir, name string) string {
 
 func seedMoment(t *testing.T, db *gorm.DB, start, end float64, exportVersion int) (libID, fileID, momentID uuid.UUID) {
 	t.Helper()
-	owner := models.User{ID: uuid.New(), Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
+	owner := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: uuid.NewString() + "@example.com", DisplayName: "Owner"}
 	if err := db.Create(&owner).Error; err != nil {
 		t.Fatalf("create owner: %v", err)
 	}
-	lib := models.Library{ID: uuid.New(), Name: "Lib", OwnerID: owner.ID}
+	lib := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "Lib", OwnerID: owner.ID}
 	if err := db.Create(&lib).Error; err != nil {
 		t.Fatalf("create library: %v", err)
 	}
-	file := models.File{ID: uuid.New(), LibraryID: lib.ID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &owner.ID}
+	file := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: lib.ID, Name: "v.mp4", MimeType: "video/mp4", OwnerID: &owner.ID}
 	if err := db.Create(&file).Error; err != nil {
 		t.Fatalf("create file: %v", err)
 	}
 	moment := models.Moment{
-		ID:            uuid.New(),
+		BaseModel:     models.BaseModel{ID: uuid.New()},
 		FileID:        file.ID,
 		LibraryID:     lib.ID,
 		CreatedByID:   owner.ID,

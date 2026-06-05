@@ -75,7 +75,7 @@ func seedLibrary(t *testing.T, db *gorm.DB) purgeTestFixture {
 
 	userID := uuid.New()
 	user := models.User{
-		ID:          userID,
+		BaseModel:   models.BaseModel{ID: userID},
 		Email:       fmt.Sprintf("%s@test.com", userID.String()[:8]),
 		DisplayName: "Purge Test User",
 		Role:        "owner",
@@ -86,9 +86,9 @@ func seedLibrary(t *testing.T, db *gorm.DB) purgeTestFixture {
 
 	libraryID := uuid.New()
 	library := models.Library{
-		ID:      libraryID,
-		Name:    "Purge Test Library",
-		OwnerID: userID,
+		BaseModel: models.BaseModel{ID: libraryID},
+		Name:      "Purge Test Library",
+		OwnerID:   userID,
 	}
 	if err := db.Create(&library).Error; err != nil {
 		t.Fatalf("Failed to create library: %v", err)
@@ -108,7 +108,7 @@ func createFile(t *testing.T, db *gorm.DB, libraryID, ownerID uuid.UUID, name st
 
 	fileID := uuid.New()
 	file := models.File{
-		ID:             fileID,
+		BaseModel:      models.BaseModel{ID: fileID},
 		LibraryID:      libraryID,
 		ParentFolderID: parentFolderID,
 		Name:           name,
@@ -134,7 +134,7 @@ func createFolder(t *testing.T, db *gorm.DB, libraryID uuid.UUID, name string, t
 
 	folderID := uuid.New()
 	folder := models.Folder{
-		ID:             folderID,
+		BaseModel:      models.BaseModel{ID: folderID},
 		LibraryID:      libraryID,
 		ParentFolderID: parentFolderID,
 		Name:           name,
@@ -151,7 +151,7 @@ func createTag(t *testing.T, db *gorm.DB, libraryID uuid.UUID, name string) uuid
 
 	tagID := uuid.New()
 	tag := models.Tag{
-		ID:        tagID,
+		BaseModel: models.BaseModel{ID: tagID},
 		LibraryID: libraryID,
 		Name:      name,
 		Color:     "#ff0000",
@@ -416,7 +416,7 @@ func TestPurge_DeletesDerivedFilesWithSource(t *testing.T) {
 	// These are never user-visible but must be fully deleted when the source is purged.
 	proxyID := uuid.New()
 	proxy := models.File{
-		ID:           proxyID,
+		BaseModel:    models.BaseModel{ID: proxyID},
 		LibraryID:    fix.LibraryID,
 		Name:         "original_proxy.mp4",
 		MimeType:     "video/mp4",
@@ -431,7 +431,7 @@ func TestPurge_DeletesDerivedFilesWithSource(t *testing.T) {
 
 	thumbID := uuid.New()
 	thumb := models.File{
-		ID:           thumbID,
+		BaseModel:    models.BaseModel{ID: thumbID},
 		LibraryID:    fix.LibraryID,
 		Name:         "original_thumb.jpg",
 		MimeType:     "image/jpeg",

@@ -193,7 +193,7 @@ func (h *TaskHandler) processVideo(ctx context.Context, libraryID, fileID string
 	proxyID := uuid.New()
 	proxyName := buildProxyName(file.Name)
 	proxyFile := models.File{
-		ID:           proxyID,
+		BaseModel:    models.BaseModel{ID: proxyID},
 		LibraryID:    file.LibraryID,
 		Name:         proxyName,
 		MimeType:     "video/mp4",
@@ -303,7 +303,7 @@ func (h *TaskHandler) processVideoThumbnail(ctx context.Context, libraryID, file
 
 	thumbID := uuid.New()
 	thumb := models.File{
-		ID:           thumbID,
+		BaseModel:    models.BaseModel{ID: thumbID},
 		LibraryID:    file.LibraryID,
 		Name:         buildThumbnailName(file.Name),
 		MimeType:     "image/jpeg",

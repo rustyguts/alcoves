@@ -66,7 +66,7 @@ func createTestUserAndLibrary(t *testing.T, db *gorm.DB) (uuid.UUID, uuid.UUID) 
 
 	userID := uuid.New()
 	user := models.User{
-		ID:          userID,
+		BaseModel:   models.BaseModel{ID: userID},
 		Email:       "test@example.com",
 		DisplayName: "Test User",
 		Role:        "owner",
@@ -77,9 +77,9 @@ func createTestUserAndLibrary(t *testing.T, db *gorm.DB) (uuid.UUID, uuid.UUID) 
 
 	libraryID := uuid.New()
 	library := models.Library{
-		ID:      libraryID,
-		OwnerID: userID,
-		Name:    "Test Library",
+		BaseModel: models.BaseModel{ID: libraryID},
+		OwnerID:   userID,
+		Name:      "Test Library",
 	}
 	if err := db.Create(&library).Error; err != nil {
 		t.Fatalf("Failed to create test library: %v", err)
@@ -777,7 +777,7 @@ func TestTusFinishUploadDuplicateHeader(t *testing.T) {
 	userID, libraryID := createTestUserAndLibrary(t, db)
 
 	// Second library owned by same user — used to verify dedup is per-library.
-	otherLibrary := models.Library{ID: uuid.New(), OwnerID: userID, Name: "Other"}
+	otherLibrary := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, OwnerID: userID, Name: "Other"}
 	if err := db.Create(&otherLibrary).Error; err != nil {
 		t.Fatalf("create other library: %v", err)
 	}
