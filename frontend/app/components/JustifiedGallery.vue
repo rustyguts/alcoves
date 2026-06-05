@@ -120,7 +120,6 @@ const flat = computed<{ rows: JustifiedRow<GalleryItem<T>>[]; markers: Map<strin
             :data-group-key="flat.markers.get(box.item.id)?.groupKey"
             class="group relative cursor-pointer overflow-hidden rounded-[2px] bg-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:z-10"
             :style="{ width: `${box.width}px`, height: `${box.height}px` }"
-            :title="box.item.name"
             @click="emit('select', box.item.raw)"
           >
             <AlcovesImage
