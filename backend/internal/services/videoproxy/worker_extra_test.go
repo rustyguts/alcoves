@@ -225,71 +225,8 @@ func TestBuildThumbnailName(t *testing.T) {
 	}
 }
 
-func TestParseFFmpegOutTime(t *testing.T) {
-	cases := []struct {
-		in      string
-		want    float64
-		wantErr bool
-	}{
-		{"00:00:01.000000", 1.0, false},
-		{"01:02:03.5", 3723.5, false},
-		{"00:00:00.000000", 0, false},
-		{"bad", 0, true},
-		{"1:2", 0, true},
-		{"aa:00:00", 0, true},
-		{"00:bb:00", 0, true},
-		{"00:00:cc", 0, true},
-	}
-	for _, tc := range cases {
-		got, err := parseFFmpegOutTime(tc.in)
-		if tc.wantErr {
-			if err == nil {
-				t.Errorf("parseFFmpegOutTime(%q): expected error", tc.in)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("parseFFmpegOutTime(%q): %v", tc.in, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("parseFFmpegOutTime(%q) = %v, want %v", tc.in, got, tc.want)
-		}
-	}
-}
-
-func TestParseFFmpegSpeed(t *testing.T) {
-	cases := []struct {
-		in      string
-		want    float64
-		wantErr bool
-	}{
-		{"1.5x", 1.5, false},
-		{"  2x ", 2, false},
-		{"0.25x", 0.25, false},
-		{"x", 0, true},
-		{"", 0, true},
-		{"0x", 0, true},
-		{"-1x", 0, true},
-		{"abcx", 0, true},
-	}
-	for _, tc := range cases {
-		got, err := parseFFmpegSpeed(tc.in)
-		if tc.wantErr {
-			if err == nil {
-				t.Errorf("parseFFmpegSpeed(%q): expected error", tc.in)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("parseFFmpegSpeed(%q): %v", tc.in, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("parseFFmpegSpeed(%q) = %v, want %v", tc.in, got, tc.want)
-		}
-	}
-}
+// NOTE: out_time/speed parsing moved to internal/services/ffmpeg; its tests now
+// live in that package (ffmpeg_test.go).
 
 func TestHasAudioStream(t *testing.T) {
 	type stream = struct {
