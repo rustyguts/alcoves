@@ -218,7 +218,15 @@ func main() {
 	var asynqServer *asynq.Server
 	if cfg.Mode == "all" || cfg.Mode == "worker" {
 		asynqServer = asynq.NewServer(asynqRedisOpt, asynq.Config{
-			Concurrency: 8,
+			// Keep per-pod concurrency low. The heavy jobs (whisper, ffmpeg
+			// transcode, ONNX inference) are each RAM- and CPU-hungry, so packing
+			// many into one pod multiplies its peak memory and is what OOM-killed
+			// the pool. To process more in parallel, scale OUT (raise the worker
+			// Deployment's replicaCount) rather than raising this number — more
+			// pods spread the memory across nodes and fail independently, whereas
+			// a higher concurrency concentrates risk in a single pod. Only raise
+			// this if a single worker pod is provisioned with plenty of headroom.
+			Concurrency: 2,
 			// Per-job-type queue weights come from the single source of truth in
 			// the queues package, ranked by importance ÷ complexity: interactive
 			// image transforms ≫ fast post-upload derivations (metadata,
