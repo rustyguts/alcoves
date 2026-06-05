@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { LibraryEntry, LibraryFile } from "~~/shared/types/api";
 import { apiUrl } from "~/utils/api-fetch";
+import { formatDuration } from "~/utils/format-duration";
 import { getMimeIcon } from "~/utils/mime-icons";
 import AppIcon from "~/components/AppIcon.vue";
 import AlcovesImage from "~/components/AlcovesImage.vue";
@@ -37,6 +39,14 @@ const emit = defineEmits<{
   updateRenameValue: [value: string];
   thumbnailError: [fileId: string];
 }>();
+
+// YouTube-style duration overlay, shown only for video files that carry a
+// known duration. null hides the badge (missing/zero-length/still-processing).
+const durationLabel = computed(() =>
+  props.entry.kind === "file" && props.entry.mimeType.startsWith("video/")
+    ? formatDuration(props.entry.duration)
+    : null,
+);
 </script>
 
 <template>
@@ -166,6 +176,12 @@ const emit = defineEmits<{
           >
             <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-white" />
           </div>
+          <span
+            v-if="durationLabel"
+            class="absolute bottom-1 right-1 rounded bg-black/80 px-1.5 py-0.5 text-xs font-medium leading-none tabular-nums text-white"
+          >
+            {{ durationLabel }}
+          </span>
         </div>
       </template>
       <template v-else-if="props.entry.kind === 'file' && props.isImageFile(props.entry)">

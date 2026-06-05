@@ -48,14 +48,14 @@ const fileEntries = computed(() =>
 
 <template>
   <!--
-    auto-fill + minmax keeps card width inside a sensible 220-320px band
-    regardless of viewport width, instead of stretching to "viewport / N"
-    on ultrawide monitors. Combined with the 16:9 thumbnail below this
-    gives the consistent card shape the design calls for.
+    auto-fill packs as many >=220px columns as fit, then the 1fr max lets
+    them grow equally to consume the leftover track so the grid is always
+    full-width with no dead space at the end of a row. Cards stay >=220px
+    (never cramped) and the 16:9 thumbnail keeps the consistent card shape.
   -->
   <div class="p-3 flex flex-col gap-4">
     <section v-if="folderEntries.length > 0">
-      <div class="grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,320px))]">
+      <div class="grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
         <LibraryEntryCard
           v-for="entry in folderEntries"
           :key="`folder-${entry.id}`"
@@ -89,7 +89,7 @@ const fileEntries = computed(() =>
     </section>
 
     <section v-if="fileEntries.length > 0">
-      <div class="grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,320px))]">
+      <div class="grid auto-rows-min gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
         <LibraryEntryCard
           v-for="entry in fileEntries"
           :key="`file-${entry.id}`"

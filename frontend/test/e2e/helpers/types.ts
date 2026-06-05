@@ -64,6 +64,10 @@ export interface MockFile {
   size: number;
   width: number | null;
   height: number | null;
+  // Required (nullable) to match the real API's LibraryFile.duration — mock files
+  // are returned verbatim as API responses, so an absent field would diverge from
+  // production. makeFile defaults it to null.
+  duration: number | null;
   thumbnailReady: boolean;
   posterUrl: string | null;
   trashedAt: string | null;
