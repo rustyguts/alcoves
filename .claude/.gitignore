@@ -1,0 +1,23 @@
+# ==============================================================================
+# Claude Code — project .claude/ folder
+# ==============================================================================
+# Shared, version-controlled team config stays tracked: settings.json,
+# commands/, skills/, agents/, hooks/. Everything below is personal or
+# machine-local runtime state and must NOT be committed.
+
+# Personal / per-machine settings (override shared settings.json locally)
+settings.local.json
+*.local.json
+
+# Git worktrees created by Claude Code (EnterWorktree / isolated agents).
+# These are checkouts, never repo content — committing them creates broken
+# gitlink (submodule-style) entries.
+worktrees/
+
+# Runtime locks, logs, and caches
+*.lock
+shell-snapshots/
+todos/
+logs/
+*.log
+.DS_Store
