@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
@@ -57,9 +57,13 @@
 
 	// Keep the role drafts reconciled with the members list whenever it changes.
 	$effect(() => {
-		// Touch `members.libraryMembers` so the effect re-runs on member changes.
+		// Re-run only when the member list changes. syncDrafts() writes
+		// `memberRoleDrafts` (which it also reads, to preserve in-flight edits), so
+		// it MUST run untracked — otherwise the effect tracks that write and
+		// re-triggers itself forever (effect_update_depth_exceeded), which silently
+		// breaks reactivity for the whole page (the mobile sidebar wouldn't open).
 		void members.libraryMembers;
-		members.syncDrafts();
+		untrack(() => members.syncDrafts());
 	});
 
 	let newLinkMaxUses = $state('');
