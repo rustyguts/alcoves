@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import type { LibraryFile } from "~~/shared/types/api";
 import type { JobStatusButton } from "~/utils/job-status-button";
 
@@ -31,7 +32,7 @@ function isPlayable(mimeType: string | undefined | null): boolean {
       color="neutral"
       variant="ghost"
       size="sm"
-      icon="i-lineicons-arrow-left"
+      :icon="ICONS.back"
       @click="emit('back')"
     >
       Back
@@ -44,7 +45,7 @@ function isPlayable(mimeType: string | undefined | null): boolean {
       :color="transcribeButton.color"
       :variant="file?.transcribeStatus === 'failed' ? 'solid' : 'soft'"
       size="sm"
-      icon="i-lineicons-comment-1-text"
+      :icon="ICONS.transcript"
       :loading="transcribeButton.loading || transcribing"
       :disabled="transcribeButton.disabled || transcribing"
       @click="emit('transcribe')"
@@ -56,7 +57,7 @@ function isPlayable(mimeType: string | undefined | null): boolean {
       :color="audioDetectButton.color"
       :variant="file?.audioDetectStatus === 'failed' ? 'solid' : 'soft'"
       size="sm"
-      icon="i-lineicons-pulse"
+      :icon="ICONS.audioDetect"
       :loading="audioDetectButton.loading || audioDetecting"
       :disabled="audioDetectButton.disabled || audioDetecting"
       @click="emit('audio-detect')"
@@ -68,7 +69,7 @@ function isPlayable(mimeType: string | undefined | null): boolean {
       :color="waveformButton.color"
       :variant="file?.waveformStatus === 'failed' ? 'solid' : 'soft'"
       size="sm"
-      icon="i-lineicons-pulse"
+      :icon="ICONS.waveform"
       :loading="waveformButton.loading || waveformGenerating"
       :disabled="waveformButton.disabled || waveformGenerating"
       @click="emit('waveform')"

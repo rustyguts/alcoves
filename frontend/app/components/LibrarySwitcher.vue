@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import type { Library } from "~~/shared/types/api";
 import type { DropdownMenuItem } from "@nuxt/ui";
 
@@ -39,7 +40,7 @@ function go(id: string) {
 function toItem(l: Library): DropdownMenuItem {
   return {
     label: l.emoji ? `${l.emoji}  ${l.name}` : l.name,
-    icon: l.emoji ? undefined : l.isDefault ? "i-lineicons-library" : "i-lineicons-folder",
+    icon: l.emoji ? undefined : l.isDefault ? ICONS.library : ICONS.folder,
     slot: l.id === current.value?.id ? "active" : undefined,
     onSelect: go(l.id),
   };
@@ -54,7 +55,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
   if (def) groups.push([toItem(def)]);
   if (others.length) groups.push(others.map(toItem));
   groups.push([
-    { label: "New library", icon: "i-lineicons-plus", onSelect: () => emit("create") },
+    { label: "New library", icon: ICONS.plus, onSelect: () => emit("create") },
   ]);
   return groups;
 });
@@ -72,15 +73,15 @@ const items = computed<DropdownMenuItem[][]>(() => {
       :aria-label="`Switch library, current: ${current?.name ?? 'none'}`"
     >
       <span v-if="current?.emoji" class="shrink-0 text-lg leading-none">{{ current.emoji }}</span>
-      <UIcon v-else name="i-lineicons-library" class="size-5 shrink-0 text-muted" />
+      <UIcon v-else :name="ICONS.library" class="size-5 shrink-0 text-muted" />
       <span class="min-w-0 flex-1 truncate text-sm font-semibold">{{
         current?.name ?? "Select library"
       }}</span>
-      <UIcon name="i-lineicons-sort-high-to-low" class="size-4 shrink-0 text-dimmed" />
+      <UIcon :name="ICONS.dropdownCaret" class="size-4 shrink-0 text-dimmed" />
     </button>
 
     <template #active-trailing>
-      <UIcon name="i-lineicons-check" class="size-4 text-primary" />
+      <UIcon :name="ICONS.check" class="size-4 text-primary" />
     </template>
   </UDropdownMenu>
 </template>

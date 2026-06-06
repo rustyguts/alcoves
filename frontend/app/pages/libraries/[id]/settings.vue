@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useAuth } from "~/composables/useAuth";
 
 definePageMeta({ layout: "library" });
@@ -12,6 +13,7 @@ import AppIcon from "~/components/AppIcon.vue";
 import ConfirmModal from "~/components/ConfirmModal.vue";
 import InviteLinkRow from "~/components/library/settings/InviteLinkRow.vue";
 import LibraryMemberRow from "~/components/library/settings/LibraryMemberRow.vue";
+import SettingsSection from "~/components/library/settings/SettingsSection.vue";
 import EmojiPicker from "~/components/EmojiPicker.vue";
 
 const router = useRouter();
@@ -387,372 +389,374 @@ async function deleteLibrary() {
 </script>
 
 <template>
-  <div class="space-y-4 overflow-y-auto flex-1 min-h-0 px-0.5">
-    <!-- Library Name -->
-    <AppPanel
-      title="Library Name"
-      description="Rename this library and pick an emoji. The emoji saves as soon as you choose it."
-      icon="i-lineicons-folder"
-    >
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <EmojiPicker
-          class="shrink-0"
-          :model-value="library?.emoji ?? null"
-          @update:model-value="saveLibraryEmoji"
-        />
-        <UInput
-          v-model="libraryNameDraft"
-          placeholder="Library name"
-          class="sm:flex-1"
-          :ui="{ root: 'w-full' }"
-          @keydown.enter="saveLibraryNameFromSettings"
-        />
-        <UButton
-          color="primary"
-          variant="soft"
-          icon="i-lineicons-check"
-          :loading="savingLibraryName"
-          :disabled="
-            savingLibraryName ||
-            !libraryNameDraft.trim() ||
-            libraryNameDraft.trim() === (library?.name ?? '')
-          "
-          @click="saveLibraryNameFromSettings"
-        >
-          Save
-        </UButton>
-      </div>
-    </AppPanel>
+  <div class="w-full max-w-3xl overflow-y-auto flex-1 min-h-0 px-0.5">
+    <div class="divide-y divide-default">
+      <!-- Library Name -->
+      <SettingsSection
+        title="Library Name"
+        description="Rename this library and pick an emoji. The emoji saves as soon as you choose it."
+        :icon="ICONS.folder"
+      >
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <EmojiPicker
+            class="shrink-0"
+            :model-value="library?.emoji ?? null"
+            @update:model-value="saveLibraryEmoji"
+          />
+          <UInput
+            v-model="libraryNameDraft"
+            placeholder="Library name"
+            class="sm:flex-1"
+            :ui="{ root: 'w-full' }"
+            @keydown.enter="saveLibraryNameFromSettings"
+          />
+          <UButton
+            color="primary"
+            variant="soft"
+            :icon="ICONS.check"
+            :loading="savingLibraryName"
+            :disabled="
+              savingLibraryName ||
+              !libraryNameDraft.trim() ||
+              libraryNameDraft.trim() === (library?.name ?? '')
+            "
+            @click="saveLibraryNameFromSettings"
+          >
+            Save
+          </UButton>
+        </div>
+      </SettingsSection>
 
-    <!-- Library Members -->
-    <AppPanel
-      v-if="!library?.isDefault"
-      title="Library Members"
-      description="Manage who has access to this library and their permissions."
-      icon="i-lineicons-users"
-    >
-      <div class="space-y-6">
-        <div class="space-y-3">
-          <div>
-            <p class="text-sm font-medium text-highlighted">Create Invite Link</p>
+      <!-- Library Members -->
+      <SettingsSection
+        v-if="!library?.isDefault"
+        title="Library Members"
+        description="Manage who has access to this library and their permissions."
+        :icon="ICONS.members"
+      >
+        <div class="space-y-6">
+          <div class="space-y-3">
+            <div>
+              <p class="text-sm font-medium text-highlighted">Create Invite Link</p>
+              <p class="text-xs text-muted">
+                Anyone with the link can sign up and join this library as a member.
+              </p>
+            </div>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <UFormField label="Max uses" class="flex-1">
+                <UInput
+                  v-model="newLinkMaxUses"
+                  type="number"
+                  min="1"
+                  placeholder="Unlimited"
+                  class="w-full"
+                  :ui="{ root: 'w-full' }"
+                />
+              </UFormField>
+              <UFormField label="Expires at" class="flex-1">
+                <UInput
+                  v-model="newLinkExpiresAt"
+                  type="datetime-local"
+                  class="w-full"
+                  :ui="{ root: 'w-full' }"
+                />
+              </UFormField>
+              <UButton
+                color="primary"
+                :icon="ICONS.link"
+                :loading="createInviteLinkLoading"
+                :disabled="createInviteLinkLoading"
+                @click="submitCreateInviteLink"
+              >
+                Create Link
+              </UButton>
+            </div>
             <p class="text-xs text-muted">
-              Anyone with the link can sign up and join this library as a member.
+              Leave both fields blank for unlimited uses that never expire.
             </p>
           </div>
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <UFormField label="Max uses" class="flex-1">
-              <UInput
-                v-model="newLinkMaxUses"
-                type="number"
-                min="1"
-                placeholder="Unlimited"
-                class="w-full"
-                :ui="{ root: 'w-full' }"
-              />
-            </UFormField>
-            <UFormField label="Expires at" class="flex-1">
-              <UInput
-                v-model="newLinkExpiresAt"
-                type="datetime-local"
-                class="w-full"
-                :ui="{ root: 'w-full' }"
-              />
-            </UFormField>
-            <UButton
-              color="primary"
-              icon="i-lineicons-link"
-              :loading="createInviteLinkLoading"
-              :disabled="createInviteLinkLoading"
-              @click="submitCreateInviteLink"
-            >
-              Create Link
-            </UButton>
-          </div>
-          <p class="text-xs text-muted">
-            Leave both fields blank for unlimited uses that never expire.
-          </p>
-        </div>
 
-        <template v-if="inviteLinks.length">
-          <USeparator />
-          <div class="space-y-3">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Active Invite Links</p>
-                <p class="text-xs text-muted">
-                  Track redemptions and revoke links you no longer need.
-                </p>
+          <template v-if="inviteLinks.length">
+            <USeparator />
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium text-highlighted">Active Invite Links</p>
+                  <p class="text-xs text-muted">
+                    Track redemptions and revoke links you no longer need.
+                  </p>
+                </div>
+                <UBadge color="neutral" variant="soft" size="sm">
+                  {{ inviteLinks.length }}
+                </UBadge>
               </div>
-              <UBadge color="neutral" variant="soft" size="sm">
-                {{ inviteLinks.length }}
-              </UBadge>
+              <div class="divide-y divide-default border-y border-default">
+                <InviteLinkRow
+                  v-for="invite in inviteLinks"
+                  :key="invite.id"
+                  :invite="invite"
+                  :revoking="revokingInviteId === invite.id"
+                  @copy="copyInviteLink"
+                  @revoke="revokeInvite"
+                />
+              </div>
             </div>
-            <div class="divide-y divide-default overflow-hidden rounded-md bg-elevated">
-              <InviteLinkRow
-                v-for="invite in inviteLinks"
-                :key="invite.id"
-                :invite="invite"
-                :revoking="revokingInviteId === invite.id"
-                @copy="copyInviteLink"
-                @revoke="revokeInvite"
-              />
+          </template>
+
+          <template v-if="libraryMembers.length">
+            <USeparator />
+            <div class="space-y-3">
+              <p class="text-sm font-medium text-highlighted">Members</p>
+              <div class="divide-y divide-default border-y border-default">
+                <LibraryMemberRow
+                  v-for="member in libraryMembers"
+                  :key="member.id"
+                  :member="member"
+                  :role-draft="
+                    (memberRoleDrafts[member.userId] ??
+                      (member.role === 'owner' ? 'admin' : member.role)) as 'admin' | 'viewer'
+                  "
+                  :updating-role="updatingMemberUserId === member.userId"
+                  :removing="removingMemberUserId === member.userId"
+                  :role-options="inviteRoleOptions"
+                  @update-role="
+                    (_, role) => {
+                      memberRoleDrafts[member.userId] = role;
+                      updateMemberRole(member);
+                    }
+                  "
+                  @remove="removeMember"
+                />
+              </div>
             </div>
-          </div>
-        </template>
-
-        <template v-if="libraryMembers.length">
-          <USeparator />
-          <div class="space-y-3">
-            <p class="text-sm font-medium text-highlighted">Members</p>
-            <div class="divide-y divide-default overflow-hidden rounded-md bg-elevated">
-              <LibraryMemberRow
-                v-for="member in libraryMembers"
-                :key="member.id"
-                :member="member"
-                :role-draft="
-                  (memberRoleDrafts[member.userId] ??
-                    (member.role === 'owner' ? 'admin' : member.role)) as 'admin' | 'viewer'
-                "
-                :updating-role="updatingMemberUserId === member.userId"
-                :removing="removingMemberUserId === member.userId"
-                :role-options="inviteRoleOptions"
-                @update-role="
-                  (_, role) => {
-                    memberRoleDrafts[member.userId] = role;
-                    updateMemberRole(member);
-                  }
-                "
-                @remove="removeMember"
-              />
-            </div>
-          </div>
-        </template>
-      </div>
-    </AppPanel>
-
-    <!-- Facial Recognition -->
-    <AppPanel
-      title="Facial Recognition"
-      description="Detect and group faces from image uploads. Disabling removes all face data."
-      icon="i-lineicons-id-card"
-    >
-      <div class="space-y-4">
-        <AppPanelRow
-          title="Enable facial recognition"
-          description="Process new uploads and group detected faces."
-        >
-          <USwitch
-            :model-value="library?.faceRecognitionEnabled ?? false"
-            :disabled="faceRecToggling"
-            @update:model-value="toggleFaceRecognition($event as boolean)"
-          />
-        </AppPanelRow>
-
-        <USeparator />
-
-        <AppPanelRow
-          title="Queue full reprocessing"
-          description="Deletes current face inference data, then re-runs detection on all images."
-        >
-          <UButton
-            color="warning"
-            variant="soft"
-            icon="i-lineicons-reload"
-            :loading="faceRecReprocessing"
-            :disabled="!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing"
-            @click="faceRecReprocessOpen = true"
-          >
-            Reprocess Faces
-          </UButton>
-        </AppPanelRow>
-      </div>
-    </AppPanel>
-
-    <!-- Object Detection -->
-    <AppPanel
-      title="Object Detection"
-      description="Detect objects in image uploads using YOLO26. Disabling removes all detection data."
-      icon="i-lineicons-magnifier"
-    >
-      <div class="space-y-4">
-        <AppPanelRow
-          title="Enable object detection"
-          description="Process new uploads and index detected objects."
-        >
-          <USwitch
-            :model-value="library?.objectDetectionEnabled ?? false"
-            :disabled="objDetToggling"
-            @update:model-value="toggleObjectDetection($event as boolean)"
-          />
-        </AppPanelRow>
-
-        <USeparator />
-
-        <AppPanelRow
-          title="Browse detected objects"
-          description="View detected object labels and their frequency across the library."
-        >
-          <UButton
-            color="neutral"
-            variant="soft"
-            icon="i-lineicons-magnifier"
-            :to="`/libraries/${libraryId}/objects`"
-            :disabled="!library?.objectDetectionEnabled"
-          >
-            View Objects
-          </UButton>
-        </AppPanelRow>
-
-        <USeparator />
-
-        <AppPanelRow
-          title="Queue full reprocessing"
-          description="Deletes current object detection data, then re-runs detection on all images."
-        >
-          <UButton
-            color="warning"
-            variant="soft"
-            icon="i-lineicons-reload"
-            :loading="objDetReprocessing"
-            :disabled="!library?.objectDetectionEnabled || objDetToggling || objDetReprocessing"
-            @click="objDetReprocessOpen = true"
-          >
-            Reprocess Objects
-          </UButton>
-        </AppPanelRow>
-      </div>
-    </AppPanel>
-
-    <!-- Transcription -->
-    <AppPanel
-      title="Transcription"
-      description="Generate searchable text + WebVTT cues from video and audio files using whisper.cpp."
-      icon="i-lineicons-comment-1-text"
-    >
-      <AppPanelRow
-        title="Re-transcribe all videos"
-        description="Queues transcription for every video and audio file in this library, overwriting existing transcripts. Useful after a model upgrade or hallucination-fix rollout."
-      >
-        <UButton
-          color="warning"
-          variant="soft"
-          icon="i-lineicons-comment-1-text"
-          :loading="transcribeReprocessing"
-          :disabled="transcribeReprocessing"
-          @click="transcribeReprocessOpen = true"
-        >
-          Reprocess Transcripts
-        </UButton>
-      </AppPanelRow>
-    </AppPanel>
-
-    <!-- Audio Event Detection -->
-    <AppPanel
-      title="Audio Event Detection"
-      description="Tag audio segments with PANNs CNN14 (music, speech, applause, …). Requires the file's transcript to be ready."
-      icon="i-lineicons-pulse"
-    >
-      <AppPanelRow
-        title="Re-run audio detection on all videos"
-        description="Queues PANNs detection for every video and audio file with a ready transcript, overwriting existing audio-event tags."
-      >
-        <UButton
-          color="warning"
-          variant="soft"
-          icon="i-lineicons-pulse"
-          :loading="audioDetectReprocessing"
-          :disabled="audioDetectReprocessing"
-          @click="audioDetectReprocessOpen = true"
-        >
-          Reprocess Audio Detections
-        </UButton>
-      </AppPanelRow>
-    </AppPanel>
-
-    <!-- Sharing -->
-    <AppPanel
-      title="Sharing"
-      description="Allow members to create public share links for moments in this library."
-      icon="i-lineicons-share-2"
-    >
-      <AppPanelRow
-        title="Enable sharing"
-        description="When on, anyone with a share link can view the individual moment without signing in."
-      >
-        <USwitch
-          :model-value="library?.sharingEnabled ?? false"
-          :disabled="sharingToggling"
-          @update:model-value="toggleSharing($event as boolean)"
-        />
-      </AppPanelRow>
-    </AppPanel>
-
-    <!-- Video Thumbnails -->
-    <AppPanel
-      v-if="isLibraryOwner"
-      title="Video Thumbnails"
-      description="Regenerate JPG thumbnails for all source videos in this library."
-      icon="i-lineicons-image"
-    >
-      <div class="flex sm:justify-end">
-        <UButton
-          color="warning"
-          variant="soft"
-          icon="i-lineicons-image"
-          :loading="videoThumbReprocessing"
-          :disabled="videoThumbReprocessing"
-          @click="videoThumbReprocessOpen = true"
-        >
-          Regenerate Thumbnails
-        </UButton>
-      </div>
-    </AppPanel>
-
-    <!-- Photo Metadata (Timeline + Map) -->
-    <AppPanel
-      v-if="isLibraryOwner"
-      title="Photo Metadata"
-      description="Re-extract capture date & GPS location (EXIF) for all photos and videos. Powers the Timeline and Map views."
-      icon="i-lineicons-map-marker"
-    >
-      <div class="flex sm:justify-end">
-        <UButton
-          color="warning"
-          variant="soft"
-          icon="i-lineicons-reload"
-          :loading="metadataReprocessing"
-          :disabled="metadataReprocessing"
-          @click="metadataReprocessOpen = true"
-        >
-          Reprocess Metadata
-        </UButton>
-      </div>
-    </AppPanel>
-
-    <!-- Danger Zone -->
-    <AppPanel>
-      <template #title>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lineicons-warning" class="size-4 shrink-0 text-error" />
-          <h2 class="text-sm font-semibold text-error">Delete Library</h2>
+          </template>
         </div>
-      </template>
-      <AppPanelRow
-        title="Delete this library"
-        description="Permanently remove this library. Must be empty first."
-        danger
+      </SettingsSection>
+
+      <!-- Facial Recognition -->
+      <SettingsSection
+        title="Facial Recognition"
+        description="Detect and group faces from image uploads. Disabling removes all face data."
+        :icon="ICONS.people"
       >
-        <UButton
-          color="error"
-          variant="soft"
-          icon="i-lineicons-trash-can"
-          :disabled="!canDeleteLibrary"
-          @click="deleteLibraryOpen = true"
+        <div class="space-y-4">
+          <AppPanelRow
+            title="Enable facial recognition"
+            description="Process new uploads and group detected faces."
+          >
+            <USwitch
+              :model-value="library?.faceRecognitionEnabled ?? false"
+              :disabled="faceRecToggling"
+              @update:model-value="toggleFaceRecognition($event as boolean)"
+            />
+          </AppPanelRow>
+
+          <USeparator />
+
+          <AppPanelRow
+            title="Queue full reprocessing"
+            description="Deletes current face inference data, then re-runs detection on all images."
+          >
+            <UButton
+              color="warning"
+              variant="soft"
+              :icon="ICONS.reload"
+              :loading="faceRecReprocessing"
+              :disabled="!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing"
+              @click="faceRecReprocessOpen = true"
+            >
+              Reprocess Faces
+            </UButton>
+          </AppPanelRow>
+        </div>
+      </SettingsSection>
+
+      <!-- Object Detection -->
+      <SettingsSection
+        title="Object Detection"
+        description="Detect objects in image uploads using YOLO26. Disabling removes all detection data."
+        :icon="ICONS.objectDetection"
+      >
+        <div class="space-y-4">
+          <AppPanelRow
+            title="Enable object detection"
+            description="Process new uploads and index detected objects."
+          >
+            <USwitch
+              :model-value="library?.objectDetectionEnabled ?? false"
+              :disabled="objDetToggling"
+              @update:model-value="toggleObjectDetection($event as boolean)"
+            />
+          </AppPanelRow>
+
+          <USeparator />
+
+          <AppPanelRow
+            title="Browse detected objects"
+            description="View detected object labels and their frequency across the library."
+          >
+            <UButton
+              color="neutral"
+              variant="soft"
+              :icon="ICONS.objectDetection"
+              :to="`/libraries/${libraryId}/objects`"
+              :disabled="!library?.objectDetectionEnabled"
+            >
+              View Objects
+            </UButton>
+          </AppPanelRow>
+
+          <USeparator />
+
+          <AppPanelRow
+            title="Queue full reprocessing"
+            description="Deletes current object detection data, then re-runs detection on all images."
+          >
+            <UButton
+              color="warning"
+              variant="soft"
+              :icon="ICONS.reload"
+              :loading="objDetReprocessing"
+              :disabled="!library?.objectDetectionEnabled || objDetToggling || objDetReprocessing"
+              @click="objDetReprocessOpen = true"
+            >
+              Reprocess Objects
+            </UButton>
+          </AppPanelRow>
+        </div>
+      </SettingsSection>
+
+      <!-- Transcription -->
+      <SettingsSection
+        title="Transcription"
+        description="Generate searchable text + WebVTT cues from video and audio files using whisper.cpp."
+        :icon="ICONS.transcript"
+      >
+        <AppPanelRow
+          title="Re-transcribe all videos"
+          description="Queues transcription for every video and audio file in this library, overwriting existing transcripts. Useful after a model upgrade or hallucination-fix rollout."
         >
-          Delete
-        </UButton>
-      </AppPanelRow>
-    </AppPanel>
+          <UButton
+            color="warning"
+            variant="soft"
+            :icon="ICONS.transcript"
+            :loading="transcribeReprocessing"
+            :disabled="transcribeReprocessing"
+            @click="transcribeReprocessOpen = true"
+          >
+            Reprocess Transcripts
+          </UButton>
+        </AppPanelRow>
+      </SettingsSection>
+
+      <!-- Audio Event Detection -->
+      <SettingsSection
+        title="Audio Event Detection"
+        description="Tag audio segments with PANNs CNN14 (music, speech, applause, …). Requires the file's transcript to be ready."
+        :icon="ICONS.audioDetect"
+      >
+        <AppPanelRow
+          title="Re-run audio detection on all videos"
+          description="Queues PANNs detection for every video and audio file with a ready transcript, overwriting existing audio-event tags."
+        >
+          <UButton
+            color="warning"
+            variant="soft"
+            :icon="ICONS.audioDetect"
+            :loading="audioDetectReprocessing"
+            :disabled="audioDetectReprocessing"
+            @click="audioDetectReprocessOpen = true"
+          >
+            Reprocess Audio Detections
+          </UButton>
+        </AppPanelRow>
+      </SettingsSection>
+
+      <!-- Sharing -->
+      <SettingsSection
+        title="Sharing"
+        description="Allow members to create public share links for moments in this library."
+        :icon="ICONS.share"
+      >
+        <AppPanelRow
+          title="Enable sharing"
+          description="When on, anyone with a share link can view the individual moment without signing in."
+        >
+          <USwitch
+            :model-value="library?.sharingEnabled ?? false"
+            :disabled="sharingToggling"
+            @update:model-value="toggleSharing($event as boolean)"
+          />
+        </AppPanelRow>
+      </SettingsSection>
+
+      <!-- Video Thumbnails -->
+      <SettingsSection
+        v-if="isLibraryOwner"
+        title="Video Thumbnails"
+        description="Regenerate JPG thumbnails for all source videos in this library."
+        :icon="ICONS.image"
+      >
+        <div class="flex sm:justify-end">
+          <UButton
+            color="warning"
+            variant="soft"
+            :icon="ICONS.image"
+            :loading="videoThumbReprocessing"
+            :disabled="videoThumbReprocessing"
+            @click="videoThumbReprocessOpen = true"
+          >
+            Regenerate Thumbnails
+          </UButton>
+        </div>
+      </SettingsSection>
+
+      <!-- Photo Metadata (Timeline + Map) -->
+      <SettingsSection
+        v-if="isLibraryOwner"
+        title="Photo Metadata"
+        description="Re-extract capture date & GPS location (EXIF) for all photos and videos. Powers the Timeline and Map views."
+        :icon="ICONS.location"
+      >
+        <div class="flex sm:justify-end">
+          <UButton
+            color="warning"
+            variant="soft"
+            :icon="ICONS.reload"
+            :loading="metadataReprocessing"
+            :disabled="metadataReprocessing"
+            @click="metadataReprocessOpen = true"
+          >
+            Reprocess Metadata
+          </UButton>
+        </div>
+      </SettingsSection>
+
+      <!-- Danger Zone -->
+      <SettingsSection>
+        <template #title>
+          <div class="flex items-center gap-2">
+            <UIcon :name="ICONS.warning" class="size-4 shrink-0 text-error" />
+            <h2 class="text-sm font-semibold text-error">Delete Library</h2>
+          </div>
+        </template>
+        <AppPanelRow
+          title="Delete this library"
+          description="Permanently remove this library. Must be empty first."
+          danger
+        >
+          <UButton
+            color="error"
+            variant="soft"
+            :icon="ICONS.trash"
+            :disabled="!canDeleteLibrary"
+            @click="deleteLibraryOpen = true"
+          >
+            Delete
+          </UButton>
+        </AppPanelRow>
+      </SettingsSection>
+    </div>
 
     <ConfirmModal
       v-model:open="faceRecDisableOpen"
@@ -760,7 +764,7 @@ async function deleteLibrary() {
       message="This will permanently delete all detected faces and people data for this library. This action cannot be undone."
       confirm-label="Disable & Delete Data"
       confirm-class="btn-soft btn-error"
-      confirm-icon="i-lineicons-trash-can"
+      :confirm-icon="ICONS.trash"
       :pending="faceRecToggling"
       @confirm="confirmDisableFaceRecognition"
     />
@@ -771,7 +775,7 @@ async function deleteLibrary() {
       message="This re-extracts capture date and GPS location for every photo and video in the library, refreshing the Timeline and Map. Existing metadata is overwritten as each file completes."
       confirm-label="Queue Reprocessing"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-reload"
+      :confirm-icon="ICONS.reload"
       :pending="metadataReprocessing"
       @confirm="reprocessMetadata"
     />
@@ -782,7 +786,7 @@ async function deleteLibrary() {
       message="This queues thumbnail regeneration for all source videos in this library. Existing generated thumbnails will be replaced as new ones complete."
       confirm-label="Queue Regeneration"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-image"
+      :confirm-icon="ICONS.image"
       :pending="videoThumbReprocessing"
       @confirm="reprocessVideoThumbnails"
     />
@@ -793,7 +797,7 @@ async function deleteLibrary() {
       message="This deletes all existing face inference data and queues a full rebuild. Results may change, including how photos are grouped into people."
       confirm-label="Delete Data & Requeue"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-reload"
+      :confirm-icon="ICONS.reload"
       :pending="faceRecReprocessing"
       @confirm="reprocessFaceRecognition"
     />
@@ -804,7 +808,7 @@ async function deleteLibrary() {
       message="This queues transcription for every video and audio file in the library. Existing transcripts will be overwritten when each job completes."
       confirm-label="Queue Reprocessing"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-comment-1-text"
+      :confirm-icon="ICONS.transcript"
       :pending="transcribeReprocessing"
       @confirm="reprocessTranscripts"
     />
@@ -815,7 +819,7 @@ async function deleteLibrary() {
       message="This queues PANNs audio-event detection for every video and audio file with a ready transcript. Existing audio-event tags will be overwritten when each job completes."
       confirm-label="Queue Reprocessing"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-pulse"
+      :confirm-icon="ICONS.audioDetect"
       :pending="audioDetectReprocessing"
       @confirm="reprocessAudioDetections"
     />
@@ -838,7 +842,7 @@ async function deleteLibrary() {
           </UButton>
           <UButton
             color="error"
-            icon="i-lineicons-trash-can"
+            :icon="ICONS.trash"
             :loading="objDetToggling"
             :disabled="objDetToggling"
             @click="confirmDisableObjectDetection"
@@ -867,7 +871,7 @@ async function deleteLibrary() {
           </UButton>
           <UButton
             color="warning"
-            icon="i-lineicons-reload"
+            :icon="ICONS.reload"
             :loading="objDetReprocessing"
             :disabled="objDetReprocessing"
             @click="reprocessObjectDetection"
@@ -903,7 +907,7 @@ async function deleteLibrary() {
           <UButton
             color="error"
             variant="soft"
-            icon="i-lineicons-trash-can"
+            :icon="ICONS.trash"
             :disabled="deleteLibraryConfirmation !== 'delete'"
             @click="deleteLibrary"
           >

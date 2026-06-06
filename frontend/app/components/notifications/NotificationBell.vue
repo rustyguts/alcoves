@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { ref, onMounted } from "vue";
 import AppIcon from "~/components/AppIcon.vue";
 import { useNotifications } from "~/composables/useNotifications";
@@ -30,7 +31,7 @@ const badgeText = computed(() => {
 <template>
   <UPopover v-model:open="open" :content="{ align: 'end', sideOffset: 8 }">
     <UButton color="neutral" variant="ghost" square aria-label="Notifications" class="relative p-1">
-      <AppIcon name="i-lineicons-bell-1" class="size-5" />
+      <AppIcon :name="ICONS.bell" class="size-5" />
       <span
         v-if="badgeText"
         class="absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-1 rounded-full bg-primary text-white text-[10px] font-semibold leading-4 text-center"

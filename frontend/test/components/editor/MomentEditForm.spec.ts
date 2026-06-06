@@ -81,7 +81,7 @@ describe("MomentEditForm", () => {
     await wrapper.findAll("button").find((b) => b.text().includes("Reprocess"))!.trigger("click");
     await byIcon(wrapper, "i-lineicons-download")[0]!.trigger("click");
     await byIcon(wrapper, "i-lineicons-share-2")[0]!.trigger("click");
-    await byIcon(wrapper, "i-lineicons-x")[0]!.trigger("click");
+    await byIcon(wrapper, "i-lineicons-xmark")[0]!.trigger("click");
     expect(wrapper.emitted("export")?.[0]).toEqual(["m1"]);
     expect(wrapper.emitted("download")?.[0]).toEqual(["m1"]);
     expect(wrapper.emitted("share")?.[0]).toEqual(["m1"]);

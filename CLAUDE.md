@@ -176,7 +176,7 @@ Dev PAT: `alc_pat_localdev0000000000000000000000000000`.
 - `handlers` — HTTP handlers, one file per resource; `validator.go` wraps go-playground/validator
 - `middleware` — `AuthMiddleware`, `LibraryAccessMiddleware`
 - `models` — all GORM entities in a single `models.go`
-- `mcpserver` — `*mcp.Server` with 4 tools + per-request identity bridge
+- `mcpserver` — `*mcp.Server` with the v1 tool set (22 tools: discovery/libraries, files/folders, tags, AI insights, moments — see `website/.../features/mcp-server.md`) + per-request identity bridge
 - `queues` — named Asynq queue constants + `Priorities` weight map (single source of truth)
 - `queuerouting` — **tests-only** regression guard pinning service→queue routing (no prod code)
 - `seed` — dev/test data seeder (`MaybeRun`/`Run`)

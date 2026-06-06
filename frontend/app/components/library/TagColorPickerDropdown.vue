@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import AppIcon from "~/components/AppIcon.vue";
 
 interface Props {
@@ -49,7 +50,7 @@ const emit = defineEmits<{
         >
           <AppIcon
             v-if="entry === color.toUpperCase()"
-            name="i-lineicons-check"
+            :name="ICONS.check"
             class="absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow"
           />
         </button>

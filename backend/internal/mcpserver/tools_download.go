@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 
@@ -39,13 +38,13 @@ func registerDownloadTool(srv *mcp.Server, d Deps) {
 		Name:        "download_file",
 		Description: "Download a file from a library. With `destPath` (local/stdio) the server writes the file to that host path. Without `destPath`, returns a signed, range-resumable download URL plus a ready-to-run curl command.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in downloadFileInput) (*mcp.CallToolResult, downloadFileOutput, error) {
-		libraryID, err := uuid.Parse(in.LibraryID)
+		libraryID, err := parseUUIDArg("libraryId", in.LibraryID)
 		if err != nil {
-			return nil, downloadFileOutput{}, fmt.Errorf("invalid libraryId: %q", in.LibraryID)
+			return nil, downloadFileOutput{}, err
 		}
-		fileID, err := uuid.Parse(in.FileID)
+		fileID, err := parseUUIDArg("fileId", in.FileID)
 		if err != nil {
-			return nil, downloadFileOutput{}, fmt.Errorf("invalid fileId: %q", in.FileID)
+			return nil, downloadFileOutput{}, err
 		}
 		if _, _, err := d.requireLibraryAccess(ctx, libraryID); err != nil {
 			return nil, downloadFileOutput{}, err
@@ -100,7 +99,7 @@ func registerDownloadTool(srv *mcp.Server, d Deps) {
 		return nil, downloadFileOutput{
 			Mode:        "url",
 			URL:         url,
-			CurlCommand: fmt.Sprintf("curl -C - -o '%s' '%s'", file.Name, url),
+			CurlCommand: fmt.Sprintf("curl -C - -o %s '%s'", shellSingleQuote(file.Name), url),
 			ExpiresAt:   expires.UTC().Format(time.RFC3339),
 		}, nil
 	})

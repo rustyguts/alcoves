@@ -60,6 +60,7 @@ func (h *FileHandler) RegisterRoutes(g *echo.Group) {
 	g.POST("/:id/files/video-thumbnails/reprocess", h.ReprocessVideoThumbnails)
 	g.POST("/:id/metadata/reprocess", h.MetadataReprocess)
 	g.GET("/:id/timeline", h.Timeline)
+	g.GET("/:id/timeline/histogram", h.TimelineHistogram)
 	g.GET("/:id/map", h.Map)
 	g.GET("/:id/files/:fileId/proxy", h.Proxy)
 	g.GET("/:id/files/:fileId/thumbnail", h.Thumbnail)
@@ -326,6 +327,22 @@ func (h *FileHandler) Timeline(c echo.Context) error {
 	}
 
 	result, err := h.fileSvc.ListLibraryTimeline(libraryID, c)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+// TimelineHistogram returns whole-library per-month file counts for the date
+// scrubber. ?type=media (default) limits to images + videos; ?type=all counts
+// every file.
+func (h *FileHandler) TimelineHistogram(c echo.Context) error {
+	libraryID := c.Param("id")
+	if _, err := uuid.Parse(libraryID); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid library ID")
+	}
+
+	result, err := h.fileSvc.ListLibraryTimelineHistogram(libraryID, c)
 	if err != nil {
 		return err
 	}

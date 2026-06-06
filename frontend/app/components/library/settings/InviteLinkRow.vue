@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import type { LibraryInviteLink } from "~~/shared/types/api";
 import UserAvatar from "~/components/UserAvatar.vue";
 
@@ -57,7 +58,7 @@ const uses = computed(() => props.invite.uses ?? []);
           color="neutral"
           variant="ghost"
           size="sm"
-          :icon="expanded ? 'i-lineicons-chevron-up' : 'i-lineicons-chevron-down'"
+          :icon="expanded ? ICONS.chevronUp : ICONS.chevronDown"
           @click="expanded = !expanded"
         >
           {{ uses.length }}
@@ -66,7 +67,7 @@ const uses = computed(() => props.invite.uses ?? []);
           color="neutral"
           variant="soft"
           size="sm"
-          icon="i-lineicons-clipboard"
+          :icon="ICONS.copy"
           square
           @click="emit('copy', invite.inviteUrl)"
         />
@@ -74,7 +75,7 @@ const uses = computed(() => props.invite.uses ?? []);
           color="error"
           variant="soft"
           size="sm"
-          icon="i-lineicons-trash-can"
+          :icon="ICONS.trash"
           square
           :loading="revoking"
           :disabled="revoking"

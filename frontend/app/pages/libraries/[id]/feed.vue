@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { onMounted, onBeforeUnmount } from "vue";
 import { useLibraryFeed } from "~/composables/useLibraryFeed";
 import { useNotificationsSocket } from "~/composables/useNotificationsSocket";
@@ -55,7 +56,7 @@ function onDismiss() {
     </div>
     <div class="flex-1 min-h-0 overflow-y-auto">
       <div v-if="feed.loading.value && feed.entries.value.length === 0" class="px-4 py-8 text-center text-sm text-muted">
-        <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin inline-block" />
+        <AppIcon :name="ICONS.loading" class="size-5 animate-spin inline-block" />
         <p class="mt-2">Loading…</p>
       </div>
       <div v-else-if="feed.entries.value.length === 0" class="px-4 py-12 text-center text-sm text-muted">

@@ -104,8 +104,8 @@ test.describe("Library tags @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/tags");
 
-    await expect(page.getByRole("heading", { name: "Manage Tags" })).toBeVisible();
-    await expect(page.getByText("No tags yet")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tags", level: 2 })).toBeVisible();
+    await expect(page.getByText("No tags yet", { exact: true })).toBeVisible();
     await snap(page, FLOW, "tags-empty");
   });
 
@@ -115,7 +115,7 @@ test.describe("Library tags @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/tags");
 
-    await expect(page.getByRole("heading", { name: "Manage Tags" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tags", level: 2 })).toBeVisible();
     await expect(page.locator('input[type="text"]').first()).toBeVisible();
     await snap(page, FLOW, "tags-populated");
   });
@@ -138,7 +138,7 @@ test.describe("Library tags @screenshot", () => {
     await createMockApi(page, state);
     await page.goto("/libraries/lib-photos/tags");
 
-    const newInput = page.getByPlaceholder("New tag");
+    const newInput = page.getByPlaceholder("Add a tag");
     await expect(newInput).toBeVisible();
     await newInput.fill("Summer");
     await snap(page, FLOW, "tags-new-input");

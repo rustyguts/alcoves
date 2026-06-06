@@ -9,15 +9,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/access"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/signing"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
+	"github.com/alcoves/alcoves-backend/internal/testsupport"
 )
 
 type fixture struct {
@@ -28,17 +26,18 @@ type fixture struct {
 
 func setup(t *testing.T) fixture {
 	t.Helper()
-	dsn := "postgres://postgres:postgres@localhost:5455/alcoves_test"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
-	if err != nil {
-		t.Skipf("Skipping test: database not available: %v", err)
-	}
+	// Use a dedicated PostgreSQL schema so this package's TRUNCATE never wipes
+	// rows other DB-backed packages (e.g. services/auth's token tests) created
+	// concurrently under `go test ./...` without -p 1. Skips if the DB is down.
+	db := testsupport.OpenSchema(t, "mcpserver")
 	if err := db.AutoMigrate(
 		&models.User{}, &models.Library{}, &models.LibraryMember{}, &models.File{}, &models.Folder{},
+		&models.Tag{}, &models.FileTag{}, &models.Person{}, &models.ObjectDetection{},
+		&models.AudioDetection{}, &models.Moment{}, &models.MomentTag{}, &models.LibraryActivity{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	// CASCADE also clears rows other test packages left in the shared DB.
+	// Schema-local clean slate per test (safe: this schema is private to the package).
 	db.Exec("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
 
 	root := t.TempDir()

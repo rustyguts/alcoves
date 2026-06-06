@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { computed, ref, useTemplateRef, watch } from "vue";
 import type { VttCue } from "~/utils/parse-vtt";
 
@@ -260,10 +261,10 @@ function pickWord(word: string) {
     >
       <div class="flex items-center gap-2">
         <UIcon
-          :name="collapsed ? 'i-lineicons-chevron-right' : 'i-lineicons-chevron-down'"
+          :name="collapsed ? ICONS.chevronRight : ICONS.chevronDown"
           class="size-3.5 text-muted shrink-0"
         />
-        <UIcon name="i-lineicons-comment-1-text" class="size-4 text-primary" />
+        <UIcon :name="ICONS.transcript" class="size-4 text-primary" />
         <p class="text-sm font-semibold">Transcript</p>
         <UBadge color="neutral" variant="subtle" size="xs">{{ cues.length }} cues</UBadge>
       </div>
@@ -299,7 +300,7 @@ function pickWord(word: string) {
 
       <div v-if="tab === 'cues'" class="flex flex-col">
         <div class="flex items-center gap-2 px-3 py-2 border-b border-default">
-          <UIcon name="i-lineicons-search" class="size-3.5 text-muted shrink-0" />
+          <UIcon :name="ICONS.search" class="size-3.5 text-muted shrink-0" />
           <input
             v-model="search"
             type="text"
@@ -313,7 +314,7 @@ function pickWord(word: string) {
             aria-label="Clear search"
             @click="search = ''"
           >
-            <UIcon name="i-lineicons-x" class="size-3.5" />
+            <UIcon :name="ICONS.close" class="size-3.5" />
           </button>
           <span class="text-[11px] text-muted tabular-nums shrink-0">
             {{ filteredCues.length }}/{{ cues.length }}
@@ -344,7 +345,7 @@ function pickWord(word: string) {
                 class="flex items-center gap-1 text-[11px] tabular-nums shrink-0 mt-0.5"
                 :class="idx === activeIndex ? 'text-primary font-semibold' : 'text-muted'"
               >
-                <UIcon v-if="idx === activeIndex" name="i-lineicons-play" class="size-2.5" />
+                <UIcon v-if="idx === activeIndex" :name="ICONS.play" class="size-2.5" />
                 {{ formatTime(cue.startSeconds) }}
               </span>
               <span

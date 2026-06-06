@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import AlcovesImage from "~/components/AlcovesImage.vue";
 
 definePageMeta({ layout: "library" });
@@ -126,12 +127,12 @@ const contextMenuItems = computed<ContextMenuItem[]>(() => {
   return [
     {
       label: "Update cover photo",
-      icon: "i-lineicons-image",
+      icon: ICONS.image,
       onSelect: () => updateCoverPhoto(face.id),
     },
     {
       label: "New person",
-      icon: "i-lineicons-user-4",
+      icon: ICONS.person,
       onSelect: () => createNewPerson(face.id),
     },
   ];
@@ -149,7 +150,7 @@ watch(
 <template>
   <div class="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 p-2">
     <div class="flex items-center gap-3">
-      <UButton color="neutral" variant="ghost" size="sm" icon="i-lineicons-arrow-left" @click="goBack">
+      <UButton color="neutral" variant="ghost" size="sm" :icon="ICONS.back" @click="goBack">
         Back
       </UButton>
       <div class="min-w-0">
@@ -161,7 +162,7 @@ watch(
     </div>
 
     <div v-if="loading" class="flex items-center justify-center py-16">
-      <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-muted" />
+      <UIcon :name="ICONS.loading" class="size-5 animate-spin text-muted" />
     </div>
 
     <div v-else-if="!person" class="flex flex-col items-center justify-center py-16 px-4 gap-3">
@@ -189,7 +190,7 @@ watch(
             v-if="actionFaceId === face.id"
             class="absolute inset-0 bg-black/40 flex items-center justify-center"
           >
-            <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-white" />
+            <UIcon :name="ICONS.loading" class="size-5 animate-spin text-white" />
           </div>
         </div>
       </div>

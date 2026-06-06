@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch, toRef } from "vue";
 import type { Moment } from "~~/shared/types/api";
 import { useWaveformRenderer } from "~/composables/useWaveformRenderer";
@@ -462,19 +463,19 @@ function formatTime(seconds: number): string {
           color="neutral"
           variant="subtle"
           size="xs"
-          icon="i-lineicons-keyboard"
+          :icon="ICONS.keyboard"
           square
           @click="emit('open-shortcuts')"
         />
       </UTooltip>
-      <UButton color="primary" size="xs" icon="i-lineicons-plus" @click="emit('create-moment')">
+      <UButton color="primary" size="xs" :icon="ICONS.plus" @click="emit('create-moment')">
         New moment
       </UButton>
       <UButton
         :color="hasPending ? 'warning' : 'neutral'"
         :variant="hasPending ? 'solid' : 'subtle'"
         size="xs"
-        icon="i-lineicons-save"
+        :icon="ICONS.save"
         :disabled="!hasPending || savingPending"
         :loading="savingPending"
         @click="savePending"
@@ -578,19 +579,19 @@ function formatTime(seconds: number): string {
                     transform="rotate(-90 8 8)"
                   />
                 </svg>
-                <UIcon v-else name="i-lineicons-spinner-solid" class="size-3 animate-spin" />
+                <UIcon v-else :name="ICONS.loading" class="size-3 animate-spin" />
               </template>
               <UIcon
                 v-else-if="momentStatus(m).kind === 'processed'"
-                name="i-lineicons-checkmark-circle"
+                :name="ICONS.momentReady"
                 class="size-3 text-success-400"
               />
               <UIcon
                 v-else-if="momentStatus(m).kind === 'failed'"
-                name="i-lineicons-warning"
+                :name="ICONS.warning"
                 class="size-3 text-error-400"
               />
-              <UIcon v-else name="i-lineicons-spinner" class="size-3 text-white/70" />
+              <UIcon v-else :name="ICONS.loading" class="size-3 text-white/70" />
               <span>{{ momentStatus(m).label }}</span>
             </div>
 
@@ -611,7 +612,7 @@ function formatTime(seconds: number): string {
               @mousedown.stop="beginDrag('start', m, $event)"
               @click.stop
             >
-              <UIcon name="i-lineicons-menu-meatballs-1" class="size-3 text-white/90" />
+              <UIcon :name="ICONS.ellipsis" class="size-3 text-white/90" />
             </div>
 
             <!-- Right handle -->
@@ -623,7 +624,7 @@ function formatTime(seconds: number): string {
               @mousedown.stop="beginDrag('end', m, $event)"
               @click.stop
             >
-              <UIcon name="i-lineicons-menu-meatballs-1" class="size-3 text-white/90" />
+              <UIcon :name="ICONS.ellipsis" class="size-3 text-white/90" />
             </div>
           </div>
 

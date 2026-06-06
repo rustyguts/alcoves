@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
@@ -86,24 +87,16 @@ function formatDate(value: string | null): string {
 </script>
 
 <template>
-  <UCard>
-    <template #header>
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lineicons-key" class="size-5 text-primary" />
-          <div>
-            <h2 class="text-base font-semibold">MCP access tokens</h2>
-            <p class="text-sm text-muted">
-              Connect the Alcoves MCP server. A token acts as you — it can only read and change what
-              you can.
-            </p>
-          </div>
-        </div>
-        <UBadge color="neutral" variant="outline">{{ tokens?.length ?? 0 }} active</UBadge>
-      </div>
+  <AppPanel
+    title="MCP access tokens"
+    description="Connect the Alcoves MCP server. A token acts as you — it can only read and change what you can."
+    :icon="ICONS.key"
+  >
+    <template #actions>
+      <UBadge color="neutral" variant="soft">{{ tokens?.length ?? 0 }} active</UBadge>
     </template>
 
-    <div class="space-y-6">
+    <div class="space-y-5">
       <!-- Create -->
       <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
         <UFormField label="Name" hint="What is this token for?" class="flex-1">
@@ -121,7 +114,7 @@ function formatDate(value: string | null): string {
         </UFormField>
         <UButton
           color="primary"
-          icon="i-lineicons-plus"
+          :icon="ICONS.plus"
           :loading="creating"
           :disabled="creating"
           @click="createToken"
@@ -140,25 +133,32 @@ function formatDate(value: string | null): string {
         <div
           v-for="token in tokens"
           :key="token.id"
-          class="flex flex-col gap-2 px-3 py-3 md:flex-row md:items-center"
+          class="flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center"
         >
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium">{{ token.name }}</p>
-            <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
-              <span>Created {{ formatDate(token.createdAt) }}</span>
-              <span>·</span>
-              <span>Expires {{ formatDate(token.expiresAt) }}</span>
-              <span>·</span>
-              <span>{{
-                token.lastUsedAt ? `Last used ${formatDate(token.lastUsedAt)}` : "Never used"
-              }}</span>
+          <div class="flex min-w-0 flex-1 items-center gap-3">
+            <div
+              class="flex size-9 shrink-0 items-center justify-center rounded-full bg-default text-dimmed"
+            >
+              <UIcon :name="ICONS.key" class="size-4" />
+            </div>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-highlighted">{{ token.name }}</p>
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+                <span>Created {{ formatDate(token.createdAt) }}</span>
+                <span aria-hidden="true">·</span>
+                <span>Expires {{ formatDate(token.expiresAt) }}</span>
+                <span aria-hidden="true">·</span>
+                <span>{{
+                  token.lastUsedAt ? `Last used ${formatDate(token.lastUsedAt)}` : "Never used"
+                }}</span>
+              </div>
             </div>
           </div>
           <UButton
             color="error"
             variant="soft"
             size="sm"
-            icon="i-lineicons-trash-can"
+            :icon="ICONS.trash"
             :loading="revokingId === token.id"
             :disabled="revokingId === token.id"
             @click="revokeToken(token.id)"
@@ -171,7 +171,7 @@ function formatDate(value: string | null): string {
         v-else
         color="neutral"
         variant="soft"
-        icon="i-lineicons-key"
+        :icon="ICONS.key"
         title="No access tokens yet"
         description="Create one to connect an MCP client to your Alcoves libraries."
       />
@@ -192,12 +192,12 @@ function formatDate(value: string | null): string {
               class="w-full font-mono text-xs"
               :ui="{ root: 'w-full' }"
             />
-            <UButton color="neutral" icon="i-lineicons-clipboard" square @click="copyToken" />
+            <UButton color="neutral" :icon="ICONS.copy" square @click="copyToken" />
           </div>
           <UAlert
             color="warning"
             variant="soft"
-            icon="i-lineicons-shield-2"
+            :icon="ICONS.shield"
             title="Treat it like a password"
             description="Anyone with this token can access your libraries as you. Revoke it if it leaks."
           />
@@ -209,5 +209,5 @@ function formatDate(value: string | null): string {
         </div>
       </template>
     </UModal>
-  </UCard>
+  </AppPanel>
 </template>

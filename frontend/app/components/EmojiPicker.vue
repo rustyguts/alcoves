@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import AppIcon from "~/components/AppIcon.vue";
 
 const props = defineProps<{
@@ -179,7 +180,7 @@ onUnmounted(() => {
       @click.stop="open = !open"
     >
       <span v-if="modelValue" class="text-2xl leading-none">{{ modelValue }}</span>
-      <AppIcon v-else name="i-lineicons-emoji-smile" class="size-5 text-muted" />
+      <AppIcon v-else :name="ICONS.emoji" class="size-5 text-muted" />
     </button>
 
     <div

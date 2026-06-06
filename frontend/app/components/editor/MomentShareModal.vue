@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { ref, watch } from "vue";
 import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
@@ -90,7 +91,7 @@ watch(
       <div class="space-y-3">
         <UButton
           color="primary"
-          icon="i-lineicons-link"
+          :icon="ICONS.link"
           :disabled="!sharingEnabled || creating"
           :loading="creating"
           @click="onCreate"
@@ -112,7 +113,7 @@ watch(
               variant="ghost"
               size="xs"
               square
-              icon="i-lineicons-clipboard"
+              :icon="ICONS.copy"
               aria-label="Copy link"
               @click="copy(s.url)"
             />
@@ -120,7 +121,7 @@ watch(
               color="error"
               variant="soft"
               size="xs"
-              icon="i-lineicons-x"
+              :icon="ICONS.close"
               @click="onRevoke(s.token)"
             >
               Revoke

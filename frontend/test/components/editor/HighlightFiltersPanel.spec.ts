@@ -65,7 +65,7 @@ describe("HighlightFiltersPanel", () => {
   it("shows Load presets only when there are no filters and emits it", async () => {
     const wrapper = mountPanel({ filters: [] });
     await open(wrapper);
-    const presets = wrapper.find("[data-icon='i-lineicons-brush']");
+    const presets = wrapper.find("[data-icon='i-lineicons-bookmark']");
     expect(presets.exists()).toBe(true);
     await presets.trigger("click");
     expect(wrapper.emitted("load-presets")).toHaveLength(1);
