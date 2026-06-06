@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { ref, watch } from "vue";
 import type { Moment } from "~~/shared/types/api";
 
@@ -65,7 +66,7 @@ function onDelete() {
               color="primary"
               variant="soft"
               size="xs"
-              icon="i-lineicons-reload"
+              :icon="ICONS.reload"
               :disabled="moment.exportStatus === 'queued' || moment.exportStatus === 'processing'"
               @click="emit('export', moment.id)"
             >
@@ -77,7 +78,7 @@ function onDelete() {
               color="neutral"
               variant="ghost"
               size="xs"
-              icon="i-lineicons-download"
+              :icon="ICONS.download"
               square
               :loading="downloadPending"
               @click="emit('download', moment.id)"
@@ -88,7 +89,7 @@ function onDelete() {
               color="neutral"
               variant="ghost"
               size="xs"
-              icon="i-lineicons-share-2"
+              :icon="ICONS.share"
               square
               @click="emit('share', moment.id)"
             />
@@ -97,7 +98,7 @@ function onDelete() {
             color="neutral"
             variant="ghost"
             size="xs"
-            icon="i-lineicons-x"
+            :icon="ICONS.close"
             square
             aria-label="Close"
             @click="emit('close')"
@@ -142,7 +143,7 @@ function onDelete() {
               color="primary"
               variant="ghost"
               size="xs"
-              icon="i-lineicons-target"
+              :icon="ICONS.snapToPlayhead"
               square
               @click="emit('set-to-playhead', 'start')"
             />
@@ -165,7 +166,7 @@ function onDelete() {
               color="primary"
               variant="ghost"
               size="xs"
-              icon="i-lineicons-target"
+              :icon="ICONS.snapToPlayhead"
               square
               @click="emit('set-to-playhead', 'end')"
             />
@@ -176,10 +177,10 @@ function onDelete() {
 
     <template #footer>
       <div class="flex items-center justify-end gap-2 w-full">
-        <UButton color="error" variant="soft" size="xs" icon="i-lineicons-trash-can" @click="onDelete">
+        <UButton color="error" variant="soft" size="xs" :icon="ICONS.trash" @click="onDelete">
           Delete
         </UButton>
-        <UButton color="primary" size="xs" icon="i-lineicons-save" @click="onSave"> Save </UButton>
+        <UButton color="primary" size="xs" :icon="ICONS.save" @click="onSave"> Save </UButton>
       </div>
     </template>
   </UCard>

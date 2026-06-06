@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import type { GlobalSearchResponse, GlobalSearchResult, LibraryFile } from "~~/shared/types/api";
 
 definePageMeta({ layout: "dashboard" });
@@ -135,19 +136,19 @@ async function openPreview(result: GlobalSearchResult) {
       v-if="activeQuery.length < MIN_QUERY_LENGTH"
       color="info"
       variant="soft"
-      icon="i-lineicons-search-1"
+      :icon="ICONS.search"
       :description="`Enter at least ${MIN_QUERY_LENGTH} characters to start searching.`"
     />
 
     <div v-else-if="status === 'pending'" class="flex items-center justify-center py-12">
-      <UIcon name="i-lineicons-spinner-solid" class="size-6 animate-spin text-muted" />
+      <UIcon :name="ICONS.loading" class="size-6 animate-spin text-muted" />
     </div>
 
     <UAlert
       v-else-if="error"
       color="error"
       variant="soft"
-      icon="i-lineicons-warning"
+      :icon="ICONS.warning"
       title="Search failed"
       description="Try again in a moment."
     />
@@ -156,7 +157,7 @@ async function openPreview(result: GlobalSearchResult) {
       v-else-if="!results.length"
       color="neutral"
       variant="soft"
-      icon="i-lineicons-folder"
+      :icon="ICONS.folder"
       :description="`No results found for “${activeQuery}”.`"
     />
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
@@ -294,7 +295,7 @@ const statCards = computed<StatCard[]>(() => [
     title: "Files",
     value: stats.value?.files?.toLocaleString("en-US") ?? "—",
     caption: "Active across all libraries",
-    icon: "i-lineicons-files",
+    icon: ICONS.files,
     color: "text-primary bg-primary-500/10",
   },
   {
@@ -302,7 +303,7 @@ const statCards = computed<StatCard[]>(() => [
     title: "Storage",
     value: stats.value ? formatFileSize(stats.value.totalSize) : "—",
     caption: "Total disk usage",
-    icon: "i-lineicons-harddrive",
+    icon: ICONS.storage,
     color: "text-secondary bg-secondary-500/10",
   },
   {
@@ -310,7 +311,7 @@ const statCards = computed<StatCard[]>(() => [
     title: "Libraries",
     value: stats.value?.libraries?.toLocaleString("en-US") ?? "—",
     caption: "Including personal defaults",
-    icon: "i-lineicons-library",
+    icon: ICONS.library,
     color: "text-info bg-info-500/10",
   },
   {
@@ -318,7 +319,7 @@ const statCards = computed<StatCard[]>(() => [
     title: "Users",
     value: stats.value?.users?.toLocaleString("en-US") ?? "—",
     caption: "Registered accounts",
-    icon: "i-lineicons-users",
+    icon: ICONS.members,
     color: "text-success bg-success-500/10",
   },
   {
@@ -326,7 +327,7 @@ const statCards = computed<StatCard[]>(() => [
     title: "Folders",
     value: stats.value?.folders?.toLocaleString("en-US") ?? "—",
     caption: "Active folder hierarchy",
-    icon: "i-lineicons-folder",
+    icon: ICONS.folder,
     color: "text-warning bg-warning-500/10",
   },
 ]);
@@ -414,7 +415,7 @@ const columns: TableColumn<AdminUser>[] = [
     <AppPanel
       title="Registration"
       description="Control who can create accounts on this instance."
-      icon="i-lineicons-user-4"
+      :icon="ICONS.person"
     >
       <div class="flex flex-col gap-1">
         <label
@@ -442,7 +443,7 @@ const columns: TableColumn<AdminUser>[] = [
     <AppPanel
       title="Inference models"
       description="Switch the transcription model and audio-tagger used by background workers. Changes take effect on the next job; long-running jobs already in flight finish on the previous model."
-      icon="i-lineicons-gears-3"
+      :icon="ICONS.models"
     >
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="space-y-3">
@@ -521,13 +522,13 @@ const columns: TableColumn<AdminUser>[] = [
       </div>
     </AppPanel>
 
-    <AppPanel title="Users" description="Manage accounts and roles." icon="i-lineicons-users" flush>
+    <AppPanel title="Users" description="Manage accounts and roles." :icon="ICONS.members" flush>
       <template #actions>
         <UBadge v-if="users" color="neutral" variant="subtle">{{ users.length }}</UBadge>
       </template>
 
       <div v-if="usersStatus === 'pending'" class="flex justify-center py-12">
-        <UIcon name="i-lineicons-spinner-solid" class="size-6 animate-spin text-muted" />
+        <UIcon :name="ICONS.loading" class="size-6 animate-spin text-muted" />
       </div>
       <div v-else-if="users?.length" class="overflow-x-auto">
         <UTable :data="users" :columns="columns" />

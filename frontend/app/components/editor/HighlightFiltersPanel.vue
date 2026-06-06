@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { ref, computed } from "vue";
 import type {
   HighlightFilter,
@@ -129,16 +130,16 @@ const sortedFilters = computed(() =>
     >
       <div class="flex items-center gap-2 min-w-0">
         <UIcon
-          :name="collapsed ? 'i-lineicons-chevron-right' : 'i-lineicons-chevron-down'"
+          :name="collapsed ? ICONS.chevronRight : ICONS.chevronDown"
           class="size-3.5 text-muted shrink-0"
         />
-        <UIcon name="i-lineicons-star-fat" class="size-4 text-primary" />
+        <UIcon :name="ICONS.highlights" class="size-4 text-primary" />
         <p class="text-sm font-semibold">Highlight filters</p>
         <UBadge color="neutral" variant="subtle" size="xs">{{ filters.length }}</UBadge>
         <UTooltip
           text="Comma = OR · &amp; = AND · word:foo = transcript · audio:foo = label · :25 = min %"
         >
-          <UIcon name="i-lineicons-question-circle" class="size-3.5 text-muted" />
+          <UIcon :name="ICONS.help" class="size-3.5 text-muted" />
         </UTooltip>
       </div>
       <div class="flex items-center gap-1 shrink-0" @click.stop>
@@ -147,7 +148,7 @@ const sortedFilters = computed(() =>
           color="primary"
           variant="soft"
           size="xs"
-          icon="i-lineicons-brush"
+          :icon="ICONS.loadPresets"
           :loading="loading"
           @click="emit('load-presets')"
         >
@@ -158,7 +159,7 @@ const sortedFilters = computed(() =>
           color="primary"
           variant="solid"
           size="xs"
-          icon="i-lineicons-plus"
+          :icon="ICONS.plus"
           @click="startAdd"
         >
           Add filter
@@ -210,7 +211,7 @@ const sortedFilters = computed(() =>
               <UButton color="neutral" variant="ghost" size="xs" @click="cancelAdd">
                 Cancel
               </UButton>
-              <UButton color="primary" size="xs" icon="i-lineicons-check" @click="submitAdd">
+              <UButton color="primary" size="xs" :icon="ICONS.check" @click="submitAdd">
                 Save
               </UButton>
             </div>
@@ -255,7 +256,7 @@ const sortedFilters = computed(() =>
               <UButton color="neutral" variant="ghost" size="xs" @click="cancelEdit">
                 Cancel
               </UButton>
-              <UButton color="primary" size="xs" icon="i-lineicons-check" @click="submitEdit(f.id)">
+              <UButton color="primary" size="xs" :icon="ICONS.check" @click="submitEdit(f.id)">
                 Save
               </UButton>
             </div>
@@ -269,7 +270,7 @@ const sortedFilters = computed(() =>
               @click="toggleExpand(f.id)"
             >
               <UIcon
-                :name="expanded.has(f.id) ? 'i-lineicons-chevron-down' : 'i-lineicons-chevron-right'"
+                :name="expanded.has(f.id) ? ICONS.chevronDown : ICONS.chevronRight"
                 class="size-3.5 text-muted shrink-0"
               />
               <span class="size-2.5 rounded-full shrink-0" :style="{ backgroundColor: f.color }" />
@@ -306,7 +307,7 @@ const sortedFilters = computed(() =>
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                icon="i-lineicons-pencil"
+                :icon="ICONS.edit"
                 square
                 @click="startEdit(f)"
               />
@@ -314,7 +315,7 @@ const sortedFilters = computed(() =>
                 color="error"
                 variant="ghost"
                 size="xs"
-                icon="i-lineicons-trash-can"
+                :icon="ICONS.trash"
                 square
                 @click="emit('remove', f.id)"
               />
@@ -333,7 +334,7 @@ const sortedFilters = computed(() =>
                 :title="joinEvidence(m.evidence)"
                 @click="emit('seek', m.startSeconds)"
               >
-                <UIcon name="i-lineicons-play" class="size-2.5" />
+                <UIcon :name="ICONS.play" class="size-2.5" />
                 {{ formatTime(m.startSeconds) }}
                 <span class="text-muted">· {{ (m.score * 100).toFixed(0) }}%</span>
                 <span class="text-dimmed truncate max-w-[220px]">

@@ -1,4 +1,5 @@
 import type { Activity, ActivityAction } from "~~/shared/types/api";
+import { ICONS } from "./icons";
 
 // ActivityGroup is one display row in the feed UI. It bundles one or more
 // raw Activity rows that occurred close together from the same actor on
@@ -120,84 +121,84 @@ export function formatActivity(g: ActivityGroup): FormattedActivity {
     case "file.created":
       if (g.count <= 1) {
         const name = (md.name as string) ?? "a file";
-        return { icon: "i-lineicons-file-plus-circle", text: `${actor} added ${name}`, href: hrefForFile(g) };
+        return { icon: ICONS.fileCreated, text: `${actor} added ${name}`, href: hrefForFile(g) };
       }
-      return { icon: "i-lineicons-files", text: `${actor} added ${g.count} files`, href: hrefForFolder(g) };
+      return { icon: ICONS.files, text: `${actor} added ${g.count} files`, href: hrefForFolder(g) };
     case "file.deleted": {
       if (g.count <= 1) {
         const name = (md.name as string) ?? "a file";
-        return { icon: "i-lineicons-trash-can", text: `${actor} deleted ${name}`, href: null };
+        return { icon: ICONS.trash, text: `${actor} deleted ${name}`, href: null };
       }
-      return { icon: "i-lineicons-trash-can", text: `${actor} deleted ${g.count} files`, href: null };
+      return { icon: ICONS.trash, text: `${actor} deleted ${g.count} files`, href: null };
     }
     case "folder.created":
       return {
-        icon: "i-lineicons-folder",
+        icon: ICONS.folder,
         text: `${actor} created folder ${(md.name as string) ?? ""}`,
         href: hrefForFolder(g),
       };
     case "folder.renamed":
       return {
-        icon: "i-lineicons-pencil",
+        icon: ICONS.edit,
         text: `${actor} renamed ${(md.oldName as string) ?? "a folder"} → ${(md.newName as string) ?? ""}`,
         href: hrefForFolder(g),
       };
     case "folder.deleted":
       return {
-        icon: "i-lineicons-folder",
+        icon: ICONS.folderDeleted,
         text: `${actor} deleted folder ${(md.name as string) ?? ""}`,
         href: null,
       };
     case "tag.created":
       return {
-        icon: "i-lineicons-tag",
+        icon: ICONS.tag,
         text: `${actor} created tag ${(md.name as string) ?? ""}`,
         href: `/libraries/${g.head.libraryId}/tags`,
       };
     case "moment.created":
       return {
-        icon: "i-lineicons-camera-movie-1",
+        icon: ICONS.movie,
         text: `${actor} created moment ${(md.name as string) ?? ""}`,
         href: hrefForMoment(g),
       };
     case "moment.shared":
       return {
-        icon: "i-lineicons-share-2",
+        icon: ICONS.share,
         text: `${actor} shared moment ${(md.momentName as string) ?? ""}`,
         href: hrefForMoment(g),
       };
     case "member.joined":
       return {
-        icon: "i-lineicons-user-4",
+        icon: ICONS.person,
         text: `${(md.displayName as string) ?? actor} joined`,
         href: `/libraries/${g.head.libraryId}/settings`,
       };
     case "member.removed":
       return {
-        icon: "i-lineicons-user",
+        icon: ICONS.user,
         text: `${actor} removed ${(md.displayName as string) ?? "a member"}`,
         href: `/libraries/${g.head.libraryId}/settings`,
       };
     case "system.waveform_ready":
       return {
-        icon: "i-lineicons-pulse",
+        icon: ICONS.waveform,
         text: `Waveform ready for ${(md.fileName as string) ?? "a file"}`,
         href: hrefForFile(g),
       };
     case "system.transcribe_ready":
       return {
-        icon: "i-lineicons-comment-1-text",
+        icon: ICONS.transcript,
         text: `Transcript ready for ${(md.fileName as string) ?? "a file"}`,
         href: hrefForFile(g),
       };
     case "system.video_proxy_ready":
       return {
-        icon: "i-lineicons-video",
+        icon: ICONS.video,
         text: `Video processed for ${(md.fileName as string) ?? "a file"}`,
         href: hrefForFile(g),
       };
     default:
-      return { icon: "i-lineicons-bell-1", text: `${actor} ${g.head.action}`, href: null };
+      return { icon: ICONS.bell, text: `${actor} ${g.head.action}`, href: null };
   }
 }
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import * as z from "zod";
 import AuthCardShell from "~/components/AuthCardShell.vue";
 
@@ -132,14 +133,14 @@ async function onSubmit() {
 <template>
   <AuthCardShell title="Create an account" subtitle="Get started with Alcoves." :error="error">
     <div v-if="bootLoading" class="flex justify-center py-8">
-      <UIcon name="i-lineicons-spinner-solid" class="size-6 animate-spin text-muted" />
+      <UIcon :name="ICONS.loading" class="size-6 animate-spin text-muted" />
     </div>
 
     <div v-else-if="!canRegister" class="space-y-3 py-2">
       <UAlert
         color="warning"
         variant="subtle"
-        icon="i-lineicons-lock"
+        :icon="ICONS.lock"
         title="Registration disabled"
         :description="disabledMessage || 'Registration is not available right now.'"
       />
@@ -150,7 +151,7 @@ async function onSubmit() {
         v-if="invite && invite.library"
         color="info"
         variant="subtle"
-        icon="i-lineicons-envelope"
+        :icon="ICONS.email"
         :title="`You've been invited to ${invite.library.name}`"
       >
         <template #description>
@@ -166,7 +167,7 @@ async function onSubmit() {
         <UInput
           v-model="state.name"
           placeholder="Your full name"
-          icon="i-lineicons-user"
+          :icon="ICONS.user"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"
@@ -178,7 +179,7 @@ async function onSubmit() {
           v-model="state.email"
           type="email"
           placeholder="you@example.com"
-          icon="i-lineicons-envelope"
+          :icon="ICONS.email"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"
@@ -190,7 +191,7 @@ async function onSubmit() {
           v-model="state.password"
           type="password"
           placeholder="At least 8 characters"
-          icon="i-lineicons-lock"
+          :icon="ICONS.lock"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"
@@ -202,7 +203,7 @@ async function onSubmit() {
           v-model="state.confirmPassword"
           type="password"
           placeholder="Re-enter password"
-          icon="i-lineicons-lock"
+          :icon="ICONS.lock"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"

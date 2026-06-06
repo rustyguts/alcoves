@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import AdminJobsPanel from "~/components/admin/AdminJobsPanel.vue";
 
 definePageMeta({ layout: "dashboard" });
@@ -10,7 +11,7 @@ definePageMeta({ layout: "dashboard" });
       to="/admin"
       color="neutral"
       variant="ghost"
-      icon="i-lineicons-arrow-left"
+      :icon="ICONS.back"
       size="sm"
       class="self-start"
     >

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useUploadQueue } from "~/composables/useUploadQueue";
 import AppModal from "~/components/AppModal.vue";
 
@@ -64,7 +65,7 @@ watch(open, (val) => {
         color="primary"
         variant="soft"
         size="sm"
-        icon="i-lineicons-upload"
+        :icon="ICONS.upload"
         :disabled="!selectedFileCount"
         @click="handleUpload"
       >

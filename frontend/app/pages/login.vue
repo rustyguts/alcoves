@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import * as z from "zod";
 import AuthCardShell from "~/components/AuthCardShell.vue";
 
@@ -109,7 +110,7 @@ async function onSubmit() {
         v-if="invite && invite.library"
         color="info"
         variant="subtle"
-        icon="i-lineicons-envelope"
+        :icon="ICONS.email"
         :title="`You've been invited to ${invite.library.name}`"
         description="Sign in to accept the invite. New here? Create an account below."
       />
@@ -119,7 +120,7 @@ async function onSubmit() {
           v-model="state.email"
           type="email"
           placeholder="you@example.com"
-          icon="i-lineicons-envelope"
+          :icon="ICONS.email"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"
@@ -131,7 +132,7 @@ async function onSubmit() {
           v-model="state.password"
           type="password"
           placeholder="••••••••"
-          icon="i-lineicons-lock"
+          :icon="ICONS.lock"
           size="lg"
           class="w-full"
           :ui="{ root: 'w-full' }"

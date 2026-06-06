@@ -1,26 +1,27 @@
+import { ICONS } from "./icons";
+
 const mimeIconMap: Record<string, string> = {
-  "inode/directory": "i-lineicons-folder",
-  "application/pdf": "i-lineicons-empty-file",
-  "application/zip": "i-lineicons-file-format-zip",
-  "application/x-zip-compressed": "i-lineicons-file-format-zip",
-  "application/gzip": "i-lineicons-file-format-zip",
-  "application/x-tar": "i-lineicons-file-format-zip",
-  "application/x-rar-compressed": "i-lineicons-file-format-zip",
-  "application/json": "i-lineicons-empty-file",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "i-lineicons-empty-file",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "i-lineicons-empty-file",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-    "i-lineicons-image",
-  "application/msword": "i-lineicons-empty-file",
-  "application/vnd.ms-excel": "i-lineicons-empty-file",
-  "application/vnd.ms-powerpoint": "i-lineicons-image",
+  "inode/directory": ICONS.folder,
+  "application/pdf": ICONS.file,
+  "application/zip": ICONS.zip,
+  "application/x-zip-compressed": ICONS.zip,
+  "application/gzip": ICONS.zip,
+  "application/x-tar": ICONS.zip,
+  "application/x-rar-compressed": ICONS.zip,
+  "application/json": ICONS.file,
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ICONS.file,
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ICONS.file,
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": ICONS.presentation,
+  "application/msword": ICONS.file,
+  "application/vnd.ms-excel": ICONS.file,
+  "application/vnd.ms-powerpoint": ICONS.presentation,
 };
 
 const prefixIconMap: [string, string][] = [
-  ["image/", "i-lineicons-image"],
-  ["video/", "i-lineicons-video"],
-  ["audio/", "i-lineicons-music"],
-  ["text/", "i-lineicons-empty-file"],
+  ["image/", ICONS.image],
+  ["video/", ICONS.video],
+  ["audio/", ICONS.music],
+  ["text/", ICONS.file],
 ];
 
 export function getMimeIcon(mimeType: string): string {
@@ -32,7 +33,7 @@ export function getMimeIcon(mimeType: string): string {
       return icon;
     }
   }
-  return "i-lineicons-empty-file";
+  return ICONS.file;
 }
 
 const extensionMimeMap: Record<string, string> = {

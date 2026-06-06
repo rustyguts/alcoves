@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { computed, ref } from "vue";
 import type { AudioDetection } from "~~/shared/types/api";
 
@@ -82,10 +83,10 @@ function barStyle(window: AudioDetection) {
     >
       <div class="flex items-center gap-2">
         <UIcon
-          :name="collapsed ? 'i-lineicons-chevron-right' : 'i-lineicons-chevron-down'"
+          :name="collapsed ? ICONS.chevronRight : ICONS.chevronDown"
           class="size-3.5 text-muted shrink-0"
         />
-        <UIcon name="i-lineicons-pulse" class="size-4 text-primary" />
+        <UIcon :name="ICONS.audioDetect" class="size-4 text-primary" />
         <p class="text-sm font-semibold">Audio events</p>
         <UBadge color="neutral" variant="subtle" size="xs">{{ buckets.length }} labels</UBadge>
       </div>
@@ -101,7 +102,7 @@ function barStyle(window: AudioDetection) {
         >
           <div class="flex items-center gap-2 min-w-0 flex-1">
             <UIcon
-              :name="expanded.has(b.label) ? 'i-lineicons-chevron-down' : 'i-lineicons-chevron-right'"
+              :name="expanded.has(b.label) ? ICONS.chevronDown : ICONS.chevronRight"
               class="size-3.5 text-muted shrink-0"
             />
             <span class="text-sm font-medium truncate">{{ b.label }}</span>
@@ -138,7 +139,7 @@ function barStyle(window: AudioDetection) {
               class="flex items-center gap-1 px-2 py-0.5 rounded-md border border-default text-[11px] hover:border-primary hover:bg-elevated tabular-nums"
               @click="emit('seek', w.startSeconds)"
             >
-              <UIcon name="i-lineicons-play" class="size-2.5" />
+              <UIcon :name="ICONS.play" class="size-2.5" />
               {{ formatTime(w.startSeconds) }}
               <span class="text-muted"> · {{ (w.score * 100).toFixed(0) }}% </span>
             </button>

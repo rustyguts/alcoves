@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
@@ -143,9 +144,9 @@ function getStatusMessage(error: unknown): string | null {
 }
 
 const themeOptions: { label: string; value: ColorPreference; icon: string; hint: string }[] = [
-  { label: "System", value: "auto", icon: "i-lineicons-monitor", hint: "Match device" },
-  { label: "Light", value: "light", icon: "i-lineicons-sun", hint: "Always light" },
-  { label: "Dark", value: "dark", icon: "i-lineicons-night", hint: "Always dark" },
+  { label: "System", value: "auto", icon: ICONS.system, hint: "Match device" },
+  { label: "Light", value: "light", icon: ICONS.light, hint: "Always light" },
+  { label: "Dark", value: "dark", icon: ICONS.dark, hint: "Always dark" },
 ];
 </script>
 
@@ -168,7 +169,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
         <span
           class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition group-hover:opacity-100"
         >
-          <UIcon name="i-lineicons-camera" class="size-6 text-white" />
+          <UIcon :name="ICONS.camera" class="size-6 text-white" />
         </span>
       </button>
 
@@ -180,7 +181,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
           class="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:justify-start"
         >
           <span class="inline-flex max-w-full items-center gap-1.5 text-sm text-muted">
-            <UIcon name="i-lineicons-envelope" class="size-4 shrink-0" />
+            <UIcon :name="ICONS.email" class="size-4 shrink-0" />
             <span class="break-all">{{ user?.email }}</span>
           </span>
           <UBadge
@@ -198,7 +199,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
           class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-primary transition hover:text-primary-600"
           @click="openAvatarPicker"
         >
-          <UIcon name="i-lineicons-camera" class="size-3.5" />
+          <UIcon :name="ICONS.camera" class="size-3.5" />
           Change photo
         </button>
       </div>
@@ -216,14 +217,14 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
     <AppPanel
       title="Account"
       description="Update how your name appears across Alcoves."
-      icon="i-lineicons-user-4"
+      :icon="ICONS.person"
     >
       <template #actions>
         <UButton
           color="primary"
           :loading="saving"
           :disabled="!hasProfileChanges"
-          icon="i-lineicons-save"
+          :icon="ICONS.save"
           @click="save"
         >
           Save changes
@@ -246,7 +247,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
           class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-primary-500/10 px-3 py-2 text-sm text-primary"
         >
           <span class="inline-flex items-center gap-2">
-            <UIcon name="i-lineicons-camera" class="size-4 shrink-0" />
+            <UIcon :name="ICONS.camera" class="size-4 shrink-0" />
             New photo selected — save changes to apply.
           </span>
           <UButton color="primary" variant="ghost" size="xs" @click="discardAvatar">
@@ -260,7 +261,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
     <AppPanel
       title="Appearance"
       description="Choose how Alcoves looks on this device."
-      icon="i-lineicons-colour-palette-3"
+      :icon="ICONS.appearance"
     >
       <div class="grid grid-cols-3 gap-2 sm:gap-3">
         <button
@@ -277,7 +278,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
         >
           <UIcon
             v-if="themePreference === opt.value"
-            name="i-lineicons-check-circle-1"
+            :name="ICONS.success"
             class="absolute right-2 top-2 size-4 text-primary"
           />
           <UIcon
@@ -295,7 +296,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
     <AppPanel
       title="Active sessions"
       description="Revoke any session you don't recognise."
-      icon="i-lineicons-shield-2-check"
+      :icon="ICONS.admin"
     >
       <template #actions>
         <UBadge color="neutral" variant="soft">{{ sessions?.length ?? 0 }}</UBadge>
@@ -314,7 +315,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
             <div
               class="flex size-9 shrink-0 items-center justify-center rounded-full bg-default text-dimmed"
             >
-              <UIcon name="i-lineicons-monitor" class="size-4" />
+              <UIcon :name="ICONS.system" class="size-4" />
             </div>
             <div class="min-w-0 space-y-0.5">
               <div class="flex items-center gap-2">
@@ -348,7 +349,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string; hint:
         v-else
         color="info"
         variant="soft"
-        icon="i-lineicons-shield-2-check"
+        :icon="ICONS.admin"
         title="No other active sessions"
         description="Only this browser session is active right now."
       />

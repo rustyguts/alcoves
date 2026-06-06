@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useApiFetch } from "~/composables/useApiFetch";
 
 definePageMeta({ layout: "library" });
@@ -236,7 +237,7 @@ onBeforeUnmount(() => {
     <AppPanel
       title="Tags"
       description="Colored labels you attach to files and folders."
-      icon="i-lineicons-tag"
+      :icon="ICONS.tag"
       flush
     >
       <template #actions>
@@ -250,7 +251,7 @@ onBeforeUnmount(() => {
             size="sm"
             square
             :loading="loadingUsage"
-            icon="i-lineicons-reload"
+            :icon="ICONS.reload"
             aria-label="Recount tag usage"
             @click="refreshTagUsageCounts"
           />
@@ -284,7 +285,7 @@ onBeforeUnmount(() => {
             color="primary"
             variant="soft"
             size="sm"
-            icon="i-lineicons-plus"
+            :icon="ICONS.plus"
             label="Add"
             aria-label="Add tag"
             :loading="creatingTag"
@@ -295,7 +296,7 @@ onBeforeUnmount(() => {
 
         <!-- Loading (initial) -->
         <div v-if="loading" class="flex items-center gap-2 px-3 py-6 text-sm text-muted">
-          <UIcon name="i-lineicons-spinner-solid" class="size-4 animate-spin" />
+          <UIcon :name="ICONS.loading" class="size-4 animate-spin" />
           Loading tags
         </div>
 
@@ -304,7 +305,7 @@ onBeforeUnmount(() => {
           v-else-if="!sortedTags.length"
           class="flex flex-col items-center gap-1.5 px-3 py-12 text-center"
         >
-          <UIcon name="i-lineicons-tag" class="size-6 text-muted" />
+          <UIcon :name="ICONS.tag" class="size-6 text-muted" />
           <p class="text-sm font-medium text-default">No tags yet</p>
           <p class="text-xs text-muted">Add your first tag above to start organizing.</p>
         </div>
@@ -343,7 +344,7 @@ onBeforeUnmount(() => {
                 @keydown.enter="($event.target as HTMLInputElement).blur()"
               />
               <UIcon
-                name="i-lineicons-pencil"
+                :name="ICONS.edit"
                 class="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-muted opacity-0 transition-opacity group-hover/name:opacity-100 group-focus-within/name:opacity-0"
               />
             </div>
@@ -351,7 +352,7 @@ onBeforeUnmount(() => {
             <span class="w-20 shrink-0 text-right text-xs text-muted tabular-nums">
               <UIcon
                 v-if="loadingUsage"
-                name="i-lineicons-spinner-solid"
+                :name="ICONS.loading"
                 class="inline size-3 animate-spin"
               />
               <template v-else>
@@ -364,7 +365,7 @@ onBeforeUnmount(() => {
               variant="ghost"
               size="sm"
               square
-              icon="i-lineicons-trash-can"
+              :icon="ICONS.trash"
               :aria-label="`Delete tag ${tag.name}`"
               class="shrink-0 opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
               @click="deleteTagAndRefresh(tag.id)"

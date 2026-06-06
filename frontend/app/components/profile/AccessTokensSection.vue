@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
@@ -89,7 +90,7 @@ function formatDate(value: string | null): string {
   <AppPanel
     title="MCP access tokens"
     description="Connect the Alcoves MCP server. A token acts as you — it can only read and change what you can."
-    icon="i-lineicons-key"
+    :icon="ICONS.key"
   >
     <template #actions>
       <UBadge color="neutral" variant="soft">{{ tokens?.length ?? 0 }} active</UBadge>
@@ -113,7 +114,7 @@ function formatDate(value: string | null): string {
         </UFormField>
         <UButton
           color="primary"
-          icon="i-lineicons-plus"
+          :icon="ICONS.plus"
           :loading="creating"
           :disabled="creating"
           @click="createToken"
@@ -138,7 +139,7 @@ function formatDate(value: string | null): string {
             <div
               class="flex size-9 shrink-0 items-center justify-center rounded-full bg-default text-dimmed"
             >
-              <UIcon name="i-lineicons-key" class="size-4" />
+              <UIcon :name="ICONS.key" class="size-4" />
             </div>
             <div class="min-w-0">
               <p class="truncate text-sm font-medium text-highlighted">{{ token.name }}</p>
@@ -157,7 +158,7 @@ function formatDate(value: string | null): string {
             color="error"
             variant="soft"
             size="sm"
-            icon="i-lineicons-trash-can"
+            :icon="ICONS.trash"
             :loading="revokingId === token.id"
             :disabled="revokingId === token.id"
             @click="revokeToken(token.id)"
@@ -170,7 +171,7 @@ function formatDate(value: string | null): string {
         v-else
         color="neutral"
         variant="soft"
-        icon="i-lineicons-key"
+        :icon="ICONS.key"
         title="No access tokens yet"
         description="Create one to connect an MCP client to your Alcoves libraries."
       />
@@ -191,12 +192,12 @@ function formatDate(value: string | null): string {
               class="w-full font-mono text-xs"
               :ui="{ root: 'w-full' }"
             />
-            <UButton color="neutral" icon="i-lineicons-clipboard" square @click="copyToken" />
+            <UButton color="neutral" :icon="ICONS.copy" square @click="copyToken" />
           </div>
           <UAlert
             color="warning"
             variant="soft"
-            icon="i-lineicons-shield-2"
+            :icon="ICONS.shield"
             title="Treat it like a password"
             description="Anyone with this token can access your libraries as you. Revoke it if it leaks."
           />

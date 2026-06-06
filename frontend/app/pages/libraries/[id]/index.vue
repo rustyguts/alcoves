@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import type { LibraryEntry, LibraryFile, LibraryFolder } from "~~/shared/types/api";
 import { getMimeIcon, formatFileSize, formatDate } from "~/utils/mime-icons";
 
@@ -154,14 +155,14 @@ const newMenuItems = computed<Array<Array<{ label: string; icon: string; onSelec
     [
       {
         label: "Upload",
-        icon: "i-lineicons-upload",
+        icon: ICONS.upload,
         onSelect: () => {
           uploadOpen.value = true;
         },
       },
       {
         label: "Folder",
-        icon: "i-lineicons-folder",
+        icon: ICONS.folder,
         onSelect: openCreateFolderModal,
       },
     ],
@@ -839,7 +840,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     if (targetFileIds.length) {
       restoreItems.push({
         label: targetFileIds.length > 1 ? `Restore ${targetFileIds.length} files` : "Restore",
-        icon: "i-lineicons-reply",
+        icon: ICONS.restore,
         onSelect: () => restoreFiles(targetFileIds),
       });
       purgeItems.push({
@@ -847,7 +848,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           targetFileIds.length > 1
             ? `Permanently delete ${targetFileIds.length} files`
             : "Permanently delete",
-        icon: "i-lineicons-trash-can",
+        icon: ICONS.trash,
         color: "error" as const,
         onSelect: () => openPurgeModal(targetFileIds),
       });
@@ -858,7 +859,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           targetFolderIds.length > 1
             ? `Restore ${targetFolderIds.length} folders`
             : "Restore folder",
-        icon: "i-lineicons-reply",
+        icon: ICONS.restore,
         onSelect: () => restoreFolders(targetFolderIds),
       });
       purgeItems.push({
@@ -866,7 +867,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
           targetFolderIds.length > 1
             ? `Permanently delete ${targetFolderIds.length} folders`
             : "Permanently delete folder",
-        icon: "i-lineicons-trash-can",
+        icon: ICONS.trash,
         color: "error" as const,
         onSelect: () => openPurgeFolderModal(targetFolderIds),
       });
@@ -883,7 +884,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     return [
       [
         ...(entry.kind === "folder" && !isMulti
-          ? [{ label: "Open", icon: "i-lineicons-folder", onSelect: () => openFolder(entry.id) }]
+          ? [{ label: "Open", icon: ICONS.folder, onSelect: () => openFolder(entry.id) }]
           : []),
         {
           label:
@@ -892,7 +893,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
               : entry.kind === "folder"
                 ? "Download as ZIP"
                 : "Download",
-          icon: "i-lineicons-download",
+          icon: ICONS.download,
           onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
         },
       ],
@@ -904,7 +905,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     const multiTagItems = libraryTags.value.length
       ? libraryTags.value.map((tag) => ({
           label: tag.name,
-          icon: areAllFilesTagged(targetFileIds, tag.id) ? "i-lineicons-check" : "i-lineicons-tag",
+          icon: areAllFilesTagged(targetFileIds, tag.id) ? ICONS.check : ICONS.tag,
           onSelect: () => toggleTagForFiles(targetFileIds, tag.id),
         }))
       : [{ label: "No tags yet", disabled: true }];
@@ -913,38 +914,38 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
       [
         {
           label: `Download ${totalCount} items as ZIP`,
-          icon: "i-lineicons-download",
+          icon: ICONS.download,
           onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
         },
         ...(targetFileIds.length
           ? [
               {
                 label: targetFileIds.length > 1 ? `Move ${targetFileIds.length} files` : "Move",
-                icon: "i-lineicons-folder",
+                icon: ICONS.move,
                 onSelect: () => openMoveFilesModal(targetFileIds),
               },
               {
                 label: `Transcribe ${targetFileIds.length} file(s)`,
-                icon: "i-lineicons-comment-1-text",
+                icon: ICONS.transcript,
                 onSelect: () => runBulkAction("transcribe", targetFileIds),
               },
               {
                 label: `Detect audio in ${targetFileIds.length} file(s)`,
-                icon: "i-lineicons-pulse",
+                icon: ICONS.audioDetect,
                 onSelect: () => runBulkAction("audio-detect", targetFileIds),
               },
             ]
           : []),
         {
           label: `Tags`,
-          icon: "i-lineicons-tag",
+          icon: ICONS.tag,
           children: multiTagItems,
         },
       ],
       [
         {
           label: `Delete ${totalCount} items`,
-          icon: "i-lineicons-trash-can",
+          icon: ICONS.trash,
           color: "error" as const,
           onSelect: () => {
             if (targetFileIds.length) void trashFiles(targetFileIds);
@@ -960,7 +961,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     const folderTagItems = libraryTags.value.length
       ? libraryTags.value.map((tag) => ({
           label: tag.name,
-          icon: isFolderTagAssigned(entry, tag.id) ? "i-lineicons-check" : "i-lineicons-tag",
+          icon: isFolderTagAssigned(entry, tag.id) ? ICONS.check : ICONS.tag,
           onSelect: () => toggleTagForFolder(entry, tag.id),
         }))
       : [{ label: "No tags yet", disabled: true }];
@@ -969,34 +970,34 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
       [
         {
           label: "Open",
-          icon: "i-lineicons-folder",
+          icon: ICONS.folder,
           onSelect: () => openFolder(entry.id),
         },
         {
           label: "Download as ZIP",
-          icon: "i-lineicons-download",
+          icon: ICONS.download,
           onSelect: () => downloadFolders([entry.id]),
         },
         {
           label: "Rename",
-          icon: "i-lineicons-pencil",
+          icon: ICONS.edit,
           onSelect: () => startEntryRename(entry),
         },
         {
           label: "Move",
-          icon: "i-lineicons-folder",
+          icon: ICONS.move,
           onSelect: () => openMoveFolderModal(entry),
         },
         {
           label: "Tags",
-          icon: "i-lineicons-tag",
+          icon: ICONS.tag,
           children: folderTagItems,
         },
       ],
       [
         {
           label: "Delete folder",
-          icon: "i-lineicons-trash-can",
+          icon: ICONS.trash,
           color: "error" as const,
           onSelect: () => deleteFolder(entry),
         },
@@ -1008,7 +1009,7 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
   const tagItems = libraryTags.value.length
     ? libraryTags.value.map((tag) => ({
         label: tag.name,
-        icon: areAllFilesTagged([entry.id], tag.id) ? "i-lineicons-check" : "i-lineicons-tag",
+        icon: areAllFilesTagged([entry.id], tag.id) ? ICONS.check : ICONS.tag,
         onSelect: () => toggleTagForFiles([entry.id], tag.id),
       }))
     : [{ label: "No tags yet", disabled: true }];
@@ -1017,24 +1018,24 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
     [
       {
         label: "Download",
-        icon: "i-lineicons-download",
+        icon: ICONS.download,
         onSelect: () => downloadFiles([entry.id]),
       },
       {
         label: "Move",
-        icon: "i-lineicons-folder",
+        icon: ICONS.move,
         onSelect: () => openMoveFilesModal([entry.id]),
       },
       {
         label: "Rename",
-        icon: "i-lineicons-pencil",
+        icon: ICONS.edit,
         onSelect: () => startEntryRename(entry),
       },
       ...(entry.kind === "file" && entry.mimeType.startsWith("video/")
         ? [
             {
               label: "Editor",
-              icon: "i-lineicons-video",
+              icon: ICONS.video,
               onSelect: () =>
                 router.push({
                   path: `/libraries/${libraryId.value}/edit/${entry.id}`,
@@ -1051,26 +1052,26 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
         ? [
             {
               label: "Transcribe",
-              icon: "i-lineicons-comment-1-text",
+              icon: ICONS.transcript,
               onSelect: () => runBulkAction("transcribe", [entry.id]),
             },
             {
               label: "Detect audio",
-              icon: "i-lineicons-pulse",
+              icon: ICONS.audioDetect,
               onSelect: () => runBulkAction("audio-detect", [entry.id]),
             },
           ]
         : []),
       {
         label: "Tags",
-        icon: "i-lineicons-tag",
+        icon: ICONS.tag,
         children: tagItems,
       },
     ],
     [
       {
         label: "Delete",
-        icon: "i-lineicons-trash-can",
+        icon: ICONS.trash,
         color: "error" as const,
         onSelect: () => trashFiles([entry.id]),
       },
@@ -1117,7 +1118,7 @@ const emptyStateDescription = computed(() => {
         color="primary"
         variant="solid"
         size="lg"
-        icon="i-lineicons-cloud-upload"
+        :icon="ICONS.cloudUpload"
         class="px-4 py-3 text-sm font-medium shadow-lg"
       >
         Drop files to upload to this folder
@@ -1133,7 +1134,7 @@ const emptyStateDescription = computed(() => {
               variant="soft"
               size="sm"
               square
-              icon="i-lineicons-list"
+              :icon="ICONS.listView"
               @click="entryViewMode = 'file'"
             />
           </UTooltip>
@@ -1143,7 +1144,7 @@ const emptyStateDescription = computed(() => {
               variant="soft"
               size="sm"
               square
-              icon="i-lineicons-grid"
+              :icon="ICONS.gridView"
               @click="entryViewMode = 'card'"
             />
           </UTooltip>
@@ -1154,7 +1155,7 @@ const emptyStateDescription = computed(() => {
           color="error"
           variant="soft"
           size="sm"
-          icon="i-lineicons-trash-can"
+          :icon="ICONS.trash"
           @click="openPurgeAllModal()"
         >
           <span class="hidden sm:inline">Delete All</span>
@@ -1165,7 +1166,7 @@ const emptyStateDescription = computed(() => {
           :items="newDropdownMenuItems"
           :content="{ align: 'end' }"
         >
-          <UButton color="primary" variant="soft" size="sm" icon="i-lineicons-plus">
+          <UButton color="primary" variant="soft" size="sm" :icon="ICONS.plus">
             <span class="hidden sm:inline">New</span>
           </UButton>
         </UDropdownMenu>
@@ -1181,7 +1182,7 @@ const emptyStateDescription = computed(() => {
           <div
             class="inline-flex items-center gap-2 rounded-full bg-elevated px-3 py-2 text-sm text-muted"
           >
-            <UIcon name="i-lineicons-spinner-solid" class="size-4 animate-spin" />
+            <UIcon :name="ICONS.loading" class="size-4 animate-spin" />
             Loading {{ showTrashed ? "trash" : "files" }}
           </div>
         </div>
@@ -1195,7 +1196,7 @@ const emptyStateDescription = computed(() => {
             variant="soft"
             size="md"
             class="gap-2 px-3 py-3"
-            icon="i-lineicons-spinner-solid"
+            :icon="ICONS.loading"
             :ui="{ leadingIcon: 'animate-spin' }"
           >
             Loading
@@ -1267,7 +1268,7 @@ const emptyStateDescription = computed(() => {
 
         <div ref="sentinel" class="h-px" />
         <div v-if="loadingMore" class="flex items-center justify-center py-4">
-          <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-muted" />
+          <UIcon :name="ICONS.loading" class="size-5 animate-spin text-muted" />
         </div>
       </UContextMenu>
     </div>
@@ -1312,7 +1313,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="primary"
             variant="soft"
-            icon="i-lineicons-folder"
+            :icon="ICONS.folder"
             :loading="creatingFolder"
             :disabled="!createFolderName.trim() || creatingFolder"
             @click="createFolder"
@@ -1352,7 +1353,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="primary"
             variant="soft"
-            icon="i-lineicons-folder"
+            :icon="ICONS.folder"
             :loading="moveFolderSaving"
             :disabled="moveLoading || moveFolderSaving"
             @click="moveFolder"
@@ -1390,7 +1391,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="primary"
             variant="soft"
-            icon="i-lineicons-folder"
+            :icon="ICONS.folder"
             :loading="moveFilesSaving"
             :disabled="moveFilesLoading || moveFilesSaving"
             @click="moveFiles"
@@ -1408,7 +1409,7 @@ const emptyStateDescription = computed(() => {
           <UAlert
             color="error"
             variant="soft"
-            icon="i-lineicons-warning"
+            :icon="ICONS.warning"
             :title="`Delete ${purgeFileCount} ${purgeFileCount === 1 ? 'item' : 'items'}`"
             description="This will permanently delete these items from disk. This action cannot be undone."
           />
@@ -1427,7 +1428,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="error"
             variant="soft"
-            icon="i-lineicons-trash-can"
+            :icon="ICONS.trash"
             :disabled="purgeConfirmation !== 'delete'"
             @click="handlePermanentDelete"
           >
@@ -1444,7 +1445,7 @@ const emptyStateDescription = computed(() => {
           <UAlert
             color="warning"
             variant="soft"
-            icon="i-lineicons-warning"
+            :icon="ICONS.warning"
             description="This download is very large and may take a while."
           />
           <div class="grid grid-cols-2 gap-3 text-sm">
@@ -1468,7 +1469,7 @@ const emptyStateDescription = computed(() => {
           <UButton
             color="primary"
             variant="soft"
-            icon="i-lineicons-download"
+            :icon="ICONS.download"
             :loading="zipDownloading"
             :disabled="zipDownloading"
             @click="confirmLargeDownload"

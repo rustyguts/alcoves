@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="T">
+import { ICONS } from "~/utils/icons";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { justifiedLayout, type JustifiedRow } from "~/utils/justified-layout";
 import type { GalleryGroup, GalleryItem } from "~/utils/gallery-types";
@@ -211,7 +212,7 @@ const laidOutContinuous = computed<LaidOutGroup[]>(() =>
                 v-else-if="box.item.isVideo"
                 class="absolute bottom-1.5 right-1.5 rounded bg-black/60 p-0.5 text-white"
               >
-                <AppIcon name="i-lineicons-play" class="size-3" />
+                <AppIcon :name="ICONS.play" class="size-3" />
               </span>
             </button>
           </div>

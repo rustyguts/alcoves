@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { api } from "~/api";
+import { ICONS } from "~/utils/icons";
 import { useToast } from "~/composables/useToast";
 
 interface Props {
@@ -93,10 +94,10 @@ function formatQueueName(name: string): string {
 }
 
 function queueIcon(name: string): string {
-  if (name.includes("face")) return "i-lineicons-id-card";
-  if (name.includes("video")) return "i-lineicons-video";
-  if (name.includes("thumbnail")) return "i-lineicons-image";
-  return "i-lineicons-layers";
+  if (name.includes("face")) return ICONS.jobFace;
+  if (name.includes("video")) return ICONS.jobVideo;
+  if (name.includes("thumbnail")) return ICONS.jobThumbnail;
+  return ICONS.jobDefault;
 }
 
 function jobProgress(job: JobEntry): number {
@@ -118,13 +119,13 @@ function stateColor(state: string): StateColor {
 
 function stateIcon(state: string): string {
   const map: Record<string, string> = {
-    active: "i-lineicons-play",
-    waiting: "i-lineicons-alarm-clock",
-    failed: "i-lineicons-xmark-circle",
-    delayed: "i-lineicons-timer",
-    completed: "i-lineicons-check-circle-1",
+    active: ICONS.stateActive,
+    waiting: ICONS.stateWaiting,
+    failed: ICONS.stateFailed,
+    delayed: ICONS.stateDelayed,
+    completed: ICONS.stateCompleted,
   };
-  return map[state] ?? "i-lineicons-radio-button";
+  return map[state] ?? ICONS.stateUnknown;
 }
 
 function formatTimestamp(ts: number | null): string {
@@ -228,15 +229,15 @@ interface StatTile {
 }
 
 const statTiles = computed<StatTile[]>(() => [
-  { label: "Active", value: totalActive.value, icon: "i-lineicons-play", color: "text-info" },
-  { label: "Waiting", value: totalWaiting.value, icon: "i-lineicons-alarm-clock", color: "text-default" },
+  { label: "Active", value: totalActive.value, icon: ICONS.stateActive, color: "text-info" },
+  { label: "Waiting", value: totalWaiting.value, icon: ICONS.stateWaiting, color: "text-default" },
   {
     label: "Failed",
     value: totalFailed.value,
-    icon: "i-lineicons-xmark-circle",
+    icon: ICONS.stateFailed,
     color: totalFailed.value > 0 ? "text-error" : "text-default",
   },
-  { label: "Delayed", value: totalDelayed.value, icon: "i-lineicons-timer", color: "text-warning" },
+  { label: "Delayed", value: totalDelayed.value, icon: ICONS.stateDelayed, color: "text-warning" },
 ]);
 </script>
 
@@ -252,7 +253,7 @@ const statTiles = computed<StatTile[]>(() => [
         :color="connected ? 'success' : 'error'"
         variant="subtle"
         size="md"
-        :icon="connected ? 'i-lineicons-radio-button' : 'i-lineicons-cross-circle'"
+        :icon="connected ? ICONS.live : ICONS.disconnected"
       >
         {{ connected ? "Live" : "Disconnected" }}
       </UBadge>
@@ -309,7 +310,7 @@ const statTiles = computed<StatTile[]>(() => [
                 color="error"
                 variant="soft"
                 size="xs"
-                icon="i-lineicons-trash-can"
+                :icon="ICONS.trash"
                 :loading="actionQueueName === q.name"
                 @click="purgeQueue(q.name)"
               >
@@ -334,7 +335,7 @@ const statTiles = computed<StatTile[]>(() => [
       </template>
 
       <div v-if="!connected && jobs.length === 0" class="flex justify-center py-16">
-        <UIcon name="i-lineicons-spinner-solid" class="size-6 animate-spin text-muted" />
+        <UIcon :name="ICONS.loading" class="size-6 animate-spin text-muted" />
       </div>
 
       <div v-else-if="sortedJobs.length" class="overflow-x-auto">
@@ -392,7 +393,7 @@ const statTiles = computed<StatTile[]>(() => [
                         variant="ghost"
                         size="xs"
                         square
-                        icon="i-lineicons-reload"
+                        :icon="ICONS.retry"
                         :loading="actionJobId === job.id"
                         @click="retryJob(job.queueName, job.id)"
                       />
@@ -403,7 +404,7 @@ const statTiles = computed<StatTile[]>(() => [
                         variant="ghost"
                         size="xs"
                         square
-                        icon="i-lineicons-trash-can"
+                        :icon="ICONS.trash"
                         :loading="actionJobId === job.id"
                         @click="removeJob(job.queueName, job.id)"
                       />
@@ -439,7 +440,7 @@ const statTiles = computed<StatTile[]>(() => [
       </div>
 
       <div v-else class="flex flex-col items-center justify-center py-16 gap-2">
-        <UIcon name="i-lineicons-inbox" class="size-8 text-muted" />
+        <UIcon :name="ICONS.emptyQueue" class="size-8 text-muted" />
         <p class="text-sm text-muted">No jobs matching current filters.</p>
       </div>
     </UCard>

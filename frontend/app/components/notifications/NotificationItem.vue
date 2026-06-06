@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import AppIcon from "~/components/AppIcon.vue";
 import UserAvatar from "~/components/UserAvatar.vue";
 import { formatActivity, relativeTime, type ActivityGroup } from "~/utils/activity-format";
@@ -67,7 +68,7 @@ function onDismiss(event: MouseEvent) {
       aria-label="Dismiss notification"
       @click="onDismiss"
     >
-      <AppIcon name="i-lineicons-x" class="size-4" />
+      <AppIcon :name="ICONS.close" class="size-4" />
     </button>
   </component>
 </template>

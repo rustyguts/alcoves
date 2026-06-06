@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import type { LibraryEntry } from "~~/shared/types/api";
 import { formatDate, formatFileSize, getMimeIcon } from "~/utils/mime-icons";
 import AppIcon from "~/components/AppIcon.vue";
@@ -75,7 +76,7 @@ const emit = defineEmits<{
           @dragleave="emit('dragLeave', entry, $event)" @drop="emit('drop', entry, $event)">
           <td class="px-4 py-3">
             <div class="flex items-center justify-center">
-              <AppIcon :name="entry.kind === 'folder' ? 'i-lineicons-folder' : getMimeIcon(entry.mimeType)"
+              <AppIcon :name="entry.kind === 'folder' ? ICONS.folder : getMimeIcon(entry.mimeType)"
                 class="size-5 text-muted" :class="showTrashed && entry.kind === 'file' ? 'opacity-50' : ''" />
             </div>
           </td>
@@ -99,7 +100,7 @@ const emit = defineEmits<{
               </span>
               <UTooltip v-if="entry.kind === 'file' && entry.hasDuplicates"
                 text="Duplicate of another file in this library">
-                <UBadge color="warning" variant="soft" size="xs" icon="i-lineicons-clipboard" class="ml-1">
+                <UBadge color="warning" variant="soft" size="xs" :icon="ICONS.duplicate" class="ml-1">
                   Duplicate
                 </UBadge>
               </UTooltip>

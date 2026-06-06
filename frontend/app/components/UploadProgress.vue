@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { formatFileSize } from "~/utils/mime-icons";
 import { useUploadQueue } from "~/composables/useUploadQueue";
 import AppIcon from "~/components/AppIcon.vue";
@@ -43,7 +44,7 @@ const expanded = ref(true);
               {{ formatFileSize(uploadSpeed) }}/s
             </span>
             <AppIcon
-              :name="expanded ? 'i-lineicons-chevron-down' : 'i-lineicons-chevron-up'"
+              :name="expanded ? ICONS.chevronDown : ICONS.chevronUp"
               class="size-4 text-muted"
             />
           </div>
@@ -97,7 +98,7 @@ const expanded = ref(true);
             </div>
 
             <div v-else-if="item.status === 'done'" class="flex items-center gap-1">
-              <AppIcon name="i-lineicons-check" class="size-4 text-success" />
+              <AppIcon :name="ICONS.check" class="size-4 text-success" />
               <span class="text-xs text-success">Complete</span>
             </div>
 
