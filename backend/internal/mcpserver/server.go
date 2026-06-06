@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/alcoves/alcoves-backend/internal/services/access"
+	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/signing"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
@@ -25,6 +26,21 @@ type Deps struct {
 	Storage *storage.Service
 	Signer  *signing.Signer
 	BaseURL string
+
+	// Activity emits library activity / notifications for the write tools
+	// (folder + tag creation, file trashing). Optional: a nil service makes
+	// those emits no-ops — matching the HTTP handlers' nil-guard behavior in
+	// worker-only mode and on a stdio process with no realtime bus. The write
+	// itself always succeeds; only the activity row is skipped.
+	Activity *activity.Service
+
+	// SyncActivity makes emitActivity write the activity row synchronously
+	// instead of via a detached goroutine. Set it for the short-lived stdio
+	// transport, where the process can exit (and close the DB pool) immediately
+	// after a tool returns — a fire-and-forget EmitAsync could otherwise lose
+	// the row. The long-lived HTTP transport leaves this false (async, like the
+	// web handlers).
+	SyncActivity bool
 
 	// SignedTTL bounds the lifetime of minted signed upload/download URLs.
 	// Zero uses defaultSignedTTL.
@@ -45,9 +61,10 @@ func (d Deps) signedTTL() time.Duration {
 	return defaultSignedTTL
 }
 
-// NewServer builds the Alcoves MCP server with the initial tool set registered.
+// NewServer builds the Alcoves MCP server with the full v1 tool set registered.
 // The same *mcp.Server is served over stdio (cmd/mcp) or mounted on the Echo
-// app via the streamable HTTP handler (cmd/server).
+// app via the streamable HTTP handler (cmd/server). Every tool enforces the
+// same role-based access control as the web app, per acting identity.
 func NewServer(d Deps) *mcp.Server {
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "alcoves",
@@ -55,10 +72,27 @@ func NewServer(d Deps) *mcp.Server {
 		Version: version.App(),
 	}, nil)
 
-	registerLibraryTools(srv, d)
-	registerFileTools(srv, d)
-	registerUploadTool(srv, d)
-	registerDownloadTool(srv, d)
+	// Libraries, members, search.
+	registerLibraryTools(srv, d) // list_libraries, get_library, list_members
+	registerSearchTool(srv, d)   // search
+
+	// Files & folders.
+	registerFileTools(srv, d)         // list_files
+	registerFileDetailTool(srv, d)    // get_file
+	registerTimelineTools(srv, d)     // get_timeline, list_map_points
+	registerUploadTool(srv, d)        // upload_file
+	registerDownloadTool(srv, d)      // download_file
+	registerFolderTools(srv, d)       // create_folder
+	registerFileMutationTools(srv, d) // update_file, trash_file, restore_file
+
+	// Tags.
+	registerTagTools(srv, d) // list_tags, create_tag, set_file_tags
+
+	// AI insights (read-only).
+	registerInsightTools(srv, d) // get_transcript, list_audio_events, list_people, list_objects
+
+	// Moments.
+	registerMomentTools(srv, d) // list_moments
 
 	return srv
 }
@@ -77,7 +111,9 @@ func (d Deps) identity(ctx context.Context) (Identity, error) {
 }
 
 // requireLibraryAccess resolves the caller and confirms it can access the
-// library. Returns an error result for an unknown library or no access.
+// library (viewer or above). Returns an error result for an unknown library or
+// no access — deliberately the same message either way so a tool caller cannot
+// probe library existence it has no rights to.
 func (d Deps) requireLibraryAccess(ctx context.Context, libraryID uuid.UUID) (Identity, *access.LibraryAccess, error) {
 	id, err := d.identity(ctx)
 	if err != nil {
@@ -91,4 +127,34 @@ func (d Deps) requireLibraryAccess(ctx context.Context, libraryID uuid.UUID) (Id
 		return nil, nil, fmt.Errorf("library %s not found or access denied", libraryID)
 	}
 	return id, acc, nil
+}
+
+// requireLibraryAdmin is requireLibraryAccess plus an admin/owner gate. Use it
+// for every write tool — it mirrors LibraryAccessMiddleware's write rule
+// (admin+ on /api/libraries/:id/*).
+func (d Deps) requireLibraryAdmin(ctx context.Context, libraryID uuid.UUID) (Identity, *access.LibraryAccess, error) {
+	id, acc, err := d.requireLibraryAccess(ctx, libraryID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !acc.IsAdmin {
+		return nil, nil, fmt.Errorf("admin access required for this action on library %s", libraryID)
+	}
+	return id, acc, nil
+}
+
+// emitActivity records a library activity event when the service is configured.
+// A nil service is a no-op (mirrors handlers.emitActivity). With SyncActivity it
+// writes synchronously (stdio); otherwise it fans out via a detached goroutine
+// (HTTP, like the web handlers). Emission is best-effort either way — a failed
+// activity write never fails the already-committed user action.
+func (d Deps) emitActivity(p activity.EmitParams) {
+	if d.Activity == nil {
+		return
+	}
+	if d.SyncActivity {
+		_, _ = d.Activity.Emit(context.Background(), p)
+		return
+	}
+	d.Activity.EmitAsync(p)
 }

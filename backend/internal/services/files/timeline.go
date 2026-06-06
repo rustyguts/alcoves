@@ -57,15 +57,36 @@ type timelineRow struct {
 	UpdatedAt           time.Time
 }
 
-// ListLibraryTimeline returns library files (no folders) flattened and sorted
-// newest-first by effective capture date — COALESCE(captured_at,
-// original_created_at, created_at). type=media (default) limits to images +
-// videos; type=all includes every file. Cursor-paginated via keyset.
-func (s *Service) ListLibraryTimeline(libraryID string, c echo.Context) (*PaginatedFiles, error) {
-	limit := parseLimit(c.QueryParam("limit"))
-	mediaOnly := c.QueryParam("type") != "all"
+// TimelineParams holds the typed timeline inputs. The HTTP handler builds it
+// from query params (via ListLibraryTimeline); the MCP tool builds it from
+// typed arguments and calls ListLibraryTimelineParams directly. Both share the
+// identical query/pagination semantics below.
+type TimelineParams struct {
+	Limit  string // raw; empty/invalid → DefaultLimit, clamped to [1, MaxLimit]
+	Type   string // "all" includes every file; anything else (default) = media only
+	Cursor string // raw base64 keyset cursor; "" → first page
+}
 
-	cursor, err := parseTimelineCursor(c.QueryParam("cursor"))
+// ListLibraryTimeline is the echo.Context-driven entry point used by the HTTP
+// handler. It extracts the query params and delegates to the typed
+// ListLibraryTimelineParams so the listing logic has a single source of truth.
+func (s *Service) ListLibraryTimeline(libraryID string, c echo.Context) (*PaginatedFiles, error) {
+	return s.ListLibraryTimelineParams(libraryID, TimelineParams{
+		Limit:  c.QueryParam("limit"),
+		Type:   c.QueryParam("type"),
+		Cursor: c.QueryParam("cursor"),
+	})
+}
+
+// ListLibraryTimelineParams returns library files (no folders) flattened and
+// sorted newest-first by effective capture date — COALESCE(captured_at,
+// original_created_at, created_at). Type=="all" includes every file; otherwise
+// (default) it limits to images + videos. Cursor-paginated via keyset.
+func (s *Service) ListLibraryTimelineParams(libraryID string, p TimelineParams) (*PaginatedFiles, error) {
+	limit := parseLimit(p.Limit)
+	mediaOnly := p.Type != "all"
+
+	cursor, err := parseTimelineCursor(p.Cursor)
 	if err != nil {
 		return nil, err
 	}

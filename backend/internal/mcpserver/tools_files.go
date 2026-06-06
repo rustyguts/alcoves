@@ -2,10 +2,8 @@ package mcpserver
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/alcoves/alcoves-backend/internal/services/files"
@@ -43,9 +41,9 @@ func registerFileTools(srv *mcp.Server, d Deps) {
 		Name:        "list_files",
 		Description: "List files and folders in a library (optionally within a folder), with cursor pagination.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in listFilesInput) (*mcp.CallToolResult, listFilesOutput, error) {
-		libraryID, err := uuid.Parse(in.LibraryID)
+		libraryID, err := parseUUIDArg("libraryId", in.LibraryID)
 		if err != nil {
-			return nil, listFilesOutput{}, fmt.Errorf("invalid libraryId: %q", in.LibraryID)
+			return nil, listFilesOutput{}, err
 		}
 		// Viewer access is enough to list.
 		if _, _, err := d.requireLibraryAccess(ctx, libraryID); err != nil {

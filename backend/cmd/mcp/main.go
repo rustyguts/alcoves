@@ -28,6 +28,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/mcpserver"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/access"
+	activityservice "github.com/alcoves/alcoves-backend/internal/services/activity"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/signing"
@@ -74,11 +75,17 @@ func runStdioServer() error {
 	}
 
 	srv := mcpserver.NewServer(mcpserver.Deps{
-		DB:              deps.db,
-		Access:          deps.accessSvc,
-		Files:           deps.ingestSvc,
-		Storage:         deps.storageSvc,
-		Signer:          deps.signer,
+		DB:      deps.db,
+		Access:  deps.accessSvc,
+		Files:   deps.ingestSvc,
+		Storage: deps.storageSvc,
+		Signer:  deps.signer,
+		// DB-only activity service (no realtime hub/bus on the stdio process):
+		// write tools still record library-feed rows, matching the web app.
+		// SyncActivity: this process can exit right after a tool call, so write
+		// the row synchronously rather than risk losing it to a detached emit.
+		Activity:        activityservice.NewService(deps.db, nil, nil),
+		SyncActivity:    true,
 		BaseURL:         cfg.BaseURL,
 		DefaultIdentity: mcpserver.NewStaticIdentity(user),
 	})
