@@ -10,6 +10,27 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.25.0](https://github.com/rustyguts/alcoves/compare/v0.24.0...v0.25.0) (2026-06-06)
+
+
+### Added
+
+* **frontend:** One Dark Pro inspired theme ([#592](https://github.com/rustyguts/alcoves/issues/592)) ([b7a5217](https://github.com/rustyguts/alcoves/commit/b7a5217b3e81a9b192535cbf34316c32a850da69))
+* **mcp:** full Alcoves feature parity v1 (22-tool MCP server) ([#593](https://github.com/rustyguts/alcoves/issues/593)) ([af61e48](https://github.com/rustyguts/alcoves/commit/af61e48b6fe9147f8ed20d8b679a1fcde8d30c11))
+* **timeline:** day-grouped gallery, duration-only videos, date scrubber ([#591](https://github.com/rustyguts/alcoves/issues/591)) ([27f1aa6](https://github.com/rustyguts/alcoves/commit/27f1aa6ce245ce2162fb7640b8d2bf111c0fdce7))
+
+
+### Fixed
+
+* **frontend:** re-pick best-fit icons and add a central icon registry ([#588](https://github.com/rustyguts/alcoves/issues/588)) ([6eccd6f](https://github.com/rustyguts/alcoves/commit/6eccd6f04d875e6a7f7b00ec19cc79c118c30747))
+
+
+### Changed
+
+* **ui:** flatten library settings page into card-free sections ([#589](https://github.com/rustyguts/alcoves/issues/589)) ([56d03c9](https://github.com/rustyguts/alcoves/commit/56d03c971fbb265fc8a8a67f073c1d8ea78fe384))
+* **ui:** redesign profile page into a flat, less card-centric layout ([#587](https://github.com/rustyguts/alcoves/issues/587)) ([cc47834](https://github.com/rustyguts/alcoves/commit/cc47834443690d38badf4ae0ebae8eb209e8b807))
+* **ui:** redesign the library tags page as a flat tonal list ([#590](https://github.com/rustyguts/alcoves/issues/590)) ([9614474](https://github.com/rustyguts/alcoves/commit/961447461671b7c3ea300595328500fb02e194a2))
+
 ## [0.24.0](https://github.com/rustyguts/alcoves/compare/v0.23.0...v0.24.0) (2026-06-05)
 
 
