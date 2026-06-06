@@ -14,6 +14,7 @@ import type {
   LibraryUsersResponse,
   PaginatedFiles,
   LibraryMapResponse,
+  TimelineHistogram,
   PlaybackSourcesResponse,
   ObjectLabelsResponse,
   DownloadEstimate,
@@ -138,6 +139,11 @@ const libraries = {
   /** GET /api/libraries/:id/timeline — files newest-first by capture date. */
   timeline(libraryId: string, query?: { type?: "media" | "all"; cursor?: string; limit?: string }) {
     return apiFetch<PaginatedFiles>(`/api/libraries/${libraryId}/timeline`, { query });
+  },
+
+  /** GET /api/libraries/:id/timeline/histogram — per-month counts for the date scrubber. */
+  timelineHistogram(libraryId: string, query?: { type?: "media" | "all" }) {
+    return apiFetch<TimelineHistogram>(`/api/libraries/${libraryId}/timeline/histogram`, { query });
   },
 
   /** GET /api/libraries/:id/map — geotagged files for the Map view. */

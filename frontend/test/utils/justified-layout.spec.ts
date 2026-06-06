@@ -62,6 +62,34 @@ describe("justifiedLayout", () => {
 		expect(used).toBeLessThan(2000);
 	});
 
+	it("stretches the trailing row to full width when stretchLastRow is set", () => {
+		// Two photos that wouldn't fill a 2000px row are stretched to span it.
+		const rows = justifiedLayout(items(1.5, 1.5), aspectOf, {
+			containerWidth: 2000,
+			targetRowHeight: 200,
+			gap: 4,
+			maxRowHeight: 10000, // don't cap, so the stretch is observable
+			stretchLastRow: true,
+		});
+		expect(rows).toHaveLength(1);
+		const row = rows[0]!;
+		const used = row.boxes.reduce((s, b) => s + b.width, 0) + 4 * (row.boxes.length - 1);
+		expect(used).toBeCloseTo(2000, 1);
+	});
+
+	it("does not stretch a lone trailing item even with stretchLastRow", () => {
+		const rows = justifiedLayout(items(1.5), aspectOf, {
+			containerWidth: 2000,
+			targetRowHeight: 200,
+			gap: 0,
+			maxRowHeight: 320,
+			stretchLastRow: true,
+		});
+		// A single leftover photo stays at target height, not blown up full-width.
+		expect(rows[0]!.height).toBe(200);
+		expect(rows[0]!.boxes[0]!.width).toBeLessThan(2000);
+	});
+
 	it("caps justified row height for a lone wide item", () => {
 		const rows = justifiedLayout(items(1.5), aspectOf, {
 			containerWidth: 1000,

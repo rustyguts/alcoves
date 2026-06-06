@@ -21,22 +21,24 @@ func (s *seeder) seedPodcast(lib *models.Library, admin, bob *models.User) {
 	tInterview := s.createTag("tag/podcast/interview", lib.ID, "interview", "#14b8a6", s.ago(40*day))
 	tHighlight := s.createTag("tag/podcast/highlight", lib.ID, "highlight", "#f97316", s.ago(38*day))
 
+	// Episodes span a few months (across two years) so the timeline scrubber has
+	// more than one bucket to show for this library too.
 	ep1 := s.addFile(fileSpec{
 		idName: "file/podcast/ep1", lib: lib.ID, owner: admin.ID,
 		name: "episode-01-welcome.mp4", assetRel: "videos/podcast-ep1.mp4", mime: "video/mp4",
 		width: 1280, height: 720, duration: 6, thumbAsset: "thumbs/podcast-ep1.webp",
-		createdAt: s.ago(36 * day),
+		createdAt: s.ago(200 * day),
 	})
 	ep2 := s.addFile(fileSpec{
 		idName: "file/podcast/ep2", lib: lib.ID, owner: admin.ID,
 		name: "episode-02-deep-dive.mp4", assetRel: "videos/podcast-ep2.mp4", mime: "video/mp4",
 		width: 1280, height: 720, duration: 6, thumbAsset: "thumbs/podcast-ep2.webp",
-		createdAt: s.ago(22 * day),
+		createdAt: s.ago(90 * day),
 	})
 	interview := s.addFile(fileSpec{
 		idName: "file/podcast/interview", lib: lib.ID, owner: bob.ID,
 		name: "guest-interview.mp3", assetRel: "audio/interview-clip.mp3", mime: "audio/mpeg",
-		duration: 8, createdAt: s.ago(12 * day),
+		duration: 8, createdAt: s.ago(20 * day),
 	})
 
 	s.tagFile(ep1.ID, tFeatured.ID)
