@@ -8,6 +8,7 @@
 		showTrashed: boolean;
 		dragEnabled: boolean;
 		draggedFileIds: string[];
+		draggedFolderIds: string[];
 		dropTargetFolderId: string | null;
 		renameValue: string;
 		isEntrySelected: (entry: LibraryEntry) => boolean;
@@ -36,6 +37,7 @@
 		showTrashed,
 		dragEnabled,
 		draggedFileIds,
+		draggedFolderIds,
 		dropTargetFolderId,
 		renameValue,
 		isEntrySelected,
@@ -85,6 +87,7 @@
 						{showTrashed}
 						{dragEnabled}
 						{draggedFileIds}
+						{draggedFolderIds}
 						{dropTargetFolderId}
 						{renameValue}
 						{isEntrySelected}
@@ -121,6 +124,7 @@
 						{showTrashed}
 						{dragEnabled}
 						{draggedFileIds}
+						{draggedFolderIds}
 						{dropTargetFolderId}
 						{renameValue}
 						{isEntrySelected}

@@ -28,7 +28,7 @@
 	<Dialog.Backdrop class="fixed inset-0 z-40 bg-surface-950/50 backdrop-blur-sm" />
 	<Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<Dialog.Content
-			class="relative flex w-full max-w-lg flex-col gap-4 card rounded-lg preset-filled-surface-50-950 p-6 shadow-xl {boxClass}"
+			class="relative flex w-full max-w-lg flex-col gap-4 card rounded-lg preset-filled-surface-50-950 p-4 shadow-xl sm:p-6 {boxClass}"
 		>
 			{#if title || description}
 				<header class="flex flex-col gap-1">

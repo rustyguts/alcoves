@@ -48,7 +48,7 @@
 				{#if index === lastIndex}
 					<span
 						aria-current="page"
-						class="block max-w-[7rem] truncate text-lg font-semibold text-surface-950
+						class="block truncate text-lg font-semibold text-surface-950
 							sm:max-w-xs sm:text-xl dark:text-surface-50"
 					>
 						{crumb.label}
@@ -56,7 +56,7 @@
 				{:else}
 					<a
 						href={crumb.to}
-						class="block max-w-[7rem] truncate text-lg font-medium text-surface-500
+						class="block truncate text-lg font-medium text-surface-500
 							transition-colors hover:text-surface-950 sm:max-w-xs
 							sm:text-xl dark:hover:text-surface-50"
 					>

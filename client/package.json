@@ -19,8 +19,10 @@
 		"test:unit:watch": "vitest",
 		"test:unit:coverage": "vitest run --coverage",
 		"coverage:floor": "node scripts/coverage-floor.mjs",
-		"test:e2e": "playwright test",
-		"test": "vitest run && playwright test"
+		"test:e2e": "playwright test --project=chromium",
+		"test:e2e:screenshots": "playwright test --project=desktop-light --project=desktop-dark --project=mobile-light --project=mobile-dark",
+		"test:e2e:screenshots:update": "playwright test --update-snapshots --project=desktop-light --project=desktop-dark --project=mobile-light --project=mobile-dark",
+		"test": "vitest run && playwright test --project=chromium"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

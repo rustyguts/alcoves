@@ -70,7 +70,7 @@
 		<p class="mt-0.5 text-xs text-surface-600-400">
 			{#if showLibraryName && group.head.libraryName}<span
 					>{group.head.libraryName} ·
-				</span>{/if}{time}
+				</span>{/if}<span data-screenshot-mask>{time}</span>
 		</p>
 	</div>
 	{#if showDismiss}

@@ -313,3 +313,64 @@ jobs:
       - name: Tear down the stack
         if: always()
         run: docker compose down -v
+
+  e2e-screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Visual-regression: brings up the same seeded stack, builds + serves the
+    # production SvelteKit server, and compares the committed baselines using the
+    # pinned Playwright container (deterministic fonts/rasterization, matching how
+    # the baselines were generated). See client/scripts/screenshots.sh.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install client dependencies
+        working-directory: client
+        run: bun install --frozen-lockfile
+
+      - name: Provide stack env (session secret + dev mode for seeding)
+        run: |
+          {
+            echo "ALCOVES_SESSION_SECRET=$(openssl rand -base64 32)"
+            echo "ALCOVES_ENV=development"
+          } > .env
+
+      - name: Bring up the backend stack (Postgres + Dragonfly + Go API/worker, seeded)
+        run: docker compose up -d --build postgres dragonfly backend
+
+      - name: Wait for the Go API to be healthy + seeded
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:3001/api/health >/dev/null; then echo "API up"; exit 0; fi
+            sleep 2
+          done
+          echo "API did not become healthy" >&2; exit 1
+
+      - name: Compare visual baselines (Playwright in the pinned container)
+        working-directory: client
+        run: ./scripts/screenshots.sh
+
+      - name: Dump stack logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail 300
+
+      - name: Upload visual diff report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-regression-report
+          path: |
+            client/playwright-report/
+            client/test-results/
+          if-no-files-found: ignore
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose down -v

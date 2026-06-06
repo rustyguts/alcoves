@@ -63,7 +63,7 @@
 	const displayName = $derived(data.user?.displayName ?? 'User');
 </script>
 
-<div class="flex h-screen overflow-hidden bg-surface-50-950">
+<div class="flex h-dvh overflow-hidden bg-surface-50-950">
 	<!-- Mobile sidebar drawer -->
 	<Dialog open={sidebarOpen} onOpenChange={(e) => (sidebarOpen = e.open)}>
 		<Dialog.Backdrop class="fixed inset-0 z-40 bg-surface-950/50 backdrop-blur-sm lg:hidden" />
@@ -122,17 +122,19 @@
 				<AppIcon name={ICONS.menu} class="size-5" />
 			</button>
 
+			<!-- Fills the header on mobile (capped only at lg); a plain flex row (no
+			     input-group) so there's no vertical divider between icon and input. -->
 			<form
-				class="max-w-lg flex-1"
+				class="min-w-0 flex-1 lg:max-w-lg"
 				onsubmit={(e) => {
 					e.preventDefault();
 					submitGlobalSearch();
 				}}
 			>
 				<label
-					class="input-group grid grid-cols-[auto_1fr] rounded-lg preset-filled-surface-100-900"
+					class="flex items-center rounded-lg preset-filled-surface-100-900 focus-within:ring-2 focus-within:ring-primary-500/40"
 				>
-					<span class="flex items-center justify-center pl-3 opacity-60">
+					<span class="flex shrink-0 items-center justify-center pr-2.5 pl-3 opacity-60">
 						<AppIcon name={ICONS.search} class="size-4" />
 					</span>
 					<input
@@ -140,12 +142,14 @@
 						type="search"
 						placeholder="Search everything…"
 						aria-label="Search everything"
-						class="bg-transparent px-2 py-2 outline-none"
+						class="min-w-0 flex-1 bg-transparent py-2 pr-3 outline-none"
 					/>
 				</label>
 			</form>
 
-			<div class="flex-1"></div>
+			<!-- Desktop-only spacer: pushes the bell/avatar right while the search stays
+			     capped. On mobile the spacer is gone so the search can fill the row. -->
+			<div class="hidden flex-1 lg:block"></div>
 
 			<NotificationBell />
 

@@ -27,6 +27,7 @@ function baseProps(entry: LibraryEntry, over: Record<string, unknown> = {}) {
 		showTrashed: false,
 		dragEnabled: true,
 		draggedFileIds: [] as string[],
+		draggedFolderIds: [] as string[],
 		dropTargetFolderId: null,
 		renameValue: '',
 		isEntrySelected: () => false,

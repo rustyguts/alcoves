@@ -42,4 +42,17 @@ describe('portal action', () => {
 		ret?.update?.('#b');
 		expect(node.parentElement).toBe(b);
 	});
+
+	it('is idempotent — re-running update with the same target never duplicates', () => {
+		const target = document.createElement('div');
+		target.id = 'dest';
+		document.body.appendChild(target);
+
+		const node = document.createElement('span');
+		const ret = portal(node, '#dest');
+		ret?.update?.('#dest');
+		ret?.update?.('#dest');
+		expect(target.children.length).toBe(1);
+		expect(target.firstElementChild).toBe(node);
+	});
 });

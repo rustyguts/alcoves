@@ -179,19 +179,8 @@ describe('/libraries/[id]/tags', () => {
 		await expect.element(screen.getByText('No tags yet')).toBeInTheDocument();
 	});
 
-	it('recounts usage when the toolbar button is clicked', async () => {
-		const screen = render(Page);
-		await vi.waitFor(() => {
-			expect(apiMock.files.list).toHaveBeenCalled();
-		});
-		apiMock.files.list.mockClear();
-
-		await screen.getByRole('button', { name: 'Recount tag usage' }).click();
-
-		await vi.waitFor(() => {
-			expect(apiMock.files.list).toHaveBeenCalled();
-		});
-	});
+	// (The manual "Recount tag usage" toolbar button was removed; usage counts now
+	// load once on mount — covered by the count-rendering tests below.)
 
 	it('creates a tag by pressing Enter in the create input', async () => {
 		const screen = render(Page);

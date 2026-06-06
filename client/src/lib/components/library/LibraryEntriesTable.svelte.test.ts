@@ -51,6 +51,7 @@ function baseProps(over: Record<string, unknown> = {}) {
 		showTrashed: false,
 		dragEnabled: true,
 		draggedFileIds: [] as string[],
+		draggedFolderIds: [] as string[],
 		dropTargetFolderId: null,
 		renameValue: '',
 		isEntrySelected: () => false,
@@ -271,12 +272,21 @@ describe('LibraryEntriesTable', () => {
 		expect(row.getAttribute('draggable')).toBe('true');
 	});
 
-	it('does not mark folders draggable', async () => {
+	it('marks folders draggable so they can be moved into other folders', async () => {
 		const screen = render(LibraryEntriesTable, {
 			props: baseProps({ entries: [makeFolder()], dragEnabled: true })
 		});
 		const row = screen.container.querySelector('tbody tr')!;
-		expect(row.getAttribute('draggable')).toBe('false');
+		expect(row.getAttribute('draggable')).toBe('true');
+	});
+
+	it('dims a folder row that is being dragged', async () => {
+		const folder = makeFolder({ id: 'fdrag' });
+		const screen = render(LibraryEntriesTable, {
+			props: baseProps({ entries: [folder], dragEnabled: true, draggedFolderIds: ['fdrag'] })
+		});
+		const row = screen.container.querySelector('tbody tr')!;
+		expect(row.getAttribute('class')).toContain('opacity-60');
 	});
 
 	it('flags duplicate files with a hover title', async () => {

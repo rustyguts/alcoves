@@ -370,7 +370,7 @@
 	>
 		<!-- Media content: fills the entire viewport -->
 		{#if previewType === 'video'}
-			<div class="flex h-full w-full items-center justify-center px-16">
+			<div class="flex h-full w-full items-center justify-center px-4 sm:px-16">
 				<!-- svelte-ignore a11y_media_has_caption -->
 				<video
 					class="w-full max-w-5xl rounded-md"
@@ -385,7 +385,7 @@
 				</video>
 			</div>
 		{:else if previewType === 'audio'}
-			<div class="flex h-full w-full items-center justify-center px-16">
+			<div class="flex h-full w-full items-center justify-center px-4 sm:px-16">
 				<audio
 					class="w-full max-w-2xl"
 					src={videoSrc}

@@ -103,11 +103,19 @@
 	let progress = $state(0);
 	let scrollRaf = 0;
 
+	// On mobile the scrubber overlays the gallery and is only shown while actively
+	// scrolling (so photos get the full width); it fades out after a short idle.
+	let scrolling = $state(false);
+	let scrollHideTimer: ReturnType<typeof setTimeout> | null = null;
+
 	function maxScroll(el: HTMLElement): number {
 		return Math.max(0, el.scrollHeight - el.clientHeight);
 	}
 
 	function onScroll() {
+		scrolling = true;
+		if (scrollHideTimer) clearTimeout(scrollHideTimer);
+		scrollHideTimer = setTimeout(() => (scrolling = false), 1200);
 		if (scrollRaf) return;
 		scrollRaf = requestAnimationFrame(() => {
 			scrollRaf = 0;
@@ -147,10 +155,11 @@
 	onDestroy(() => {
 		observer?.disconnect();
 		if (scrollRaf) cancelAnimationFrame(scrollRaf);
+		if (scrollHideTimer) clearTimeout(scrollHideTimer);
 	});
 </script>
 
-<div class="flex h-full min-h-0">
+<div class="relative flex h-full min-h-0">
 	<div bind:this={scrollEl} class="min-h-0 flex-1 overflow-y-auto" onscroll={onScroll}>
 		{#if timeline.loading && timeline.entries.length === 0}
 			<!-- Loading -->
@@ -199,7 +208,15 @@
 	</div>
 
 	{#if timeline.buckets.length > 1}
-		<TimelineScrubber buckets={timeline.buckets} {progress} onscrub={onScrub} />
+		<!-- Mobile: overlay the gallery and only show while scrolling, so photos get
+		     the full width. Desktop (lg): a static rail that's always visible. -->
+		<div
+			class="absolute inset-y-0 right-0 z-20 transition-opacity duration-200 lg:static lg:opacity-100 {scrolling
+				? 'opacity-100'
+				: 'pointer-events-none opacity-0 lg:pointer-events-auto'}"
+		>
+			<TimelineScrubber buckets={timeline.buckets} {progress} onscrub={onScrub} />
+		</div>
 	{/if}
 
 	{#if previewFile}

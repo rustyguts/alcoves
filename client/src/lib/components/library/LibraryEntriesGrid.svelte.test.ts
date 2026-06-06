@@ -36,6 +36,7 @@ function defaultProps(over: Record<string, unknown> = {}) {
 		showTrashed: false,
 		dragEnabled: true,
 		draggedFileIds: [] as string[],
+		draggedFolderIds: [] as string[],
 		dropTargetFolderId: null,
 		renameValue: '',
 		isEntrySelected: () => false,
@@ -145,13 +146,13 @@ describe('LibraryEntriesGrid', () => {
 		expect(card.className).toContain('opacity-60');
 	});
 
-	it('marks file cards draggable but not folder cards', () => {
+	it('marks both file and folder cards draggable (folders move into folders)', () => {
 		const screen = render(LibraryEntriesGrid, {
 			props: defaultProps({ entries: [makeFolder(), makeFile()], dragEnabled: true })
 		});
 		const cards = screen.container.querySelectorAll('div[role="button"]');
 		// folder section comes first, file section second
-		expect(cards[0]!.getAttribute('draggable')).toBe('false');
+		expect(cards[0]!.getAttribute('draggable')).toBe('true');
 		expect(cards[1]!.getAttribute('draggable')).toBe('true');
 	});
 

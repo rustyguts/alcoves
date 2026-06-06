@@ -62,6 +62,26 @@
 	const proxySrc = $derived(
 		apiUrl(`/api/files/proxy/${libraryId}/${fileId}?${proxyQueryString(resolved)}`)
 	);
+
+	// Show a neutral placeholder box until the bytes paint, so grids/cards don't
+	// flash an empty frame while thumbnails fetch. Reset when the source changes
+	// (the component is reused as the preview navigates between files).
+	let loaded = $state(false);
+	$effect(() => {
+		void proxySrc;
+		loaded = false;
+	});
+
+	function handleLoad(event: Event) {
+		loaded = true;
+		onload?.(event);
+	}
+	function handleError(event: Event) {
+		loaded = true;
+		onerror?.(event);
+	}
+
+	const imgClass = $derived([klass, loaded ? '' : 'bg-surface-200-800'].filter(Boolean).join(' '));
 </script>
 
 <img
@@ -69,11 +89,11 @@
 	{alt}
 	width={resolved.width || undefined}
 	height={resolved.height || undefined}
-	class={klass}
+	class={imgClass}
 	loading="lazy"
 	decoding="async"
 	draggable="false"
 	crossorigin="use-credentials"
-	{onerror}
-	{onload}
+	onerror={handleError}
+	onload={handleLoad}
 />
