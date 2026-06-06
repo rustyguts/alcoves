@@ -10,6 +10,22 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.25.1](https://github.com/rustyguts/alcoves/compare/v0.25.0...v0.25.1) (2026-06-06)
+
+
+### Fixed
+
+* **ci:** build cached whisper.cpp with portable x86-64-v3 baseline ([#599](https://github.com/rustyguts/alcoves/issues/599)) ([9a23f93](https://github.com/rustyguts/alcoves/commit/9a23f93b5c8778f283b6a475077f841b073231b3))
+
+
+### CI
+
+* **backend:** cache the libvips/ffmpeg apt download ([#602](https://github.com/rustyguts/alcoves/issues/602)) ([71f339e](https://github.com/rustyguts/alcoves/commit/71f339e4f44b9112e92af19c4515469b66e36393))
+* **backend:** shard tests 3 ways + cache whisper.cpp build ([#597](https://github.com/rustyguts/alcoves/issues/597)) ([28d61d4](https://github.com/rustyguts/alcoves/commit/28d61d4d88228501ce67ea831f6cf53be8f6c0e8))
+* **backend:** split the heavy handlers package's tests across shards ([#600](https://github.com/rustyguts/alcoves/issues/600)) ([5235424](https://github.com/rustyguts/alcoves/commit/52354248ed4bfdd006da547bc2423ef0b2abb29e))
+* **backend:** widen backend-test to 5 shards ([#601](https://github.com/rustyguts/alcoves/issues/601)) ([c9535b6](https://github.com/rustyguts/alcoves/commit/c9535b67cdc488fec458cf3e034bec7dd98753b9))
+* **e2e:** split into 8 shards, drop unused services, cache browser ([#595](https://github.com/rustyguts/alcoves/issues/595)) ([443e2c4](https://github.com/rustyguts/alcoves/commit/443e2c4dabab0536fe00d4cc84d76dc37fff2dea))
+
 ## [0.25.0](https://github.com/rustyguts/alcoves/compare/v0.24.0...v0.25.0) (2026-06-06)
 
 
