@@ -508,7 +508,7 @@ function formatTime(seconds: number): string {
           </div>
           <!-- Ruler playhead indicator -->
           <div
-            class="absolute top-0 bottom-0 w-0.5 bg-blue-500 pointer-events-none"
+            class="absolute top-0 bottom-0 w-0.5 bg-primary pointer-events-none"
             :style="{ left: `${playheadLeftPx}px` }"
           />
         </div>
@@ -630,10 +630,10 @@ function formatTime(seconds: number): string {
 
           <!-- Playhead -->
           <div
-            class="absolute top-0 bottom-0 w-0.5 bg-blue-500 shadow-lg pointer-events-none"
+            class="absolute top-0 bottom-0 w-0.5 bg-primary shadow-lg pointer-events-none"
             :style="{ left: `${playheadLeftPx}px` }"
           >
-            <div class="absolute -top-1 -left-1 size-2 rounded-full bg-blue-500" />
+            <div class="absolute -top-1 -left-1 size-2 rounded-full bg-primary" />
           </div>
         </div>
 
@@ -655,7 +655,7 @@ function formatTime(seconds: number): string {
           />
           <!-- Waveform playhead -->
           <div
-            class="absolute top-0 bottom-0 w-0.5 bg-blue-500 pointer-events-none"
+            class="absolute top-0 bottom-0 w-0.5 bg-primary pointer-events-none"
             :style="{ left: `${playheadLeftPx - scrollLeft}px` }"
           />
         </div>

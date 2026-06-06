@@ -572,10 +572,10 @@ onUnmounted(() => {
 
 .player {
   --video-brand: #f5f5f5;
-  --video-focus-ring-color: #4e9cf6;
+  --video-focus-ring-color: #61afef;
   --video-border-radius: 6px;
   --audio-brand: #f5f5f5;
-  --audio-focus-ring-color: #4e9cf6;
+  --audio-focus-ring-color: #61afef;
   --audio-border-radius: 6px;
 }
 </style>

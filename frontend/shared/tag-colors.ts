@@ -1,16 +1,18 @@
+// One Dark Pro accent swatches (uppercase — `isTagColorInPalette` compares
+// against the uppercased input).
 export const TAG_COLOR_PALETTE = [
-  "#E11D48",
-  "#F97316",
-  "#F59E0B",
-  "#EAB308",
-  "#84CC16",
-  "#22C55E",
-  "#14B8A6",
-  "#06B6D4",
-  "#3B82F6",
-  "#6366F1",
-  "#8B5CF6",
-  "#D946EF",
+  "#E06C75",
+  "#E8946A",
+  "#D19A66",
+  "#E5C07B",
+  "#B3C76B",
+  "#98C379",
+  "#56B6C2",
+  "#61AFEF",
+  "#528BFF",
+  "#8A7FE8",
+  "#C678DD",
+  "#E06C9E",
 ] as const;
 
 const TAG_COLOR_SET = new Set<string>(TAG_COLOR_PALETTE);
