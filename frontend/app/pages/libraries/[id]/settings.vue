@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useAuth } from "~/composables/useAuth";
 
 definePageMeta({ layout: "library" });
@@ -392,7 +393,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Library Name"
       description="Rename this library and pick an emoji. The emoji saves as soon as you choose it."
-      icon="i-lineicons-folder"
+      :icon="ICONS.folder"
     >
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <EmojiPicker
@@ -410,7 +411,7 @@ async function deleteLibrary() {
         <UButton
           color="primary"
           variant="soft"
-          icon="i-lineicons-check"
+          :icon="ICONS.check"
           :loading="savingLibraryName"
           :disabled="
             savingLibraryName ||
@@ -429,7 +430,7 @@ async function deleteLibrary() {
       v-if="!library?.isDefault"
       title="Library Members"
       description="Manage who has access to this library and their permissions."
-      icon="i-lineicons-users"
+      :icon="ICONS.members"
     >
       <div class="space-y-6">
         <div class="space-y-3">
@@ -460,7 +461,7 @@ async function deleteLibrary() {
             </UFormField>
             <UButton
               color="primary"
-              icon="i-lineicons-link"
+              :icon="ICONS.link"
               :loading="createInviteLinkLoading"
               :disabled="createInviteLinkLoading"
               @click="submitCreateInviteLink"
@@ -534,7 +535,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Facial Recognition"
       description="Detect and group faces from image uploads. Disabling removes all face data."
-      icon="i-lineicons-id-card"
+      :icon="ICONS.people"
     >
       <div class="space-y-4">
         <AppPanelRow
@@ -557,7 +558,7 @@ async function deleteLibrary() {
           <UButton
             color="warning"
             variant="soft"
-            icon="i-lineicons-reload"
+            :icon="ICONS.reload"
             :loading="faceRecReprocessing"
             :disabled="!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing"
             @click="faceRecReprocessOpen = true"
@@ -572,7 +573,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Object Detection"
       description="Detect objects in image uploads using YOLO26. Disabling removes all detection data."
-      icon="i-lineicons-magnifier"
+      :icon="ICONS.objectDetection"
     >
       <div class="space-y-4">
         <AppPanelRow
@@ -595,7 +596,7 @@ async function deleteLibrary() {
           <UButton
             color="neutral"
             variant="soft"
-            icon="i-lineicons-magnifier"
+            :icon="ICONS.objectDetection"
             :to="`/libraries/${libraryId}/objects`"
             :disabled="!library?.objectDetectionEnabled"
           >
@@ -612,7 +613,7 @@ async function deleteLibrary() {
           <UButton
             color="warning"
             variant="soft"
-            icon="i-lineicons-reload"
+            :icon="ICONS.reload"
             :loading="objDetReprocessing"
             :disabled="!library?.objectDetectionEnabled || objDetToggling || objDetReprocessing"
             @click="objDetReprocessOpen = true"
@@ -627,7 +628,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Transcription"
       description="Generate searchable text + WebVTT cues from video and audio files using whisper.cpp."
-      icon="i-lineicons-comment-1-text"
+      :icon="ICONS.transcript"
     >
       <AppPanelRow
         title="Re-transcribe all videos"
@@ -636,7 +637,7 @@ async function deleteLibrary() {
         <UButton
           color="warning"
           variant="soft"
-          icon="i-lineicons-comment-1-text"
+          :icon="ICONS.transcript"
           :loading="transcribeReprocessing"
           :disabled="transcribeReprocessing"
           @click="transcribeReprocessOpen = true"
@@ -650,7 +651,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Audio Event Detection"
       description="Tag audio segments with PANNs CNN14 (music, speech, applause, …). Requires the file's transcript to be ready."
-      icon="i-lineicons-pulse"
+      :icon="ICONS.audioDetect"
     >
       <AppPanelRow
         title="Re-run audio detection on all videos"
@@ -659,7 +660,7 @@ async function deleteLibrary() {
         <UButton
           color="warning"
           variant="soft"
-          icon="i-lineicons-pulse"
+          :icon="ICONS.audioDetect"
           :loading="audioDetectReprocessing"
           :disabled="audioDetectReprocessing"
           @click="audioDetectReprocessOpen = true"
@@ -673,7 +674,7 @@ async function deleteLibrary() {
     <AppPanel
       title="Sharing"
       description="Allow members to create public share links for moments in this library."
-      icon="i-lineicons-share-2"
+      :icon="ICONS.share"
     >
       <AppPanelRow
         title="Enable sharing"
@@ -692,13 +693,13 @@ async function deleteLibrary() {
       v-if="isLibraryOwner"
       title="Video Thumbnails"
       description="Regenerate JPG thumbnails for all source videos in this library."
-      icon="i-lineicons-image"
+      :icon="ICONS.image"
     >
       <div class="flex sm:justify-end">
         <UButton
           color="warning"
           variant="soft"
-          icon="i-lineicons-image"
+          :icon="ICONS.image"
           :loading="videoThumbReprocessing"
           :disabled="videoThumbReprocessing"
           @click="videoThumbReprocessOpen = true"
@@ -713,13 +714,13 @@ async function deleteLibrary() {
       v-if="isLibraryOwner"
       title="Photo Metadata"
       description="Re-extract capture date & GPS location (EXIF) for all photos and videos. Powers the Timeline and Map views."
-      icon="i-lineicons-map-marker"
+      :icon="ICONS.location"
     >
       <div class="flex sm:justify-end">
         <UButton
           color="warning"
           variant="soft"
-          icon="i-lineicons-reload"
+          :icon="ICONS.reload"
           :loading="metadataReprocessing"
           :disabled="metadataReprocessing"
           @click="metadataReprocessOpen = true"
@@ -733,7 +734,7 @@ async function deleteLibrary() {
     <AppPanel>
       <template #title>
         <div class="flex items-center gap-2">
-          <UIcon name="i-lineicons-warning" class="size-4 shrink-0 text-error" />
+          <UIcon :name="ICONS.warning" class="size-4 shrink-0 text-error" />
           <h2 class="text-sm font-semibold text-error">Delete Library</h2>
         </div>
       </template>
@@ -745,7 +746,7 @@ async function deleteLibrary() {
         <UButton
           color="error"
           variant="soft"
-          icon="i-lineicons-trash-can"
+          :icon="ICONS.trash"
           :disabled="!canDeleteLibrary"
           @click="deleteLibraryOpen = true"
         >
@@ -760,7 +761,7 @@ async function deleteLibrary() {
       message="This will permanently delete all detected faces and people data for this library. This action cannot be undone."
       confirm-label="Disable & Delete Data"
       confirm-class="btn-soft btn-error"
-      confirm-icon="i-lineicons-trash-can"
+      :confirm-icon="ICONS.trash"
       :pending="faceRecToggling"
       @confirm="confirmDisableFaceRecognition"
     />
@@ -771,7 +772,7 @@ async function deleteLibrary() {
       message="This re-extracts capture date and GPS location for every photo and video in the library, refreshing the Timeline and Map. Existing metadata is overwritten as each file completes."
       confirm-label="Queue Reprocessing"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-reload"
+      :confirm-icon="ICONS.reload"
       :pending="metadataReprocessing"
       @confirm="reprocessMetadata"
     />
@@ -782,7 +783,7 @@ async function deleteLibrary() {
       message="This queues thumbnail regeneration for all source videos in this library. Existing generated thumbnails will be replaced as new ones complete."
       confirm-label="Queue Regeneration"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-image"
+      :confirm-icon="ICONS.image"
       :pending="videoThumbReprocessing"
       @confirm="reprocessVideoThumbnails"
     />
@@ -793,7 +794,7 @@ async function deleteLibrary() {
       message="This deletes all existing face inference data and queues a full rebuild. Results may change, including how photos are grouped into people."
       confirm-label="Delete Data & Requeue"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-reload"
+      :confirm-icon="ICONS.reload"
       :pending="faceRecReprocessing"
       @confirm="reprocessFaceRecognition"
     />
@@ -804,7 +805,7 @@ async function deleteLibrary() {
       message="This queues transcription for every video and audio file in the library. Existing transcripts will be overwritten when each job completes."
       confirm-label="Queue Reprocessing"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-comment-1-text"
+      :confirm-icon="ICONS.transcript"
       :pending="transcribeReprocessing"
       @confirm="reprocessTranscripts"
     />
@@ -815,7 +816,7 @@ async function deleteLibrary() {
       message="This queues PANNs audio-event detection for every video and audio file with a ready transcript. Existing audio-event tags will be overwritten when each job completes."
       confirm-label="Queue Reprocessing"
       confirm-class="btn-soft btn-warning"
-      confirm-icon="i-lineicons-pulse"
+      :confirm-icon="ICONS.audioDetect"
       :pending="audioDetectReprocessing"
       @confirm="reprocessAudioDetections"
     />
@@ -838,7 +839,7 @@ async function deleteLibrary() {
           </UButton>
           <UButton
             color="error"
-            icon="i-lineicons-trash-can"
+            :icon="ICONS.trash"
             :loading="objDetToggling"
             :disabled="objDetToggling"
             @click="confirmDisableObjectDetection"
@@ -867,7 +868,7 @@ async function deleteLibrary() {
           </UButton>
           <UButton
             color="warning"
-            icon="i-lineicons-reload"
+            :icon="ICONS.reload"
             :loading="objDetReprocessing"
             :disabled="objDetReprocessing"
             @click="reprocessObjectDetection"
@@ -903,7 +904,7 @@ async function deleteLibrary() {
           <UButton
             color="error"
             variant="soft"
-            icon="i-lineicons-trash-can"
+            :icon="ICONS.trash"
             :disabled="deleteLibraryConfirmation !== 'delete'"
             @click="deleteLibrary"
           >

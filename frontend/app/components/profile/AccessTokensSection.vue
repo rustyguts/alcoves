@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
@@ -90,7 +91,7 @@ function formatDate(value: string | null): string {
     <template #header>
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2">
-          <UIcon name="i-lineicons-key" class="size-5 text-primary" />
+          <UIcon :name="ICONS.key" class="size-5 text-primary" />
           <div>
             <h2 class="text-base font-semibold">MCP access tokens</h2>
             <p class="text-sm text-muted">
@@ -121,7 +122,7 @@ function formatDate(value: string | null): string {
         </UFormField>
         <UButton
           color="primary"
-          icon="i-lineicons-plus"
+          :icon="ICONS.plus"
           :loading="creating"
           :disabled="creating"
           @click="createToken"
@@ -158,7 +159,7 @@ function formatDate(value: string | null): string {
             color="error"
             variant="soft"
             size="sm"
-            icon="i-lineicons-trash-can"
+            :icon="ICONS.trash"
             :loading="revokingId === token.id"
             :disabled="revokingId === token.id"
             @click="revokeToken(token.id)"
@@ -171,7 +172,7 @@ function formatDate(value: string | null): string {
         v-else
         color="neutral"
         variant="soft"
-        icon="i-lineicons-key"
+        :icon="ICONS.key"
         title="No access tokens yet"
         description="Create one to connect an MCP client to your Alcoves libraries."
       />
@@ -192,12 +193,12 @@ function formatDate(value: string | null): string {
               class="w-full font-mono text-xs"
               :ui="{ root: 'w-full' }"
             />
-            <UButton color="neutral" icon="i-lineicons-clipboard" square @click="copyToken" />
+            <UButton color="neutral" :icon="ICONS.copy" square @click="copyToken" />
           </div>
           <UAlert
             color="warning"
             variant="soft"
-            icon="i-lineicons-shield-2"
+            :icon="ICONS.shield"
             title="Treat it like a password"
             description="Anyone with this token can access your libraries as you. Revoke it if it leaks."
           />

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import "vidstack/player/styles/default/theme.css";
 import "vidstack/player/styles/default/layouts/video.css";
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
@@ -252,7 +253,7 @@ defineExpose({ seek, togglePlay, currentTime, duration, paused });
         <media-video-layout />
       </media-player>
       <div v-else class="flex items-center justify-center py-16">
-        <UIcon name="i-lineicons-spinner-solid" class="size-6 animate-spin text-white/60" />
+        <UIcon :name="ICONS.loading" class="size-6 animate-spin text-white/60" />
       </div>
       <div
         v-show="active"

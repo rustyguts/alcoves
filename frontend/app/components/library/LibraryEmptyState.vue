@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import AppIcon from "~/components/AppIcon.vue";
 
 interface Props {
@@ -20,7 +21,7 @@ const emit = defineEmits<{
   <div class="flex flex-col items-center justify-center py-16 px-4">
     <div class="size-16 rounded-full bg-elevated flex items-center justify-center mb-4">
       <AppIcon
-        :name="showTrashed ? 'i-lineicons-trash-can' : 'i-lineicons-folder'"
+        :name="showTrashed ? ICONS.trash : ICONS.folder"
         class="size-8 text-muted"
       />
     </div>
@@ -30,12 +31,12 @@ const emit = defineEmits<{
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lineicons-folder"
+        :icon="ICONS.folder"
         @click="emit('createFolder')"
       >
         Create folder
       </UButton>
-      <UButton color="primary" variant="soft" icon="i-lineicons-upload" @click="emit('uploadFiles')">
+      <UButton color="primary" variant="soft" :icon="ICONS.upload" @click="emit('uploadFiles')">
         Upload files
       </UButton>
     </div>

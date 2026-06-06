@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 interface Props {
   title: string;
   message: string;
@@ -10,7 +11,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   confirmClass: "",
-  confirmIcon: "i-lineicons-check",
+  confirmIcon: ICONS.check,
   pending: false,
 });
 

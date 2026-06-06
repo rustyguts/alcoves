@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { ref, computed } from "vue";
 import { useApiFetch } from "~/composables/useApiFetch";
 
@@ -384,7 +385,7 @@ useEditorShortcuts({
       message="This moment will be moved to trash. Any cached exports will be deleted."
       confirm-label="Delete"
       confirm-class="btn-error"
-      confirm-icon="i-lineicons-trash-can"
+      :confirm-icon="ICONS.trash"
       @update:open="(v) => (pendingDeleteId = v ? pendingDeleteId : null)"
       @confirm="onDeleteConfirm"
     />

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
 import { useAuth } from "~/composables/useAuth";
@@ -114,7 +115,7 @@ async function acceptInvite() {
       </template>
 
       <div v-if="status === 'pending'" class="flex items-center justify-center py-8">
-        <UIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-muted" />
+        <UIcon :name="ICONS.loading" class="size-5 animate-spin text-muted" />
       </div>
 
       <div v-else class="flex flex-col gap-4">
@@ -124,7 +125,7 @@ async function acceptInvite() {
           <UButton
             v-if="invite?.canAccept"
             color="primary"
-            icon="i-lineicons-check"
+            :icon="ICONS.check"
             :loading="accepting"
             @click="acceptInvite"
           >
@@ -135,7 +136,7 @@ async function acceptInvite() {
             :to="`/libraries/${invite.library.id}`"
             color="neutral"
             variant="soft"
-            trailing-icon="i-lineicons-arrow-right"
+            :trailing-icon="ICONS.arrowRight"
           >
             Go to library
           </UButton>

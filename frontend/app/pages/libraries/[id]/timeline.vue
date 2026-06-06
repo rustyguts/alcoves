@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useLibraryTimeline, type TimelineGroup } from "~/composables/useLibraryTimeline";
 import type { LibraryFile } from "~~/shared/types/api";
@@ -157,7 +158,7 @@ onBeforeUnmount(() => {
         v-if="timeline.loading.value && timeline.entries.value.length === 0"
         class="px-4 py-12 text-center text-sm text-muted"
       >
-        <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin inline-block" />
+        <AppIcon :name="ICONS.loading" class="size-5 animate-spin inline-block" />
         <p class="mt-2">Loading timeline…</p>
       </div>
 
@@ -171,7 +172,7 @@ onBeforeUnmount(() => {
         v-else-if="timeline.entries.value.length === 0"
         class="px-4 py-16 text-center text-sm text-muted"
       >
-        <AppIcon name="i-lineicons-alarm-clock" class="size-8 mx-auto mb-3 opacity-40" />
+        <AppIcon :name="ICONS.timeline" class="size-8 mx-auto mb-3 opacity-40" />
         <p>Nothing to show yet.</p>
         <p class="mt-1 text-xs">
           Capture dates are extracted in the background — check back shortly after uploading.
@@ -185,7 +186,7 @@ onBeforeUnmount(() => {
         <!-- Infinite-scroll sentinel + load-more fallback -->
         <div ref="sentinel" class="h-px" />
         <div v-if="timeline.loadingMore.value" class="py-4 text-center text-sm text-muted">
-          <AppIcon name="i-lineicons-spinner-solid" class="size-4 animate-spin inline-block" />
+          <AppIcon :name="ICONS.loading" class="size-4 animate-spin inline-block" />
         </div>
         <div v-else-if="timeline.nextCursor.value" class="py-4 text-center">
           <button

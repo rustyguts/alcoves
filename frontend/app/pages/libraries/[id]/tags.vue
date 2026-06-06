@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useApiFetch } from "~/composables/useApiFetch";
 
 definePageMeta({ layout: "library" });
@@ -248,7 +249,7 @@ onBeforeUnmount(() => {
               size="sm"
               square
               :loading="loadingUsage"
-              icon="i-lineicons-reload"
+              :icon="ICONS.reload"
               @click="refreshTagUsageCounts"
             />
           </UTooltip>
@@ -296,7 +297,7 @@ onBeforeUnmount(() => {
                     variant="soft"
                     size="sm"
                     square
-                    icon="i-lineicons-plus"
+                    :icon="ICONS.plus"
                     :loading="creatingTag"
                     :disabled="!createTagName.trim() || creatingTag"
                     @click="createTagAndRefresh"
@@ -309,7 +310,7 @@ onBeforeUnmount(() => {
             <tr v-if="loading">
               <td colspan="3" class="px-4 py-3">
                 <div class="flex items-center gap-2 text-sm text-muted">
-                  <UIcon name="i-lineicons-spinner-solid" class="size-4 animate-spin" />
+                  <UIcon :name="ICONS.loading" class="size-4 animate-spin" />
                   Loading tags
                 </div>
               </td>
@@ -348,7 +349,7 @@ onBeforeUnmount(() => {
                     variant="soft"
                     size="sm"
                     square
-                    icon="i-lineicons-trash-can"
+                    :icon="ICONS.trash"
                     @click="deleteTagAndRefresh(tag.id)"
                   />
                 </div>

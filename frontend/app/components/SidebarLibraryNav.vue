@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import type { AuthUser, Library } from "~~/shared/types/api";
 import type { NavigationMenuItem } from "@nuxt/ui";
 import LibrarySwitcher from "~/components/LibrarySwitcher.vue";
@@ -79,21 +80,21 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
   const items: NavigationMenuItem[] = [
     {
       label: "Files",
-      icon: "i-lineicons-folder",
+      icon: ICONS.folder,
       to: base,
       active: active === "files",
       onSelect: forceNav(base),
     },
-    { label: "Timeline", icon: "i-lineicons-alarm-clock", to: `${base}/timeline`, active: active === "timeline" },
-    { label: "Map", icon: "i-lineicons-map-marker", to: `${base}/map`, active: active === "map" },
-    { label: "Tags", icon: "i-lineicons-tag", to: `${base}/tags`, active: active === "tags" },
-    { label: "Feed", icon: "i-lineicons-rss-feed", to: `${base}/feed`, active: active === "feed" },
+    { label: "Timeline", icon: ICONS.timeline, to: `${base}/timeline`, active: active === "timeline" },
+    { label: "Map", icon: ICONS.location, to: `${base}/map`, active: active === "map" },
+    { label: "Tags", icon: ICONS.tag, to: `${base}/tags`, active: active === "tags" },
+    { label: "Feed", icon: ICONS.feed, to: `${base}/feed`, active: active === "feed" },
   ];
 
   if (l.faceRecognitionEnabled) {
     items.push({
       label: "People",
-      icon: "i-lineicons-id-card",
+      icon: ICONS.people,
       to: `${base}/people`,
       active: active === "people",
     });
@@ -102,7 +103,7 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
   if (canManage(l)) {
     items.push({
       label: "Settings",
-      icon: "i-lineicons-cog",
+      icon: ICONS.settings,
       to: `${base}/settings`,
       active: active === "settings",
     });
@@ -110,7 +111,7 @@ const actionItems = computed<NavigationMenuItem[]>(() => {
 
   items.push({
     label: "Trash",
-    icon: "i-lineicons-trash-can",
+    icon: ICONS.trash,
     to: `${base}/trash`,
     active: active === "trash",
     onSelect: forceNav(`${base}/trash`),
@@ -124,7 +125,7 @@ const bottomItems = computed<NavigationMenuItem[]>(() => {
   return [
     {
       label: "Admin",
-      icon: "i-lineicons-shield-2-check",
+      icon: ICONS.admin,
       to: "/admin",
       active: route.path === "/admin" || route.path.startsWith("/admin/"),
     },

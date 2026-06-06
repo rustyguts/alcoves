@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import type { LibraryMemberWithUser } from "~~/shared/types/api";
 import UserAvatar from "~/components/UserAvatar.vue";
 
@@ -53,7 +54,7 @@ const emit = defineEmits<{
           color="error"
           variant="soft"
           size="sm"
-          icon="i-lineicons-user"
+          :icon="ICONS.user"
           square
           :loading="removing"
           :disabled="removing"

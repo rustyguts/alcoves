@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import { useAuth } from "~/composables/useAuth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { api } from "~/api";
@@ -139,9 +140,9 @@ function getStatusMessage(error: unknown): string | null {
 }
 
 const themeOptions: { label: string; value: ColorPreference; icon: string }[] = [
-  { label: "System", value: "auto", icon: "i-lineicons-monitor" },
-  { label: "Light", value: "light", icon: "i-lineicons-sun" },
-  { label: "Dark", value: "dark", icon: "i-lineicons-night" },
+  { label: "System", value: "auto", icon: ICONS.system },
+  { label: "Light", value: "light", icon: ICONS.light },
+  { label: "Dark", value: "dark", icon: ICONS.dark },
 ];
 </script>
 
@@ -164,7 +165,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
           <span
             class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition group-hover:opacity-100"
           >
-            <UIcon name="i-lineicons-camera" class="size-6 text-white" />
+            <UIcon :name="ICONS.camera" class="size-6 text-white" />
           </span>
         </button>
 
@@ -181,7 +182,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
 
           <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <span class="inline-flex max-w-full items-center gap-1.5 text-sm text-muted">
-              <UIcon name="i-lineicons-envelope" class="size-4 shrink-0" />
+              <UIcon :name="ICONS.email" class="size-4 shrink-0" />
               <span class="break-all">{{ user?.email }}</span>
             </span>
             <UBadge
@@ -199,7 +200,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
             color="primary"
             :loading="saving"
             :disabled="!hasProfileChanges"
-            icon="i-lineicons-save"
+            :icon="ICONS.save"
             @click="save"
           >
             Save changes
@@ -217,7 +218,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
     </UCard>
 
     <!-- Appearance -->
-    <AppPanel title="Appearance" icon="i-lineicons-colour-palette-3">
+    <AppPanel title="Appearance" :icon="ICONS.appearance">
       <div class="grid grid-cols-3 gap-3">
         <button
           v-for="opt in themeOptions"
@@ -251,7 +252,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
         >
           <div class="min-w-0 space-y-1">
             <div class="flex items-center gap-2">
-              <UIcon name="i-lineicons-monitor" class="size-4 shrink-0 text-muted" />
+              <UIcon :name="ICONS.system" class="size-4 shrink-0 text-muted" />
               <span class="truncate font-medium">{{ parseBrowser(session.userAgent) }}</span>
               <UBadge v-if="session.isCurrent" color="primary" size="sm">Current</UBadge>
             </div>
@@ -276,7 +277,7 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
         v-else
         color="info"
         variant="soft"
-        icon="i-lineicons-shield-2-check"
+        :icon="ICONS.admin"
         title="No other active sessions"
         description="Only this browser session is active right now."
       />

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ICONS } from "~/utils/icons";
 import "vidstack/player/styles/default/theme.css";
 import "vidstack/player/styles/default/layouts/audio.css";
 import "vidstack/player/styles/default/layouts/video.css";
@@ -407,7 +408,7 @@ onUnmounted(() => {
           <media-video-layout />
         </media-player>
         <div v-else class="flex items-center justify-center">
-          <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-white/60" />
+          <AppIcon :name="ICONS.loading" class="size-5 animate-spin text-white/60" />
         </div>
       </div>
 
@@ -427,7 +428,7 @@ onUnmounted(() => {
           <media-audio-layout />
         </media-player>
         <div v-else class="flex items-center justify-center">
-          <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-white/60" />
+          <AppIcon :name="ICONS.loading" class="size-5 animate-spin text-white/60" />
         </div>
       </div>
 
@@ -464,7 +465,7 @@ onUnmounted(() => {
           >{{ textContent }}</pre
         >
         <div v-else class="flex items-center justify-center">
-          <AppIcon name="i-lineicons-spinner-solid" class="size-5 animate-spin text-white/60" />
+          <AppIcon :name="ICONS.loading" class="size-5 animate-spin text-white/60" />
         </div>
       </div>
 
@@ -484,7 +485,7 @@ onUnmounted(() => {
             class="inline-flex items-center justify-center size-10 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors"
             @click="closePreview"
           >
-            <AppIcon name="i-lineicons-x" class="size-5" />
+            <AppIcon :name="ICONS.close" class="size-5" />
           </button>
           <span class="text-white text-sm font-medium truncate">{{ file.name }}</span>
           <div v-if="previewType === 'video'" class="flex items-center gap-2">
@@ -492,7 +493,7 @@ onUnmounted(() => {
               color="primary"
               variant="soft"
               size="xs"
-              icon="i-lineicons-camera-movie-1"
+              :icon="ICONS.movie"
               :loading="generatingProxy"
               :disabled="generatingProxy"
               @click="generateProxy"
@@ -519,7 +520,7 @@ onUnmounted(() => {
           class="inline-flex items-center justify-center size-10 rounded-full text-white/80 hover:text-white hover:bg-white/20 shrink-0 pointer-events-auto transition-colors"
           @click="downloadFile"
         >
-          <AppIcon name="i-lineicons-download" class="size-5" />
+          <AppIcon :name="ICONS.download" class="size-5" />
         </button>
       </div>
 
@@ -549,7 +550,7 @@ onUnmounted(() => {
         class="absolute left-4 top-1/2 z-20 -translate-y-1/2 inline-flex items-center justify-center size-10 rounded-full text-white bg-black/40 hover:bg-black/70 transition-colors"
         @click="goToPrevious"
       >
-        <AppIcon name="i-lineicons-chevron-left" class="size-5" />
+        <AppIcon :name="ICONS.chevronLeft" class="size-5" />
       </button>
 
       <!-- Overlay: next button -->
@@ -558,7 +559,7 @@ onUnmounted(() => {
         class="absolute right-4 top-1/2 z-20 -translate-y-1/2 inline-flex items-center justify-center size-10 rounded-full text-white bg-black/40 hover:bg-black/70 transition-colors"
         @click="goToNext"
       >
-        <AppIcon name="i-lineicons-chevron-right" class="size-5" />
+        <AppIcon :name="ICONS.chevronRight" class="size-5" />
       </button>
     </div>
   </Teleport>
