@@ -68,6 +68,18 @@ function buildEntries() {
 function mockTimeline(state: ReturnType<typeof createDefaultState>) {
   const entries = buildEntries();
   addOverride(state, async (route, url) => {
+    // Histogram drives the date scrubber's density blips — match it before the
+    // bare /timeline route (which would otherwise swallow the prefix).
+    if (/^\/api\/libraries\/[\w-]+\/timeline\/histogram$/.test(url.pathname)) {
+      await fulfillJson(route, 200, {
+        buckets: [
+          { year: 2026, month: 1, count: 13 },
+          { year: 2025, month: 12, count: 8 },
+        ],
+        totalCount: 21,
+      });
+      return true;
+    }
     if (/^\/api\/libraries\/[\w-]+\/timeline$/.test(url.pathname)) {
       await fulfillJson(route, 200, {
         entries,

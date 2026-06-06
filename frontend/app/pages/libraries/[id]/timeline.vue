@@ -55,8 +55,8 @@ function handleFileUpdate(updated: LibraryFile) {
 const thisYear = new Date().getUTCFullYear();
 
 // Map the composable's day groups into gallery groups. The gallery runs in
-// `continuous` mode, so days flow across shared rows to maximise space; each
-// day's first tile carries a compact date marker instead of a full-width band.
+// `continuous` mode: each day is its own section with a heading band, and the
+// day's rows are stretched to fill the container's full width.
 const galleryGroups = computed<GalleryGroup<LibraryFile>[]>(() =>
   timeline.groups.value.map((g: TimelineGroup) => {
     const d = dayDate(g.key);
@@ -84,22 +84,6 @@ const galleryGroups = computed<GalleryGroup<LibraryFile>[]>(() =>
   }),
 );
 
-// Distinct years (newest-first) for the custom scrubber rail. Groups arrive
-// sorted newest-first by day, so years are monotonic and the first group seen
-// for a year is its newest day — the anchor we scroll to.
-const years = computed<{ year: number; key: string }[]>(() => {
-  const out: { year: number; key: string }[] = [];
-  let seen = Number.NaN;
-  for (const g of timeline.groups.value) {
-    const y = Number(g.key.split("-")[0]);
-    if (y !== seen) {
-      out.push({ year: y, key: g.key });
-      seen = y;
-    }
-  }
-  return out;
-});
-
 // `Y-M-D` (UTC) key → Date. Month is the 0-based value emitted by the composable.
 function dayDate(key: string): Date {
   const [y, m, day] = key.split("-").map(Number);
@@ -120,11 +104,34 @@ function formatDay(d: Date): string {
 
 const scrollEl = ref<HTMLElement | null>(null);
 
-// Jump the scroll viewport to a year's newest day. The gallery tags the first
-// tile of each day with `data-group-key`, so we scroll that anchor into view.
-function scrollToYear(key: string) {
-  const el = scrollEl.value?.querySelector<HTMLElement>(`[data-group-key="${key}"]`);
-  el?.scrollIntoView({ behavior: "smooth", block: "start" });
+// Current scroll position as a 0..1 fraction (0 = top = newest), fed to the
+// scrubber so its handle tracks normal scrolling. rAF-throttled to one update
+// per frame.
+const progress = ref(0);
+let scrollRaf = 0;
+
+function maxScroll(el: HTMLElement): number {
+  return Math.max(0, el.scrollHeight - el.clientHeight);
+}
+
+function onScroll() {
+  if (scrollRaf) return;
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0;
+    const el = scrollEl.value;
+    if (!el) return;
+    const max = maxScroll(el);
+    progress.value = max > 0 ? Math.min(1, Math.max(0, el.scrollTop / max)) : 0;
+  });
+}
+
+// Scrub from the rail: scroll proportionally to the dragged fraction. The grid's
+// scroll height grows as more pages load, so this lands close to the target
+// period and infinite-scroll fills in the rest.
+function onScrub(fraction: number) {
+  const el = scrollEl.value;
+  if (!el) return;
+  el.scrollTop = Math.min(1, Math.max(0, fraction)) * maxScroll(el);
 }
 
 // Infinite scroll: observe a sentinel near the bottom and pull the next page.
@@ -146,12 +153,13 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   observer?.disconnect();
+  if (scrollRaf) cancelAnimationFrame(scrollRaf);
 });
 </script>
 
 <template>
   <div class="flex h-full min-h-0">
-    <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
+    <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto" @scroll="onScroll">
       <!-- Loading -->
       <div
         v-if="timeline.loading.value && timeline.entries.value.length === 0"
@@ -199,7 +207,12 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <TimelineScrubber v-if="years.length > 1" :years="years" @jump="scrollToYear" />
+    <TimelineScrubber
+      v-if="timeline.buckets.value.length > 1"
+      :buckets="timeline.buckets.value"
+      :progress="progress"
+      @scrub="onScrub"
+    />
 
     <FilePreview
       v-if="previewFile"

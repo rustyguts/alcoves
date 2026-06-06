@@ -167,6 +167,21 @@ export interface LibraryMapResponse {
   truncated: boolean;
 }
 
+/** One per-month density bucket for the timeline date scrubber. */
+export interface TimelineHistogramBucket {
+  year: number;
+  /** 1-12. */
+  month: number;
+  count: number;
+}
+
+/** Response for GET /api/libraries/:id/timeline/histogram — whole-library
+ * per-month counts (newest-first) that drive the scrubber's density blips. */
+export interface TimelineHistogram {
+  buckets: TimelineHistogramBucket[];
+  totalCount: number;
+}
+
 export interface LibraryMemberWithUser {
   id: string;
   userId: string;

@@ -24,7 +24,8 @@ export interface JustifiedBox<T> {
 export interface JustifiedRow<T> {
 	boxes: JustifiedBox<T>[];
 	height: number;
-	/** True for a trailing row that was not stretched to full width. */
+	/** True for the trailing row of the layout. Such a row is pinned to the
+	 * target height (ragged) unless `stretchLastRow` justified it to full width. */
 	last: boolean;
 }
 
@@ -43,6 +44,14 @@ export interface JustifiedOptions {
 	 * skyscrapers don't dominate a row. */
 	minAspect?: number;
 	maxAspect?: number;
+	/**
+	 * Stretch the final (trailing) row to full width like every other row,
+	 * instead of pinning it to the target height. Used by per-section layouts
+	 * (timeline days) so each day's last row fills the container edge-to-edge.
+	 * A lone leftover item is still NOT stretched (it would balloon), and
+	 * `maxRowHeight` still caps the result.
+	 */
+	stretchLastRow?: boolean;
 }
 
 /**
@@ -61,6 +70,7 @@ export function justifiedLayout<T>(
 		maxRowHeight = targetRowHeight * 1.5,
 		minAspect = 0.5,
 		maxAspect = 3,
+		stretchLastRow = false,
 	} = opts;
 
 	const rows: JustifiedRow<T>[] = [];
@@ -90,9 +100,11 @@ export function justifiedLayout<T>(
 		const available = containerWidth - totalGap;
 		// Height that makes this row span the full width at the items' aspect sum.
 		let height = available / aspectSum;
-		if (last) {
+		if (last && !(stretchLastRow && row.length > 1)) {
 			// Don't stretch a trailing row full-width — leave it at the target so a
-			// single leftover photo isn't blown up. But still cap it.
+			// single leftover photo isn't blown up. But still cap it. When
+			// `stretchLastRow` is set we stretch instead, except for a lone item
+			// (row.length === 1), which would balloon to fill the container.
 			height = Math.min(targetRowHeight, maxRowHeight);
 		} else {
 			height = Math.min(height, maxRowHeight);
