@@ -10,6 +10,14 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.27.2](https://github.com/rustyguts/alcoves/compare/v0.27.1...v0.27.2) (2026-06-06)
+
+
+### Fixed
+
+* **client:** align the files-toolbar view-toggle and Folder/Upload buttons ([#612](https://github.com/rustyguts/alcoves/issues/612)) ([0cb60ee](https://github.com/rustyguts/alcoves/commit/0cb60ee479d84ec3a20aaa6af47a99e255cae2ad))
+* **client:** de-duplicate the emoji in the library switcher rows ([#611](https://github.com/rustyguts/alcoves/issues/611)) ([5d5846c](https://github.com/rustyguts/alcoves/commit/5d5846ca05bfd248685552a2f6b3d9038828bc56))
+
 ## [0.27.1](https://github.com/rustyguts/alcoves/compare/v0.27.0...v0.27.1) (2026-06-06)
 
 

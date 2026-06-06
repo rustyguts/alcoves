@@ -4,7 +4,7 @@ description: >-
   Alcoves — self-hosted collaborative file library (SvelteKit frontend + Go API
   + async workers)
 type: application
-version: 0.27.1
+version: 0.27.2
 appVersion: 0.18.3
 home: https://github.com/yourorg/alcoves
 keywords:
