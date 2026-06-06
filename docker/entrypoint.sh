@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Alcoves unified-image supervisor.
 #
-# The production image bundles the Go API/worker binary AND the Nuxt (Nitro)
-# server, so a single container can run the whole stack. The first argument
-# selects which role(s) to run:
+# The production image bundles the Go API/worker binary AND the SvelteKit
+# (adapter-node) server, so a single container can run the whole stack. The first
+# argument selects which role(s) to run:
 #
-#   all     (default) — Go API+worker on :3001 AND Nitro on :3000, supervised
+#   all     (default) — Go API+worker on :3001 AND SvelteKit on :3000, supervised
 #                       together. If either process exits, the other is stopped
 #                       and the container exits non-zero so the orchestrator
 #                       restarts it (we never limp along serving half the stack).
-#   web                — only the Nitro server (frontend + SSR share pages)
+#   web                — only the SvelteKit server (frontend + SSR share pages)
 #   api                — only the Go process with ALCOVES_MODE=api
 #   worker             — only the Go process with ALCOVES_MODE=worker
 #
@@ -26,13 +26,14 @@ set -euo pipefail
 ROLE="${1:-all}"
 
 GO_BIN="/app/alcoves"
-NITRO_ENTRY="/app/.output/server/index.mjs"
+SVELTE_ENTRY="/app/build/index.js"
 
 case "${ROLE}" in
   web)
-    # Nitro reads NITRO_HOST/NITRO_PORT/ALCOVES_API_URL from the environment
-    # (defaulted in the Dockerfile, overridable per-deployment).
-    exec bun run "${NITRO_ENTRY}"
+    # The SvelteKit adapter-node server reads FRONTEND_HOST/FRONTEND_PORT/etc. and
+    # INTERNAL_API_URL from the environment (defaulted in the Dockerfile,
+    # overridable per-deployment).
+    exec bun "${SVELTE_ENTRY}"
     ;;
   api)
     export ALCOVES_MODE="api"
@@ -71,12 +72,12 @@ shutdown() {
 
 trap 'shutdown; exit 0' TERM INT
 
-echo "alcoves: starting Go (ALCOVES_MODE=${ALCOVES_MODE}) on :${PORT:-3001} and Nitro on :${NITRO_PORT:-3000}"
+echo "alcoves: starting Go (ALCOVES_MODE=${ALCOVES_MODE}) on :${PORT:-3001} and SvelteKit on :${FRONTEND_PORT:-3000}"
 
 "${GO_BIN}" &
 pids+=("$!")
 
-bun run "${NITRO_ENTRY}" &
+bun "${SVELTE_ENTRY}" &
 pids+=("$!")
 
 # Wait for the first child to exit, capture its status, then tear the other one

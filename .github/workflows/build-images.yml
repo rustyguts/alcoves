@@ -1,7 +1,7 @@
 name: Build Images
 
 # Reusable workflow: builds the single unified Alcoves Docker image (Go API +
-# worker + Nuxt/Nitro frontend) and (optionally) pushes it to GHCR. Called by:
+# worker + SvelteKit frontend) and (optionally) pushes it to GHCR. Called by:
 #   - publish.yml         → branch / PR / manual-tag builds
 #   - release-please.yml  → release builds (version_tags: true), so the
 #                           X.Y.Z / X.Y tags get published on every release

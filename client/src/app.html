@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-theme="cerberus" class="h-full">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
+		<link rel="alternate icon" href="%sveltekit.assets%/favicon.ico" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			// Apply the persisted color scheme before first paint to avoid a flash
+			// of the wrong theme. Mirrors $lib/state/theme.svelte.ts (key: alcoves.theme).
+			(function () {
+				try {
+					var pref = localStorage.getItem('alcoves.theme') || 'system';
+					var dark =
+						pref === 'dark' ||
+						(pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+					if (dark) document.documentElement.classList.add('dark');
+				} catch (e) {
+					/* localStorage unavailable — fall back to light */
+				}
+			})();
+			// Pre-hydration form guard: block native <form> submits until the app is
+			// interactive, preventing a full-page POST during the SSR→hydration window.
+			(function () {
+				function guard(e) {
+					if (!window.__alcovesReady) e.preventDefault();
+				}
+				document.addEventListener('submit', guard, true);
+				window.__alcovesReleaseFormGuard = function () {
+					document.removeEventListener('submit', guard, true);
+				};
+			})();
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover" class="h-full">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
