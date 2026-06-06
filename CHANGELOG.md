@@ -10,6 +10,13 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.27.0](https://github.com/rustyguts/alcoves/compare/v0.26.0...v0.27.0) (2026-06-06)
+
+
+### Added
+
+* **client:** UI quality pass + visual-regression screenshot harness ([#607](https://github.com/rustyguts/alcoves/issues/607)) ([2d5078e](https://github.com/rustyguts/alcoves/commit/2d5078e723420b246b67c2bfd309cdb5c58c5fe4))
+
 ## [0.26.0](https://github.com/rustyguts/alcoves/compare/v0.25.2...v0.26.0) (2026-06-06)
 
 
