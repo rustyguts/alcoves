@@ -515,12 +515,13 @@ func main() {
 		// bridge carries the authenticated user into the MCP tool handlers.
 		if cfg.MCPHTTPEnabled {
 			mcpSrv := mcpserver.NewServer(mcpserver.Deps{
-				DB:      db,
-				Access:  accessSvc,
-				Files:   ingestSvc,
-				Storage: storageSvc,
-				Signer:  signer,
-				BaseURL: cfg.BaseURL,
+				DB:       db,
+				Access:   accessSvc,
+				Files:    ingestSvc,
+				Storage:  storageSvc,
+				Signer:   signer,
+				Activity: activitySvc,
+				BaseURL:  cfg.BaseURL,
 				// Identity is resolved per request from the bearer token.
 			})
 			streamable := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return mcpSrv }, nil)
