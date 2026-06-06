@@ -67,3 +67,6 @@ frontend/playwright-report
 # Auto-generated type declarations (committed for vue-tsc)
 # frontend/auto-imports.d.ts
 # frontend/components.d.ts
+
+# graphify knowledge graph artifacts (regenerate with the graphify-setup skill)
+graphify-out/
