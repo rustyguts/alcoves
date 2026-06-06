@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5]
     defaults:
       run:
         working-directory: backend
@@ -144,8 +144,8 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Test (shard ${{ matrix.shard }}/3)
-        # The suite is sharded across 3 matrix jobs to parallelise it. Each shard
+      - name: Test (shard ${{ matrix.shard }}/5)
+        # The suite is sharded across 5 matrix jobs to parallelise it. Each shard
         # gets its OWN postgres + dragonfly service containers, so the shared test
         # DB and the shared Asynq queue cannot be contended ACROSS shards.
         #
@@ -163,13 +163,13 @@ jobs:
         # drop tests. Together the shards cover every package and every handlers test.
         run: |
           HANDLERS=github.com/alcoves/alcoves-backend/internal/handlers
-          PKGS=$(go list ./... | grep -vx "$HANDLERS" | awk -v s=${{ matrix.shard }} 'NR % 3 == (s - 1)')
-          echo "shard ${{ matrix.shard }}/3 packages:"; echo "$PKGS"
+          PKGS=$(go list ./... | grep -vx "$HANDLERS" | awk -v s=${{ matrix.shard }} 'NR % 5 == (s - 1)')
+          echo "shard ${{ matrix.shard }}/5 packages:"; echo "$PKGS"
           go test $PKGS -race -count=1 -p 1
 
           HTESTS=$(go test "$HANDLERS" -race -list '.*' | grep -E '^(Test|Fuzz|Example)' \
-            | awk -v s=${{ matrix.shard }} 'NR % 3 == (s - 1)' | paste -sd'|' -)
-          echo "shard ${{ matrix.shard }}/3 handlers tests: $(printf '%s' "$HTESTS" | tr '|' '\n' | grep -c .)"
+            | awk -v s=${{ matrix.shard }} 'NR % 5 == (s - 1)' | paste -sd'|' -)
+          echo "shard ${{ matrix.shard }}/5 handlers tests: $(printf '%s' "$HTESTS" | tr '|' '\n' | grep -c .)"
           go test "$HANDLERS" -race -count=1 -p 1 -run "^(${HTESTS})$"
 
   unit-and-coverage:
