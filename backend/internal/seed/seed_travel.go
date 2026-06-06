@@ -21,35 +21,37 @@ func (s *seeder) seedTravel(lib *models.Library, admin, alice *models.User) {
 	tLandscape := s.createTag("tag/travel/landscape", lib.ID, "landscape", "#22c55e", s.ago(80*day))
 	tCities := s.createTag("tag/travel/cities", lib.ID, "cities", "#8b5cf6", s.ago(78*day))
 
+	// Capture dates land across 2025 to match the "Travel 2025" library name and
+	// to give its timeline scrubber several month buckets.
 	banff := s.addFile(fileSpec{
 		idName: "file/travel/banff", lib: lib.ID, owner: admin.ID,
 		name: "banff-lake.jpg", assetRel: "images/mountain-lake.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(76 * day)), gpsLat: fp(51.4254), gpsLon: fp(-116.1773),
-		cameraMake: cam, camera: camModel, createdAt: s.ago(76 * day),
+		capturedAt: tp(s.ago(250 * day)), gpsLat: fp(51.4254), gpsLon: fp(-116.1773),
+		cameraMake: cam, camera: camModel, createdAt: s.ago(250 * day),
 	})
 	tokyo := s.addFile(fileSpec{
 		idName: "file/travel/tokyo", lib: lib.ID, owner: admin.ID,
 		name: "tokyo-skyline.jpg", assetRel: "images/city-skyline.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(64 * day)), gpsLat: fp(35.6762), gpsLon: fp(139.6503),
-		cameraMake: cam, camera: camModel, createdAt: s.ago(64 * day),
+		capturedAt: tp(s.ago(300 * day)), gpsLat: fp(35.6762), gpsLon: fp(139.6503),
+		cameraMake: cam, camera: camModel, createdAt: s.ago(300 * day),
 	})
 	sahara := s.addFile(fileSpec{
 		idName: "file/travel/sahara", lib: lib.ID, owner: alice.ID,
 		name: "sahara-dunes.jpg", assetRel: "images/desert-dunes.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(52 * day)), gpsLat: fp(31.0801), gpsLon: fp(-4.0000),
-		cameraMake: cam, camera: camModel, createdAt: s.ago(52 * day),
+		capturedAt: tp(s.ago(360 * day)), gpsLat: fp(31.0801), gpsLon: fp(-4.0000),
+		cameraMake: cam, camera: camModel, createdAt: s.ago(360 * day),
 	})
 	blackForest := s.addFile(fileSpec{
 		idName: "file/travel/blackforest", lib: lib.ID, owner: admin.ID,
 		name: "black-forest-trail.jpg", assetRel: "images/forest-trail.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(40 * day)), gpsLat: fp(48.2730), gpsLon: fp(8.1830),
-		cameraMake: cam, camera: camModel, createdAt: s.ago(40 * day),
+		capturedAt: tp(s.ago(430 * day)), gpsLat: fp(48.2730), gpsLon: fp(8.1830),
+		cameraMake: cam, camera: camModel, createdAt: s.ago(430 * day),
 	})
 	alps := s.addFile(fileSpec{
 		idName: "file/travel/alps", lib: lib.ID, owner: admin.ID,
 		name: "swiss-alps-ride.jpg", assetRel: "images/mountain-bike.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(28 * day)), gpsLat: fp(46.5197), gpsLon: fp(7.5448),
-		cameraMake: cam, camera: camModel, createdAt: s.ago(28 * day),
+		capturedAt: tp(s.ago(500 * day)), gpsLat: fp(46.5197), gpsLon: fp(7.5448),
+		cameraMake: cam, camera: camModel, createdAt: s.ago(500 * day),
 	})
 
 	s.tagFile(banff.ID, tLandscape.ID)

@@ -61,6 +61,15 @@ function onAvatarSelected(event: Event) {
   avatarPreviewUrl.value = URL.createObjectURL(file);
 }
 
+function discardAvatar() {
+  selectedAvatar.value = null;
+  if (avatarInput.value) avatarInput.value.value = "";
+  if (avatarPreviewUrl.value) {
+    URL.revokeObjectURL(avatarPreviewUrl.value);
+    avatarPreviewUrl.value = null;
+  }
+}
+
 onBeforeUnmount(() => {
   if (avatarPreviewUrl.value) URL.revokeObjectURL(avatarPreviewUrl.value);
 });
@@ -80,12 +89,7 @@ async function save() {
     if (hasDisplayNameUpdate) await updateProfile({ displayName: nextDisplayName });
     if (selectedAvatar.value) await uploadAvatar(selectedAvatar.value);
 
-    selectedAvatar.value = null;
-    if (avatarInput.value) avatarInput.value.value = "";
-    if (avatarPreviewUrl.value) {
-      URL.revokeObjectURL(avatarPreviewUrl.value);
-      avatarPreviewUrl.value = null;
-    }
+    discardAvatar();
     toast.add({ title: "Profile updated", color: "success" });
   } catch (error) {
     const message = getStatusMessage(error) ?? "Failed to update profile";
@@ -139,73 +143,65 @@ function getStatusMessage(error: unknown): string | null {
   return typeof statusMessage === "string" ? statusMessage : null;
 }
 
-const themeOptions: { label: string; value: ColorPreference; icon: string }[] = [
-  { label: "System", value: "auto", icon: ICONS.system },
-  { label: "Light", value: "light", icon: ICONS.light },
-  { label: "Dark", value: "dark", icon: ICONS.dark },
+const themeOptions: { label: string; value: ColorPreference; icon: string; hint: string }[] = [
+  { label: "System", value: "auto", icon: ICONS.system, hint: "Match device" },
+  { label: "Light", value: "light", icon: ICONS.light, hint: "Always light" },
+  { label: "Dark", value: "dark", icon: ICONS.dark, hint: "Always dark" },
 ];
 </script>
 
 <template>
-  <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 overflow-y-auto px-0.5 pb-6">
-    <!-- Identity -->
-    <UCard>
-      <div class="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+  <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 overflow-y-auto px-0.5 pb-8">
+    <!-- Identity hero — flat, sits directly on the page, no card chrome -->
+    <header class="flex flex-col items-center gap-5 pt-1 text-center sm:flex-row sm:text-left">
+      <button
+        type="button"
+        class="group relative shrink-0 rounded-full transition focus:outline-none"
+        @click="openAvatarPicker"
+      >
+        <UAvatar
+          :src="currentAvatarSrc ?? undefined"
+          :text="avatarInitial"
+          :alt="user?.displayName ?? 'User'"
+          size="3xl"
+          class="ring-4 ring-default/60 transition group-hover:ring-primary-500/30"
+        />
+        <span
+          class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition group-hover:opacity-100"
+        >
+          <UIcon :name="ICONS.camera" class="size-6 text-white" />
+        </span>
+      </button>
+
+      <div class="min-w-0 flex-1">
+        <h1 class="truncate text-2xl font-semibold text-highlighted">
+          {{ user?.displayName || "Your profile" }}
+        </h1>
+        <div
+          class="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:justify-start"
+        >
+          <span class="inline-flex max-w-full items-center gap-1.5 text-sm text-muted">
+            <UIcon :name="ICONS.email" class="size-4 shrink-0" />
+            <span class="break-all">{{ user?.email }}</span>
+          </span>
+          <UBadge
+            v-if="user?.role"
+            :color="user.role === 'owner' ? 'primary' : 'neutral'"
+            variant="subtle"
+            size="sm"
+            class="capitalize"
+          >
+            {{ user.role }}
+          </UBadge>
+        </div>
         <button
           type="button"
-          class="group relative shrink-0 rounded-full transition hover:ring-4 hover:ring-primary-500/20"
+          class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-primary transition hover:text-primary-600"
           @click="openAvatarPicker"
         >
-          <UAvatar
-            :src="currentAvatarSrc ?? undefined"
-            :text="avatarInitial"
-            :alt="user?.displayName ?? 'User'"
-            size="3xl"
-          />
-          <span
-            class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition group-hover:opacity-100"
-          >
-            <UIcon :name="ICONS.camera" class="size-6 text-white" />
-          </span>
+          <UIcon :name="ICONS.camera" class="size-3.5" />
+          Change photo
         </button>
-
-        <div class="w-full min-w-0 flex-1 space-y-4 text-center sm:text-left">
-          <UFormField label="Display name" :ui="{ container: 'mt-1' }">
-            <UInput
-              v-model="displayName"
-              placeholder="Display name"
-              size="lg"
-              class="w-full"
-              :ui="{ root: 'w-full' }"
-            />
-          </UFormField>
-
-          <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-            <span class="inline-flex max-w-full items-center gap-1.5 text-sm text-muted">
-              <UIcon :name="ICONS.email" class="size-4 shrink-0" />
-              <span class="break-all">{{ user?.email }}</span>
-            </span>
-            <UBadge
-              v-if="user?.role"
-              :color="user.role === 'owner' ? 'primary' : 'neutral'"
-              variant="subtle"
-              size="sm"
-              class="capitalize"
-            >
-              {{ user.role }}
-            </UBadge>
-          </div>
-
-          <UButton
-            color="primary"
-            :loading="saving"
-            :disabled="!hasProfileChanges"
-            :icon="ICONS.save"
-            @click="save"
-          >
-            Save changes
-          </UButton>
-        </div>
       </div>
 
       <input
@@ -215,50 +211,126 @@ const themeOptions: { label: string; value: ColorPreference; icon: string }[] = 
         class="hidden"
         @change="onAvatarSelected"
       />
-    </UCard>
+    </header>
+
+    <!-- Account -->
+    <AppPanel
+      title="Account"
+      description="Update how your name appears across Alcoves."
+      :icon="ICONS.person"
+    >
+      <template #actions>
+        <UButton
+          color="primary"
+          :loading="saving"
+          :disabled="!hasProfileChanges"
+          :icon="ICONS.save"
+          @click="save"
+        >
+          Save changes
+        </UButton>
+      </template>
+
+      <div class="space-y-4">
+        <UFormField label="Display name">
+          <UInput
+            v-model="displayName"
+            placeholder="Display name"
+            size="lg"
+            class="w-full"
+            :ui="{ root: 'w-full' }"
+          />
+        </UFormField>
+
+        <div
+          v-if="selectedAvatar"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-primary-500/10 px-3 py-2 text-sm text-primary"
+        >
+          <span class="inline-flex items-center gap-2">
+            <UIcon :name="ICONS.camera" class="size-4 shrink-0" />
+            New photo selected — save changes to apply.
+          </span>
+          <UButton color="primary" variant="ghost" size="xs" @click="discardAvatar">
+            Discard
+          </UButton>
+        </div>
+      </div>
+    </AppPanel>
 
     <!-- Appearance -->
-    <AppPanel title="Appearance" :icon="ICONS.appearance">
-      <div class="grid grid-cols-3 gap-3">
+    <AppPanel
+      title="Appearance"
+      description="Choose how Alcoves looks on this device."
+      :icon="ICONS.appearance"
+    >
+      <div class="grid grid-cols-3 gap-2 sm:gap-3">
         <button
           v-for="opt in themeOptions"
           :key="opt.value"
           type="button"
-          class="flex flex-col items-center gap-2 rounded-md p-4 transition"
+          class="relative flex flex-col items-center gap-1.5 rounded-md px-3 py-4 text-center transition"
           :class="
             themePreference === opt.value
-              ? 'bg-primary-500/10 ring-1 ring-primary-500'
-              : 'bg-elevated/50 hover:bg-elevated'
+              ? 'bg-primary-500/10 ring-1 ring-inset ring-primary-500'
+              : 'bg-elevated/60 hover:bg-elevated'
           "
           @click="themePreference = opt.value"
         >
-          <UIcon :name="opt.icon" class="size-6" />
+          <UIcon
+            v-if="themePreference === opt.value"
+            :name="ICONS.success"
+            class="absolute right-2 top-2 size-4 text-primary"
+          />
+          <UIcon
+            :name="opt.icon"
+            class="size-6"
+            :class="themePreference === opt.value ? 'text-primary' : 'text-muted'"
+          />
           <span class="text-sm font-medium">{{ opt.label }}</span>
+          <span class="text-xs text-muted">{{ opt.hint }}</span>
         </button>
       </div>
     </AppPanel>
 
     <!-- Active sessions -->
-    <AppPanel title="Active sessions" description="Revoke any session you don't recognise.">
+    <AppPanel
+      title="Active sessions"
+      description="Revoke any session you don't recognise."
+      :icon="ICONS.admin"
+    >
       <template #actions>
-        <UBadge color="neutral" variant="outline">{{ sessions?.length ?? 0 }} total</UBadge>
+        <UBadge color="neutral" variant="soft">{{ sessions?.length ?? 0 }}</UBadge>
       </template>
 
-      <div v-if="sessions?.length" class="grid gap-2">
+      <div
+        v-if="sessions?.length"
+        class="divide-y divide-default overflow-hidden rounded-md bg-elevated"
+      >
         <div
           v-for="session in sessions"
           :key="session.id"
-          class="flex flex-wrap items-center justify-between gap-3 rounded-md bg-elevated px-4 py-3"
+          class="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
         >
-          <div class="min-w-0 space-y-1">
-            <div class="flex items-center gap-2">
-              <UIcon :name="ICONS.system" class="size-4 shrink-0 text-muted" />
-              <span class="truncate font-medium">{{ parseBrowser(session.userAgent) }}</span>
-              <UBadge v-if="session.isCurrent" color="primary" size="sm">Current</UBadge>
+          <div class="flex min-w-0 items-center gap-3">
+            <div
+              class="flex size-9 shrink-0 items-center justify-center rounded-full bg-default text-dimmed"
+            >
+              <UIcon :name="ICONS.system" class="size-4" />
             </div>
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-              <span v-if="session.ipAddress">{{ session.ipAddress }}</span>
-              <span>Signed in {{ formatSessionDate(session.createdAt) }}</span>
+            <div class="min-w-0 space-y-0.5">
+              <div class="flex items-center gap-2">
+                <span class="truncate text-sm font-medium text-highlighted">
+                  {{ parseBrowser(session.userAgent) }}
+                </span>
+                <UBadge v-if="session.isCurrent" color="primary" variant="subtle" size="sm">
+                  Current
+                </UBadge>
+              </div>
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+                <span v-if="session.ipAddress">{{ session.ipAddress }}</span>
+                <span v-if="session.ipAddress" aria-hidden="true">·</span>
+                <span>Signed in {{ formatSessionDate(session.createdAt) }}</span>
+              </div>
             </div>
           </div>
           <UButton

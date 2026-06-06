@@ -34,6 +34,16 @@ Use the view-toggle in the toolbar to switch between:
 
 Your preference is saved in the browser and restored the next time you open the library.
 
+### Timeline view
+
+The **Timeline** tab presents a library's photos and videos as a Google-Photos-style gallery, newest first:
+
+- **Grouped by day.** Each day is its own section with a date heading (for example, *Wed, Jan 14*) and a count. Photos are laid out in justified rows that fill the full width of the window — including the last row of each day — so there are no ragged gaps.
+- **Video duration.** Video tiles show their length (for example, *1:35*) in the bottom-right corner.
+- **Date scrubber.** A slim rail down the right edge maps the library's whole date range to the scroll position. It shows year labels, per-month density marks (longer marks mean more photos that month), and a draggable handle. Drag the handle — or click a year — to jump to that period; a floating bubble shows the date under the handle. The rail appears only when a library spans more than one month, and it can be operated with the keyboard (arrow keys, Page Up/Down, Home/End).
+
+Timeline groups files by their capture date (from photo/video metadata), falling back to the upload date when no capture date is available.
+
 ---
 
 ## Uploading files
