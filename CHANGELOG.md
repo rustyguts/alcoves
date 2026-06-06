@@ -10,6 +10,13 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.27.1](https://github.com/rustyguts/alcoves/compare/v0.27.0...v0.27.1) (2026-06-06)
+
+
+### Fixed
+
+* **client:** stop the settings-page effect loop that broke the mobile sidebar ([#609](https://github.com/rustyguts/alcoves/issues/609)) ([a561dad](https://github.com/rustyguts/alcoves/commit/a561dad7e98ee52c2e1b1cba1189390d531ef63a))
+
 ## [0.27.0](https://github.com/rustyguts/alcoves/compare/v0.26.0...v0.27.0) (2026-06-06)
 
 
