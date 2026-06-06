@@ -4,6 +4,7 @@ vi.mock("~/api", () => ({
   api: {
     libraries: {
       timeline: vi.fn(),
+      timelineHistogram: vi.fn(),
     },
   },
 }));
@@ -13,6 +14,7 @@ import { api } from "~/api";
 import type { LibraryFile, LibraryFolder, PaginatedFiles } from "~~/shared/types/api";
 
 const mockTimeline = api.libraries.timeline as unknown as ReturnType<typeof vi.fn>;
+const mockHistogram = api.libraries.timelineHistogram as unknown as ReturnType<typeof vi.fn>;
 
 function makeFile(id: string, over: Partial<LibraryFile> = {}): LibraryFile {
   return {
@@ -62,6 +64,10 @@ function page(entries: (LibraryFile | LibraryFolder)[], nextCursor: string | nul
 
 beforeEach(() => {
   mockTimeline.mockReset();
+  mockHistogram.mockReset();
+  // The composable persists the type filter to localStorage; clear it so a
+  // prior test's setType("all") doesn't leak the filter into the next.
+  localStorage.clear();
 });
 
 describe("useLibraryTimeline", () => {
@@ -168,5 +174,65 @@ describe("useLibraryTimeline", () => {
 
     expect(tl.error.value).toBe("boom");
     expect(tl.entries.value).toHaveLength(0);
+  });
+
+  it("uses the histogram endpoint for scrubber buckets", async () => {
+    const buckets = [
+      { year: 2026, month: 1, count: 5 },
+      { year: 2025, month: 12, count: 3 },
+    ];
+    mockHistogram.mockResolvedValue({ buckets, totalCount: 8 });
+
+    const tl = useLibraryTimeline("lib-1");
+    await tl.loadHistogram();
+
+    expect(tl.buckets.value).toEqual(buckets);
+    expect(mockHistogram).toHaveBeenCalledWith("lib-1", { type: "media" });
+  });
+
+  it("falls back to buckets derived from loaded pages when the histogram fails", async () => {
+    mockHistogram.mockRejectedValue(new Error("no histogram"));
+    mockTimeline.mockResolvedValueOnce(
+      page(
+        [
+          makeFile("a", { capturedAt: "2026-01-15T00:00:00Z" }),
+          makeFile("b", { capturedAt: "2026-01-20T00:00:00Z" }),
+          makeFile("c", { capturedAt: "2025-12-02T00:00:00Z" }),
+        ],
+        null,
+        3,
+      ),
+    );
+
+    const tl = useLibraryTimeline("lib-1");
+    await tl.loadFirst();
+    await tl.loadHistogram();
+
+    expect(tl.buckets.value).toEqual([
+      { year: 2026, month: 1, count: 2 },
+      { year: 2025, month: 12, count: 1 },
+    ]);
+  });
+
+  it("groups by originalCreatedAt when capturedAt is absent (matches backend COALESCE)", async () => {
+    mockTimeline.mockResolvedValueOnce(
+      page(
+        [
+          makeFile("a", {
+            capturedAt: null,
+            originalCreatedAt: "2026-03-10T00:00:00Z",
+            createdAt: "2020-01-01T00:00:00Z",
+          }),
+        ],
+        null,
+        1,
+      ),
+    );
+
+    const tl = useLibraryTimeline("lib-1");
+    await tl.loadFirst();
+
+    expect(tl.groups.value).toHaveLength(1);
+    expect(tl.groups.value[0]!.label).toContain("March 10");
   });
 });

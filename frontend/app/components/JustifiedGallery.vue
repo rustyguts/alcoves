@@ -15,11 +15,12 @@ import AppIcon from "~/components/AppIcon.vue";
  *
  * Two modes:
  *   - default: one justified block per group, with a sticky group heading and
- *     optional large section divider (used by global search).
- *   - `continuous`: ALL groups' items flow through a single justified pass, so
- *     consecutive days share rows and no per-day trailing gap is wasted. Each
- *     day's first tile carries a compact date marker instead of a full-width
- *     heading band (used by the timeline).
+ *     optional large section divider (used by global search). The trailing row
+ *     of each group is left ragged (not stretched).
+ *   - `continuous`: one justified block per group (day), each under a real
+ *     heading band, with every group's trailing row stretched to full width so
+ *     the grid fills the container edge-to-edge — Google-Photos style. The
+ *     section carries `data-group-key` as a scroll anchor (used by the timeline).
  */
 
 const props = withDefaults(
@@ -62,108 +63,85 @@ interface LaidOutGroup {
   rows: JustifiedRow<GalleryItem<T>>[];
 }
 
-// Default mode: one justified block per group.
-const laidOut = computed<LaidOutGroup[]>(() =>
-  props.continuous
-    ? []
-    : props.groups.map((group) => ({
-        group,
-        rows: justifiedLayout(group.items, (i) => i.aspect, {
-          containerWidth: width.value,
-          targetRowHeight: props.targetRowHeight,
-          gap: props.gap,
-          maxRowHeight: props.maxRowHeight,
-        }),
-      })),
-);
-
-interface DayMarker {
-  heading: string;
-  groupKey: string;
-}
-
-// Continuous mode: flatten every group's items into one stream and justify the
-// whole thing, recording where each day starts so we can drop a date marker /
-// scroll anchor on its first tile.
-const flat = computed<{ rows: JustifiedRow<GalleryItem<T>>[]; markers: Map<string, DayMarker> }>(
-  () => {
-    if (!props.continuous) return { rows: [], markers: new Map() };
-    const items: GalleryItem<T>[] = [];
-    const markers = new Map<string, DayMarker>();
-    for (const group of props.groups) {
-      group.items.forEach((it, idx) => {
-        if (idx === 0) markers.set(it.id, { heading: group.heading, groupKey: group.key });
-        items.push(it);
-      });
-    }
-    const rows = justifiedLayout(items, (i) => i.aspect, {
+// Justify a single group's items at the current container width. `stretchLastRow`
+// fills the trailing row edge-to-edge (continuous/timeline mode) versus leaving
+// it ragged (default/search mode).
+function layoutGroup(group: GalleryGroup<T>, stretchLastRow: boolean): LaidOutGroup {
+  return {
+    group,
+    rows: justifiedLayout(group.items, (i) => i.aspect, {
       containerWidth: width.value,
       targetRowHeight: props.targetRowHeight,
       gap: props.gap,
       maxRowHeight: props.maxRowHeight,
-    });
-    return { rows, markers };
-  },
+      stretchLastRow,
+    }),
+  };
+}
+
+// Default mode: one justified block per group (ragged trailing row, sticky heading).
+const laidOut = computed<LaidOutGroup[]>(() =>
+  props.continuous ? [] : props.groups.map((g) => layoutGroup(g, false)),
+);
+
+// Continuous (timeline) mode: one justified block per DAY, each day's trailing
+// row stretched to full width, with a real heading band above each day.
+const laidOutContinuous = computed<LaidOutGroup[]>(() =>
+  props.continuous ? props.groups.map((g) => layoutGroup(g, true)) : [],
 );
 </script>
 
 <template>
   <div ref="rootEl">
-    <!-- Continuous flow: days share rows; date markers ride the first tile. -->
+    <!-- Continuous (timeline): one section per day, full-width rows, heading band. -->
     <template v-if="continuous">
-      <div class="flex flex-col" :style="{ gap: `${gap}px` }">
-        <div v-for="(row, ri) in flat.rows" :key="ri" class="flex" :style="{ gap: `${gap}px` }">
-          <button
-            v-for="box in row.boxes"
-            :key="box.item.id"
-            type="button"
-            :data-group-key="flat.markers.get(box.item.id)?.groupKey"
-            class="group relative cursor-pointer overflow-hidden rounded-[2px] bg-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:z-10"
-            :style="{ width: `${box.width}px`, height: `${box.height}px` }"
-            @click="emit('select', box.item.raw)"
-          >
-            <AlcovesImage
-              v-if="box.item.thumbnailFileId"
-              :library-id="box.item.libraryId"
-              :file-id="box.item.thumbnailFileId"
-              :source-width="box.item.sourceWidth"
-              :source-height="box.item.sourceHeight"
-              :alt="box.item.name"
-              variant="timeline"
-              class="h-full w-full object-cover transition duration-200 group-hover:brightness-110"
-            />
-            <span v-else class="flex h-full w-full items-center justify-center text-dimmed">
-              <AppIcon :name="getMimeIcon(box.item.mime)" class="size-7" />
-            </span>
+      <section
+        v-for="entry in laidOutContinuous"
+        :key="entry.group.key"
+        :data-group-key="entry.group.key"
+        class="mb-6"
+      >
+        <div class="flex items-baseline gap-2 px-1 pt-5 pb-2 first:pt-1">
+          <h3 class="text-sm font-semibold text-default">{{ entry.group.heading }}</h3>
+          <span class="text-xs text-dimmed tabular-nums">{{ entry.group.count }}</span>
+        </div>
 
-            <!-- Date marker: the first tile of each day -->
-            <span
-              v-if="flat.markers.get(box.item.id)"
-              class="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[11px] font-medium leading-none text-white backdrop-blur-sm"
+        <div class="flex flex-col" :style="{ gap: `${gap}px` }">
+          <div v-for="(row, ri) in entry.rows" :key="ri" class="flex" :style="{ gap: `${gap}px` }">
+            <button
+              v-for="box in row.boxes"
+              :key="box.item.id"
+              type="button"
+              class="group relative cursor-pointer overflow-hidden rounded-[2px] bg-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:z-10"
+              :style="{ width: `${box.width}px`, height: `${box.height}px` }"
+              :title="box.item.name"
+              @click="emit('select', box.item.raw)"
             >
-              {{ flat.markers.get(box.item.id)!.heading }}
-            </span>
+              <AlcovesImage
+                v-if="box.item.thumbnailFileId"
+                :library-id="box.item.libraryId"
+                :file-id="box.item.thumbnailFileId"
+                :source-width="box.item.sourceWidth"
+                :source-height="box.item.sourceHeight"
+                :alt="box.item.name"
+                variant="timeline"
+                class="h-full w-full object-cover transition duration-200 group-hover:brightness-110"
+              />
+              <span v-else class="flex h-full w-full items-center justify-center text-dimmed">
+                <AppIcon :name="getMimeIcon(box.item.mime)" class="size-7" />
+              </span>
 
-            <!-- Video affordance -->
-            <span
-              v-if="box.item.isVideo"
-              class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/45 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
-            />
-            <span
-              v-if="box.item.isVideo"
-              class="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded bg-black/65 px-1 py-0.5 text-white"
-            >
-              <AppIcon name="i-lineicons-play" class="size-3 shrink-0" />
+              <!-- Video duration (no play icon) -->
               <span
-                v-if="box.item.durationLabel"
-                class="text-[10px] font-medium leading-none tabular-nums"
+                v-if="box.item.isVideo && box.item.durationLabel"
+                class="absolute bottom-1.5 right-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-medium leading-none tabular-nums text-white"
               >
                 {{ box.item.durationLabel }}
               </span>
-            </span>
-          </button>
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
     </template>
 
     <!-- Default: one justified block per group with sticky headings. -->
@@ -217,13 +195,20 @@ const flat = computed<{ rows: JustifiedRow<GalleryItem<T>>[]; markers: Map<strin
                 {{ box.item.badge }}
               </span>
 
-              <!-- Video affordance -->
+              <!-- Video affordance: duration when known, else a play badge so a
+                   video is still distinguishable (search results carry no duration). -->
               <span
                 v-if="box.item.isVideo"
                 class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/45 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
               />
               <span
-                v-if="box.item.isVideo"
+                v-if="box.item.isVideo && box.item.durationLabel"
+                class="absolute bottom-1.5 right-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-medium leading-none tabular-nums text-white"
+              >
+                {{ box.item.durationLabel }}
+              </span>
+              <span
+                v-else-if="box.item.isVideo"
                 class="absolute bottom-1.5 right-1.5 rounded bg-black/60 p-0.5 text-white"
               >
                 <AppIcon name="i-lineicons-play" class="size-3" />
