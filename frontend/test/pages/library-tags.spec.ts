@@ -114,16 +114,16 @@ describe("libraries/[id]/tags.vue", () => {
   // auto-imported `useRoute` resolves from `#app/composables/router` and our
   // `vue-router`/`#imports` mocks don't intercept it. Tracked in
   // docs/todos.md item 9.
-  it.skip("renders a single table-based tag manager", async () => {
+  it.skip("renders a flat tag manager", async () => {
     const wrapper = mountPage();
 
     await vi.waitFor(() => {
       expect(mocks.apiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags");
     });
 
-    expect(wrapper.text()).toContain("Manage Tags");
-    expect(wrapper.text()).toContain("Color");
-    expect(wrapper.text()).toContain("Items");
+    expect(wrapper.text()).toContain("Tags");
+    expect(wrapper.find("input[placeholder='Add a tag']").exists()).toBe(true);
+    expect(wrapper.find("table").exists()).toBe(false);
     expect(wrapper.text()).not.toContain("Tag Manager");
   });
 
@@ -131,17 +131,16 @@ describe("libraries/[id]/tags.vue", () => {
   // auto-imported `useRoute` resolves from `#app/composables/router` and our
   // `vue-router`/`#imports` mocks don't intercept it. Tracked in
   // docs/todos.md item 9.
-  it.skip("creates a tag from the first table row", async () => {
+  it.skip("creates a tag from the create row", async () => {
     const wrapper = mountPage();
 
     await vi.waitFor(() => {
       expect(mocks.apiFetch).toHaveBeenCalledWith("/api/libraries/lib-1/tags");
     });
 
-    const createInput = wrapper.find("tbody tr:first-child input[placeholder='New tag']");
+    const createInput = wrapper.find("input[placeholder='Add a tag']");
     await createInput.setValue("New Tag");
-    const createRow = wrapper.find("tbody tr:first-child");
-    const createButton = createRow
+    const createButton = wrapper
       .findAll("button")
       .find((b) => b.attributes("data-color") === "primary");
     await createButton?.trigger("click");
