@@ -36,10 +36,6 @@
 		(libraries ?? []).filter((l) => !l.isDefault).sort((a, b) => a.name.localeCompare(b.name))
 	);
 
-	function label(l: Library): string {
-		return l.emoji ? `${l.emoji}  ${l.name}` : l.name;
-	}
-
 	function select(id: string) {
 		open = false;
 		goto(`/libraries/${id}`);
@@ -82,7 +78,7 @@
 					{:else}
 						<AppIcon name={ICONS.library} class="size-4 shrink-0 opacity-60" />
 					{/if}
-					<span class="min-w-0 flex-1 truncate">{label(def)}</span>
+					<span class="min-w-0 flex-1 truncate">{def.name}</span>
 					{#if def.id === current?.id}
 						<AppIcon name={ICONS.check} class="size-4 shrink-0 text-primary-500" />
 					{/if}
@@ -104,7 +100,7 @@
 						{:else}
 							<AppIcon name={ICONS.folder} class="size-4 shrink-0 opacity-60" />
 						{/if}
-						<span class="min-w-0 flex-1 truncate">{label(l)}</span>
+						<span class="min-w-0 flex-1 truncate">{l.name}</span>
 						{#if l.id === current?.id}
 							<AppIcon name={ICONS.check} class="size-4 shrink-0 text-primary-500" />
 						{/if}

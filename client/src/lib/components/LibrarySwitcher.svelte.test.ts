@@ -155,4 +155,25 @@ describe('LibrarySwitcher', () => {
 		const trigger = screen.container.querySelector('button[aria-haspopup]') as HTMLElement;
 		expect(trigger.textContent).toContain('🏠');
 	});
+
+	it('shows each library emoji exactly once per dropdown row (not duplicated)', async () => {
+		const screen = render(LibrarySwitcher, {
+			props: {
+				libraries: [
+					lib({ id: 'def', name: 'Home', isDefault: true, emoji: '🏠' }),
+					lib({ id: 'lib-2', name: 'Projects', emoji: '🚀' })
+				],
+				currentLibraryId: 'def'
+			}
+		});
+		await open(screen);
+		// Dropdown rows are the buttons that aren't the popover trigger.
+		const rows = Array.from(screen.container.querySelectorAll('button')).filter(
+			(b) => !b.hasAttribute('aria-haspopup')
+		);
+		const homeRow = rows.find((b) => b.textContent?.includes('Home'));
+		const projRow = rows.find((b) => b.textContent?.includes('Projects'));
+		expect((homeRow?.textContent?.match(/🏠/g) ?? []).length).toBe(1);
+		expect((projRow?.textContent?.match(/🚀/g) ?? []).length).toBe(1);
+	});
 });
