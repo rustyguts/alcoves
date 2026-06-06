@@ -155,12 +155,22 @@ jobs:
         # (The shared queue, not just the DB, is why -p 1 is still load-bearing:
         # only filehash isolates onto its own Redis DB; the rest use DB 0.)
         #
-        # Packages are partitioned by `go list` order (round-robin) so each runs
-        # in exactly one shard and the three shards together cover every package.
+        # internal/handlers (~494 tests, ~130s — by far the heaviest package) is
+        # split BY TEST NAME across shards via -run so it no longer bottlenecks one
+        # shard; every other package is round-robined by `go list` order. -list
+        # reuses the same -race build cache as the run (handlers compiles once),
+        # and `bash -eo pipefail` makes a broken split fail loudly, never silently
+        # drop tests. Together the shards cover every package and every handlers test.
         run: |
-          PKGS=$(go list ./... | awk -v s=${{ matrix.shard }} 'NR % 3 == (s - 1)')
+          HANDLERS=github.com/alcoves/alcoves-backend/internal/handlers
+          PKGS=$(go list ./... | grep -vx "$HANDLERS" | awk -v s=${{ matrix.shard }} 'NR % 3 == (s - 1)')
           echo "shard ${{ matrix.shard }}/3 packages:"; echo "$PKGS"
           go test $PKGS -race -count=1 -p 1
+
+          HTESTS=$(go test "$HANDLERS" -race -list '.*' | grep -E '^(Test|Fuzz|Example)' \
+            | awk -v s=${{ matrix.shard }} 'NR % 3 == (s - 1)' | paste -sd'|' -)
+          echo "shard ${{ matrix.shard }}/3 handlers tests: $(printf '%s' "$HTESTS" | tr '|' '\n' | grep -c .)"
+          go test "$HANDLERS" -race -count=1 -p 1 -run "^(${HTESTS})$"
 
   unit-and-coverage:
     runs-on: ubuntu-latest
