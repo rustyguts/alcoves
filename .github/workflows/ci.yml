@@ -270,6 +270,15 @@ jobs:
         working-directory: client
         run: bunx playwright install --with-deps chromium
 
+      # The backend requires ALCOVES_SESSION_SECRET; ALCOVES_ENV=development keeps
+      # the dev seed enabled (the e2e relies on the seeded data).
+      - name: Provide stack env (session secret + dev mode for seeding)
+        run: |
+          {
+            echo "ALCOVES_SESSION_SECRET=$(openssl rand -base64 32)"
+            echo "ALCOVES_ENV=development"
+          } > .env
+
       - name: Bring up the backend stack (Postgres + Dragonfly + Go API/worker, seeded)
         run: docker compose up -d --build postgres dragonfly backend
 
