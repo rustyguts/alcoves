@@ -67,12 +67,27 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
+      # Cache the downloaded .debs (the slow part of the apt install ~50s) so
+      # warm runs skip the download and only unpack/configure. Versions are in
+      # the key implicitly via the monthly-ish runner image; a package bump just
+      # misses for that one deb and re-downloads it (self-healing).
+      - name: Cache apt archives (libvips + ffmpeg)
+        uses: actions/cache@v4
+        with:
+          path: ~/.apt-archives
+          key: apt-${{ runner.os }}-libvips-ffmpeg-v1
+
       - name: Install libvips + ffmpeg
         run: |
+          mkdir -p ~/.apt-archives
           sudo apt-get update
           # ffmpeg powers the audio extraction in the waveform, audio-event
-          # detection, and transcription real-data tests.
-          sudo apt-get install -y libvips-dev libheif-plugin-aomenc libheif-plugin-x265 ffmpeg
+          # detection, and transcription real-data tests. -o Dir::Cache::Archives
+          # points apt at the cached .deb dir so unchanged packages aren't re-downloaded.
+          sudo apt-get -o Dir::Cache::Archives="$HOME/.apt-archives" install -y \
+            libvips-dev libheif-plugin-aomenc libheif-plugin-x265 ffmpeg
+          # make root-written debs readable so actions/cache can save them
+          sudo chmod -R a+rX ~/.apt-archives
 
       - name: Install ONNX Runtime
         run: |
