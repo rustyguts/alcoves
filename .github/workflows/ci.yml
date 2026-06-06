@@ -10,6 +10,10 @@ jobs:
   backend-test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     defaults:
       run:
         working-directory: backend
@@ -45,6 +49,7 @@ jobs:
           - 6389:6379
 
     env:
+      WHISPER_VERSION: v1.8.4
       ALCOVES_DATABASE_URL: postgres://postgres:postgres@localhost:5455/alcoves_test
       ALCOVES_SESSION_SECRET: alcoves-ci-secret-key-for-go-tests!!
       ALCOVES_STORAGE_DRIVER: local
@@ -86,20 +91,49 @@ jobs:
           sudo ldconfig
           rm -rf "onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}"*
 
+      # whisper.cpp is a fixed release, so cache the built artifacts (keyed on
+      # WHISPER_VERSION) instead of rebuilding from source (~72s) on every run.
+      - name: Cache whisper.cpp build
+        id: whisper-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/whisper-dist
+          # The -x86-64-v3 suffix invalidates the earlier cache that was built
+          # with native CPU detection (it baked in the builder runner's AVX-512
+          # and SIGILL'd — "illegal instruction" — when restored onto a runner
+          # without it). Bump this suffix if the build flags below change again.
+          key: whisper-${{ runner.os }}-${{ env.WHISPER_VERSION }}-x86-64-v3
+
       - name: Build whisper.cpp (whisper-cli)
+        if: steps.whisper-cache.outputs.cache-hit != 'true'
         run: |
           # Build the same whisper.cpp release the Docker image ships so the
           # transcription real-data test runs against the real binary. Models are
-          # downloaded at test time.
-          WHISPER_VERSION=v1.8.4
+          # downloaded at test time. Outputs go to the cached /tmp/whisper-dist.
           git clone --depth 1 --branch "${WHISPER_VERSION}" https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp
-          cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
+          # Portable x86-64-v3 baseline (AVX/AVX2/FMA/F16C on, AVX-512 OFF, no
+          # -march=native) — mirrors the prod Dockerfile. The artifact is cached
+          # and restored onto arbitrary GitHub runners, so it must NOT bake in
+          # the builder's CPU features or whisper-cli SIGILLs on narrower runners.
+          cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+            -DWHISPER_NATIVE=OFF -DGGML_NATIVE=OFF \
+            -DWHISPER_AVX=ON -DWHISPER_AVX2=ON -DWHISPER_FMA=ON -DWHISPER_F16C=ON \
+            -DWHISPER_AVX512=OFF -DWHISPER_AVX512_VBMI=OFF -DWHISPER_AVX512_VNNI=OFF \
+            -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON \
+            -DGGML_AVX512=OFF -DGGML_AVX512_VBMI=OFF -DGGML_AVX512_VNNI=OFF \
+            -DCMAKE_C_FLAGS=-march=x86-64-v3 -DCMAKE_CXX_FLAGS=-march=x86-64-v3
           cmake --build /tmp/whisper.cpp/build -j --config Release
-          sudo install -m 0755 /tmp/whisper.cpp/build/bin/whisper-cli /usr/local/bin/whisper-cli
-          sudo find /tmp/whisper.cpp/build -name 'libwhisper.so*' -exec cp -a {} /usr/local/lib/ \;
-          sudo find /tmp/whisper.cpp/build -name 'libggml*.so*' -exec cp -a {} /usr/local/lib/ \;
-          sudo ldconfig
+          mkdir -p /tmp/whisper-dist/bin /tmp/whisper-dist/lib
+          cp /tmp/whisper.cpp/build/bin/whisper-cli /tmp/whisper-dist/bin/
+          find /tmp/whisper.cpp/build -name 'libwhisper.so*' -exec cp -a {} /tmp/whisper-dist/lib/ \;
+          find /tmp/whisper.cpp/build -name 'libggml*.so*' -exec cp -a {} /tmp/whisper-dist/lib/ \;
           rm -rf /tmp/whisper.cpp
+
+      - name: Install whisper.cpp
+        run: |
+          sudo install -m 0755 /tmp/whisper-dist/bin/whisper-cli /usr/local/bin/whisper-cli
+          sudo cp -a /tmp/whisper-dist/lib/. /usr/local/lib/
+          sudo ldconfig
 
       - name: Download Go modules
         run: go mod download
@@ -110,12 +144,23 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Test
-        # -p 1 forces sequential package execution. Multiple packages
-        # (internal/handlers, internal/services/files) share the single test
-        # postgres and TRUNCATE/DELETE the same tables; running them in parallel
-        # causes FK violations and deadlocks between concurrent test runs.
-        run: go test ./... -race -count=1 -p 1
+      - name: Test (shard ${{ matrix.shard }}/3)
+        # The suite is sharded across 3 matrix jobs to parallelise it. Each shard
+        # gets its OWN postgres + dragonfly service containers, so the shared test
+        # DB and the shared Asynq queue cannot be contended ACROSS shards.
+        #
+        # -p 1 is kept WITHIN a shard: several packages (internal/handlers and the
+        # service packages) share that shard's single postgres + queue and would
+        # otherwise race — TRUNCATE/FK on the DB and inspect/purge on the queue.
+        # (The shared queue, not just the DB, is why -p 1 is still load-bearing:
+        # only filehash isolates onto its own Redis DB; the rest use DB 0.)
+        #
+        # Packages are partitioned by `go list` order (round-robin) so each runs
+        # in exactly one shard and the three shards together cover every package.
+        run: |
+          PKGS=$(go list ./... | awk -v s=${{ matrix.shard }} 'NR % 3 == (s - 1)')
+          echo "shard ${{ matrix.shard }}/3 packages:"; echo "$PKGS"
+          go test $PKGS -race -count=1 -p 1
 
   unit-and-coverage:
     runs-on: ubuntu-latest
