@@ -94,7 +94,7 @@ useSeoMeta({
     </main>
 
     <footer class="border-t border-neutral-800 py-4 text-center text-sm text-neutral-500">
-      <a v-if="meta" :href="meta.appUrl" class="text-primary transition-opacity hover:opacity-80">
+      <a v-if="meta" :href="meta.appUrl" class="text-emerald-500 hover:text-emerald-400">
         View on Alcoves
       </a>
     </footer>

@@ -2,17 +2,9 @@ import { ICONS } from "./utils/icons";
 
 export default defineAppConfig({
   ui: {
-    // One Dark Pro palette. Each accent maps to a custom color ramp defined in
-    // app/assets/css/main.css; `neutral` points at Tailwind's `neutral` scale,
-    // which that file overrides with the blue-tinted One Dark slate.
     colors: {
-      primary: "onedarkblue",
-      secondary: "onedarkpurple",
-      success: "onedarkgreen",
-      info: "onedarkcyan",
-      warning: "onedarkamber",
-      error: "onedarkred",
-      neutral: "neutral",
+      primary: "emerald",
+      neutral: "zinc",
     },
     // Nuxt UI's built-in component chrome (select/accordion chevrons, checkbox
     // ticks, modal/toast close, loaders, etc.) defaults to Lucide. Remap every
