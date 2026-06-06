@@ -57,7 +57,7 @@ const emit = defineEmits<{
       <UInput
         :model-value="draft"
         size="sm"
-        placeholder="#3B82F6"
+        placeholder="#61AFEF"
         class="mt-2 font-mono uppercase"
         :ui="{ root: 'w-full' }"
         @update:model-value="emit('updateDraft', String($event ?? ''))"

@@ -38,7 +38,7 @@ const adding = ref(false);
 const draft = ref<DraftState>(blankDraft());
 
 function blankDraft(): DraftState {
-  return { name: "", expression: "", proximitySeconds: 5, color: "#3B82F6" };
+  return { name: "", expression: "", proximitySeconds: 5, color: "#61AFEF" };
 }
 
 function startAdd() {

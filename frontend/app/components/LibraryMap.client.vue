@@ -22,13 +22,13 @@ let L: typeof import("leaflet") | null = null;
 let map: LeafletMap | null = null;
 let cluster: MarkerClusterGroup | null = null;
 
-// Emerald dot icon built from inline HTML — avoids Leaflet's default marker
-// image assets (which break under bundlers) and works with markercluster.
+// One Dark blue dot icon built from inline HTML — avoids Leaflet's default
+// marker image assets (which break under bundlers) and works with markercluster.
 function dotIcon() {
   if (!L) return undefined;
   return L.divIcon({
     className: "alcoves-map-marker",
-    html: '<span style="display:block;width:14px;height:14px;border-radius:9999px;background:#10b981;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,0.35)"></span>',
+    html: '<span style="display:block;width:14px;height:14px;border-radius:9999px;background:#3f97ee;border:2px solid #f6f7f9;box-shadow:0 0 0 1px rgba(0,0,0,0.35)"></span>',
     iconSize: [14, 14],
     iconAnchor: [7, 7],
   });
