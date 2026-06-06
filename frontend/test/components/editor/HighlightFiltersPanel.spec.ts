@@ -80,7 +80,7 @@ describe("HighlightFiltersPanel", () => {
     await inputs[1]!.setValue("  laughter  ");
     await wrapper.findAll("button").find((b) => b.text().trim() === "Save")!.trigger("click");
     expect(wrapper.emitted("create")?.[0]).toEqual([
-      { name: "Funny", expression: "laughter", proximitySeconds: 5, color: "#61AFEF" },
+      { name: "Funny", expression: "laughter", proximitySeconds: 5, color: "#3B82F6" },
     ]);
   });
 

@@ -27,7 +27,7 @@ export function useWaveformRenderer(opts: Options) {
     scrollLeft,
     viewportWidth,
     height,
-    color = "rgba(97, 175, 239, 0.85)",
+    color = "rgba(59, 130, 246, 0.85)",
     bgColor = "transparent",
   } = opts;
 

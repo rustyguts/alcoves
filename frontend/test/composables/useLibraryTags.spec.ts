@@ -102,7 +102,7 @@ describe("useLibraryTags", () => {
   });
 
   it("getTagColorChoices returns palette for palette colors", () => {
-    const tag = makeTag({ id: "t1", name: "Red", color: "#E06C75" });
+    const tag = makeTag({ id: "t1", name: "Red", color: "#E11D48" });
     const { getTagColorChoices } = createTags([tag]);
 
     const choices = getTagColorChoices(tag);

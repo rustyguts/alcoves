@@ -33,16 +33,16 @@ export interface FilterAggregate {
 }
 
 export const HIGHLIGHT_PRESETS: HighlightFilterCreate[] = [
-  { name: "Laughter", expression: "laughter:25, giggle, snicker", color: "#98C379" },
-  { name: "Screaming", expression: "screaming:30, yell, shout", color: "#E06C75" },
-  { name: "Cheering", expression: "cheering:25, applause, whoop", color: "#E5C07B" },
-  { name: "Gunshot", expression: "gunshot:30, machine gun:30", color: "#5C6370" },
-  { name: "Profanity", expression: "word:shit, word:fuck, word:damn, word:hell", color: "#C678DD" },
-  { name: "Reactions", expression: "word:wtf, word:bro, word:dude, word:bruh", color: "#56B6C2" },
+  { name: "Laughter", expression: "laughter:25, giggle, snicker", color: "#22C55E" },
+  { name: "Screaming", expression: "screaming:30, yell, shout", color: "#E11D48" },
+  { name: "Cheering", expression: "cheering:25, applause, whoop", color: "#EAB308" },
+  { name: "Gunshot", expression: "gunshot:30, machine gun:30", color: "#6B7280" },
+  { name: "Profanity", expression: "word:shit, word:fuck, word:damn, word:hell", color: "#8B5CF6" },
+  { name: "Reactions", expression: "word:wtf, word:bro, word:dude, word:bruh", color: "#06B6D4" },
   {
     name: "Funny clip",
     expression: "laughter:25 & word:bro, screaming:30 & word:wtf",
-    color: "#D19A66",
+    color: "#F97316",
   },
 ];
 
