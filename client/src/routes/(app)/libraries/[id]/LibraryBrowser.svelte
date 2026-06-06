@@ -13,6 +13,7 @@
 	import { createDownloadZip } from '$lib/state/download-zip.svelte';
 	import {
 		createLibraryFolderActions,
+		collectDescendantIds,
 		ROOT_MOVE_VALUE
 	} from '$lib/state/library-folder-actions.svelte';
 	import { uploadQueue } from '$lib/state/upload-queue.svelte';
@@ -24,6 +25,7 @@
 	import FilePreview from '$lib/components/FilePreview.svelte';
 	import LibraryEntriesGrid from '$lib/components/library/LibraryEntriesGrid.svelte';
 	import LibraryEntriesTable from '$lib/components/library/LibraryEntriesTable.svelte';
+	import LibraryEntriesSkeleton from '$lib/components/library/LibraryEntriesSkeleton.svelte';
 	import LibraryEmptyState from '$lib/components/library/LibraryEmptyState.svelte';
 
 	/**
@@ -88,6 +90,10 @@
 	let previewOpen = $state(false);
 
 	let draggedFileIds = $state<string[]>([]);
+	let draggedFolderIds = $state<string[]>([]);
+	// The full folder tree, loaded lazily when a folder drag begins so we can reject
+	// dropping a folder into itself or one of its own descendants.
+	let dragFolderTree = $state<LibraryFolder[]>([]);
 	let dropTargetFolderId = $state<string | null>(null);
 	const failedThumbnails = new Set<string>();
 
@@ -358,30 +364,73 @@
 		moveFilesDestinationValue = ROOT_MOVE_VALUE;
 	}
 
-	// ── Drag & drop (move files into folders) ─────────────────────────────────────
-	function handleFileDragStart(entry: LibraryEntry, event: DragEvent) {
-		if (!dragEnabled || entry.kind !== 'file' || isRenaming(entry)) return;
-		const ids =
-			explorer.selectedFiles.has(entry.id) && explorer.selectedFiles.size > 0
-				? [...explorer.selectedFiles]
-				: [entry.id];
-		draggedFileIds = ids;
-		event.dataTransfer?.setData('text/plain', ids.join(','));
+	// ── Drag & drop (move files AND folders into folders) ─────────────────────────
+	function handleEntryDragStart(entry: LibraryEntry, event: DragEvent) {
+		if (!dragEnabled || isRenaming(entry)) return;
+		const inSelection =
+			entry.kind === 'file'
+				? explorer.selectedFiles.has(entry.id)
+				: explorer.selectedFolders.has(entry.id);
+
+		// Dragging a member of a multi-selection moves the whole selection (files +
+		// folders); otherwise it moves just the grabbed entry.
+		if (inSelection && explorer.selectedFiles.size + explorer.selectedFolders.size > 1) {
+			draggedFileIds = [...explorer.selectedFiles];
+			draggedFolderIds = [...explorer.selectedFolders];
+		} else if (entry.kind === 'file') {
+			draggedFileIds = [entry.id];
+			draggedFolderIds = [];
+		} else {
+			draggedFileIds = [];
+			draggedFolderIds = [entry.id];
+		}
+
+		event.dataTransfer?.setData('text/plain', [...draggedFileIds, ...draggedFolderIds].join(','));
 		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+
+		// Folders need the tree to validate drop targets (no self / descendant drops).
+		if (draggedFolderIds.length) {
+			void explorer
+				.refreshFolders()
+				.then((folders) => (dragFolderTree = folders))
+				.catch(() => {});
+		}
 	}
 
-	function handleFileDragEnd() {
+	function handleEntryDragEnd() {
 		draggedFileIds = [];
+		draggedFolderIds = [];
+		dragFolderTree = [];
 		dropTargetFolderId = null;
 	}
 
+	// A folder can't be dropped onto itself or any of its own descendants; files can
+	// land on any folder. Returns false while nothing is being dragged.
+	function canDropOnFolder(targetFolderId: string): boolean {
+		if (!draggedFileIds.length && !draggedFolderIds.length) return false;
+		for (const folderId of draggedFolderIds) {
+			if (folderId === targetFolderId) return false;
+			if (
+				dragFolderTree.length &&
+				collectDescendantIds(folderId, dragFolderTree).has(targetFolderId)
+			)
+				return false;
+		}
+		return true;
+	}
+
 	function handleFolderDragEnter(entry: LibraryEntry) {
-		if (!dragEnabled || entry.kind !== 'folder' || draggedFileIds.length === 0) return;
-		dropTargetFolderId = entry.id;
+		if (!dragEnabled || entry.kind !== 'folder') return;
+		dropTargetFolderId = canDropOnFolder(entry.id) ? entry.id : null;
 	}
 
 	function handleFolderDragOver(entry: LibraryEntry, event: DragEvent) {
-		if (!dragEnabled || entry.kind !== 'folder' || draggedFileIds.length === 0) return;
+		if (!dragEnabled || entry.kind !== 'folder') return;
+		if (!canDropOnFolder(entry.id)) {
+			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+			dropTargetFolderId = null;
+			return;
+		}
 		event.preventDefault();
 		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
 		dropTargetFolderId = entry.id;
@@ -402,27 +451,46 @@
 		const targetFolderId = entry.id;
 		const fileIds = Array.from(new Set(draggedFileIds)).filter((fileId) => {
 			const file = explorer.files.find((current) => current.id === fileId);
-			if (!file) return false;
-			return file.parentFolderId !== targetFolderId;
+			return file ? file.parentFolderId !== targetFolderId : false;
 		});
 
-		if (!fileIds.length) {
-			dropTargetFolderId = null;
+		// Folder moves need an authoritative tree to exclude self/descendants/no-ops.
+		// Only fetch it when folders are actually being dragged (file-only drops keep
+		// their original, single-request behavior).
+		let folderIds: string[] = [];
+		if (draggedFolderIds.length) {
+			const folders = dragFolderTree.length ? dragFolderTree : await explorer.refreshFolders();
+			folderIds = Array.from(new Set(draggedFolderIds)).filter((folderId) => {
+				if (folderId === targetFolderId) return false;
+				if (collectDescendantIds(folderId, folders).has(targetFolderId)) return false;
+				const folder = folders.find((current) => current.id === folderId);
+				return folder ? folder.parentFolderId !== targetFolderId : true;
+			});
+		}
+
+		if (!fileIds.length && !folderIds.length) {
+			handleEntryDragEnd();
 			return;
 		}
 		try {
-			await moveFilesToFolder(fileIds, targetFolderId);
+			await Promise.all([
+				...(fileIds.length ? [moveFilesToFolder(fileIds, targetFolderId)] : []),
+				...folderIds.map((folderId) =>
+					api.folders.move(libraryId, folderId, { parentFolderId: targetFolderId })
+				)
+			]);
 			explorer.clearSelection();
 			await explorer.resetAndFetch();
+			if (folderIds.length) await explorer.refreshFolders();
+			const moved = fileIds.length + folderIds.length;
 			toast.add({
-				title: fileIds.length === 1 ? 'File moved' : `${fileIds.length} files moved`,
+				title: moved === 1 ? 'Moved 1 item' : `Moved ${moved} items`,
 				color: 'success'
 			});
 		} catch {
-			toast.add({ title: 'Failed to move file(s)', color: 'error' });
+			toast.add({ title: 'Failed to move item(s)', color: 'error' });
 		} finally {
-			draggedFileIds = [];
-			dropTargetFolderId = null;
+			handleEntryDragEnd();
 		}
 	}
 
@@ -450,7 +518,9 @@
 		);
 	}
 
-	const canDropUpload = $derived(canManageLibrary && !trashed && draggedFileIds.length === 0);
+	const canDropUpload = $derived(
+		canManageLibrary && !trashed && draggedFileIds.length === 0 && draggedFolderIds.length === 0
+	);
 
 	const fileDrop = createFileDrop(
 		{
@@ -1046,7 +1116,7 @@
 				<div class="flex items-center gap-1.5">
 					<button
 						type="button"
-						class="btn preset-tonal-primary btn-sm"
+						class="btn preset-tonal-primary"
 						onclick={() => folderActions.openCreateFolderModal()}
 					>
 						<AppIcon name={ICONS.folder} class="size-4" />
@@ -1054,7 +1124,7 @@
 					</button>
 					<button
 						type="button"
-						class="btn preset-tonal-primary btn-sm"
+						class="btn preset-tonal-primary"
 						onclick={() => (uploadOpen = true)}
 					>
 						<AppIcon name={ICONS.upload} class="size-4" />
@@ -1067,14 +1137,9 @@
 
 	<div class="relative min-h-0 flex-1 overflow-y-auto px-0.5">
 		{#if explorer.filesPending && explorer.entries.length === 0}
-			<div class="flex min-h-64 items-center justify-center">
-				<div
-					class="inline-flex items-center gap-2 rounded-full bg-surface-100-900 px-3 py-2 text-sm text-surface-500"
-				>
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-					Loading {trashed ? 'trash' : 'files'}
-				</div>
-			</div>
+			<!-- Skeleton placeholder while the first page loads (matches the table/grid
+			     layout so there's no spinner-then-content layout jump). -->
+			<LibraryEntriesSkeleton entryViewMode={explorer.entryViewMode} showTrashed={trashed} />
 		{/if}
 
 		{#if explorer.filesPending && explorer.entries.length > 0}
@@ -1094,6 +1159,7 @@
 				showTrashed={trashed}
 				{dragEnabled}
 				{draggedFileIds}
+				{draggedFolderIds}
 				{dropTargetFolderId}
 				{renameValue}
 				isEntrySelected={(e) => explorer.isEntrySelected(e)}
@@ -1101,8 +1167,8 @@
 				onrowClick={handleRowClick}
 				onrowDoubleClick={openEntry}
 				onrowContextMenu={showContextMenu}
-				ondragStart={handleFileDragStart}
-				ondragEnd={handleFileDragEnd}
+				ondragStart={handleEntryDragStart}
+				ondragEnd={handleEntryDragEnd}
 				ondragEnter={handleFolderDragEnter}
 				ondragOver={handleFolderDragOver}
 				ondragLeave={handleFolderDragLeave}
@@ -1118,6 +1184,7 @@
 				showTrashed={trashed}
 				{dragEnabled}
 				{draggedFileIds}
+				{draggedFolderIds}
 				{dropTargetFolderId}
 				{renameValue}
 				isEntrySelected={(e) => explorer.isEntrySelected(e)}
@@ -1128,8 +1195,8 @@
 				onrowClick={handleRowClick}
 				onrowDoubleClick={openEntry}
 				onrowContextMenu={showContextMenu}
-				ondragStart={handleFileDragStart}
-				ondragEnd={handleFileDragEnd}
+				ondragStart={handleEntryDragStart}
+				ondragEnd={handleEntryDragEnd}
 				ondragEnter={handleFolderDragEnter}
 				ondragOver={handleFolderDragOver}
 				ondragLeave={handleFolderDragLeave}

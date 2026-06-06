@@ -10,6 +10,7 @@
 		showTrashed: boolean;
 		dragEnabled: boolean;
 		draggedFileIds: string[];
+		draggedFolderIds: string[];
 		dropTargetFolderId: string | null;
 		renameValue: string;
 		isEntrySelected: (entry: LibraryEntry) => boolean;
@@ -33,6 +34,7 @@
 		showTrashed,
 		dragEnabled,
 		draggedFileIds,
+		draggedFolderIds,
 		dropTargetFolderId,
 		renameValue,
 		isEntrySelected,
@@ -94,9 +96,15 @@
 					dropTargetFolderId === entry.id && entry.kind === 'folder'
 						? 'bg-primary-500/5 ring-2 ring-primary-500/60 ring-inset'
 						: '',
-					draggedFileIds.includes(entry.id) && entry.kind === 'file' ? 'opacity-60' : ''
+					(
+						entry.kind === 'file'
+							? draggedFileIds.includes(entry.id)
+							: draggedFolderIds.includes(entry.id)
+					)
+						? 'opacity-60'
+						: ''
 				]}
-				draggable={dragEnabled && entry.kind === 'file' && !isRenaming(entry)}
+				draggable={dragEnabled && !isRenaming(entry)}
 				onclick={(e) => onrowClick?.(entry, e)}
 				ondblclick={() => onrowDoubleClick?.(entry)}
 				oncontextmenu={(e) => onrowContextMenu?.(entry, e)}

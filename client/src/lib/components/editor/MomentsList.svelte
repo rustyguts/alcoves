@@ -59,7 +59,7 @@
 		<span class="text-[11px] text-surface-600-400 tabular-nums">{moments.length}</span>
 	</header>
 
-	<div class="max-h-[60vh] overflow-y-auto p-3 lg:max-h-[400px]">
+	<div class="max-h-[50svh] overflow-y-auto p-3 lg:max-h-[400px]">
 		{#if moments.length === 0}
 			<div
 				class="rounded-lg border border-dashed border-surface-300-700 p-4 text-center text-xs text-surface-600-400"

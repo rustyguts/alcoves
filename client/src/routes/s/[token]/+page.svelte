@@ -38,7 +38,7 @@
 	{/if}
 </svelte:head>
 
-<div class="flex min-h-screen flex-col bg-neutral-950 text-neutral-50">
+<div class="flex min-h-dvh flex-col bg-neutral-950 text-neutral-50">
 	<header class="flex items-center gap-3 border-b border-neutral-800 px-5 py-4">
 		<span class="font-bold tracking-tight">Alcoves</span>
 		<span class="text-neutral-500">· shared moment</span>

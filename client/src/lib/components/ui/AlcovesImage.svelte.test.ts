@@ -33,4 +33,13 @@ describe('AlcovesImage', () => {
 		const img = screen.container.querySelector('img')!;
 		expect(img.getAttribute('src')).toBe('/api/files/proxy/L/F?format=png&quality=50');
 	});
+
+	it('shows a neutral placeholder class until the image loads, keeping caller classes', async () => {
+		const screen = render(AlcovesImage, {
+			props: { libraryId: 'L', fileId: 'F', variant: 'timeline', class: 'object-cover' }
+		});
+		const img = screen.container.querySelector('img')!;
+		expect(img.getAttribute('class')).toContain('bg-surface-200-800');
+		expect(img.getAttribute('class')).toContain('object-cover');
+	});
 });

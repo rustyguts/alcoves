@@ -13,6 +13,7 @@
 		showTrashed: boolean;
 		dragEnabled: boolean;
 		draggedFileIds: string[];
+		draggedFolderIds: string[];
 		dropTargetFolderId: string | null;
 		renameValue: string;
 		isEntrySelected: (entry: LibraryEntry) => boolean;
@@ -41,6 +42,7 @@
 		showTrashed,
 		dragEnabled,
 		draggedFileIds,
+		draggedFolderIds,
 		dropTargetFolderId,
 		renameValue,
 		isEntrySelected,
@@ -74,7 +76,9 @@
 	const selected = $derived(isEntrySelected(entry));
 	const renaming = $derived(isRenaming(entry));
 	const isDropTarget = $derived(dropTargetFolderId === entry.id && entry.kind === 'folder');
-	const isDragging = $derived(draggedFileIds.includes(entry.id) && entry.kind === 'file');
+	const isDragging = $derived(
+		entry.kind === 'file' ? draggedFileIds.includes(entry.id) : draggedFolderIds.includes(entry.id)
+	);
 
 	const folderTitle = $derived(
 		entry.kind === 'folder' && showTrashed
@@ -94,7 +98,7 @@
 		isDropTarget ? 'bg-primary-500/10 ring-2 ring-primary-500' : '',
 		isDragging ? 'opacity-60' : ''
 	]}
-	draggable={dragEnabled && entry.kind === 'file' && !renaming}
+	draggable={dragEnabled && !renaming}
 	onclick={(e) => onrowClick?.(entry, e)}
 	onkeydown={(e) => {
 		if (!renaming && (e.key === 'Enter' || e.key === ' ')) {

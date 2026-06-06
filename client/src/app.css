@@ -23,3 +23,19 @@ body {
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
 }
+
+/*
+ * Layout conventions (keep the app visually consistent):
+ *
+ * - Full-height frame: the (app) shell is `h-dvh overflow-hidden`. Use the
+ *   DYNAMIC viewport unit (`dvh`/`svh`), never `vh`/`h-screen`, for any
+ *   full-height measure — the mobile URL bar otherwise clips the bottom.
+ * - Scrolling lives in the innermost `overflow-y-auto min-h-0 flex-1`. Every
+ *   flex ancestor between the frame and that scroller must carry `min-h-0`,
+ *   or the child can't shrink and content gets cut off.
+ * - Page padding: `p-4 sm:p-6`. Vertical section rhythm: `flex flex-col gap-4`.
+ *   Tight control rows: `gap-1.5`. Card padding scale: p-3 / p-4 / p-6 = the
+ *   Card primitive's sm / md / lg.
+ * - Buttons go through `ui/Button.svelte`; surfaces through `ui/Card.svelte` /
+ *   `ui/AppPanel.svelte`; icons through `ui/AppIcon.svelte` (default size-4).
+ */

@@ -26,6 +26,7 @@ const apiMock = vi.hoisted(() => ({
 	},
 	folders: {
 		update: vi.fn().mockResolvedValue({ id: 'folder-1', name: 'Renamed', updatedAt: 'now' }),
+		move: vi.fn().mockResolvedValue(undefined),
 		restore: vi.fn().mockResolvedValue(undefined)
 	}
 }));
@@ -123,7 +124,8 @@ const folderActionsMock = vi.hoisted(() => ({
 }));
 vi.mock('$lib/state/library-folder-actions.svelte', () => ({
 	ROOT_MOVE_VALUE: '__root__',
-	createLibraryFolderActions: () => folderActionsMock
+	createLibraryFolderActions: () => folderActionsMock,
+	collectDescendantIds: () => new Set<string>()
 }));
 
 const uploadQueueMock = vi.hoisted(() => ({
@@ -329,10 +331,13 @@ describe('/libraries/[id] (browser)', () => {
 		await expect.element(screen.getByText('photo.jpg')).toBeInTheDocument();
 	});
 
-	it('shows the loading indicator when files are pending and nothing is loaded', async () => {
+	it('shows a skeleton placeholder when files are pending and nothing is loaded', async () => {
 		explorerState.filesPending = true;
 		const screen = renderPage();
-		await expect.element(screen.getByText('Loading files')).toBeInTheDocument();
+		// The wired LibraryEntriesSkeleton renders pulsing placeholder cells.
+		await vi.waitFor(() => {
+			expect(screen.container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
+		});
 	});
 
 	it('shows the overlay loading badge when pending with existing entries', async () => {
@@ -950,6 +955,35 @@ describe('/libraries/[id] (browser)', () => {
 		await vi.waitFor(() => expect(apiMock.files.update).toHaveBeenCalled());
 	});
 
+	it('dragging a folder onto another folder moves it via api.folders.move', async () => {
+		explorerState.entries = [
+			makeFolder({ id: 'folder-1', parentFolderId: null }),
+			makeFolder({ id: 'folder-2', parentFolderId: null })
+		];
+		// The drop validates against the full tree; both are root folders so neither
+		// is a descendant of the other.
+		explorerState.refreshFolders = vi
+			.fn()
+			.mockResolvedValue([
+				makeFolder({ id: 'folder-1', parentFolderId: null }),
+				makeFolder({ id: 'folder-2', parentFolderId: null })
+			]);
+		const screen = renderPage();
+		const rows = screen.container.querySelectorAll('tbody tr');
+		const sourceFolder = rows[0] as HTMLElement;
+		const targetFolder = rows[1] as HTMLElement;
+		const dt = new DataTransfer();
+		sourceFolder.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+		targetFolder.dispatchEvent(new DragEvent('dragenter', { bubbles: true, dataTransfer: dt }));
+		targetFolder.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt }));
+		targetFolder.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
+		await vi.waitFor(() =>
+			expect(apiMock.folders.move).toHaveBeenCalledWith('lib-1', 'folder-1', {
+				parentFolderId: 'folder-2'
+			})
+		);
+	});
+
 	it('drag leave clears the drop target', async () => {
 		explorerState.entries = [makeFile(), makeFolder({ id: 'folder-1' })];
 		const screen = renderPage();
@@ -1162,7 +1196,7 @@ describe('/libraries/[id] (browser)', () => {
 		);
 		await vi.waitFor(() =>
 			expect(toastMock.add).toHaveBeenCalledWith(
-				expect.objectContaining({ title: 'Failed to move file(s)' })
+				expect.objectContaining({ title: 'Failed to move item(s)' })
 			)
 		);
 	});

@@ -12,7 +12,7 @@ export interface MoveDestinationOption {
 
 export const ROOT_MOVE_VALUE = '__root__';
 
-function collectDescendantIds(rootId: string, folders: LibraryFolder[]): Set<string> {
+export function collectDescendantIds(rootId: string, folders: LibraryFolder[]): Set<string> {
 	// Transient local collections used only for traversal (not reactive state).
 
 	const children = new Map<string | null, LibraryFolder[]>();

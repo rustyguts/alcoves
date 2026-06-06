@@ -6,7 +6,6 @@
 	import { createLibraryTags } from '$lib/state/library-tags.svelte';
 	import { TAG_COLOR_PALETTE } from '$lib/shared/tag-colors';
 	import { ICONS } from '$lib/utils/icons';
-	import { portal } from '$lib/actions/portal';
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import TagColorPickerDropdown from '$lib/components/library/TagColorPickerDropdown.svelte';
@@ -214,26 +213,6 @@
 		}
 	});
 </script>
-
-<div use:portal={'#library-header-actions'} class="flex items-center gap-1.5">
-	<span class="hidden text-xs text-surface-600-400 tabular-nums sm:inline">
-		{sortedTags.length}
-		{sortedTags.length === 1 ? 'tag' : 'tags'}
-	</span>
-	<button
-		type="button"
-		class="btn-icon btn-icon-sm preset-tonal-surface"
-		title="Recount usage"
-		aria-label="Recount tag usage"
-		disabled={loadingUsage}
-		onclick={refreshTagUsageCounts}
-	>
-		<AppIcon
-			name={loadingUsage ? ICONS.loading : ICONS.reload}
-			class={loadingUsage ? 'size-4 animate-spin' : 'size-4'}
-		/>
-	</button>
-</div>
 
 <div class="flex w-full flex-1 flex-col gap-4 overflow-y-auto px-0.5 pb-6">
 	<AppPanel
