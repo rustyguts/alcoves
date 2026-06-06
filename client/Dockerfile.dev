@@ -1,0 +1,18 @@
+# Dev-mode image: runs the SvelteKit (Vite) dev server with HMR. Used by docker-compose.
+FROM oven/bun:latest
+
+WORKDIR /app
+
+# Volumes mount over these paths; pre-create them owned by compose's non-root
+# user (UID 1000 by default) so the anonymous .svelte-kit/build volumes and the
+# named node_modules volume inherit writable ownership on first run.
+RUN mkdir -p /app/node_modules /app/.svelte-kit /app/build \
+  && chown 1000:1000 /app /app/node_modules /app/.svelte-kit /app/build
+
+EXPOSE 3000
+
+# Compose bind-mounts the host workdir at /app and attaches a named volume at
+# /app/node_modules. Baking deps into the image is pointless (the volume shadows
+# them) and re-running `bun install` unconditionally fails with EEXIST against
+# the already-populated hoisted layout, so gate on a lockfile-hash sentinel.
+CMD ["sh", "-c", "set -e; HASH=$(sha256sum bun.lock | cut -d' ' -f1); if [ \"$(cat node_modules/.lock-hash 2>/dev/null)\" != \"$HASH\" ]; then find node_modules -mindepth 1 -maxdepth 1 -exec rm -rf {} +; bun install --frozen-lockfile; echo \"$HASH\" > node_modules/.lock-hash; fi; exec bun run dev --host 0.0.0.0 --port 3000"]

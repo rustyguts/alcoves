@@ -20,7 +20,7 @@ imagePullSecrets: []
 baseUrl: https://alcoves.example.com
 
 # =============================================================================
-# Frontend (Nuxt SSR + Nitro)
+# Frontend (SvelteKit SSR)
 # =============================================================================
 frontend:
   enabled: true
@@ -34,11 +34,11 @@ frontend:
   affinity: {}
   tolerations: []
 
-  # NUXT_PUBLIC_API_ORIGIN — exposed to the browser so binary content (video,
-  # images, downloads) bypasses Nitro and streams directly from the API.
-  # Defaults to baseUrl, which is correct when both Nuxt and the API live behind
-  # the same ingress. Set to an explicit https://api.example.com if you split
-  # them on different domains.
+  # PUBLIC_API_ORIGIN — exposed to the browser so binary content (video,
+  # images, downloads) bypasses the SvelteKit /api proxy and streams directly
+  # from the API. Defaults to baseUrl, which is correct when both the SvelteKit
+  # server and the API live behind the same ingress. Set to an explicit
+  # https://api.example.com if you split them on different domains.
   publicApiOrigin: ""    # "" → baseUrl
 
 # =============================================================================

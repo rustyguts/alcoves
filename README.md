@@ -40,8 +40,8 @@ No vendor lock-in. No subscriptions. Just your files, on your server.
 | Job Queue     | [Asynq](https://github.com/hibiken/asynq) + Dragonfly (Redis) |
 | Image         | [govips](https://github.com/davidbyttow/govips) (libvips)     |
 | AI            | [ONNX Runtime](https://onnxruntime.ai) — face & object detect |
-| Frontend      | [Nuxt 4](https://nuxt.com) (Vue 3 + Nitro server)             |
-| UI            | [Nuxt UI v4](https://ui.nuxt.com) + Tailwind CSS v4           |
+| Frontend      | [SvelteKit](https://kit.svelte.dev) (Svelte 5 + adapter-node) |
+| UI            | [Skeleton UI v4](https://www.skeleton.dev) + Tailwind CSS v4  |
 | Auth          | Session-based (AES-GCM encrypted cookies)                     |
 | Uploads       | [TUS](https://tus.io) resumable upload protocol               |
 | Deployment    | Docker / Docker Compose                                       |
@@ -50,7 +50,7 @@ No vendor lock-in. No subscriptions. Just your files, on your server.
 
 ### Using Docker Compose (Recommended)
 
-The fastest way to run Alcoves is with Docker Compose, which starts the Nuxt frontend (port 3000), the Go API backend (port 3001), PostgreSQL, and Dragonfly.
+The fastest way to run Alcoves is with Docker Compose, which starts the SvelteKit frontend (port 3000), the Go API backend (port 3001), PostgreSQL, and Dragonfly.
 
 **1. Clone the repository**
 
@@ -74,11 +74,11 @@ docker compose up -d
 
 **4. Open the app**
 
-Navigate to [http://localhost:3000](http://localhost:3000) and register your first account. The first user to register is automatically granted the **owner** role. (Port 3000 is the Nuxt frontend, which proxies API calls to the Go backend on port 3001.)
+Navigate to [http://localhost:3000](http://localhost:3000) and register your first account. The first user to register is automatically granted the **owner** role. (Port 3000 is the SvelteKit frontend, which proxies API calls to the Go backend on port 3001.)
 
 ### Using the Container Image
 
-The published image `ghcr.io/rustyguts/alcoves:latest` is a **single unified image that runs the whole stack** — the Go API, the async worker, and the Nuxt (Nitro) frontend. By default it supervises all of them in one container.
+The published image `ghcr.io/rustyguts/alcoves:latest` is a **single unified image that runs the whole stack** — the Go API, the async worker, and the SvelteKit (adapter-node) frontend. By default it supervises all of them in one container.
 
 If you already have PostgreSQL and Dragonfly (Redis) running, you can run the entire app with one container:
 
@@ -94,7 +94,7 @@ docker run -d \
   ghcr.io/rustyguts/alcoves:latest
 ```
 
-Open [http://localhost:3000](http://localhost:3000): the Nitro server serves the UI and proxies `/api/**` to the co-located Go API on port 3001. Port 3000 alone is enough to get going. In production, front the container with a reverse proxy that routes `/api/**` directly to port 3001 (and set `NUXT_PUBLIC_API_ORIGIN` to your public origin) so video and large downloads stream straight from the API instead of through Nitro.
+Open [http://localhost:3000](http://localhost:3000): the SvelteKit (adapter-node) server serves the UI and proxies `/api/**` to the co-located Go API on port 3001. Port 3000 alone is enough to get going. In production, front the container with a reverse proxy that routes `/api/**` directly to port 3001 (and set `PUBLIC_API_ORIGIN` to your public origin) so video and large downloads stream straight from the API instead of through the SvelteKit /api proxy.
 
 To split roles across containers (e.g. scale the worker separately), pass a role as the command: `web`, `api`, or `worker` — for example `docker run … ghcr.io/rustyguts/alcoves:latest worker`.
 
@@ -107,7 +107,7 @@ For production deployments, run the single unified image alongside Postgres and 
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-The compose file publishes port 3000 (Nitro — UI, SSR share pages, and the `/api` proxy) and port 3001 (the Go API, for direct binary streaming). Front it with a reverse proxy that terminates TLS, routes `/api/**` to port 3001, and routes everything else to port 3000; set `NUXT_PUBLIC_API_ORIGIN` to your public origin so video and large downloads stream directly from the API.
+The compose file publishes port 3000 (SvelteKit — UI, SSR share pages, and the `/api` proxy) and port 3001 (the Go API, for direct binary streaming). Front it with a reverse proxy that terminates TLS, routes `/api/**` to port 3001, and routes everything else to port 3000; set `PUBLIC_API_ORIGIN` to your public origin so video and large downloads stream directly from the API.
 
 To split roles across containers (independent scaling), run the same image multiple times with `command: ["web"]`, `command: ["api"]`, and `command: ["worker"]` — point each `ALCOVES_API_URL`/ingress accordingly. For Kubernetes, the [Helm chart](helm/alcoves/) already does this split out of the box.
 
@@ -141,7 +141,7 @@ helm upgrade alcoves helm/alcoves -n alcoves -f my-values.yaml \
 
 The chart deploys three workloads:
 
-- `frontend` — Nuxt SSR
+- `frontend` — SvelteKit SSR
 - `backend-api` — `ALCOVES_MODE=api` (HTTP only)
 - `backend-worker` — `ALCOVES_MODE=worker` (asynq jobs: ffmpeg, whisper.cpp, ONNX inference)
 
@@ -195,14 +195,14 @@ To enable Google sign-in, set:
 
 ### Map tiles (Map view)
 
-The Map view loads raster tiles from a tile server in the browser. These are **frontend** (Nuxt) variables, not `ALCOVES_*` backend ones:
+The Map view loads raster tiles from a tile server in the browser. These are **frontend** (SvelteKit) variables, not `ALCOVES_*` backend ones:
 
-| Variable                           | Description                                  | Default                                          |
-| ---------------------------------- | -------------------------------------------- | ------------------------------------------------ |
-| `NUXT_PUBLIC_MAP_TILE_URL`         | Raster tile URL template (`{z}/{x}/{y}`)     | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
-| `NUXT_PUBLIC_MAP_TILE_ATTRIBUTION` | Attribution text shown on the map            | `© OpenStreetMap contributors`                   |
+| Variable                      | Description                                  | Default                                          |
+| ----------------------------- | -------------------------------------------- | ------------------------------------------------ |
+| `PUBLIC_MAP_TILE_URL`         | Raster tile URL template (`{z}/{x}/{y}`)     | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
+| `PUBLIC_MAP_TILE_ATTRIBUTION` | Attribution text shown on the map            | `© OpenStreetMap contributors`                   |
 
-> The map works out of the box against public OpenStreetMap tiles. Because tile requests are made by each viewer's browser, the rough area being viewed is visible to whoever serves the tiles — point `NUXT_PUBLIC_MAP_TILE_URL` at your own tile server to keep that fully private.
+> The map works out of the box against public OpenStreetMap tiles. Because tile requests are made by each viewer's browser, the rough area being viewed is visible to whoever serves the tiles — point `PUBLIC_MAP_TILE_URL` at your own tile server to keep that fully private.
 
 See `.env.example` for the full list and defaults.
 
@@ -228,15 +228,15 @@ docker compose up -d postgres dragonfly
 cd backend
 go run cmd/server/main.go
 
-# In a second terminal — start the Nuxt dev server (port 3000)
-cd frontend
+# In a second terminal — start the SvelteKit dev server (port 3000)
+cd client
 bun install
 bun run dev
 ```
 
-The Nuxt dev server proxies `/api/**` and `/s/**` to the Go backend and is available at [http://localhost:3000](http://localhost:3000).
+The SvelteKit dev server proxies `/api/**` and `/s/**` to the Go backend and is available at [http://localhost:3000](http://localhost:3000).
 
-Alternatively, start everything with Docker Compose (Nuxt + Go + Postgres + Dragonfly, with Air hot-reload for the Go backend and Bun dev for the frontend):
+Alternatively, start everything with Docker Compose (SvelteKit + Go + Postgres + Dragonfly, with Air hot-reload for the Go backend and Bun dev for the frontend):
 
 ```bash
 docker compose up
@@ -255,11 +255,11 @@ Run from the `backend/` directory:
 
 ### Frontend Commands
 
-Run from the `frontend/` directory:
+Run from the `client/` directory:
 
 | Command                    | Description                             |
 | -------------------------- | --------------------------------------- |
-| `bun run dev`              | Start Nuxt dev server (port 3000) with hot reload |
+| `bun run dev`              | Start SvelteKit dev server (port 3000) with hot reload |
 | `bun run build`            | Create production build                 |
 | `bun run typecheck`        | TypeScript type checking                |
 | `bun run lint`             | Run linter (OXlint)                     |
@@ -279,21 +279,17 @@ alcoves/
 │   │   ├── models/             # GORM entity definitions
 │   │   └── services/           # Business logic (auth, storage, image/video proxy, AI workers)
 │   └── migrations/             # Goose SQL migrations
-├── frontend/                   # Nuxt 4 (Vue 3 + Nitro server, port 3000)
-│   ├── app/
-│   │   ├── components/         # Vue components
-│   │   ├── composables/        # Shared composables (useAuth, useApiFetch, etc.)
-│   │   ├── layouts/            # Page layouts
-│   │   ├── pages/              # File-based routing
-│   │   └── utils/              # Shared utilities
-│   ├── shared/types/           # API response type definitions
+├── client/                     # SvelteKit (Svelte 5 + adapter-node, port 3000)
+│   ├── src/
+│   │   ├── lib/                # Components, stores, and shared utilities
+│   │   └── routes/            # File-based routing
 │   ├── test/                   # Unit (Vitest) + E2E (Playwright) tests
 │   └── Dockerfile.dev          # Dev frontend image (Bun + hot reload)
 ├── docker/entrypoint.sh        # Unified-image supervisor (all | web | api | worker)
 ├── helm/alcoves/               # Helm chart (frontend + backend-api + backend-worker, one image)
 ├── docker-compose.yml          # Development environment (frontend + backend + db + queue)
 ├── docker-compose.prod.yml     # Production: single unified image + Postgres + Dragonfly
-└── Dockerfile                  # Unified production image (Go API + worker + Nuxt/Nitro)
+└── Dockerfile                  # Unified production image (Go API + worker + SvelteKit/adapter-node)
 ```
 
 ## Contributing
@@ -312,4 +308,4 @@ This project is open source. See the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-Built with [Go](https://go.dev), [Echo](https://echo.labstack.com), [GORM](https://gorm.io), [Nuxt 4](https://nuxt.com), [Vue 3](https://vuejs.org), [Nuxt UI](https://ui.nuxt.com), [Tailwind CSS](https://tailwindcss.com), [Asynq](https://github.com/hibiken/asynq), and [PostgreSQL](https://www.postgresql.org).
+Built with [Go](https://go.dev), [Echo](https://echo.labstack.com), [GORM](https://gorm.io), [SvelteKit](https://kit.svelte.dev), [Svelte 5](https://svelte.dev), [Skeleton UI](https://www.skeleton.dev), [Tailwind CSS](https://tailwindcss.com), [Asynq](https://github.com/hibiken/asynq), and [PostgreSQL](https://www.postgresql.org).

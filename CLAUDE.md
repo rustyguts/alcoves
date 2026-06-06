@@ -42,7 +42,7 @@ changing code — then update that page in the same change if behavior shifts.
 - [Storage Backends (Local & S3)](website/src/content/docs/architecture/storage-backends.md) — Pluggable blob storage: scopes, key routing, range reads, and cache lifecycle.
 - [Backend Architecture (Go / Echo / GORM / Asynq)](website/src/content/docs/architecture/backend-architecture-go.md) — Server bootstrap, modes, route registration, middleware chain, and config.
 - [Database Schema & Migrations](website/src/content/docs/architecture/database-schema-and-migrations.md) — GORM models, Goose migrations, pgvector/HNSW, soft-delete and job-state patterns.
-- [Frontend Architecture (Nuxt 4)](website/src/content/docs/architecture/frontend-architecture.md) — Nuxt SSR topology, isomorphic fetch, layouts, middleware, and the typed API client.
+- [Frontend Architecture (SvelteKit)](website/src/content/docs/architecture/frontend-architecture.md) — SSR topology, route groups, auth via hooks, the `createApi` client + in-process `/api` proxy, Svelte 5 rune stores, Skeleton UI, and adapter-node deployment.
 - [ML Models & Runtime Inference](website/src/content/docs/architecture/ml-models-runtime.md) — The CPU-only ONNX/whisper model stack, on-demand download, and runtime selection.
 - [Deployment & Operations (Docker, Helm, CI/CD)](website/src/content/docs/self-hosting/deploying-alcoves.md) — Docker images, compose, the Helm chart, CI pipelines, and release-please.
 
@@ -52,9 +52,9 @@ model evaluation/publishing notes and the engineering TODO list. See
 
 ## Project Summary
 
-Alcoves is a self-hosted collaborative file library with a Nuxt 4 (Vue 3) frontend and a Go API backend.
+Alcoves is a self-hosted collaborative file library with a SvelteKit (Svelte 5) frontend and a Go API backend.
 
-- **Frontend** (`frontend/`): Nuxt 4 + Nuxt UI v4 + Tailwind 4, runs on its own Nitro server (Bun preset in prod). Top-level `ssr: true`, but `routeRules` make `/**` client-rendered (SPA) and SSR only `/s/**` (public moment share pages). This avoids SSR-time backend coupling on auth-gated routes and a native-form-submit race during hydration.
+- **Frontend** (`client/`): SvelteKit + Svelte 5 (runes) + Skeleton UI v4 (cerberus theme, class-based dark via a `@custom-variant`) + Tailwind 4 (CSS-first, `src/app.css`), built with `adapter-node` and run under Bun (`bun /app/build/index.js`). SvelteKit's **default SSR + hydration** is on for the whole app — server `load`/`hooks.server.ts` fetch the **Go API** (never the DB) and forward the session cookie. `/s/[token]` public moment-share pages SSR for OG/SEO meta. A pre-hydration form guard in `app.html` blocks native `<form>` submits during the SSR→hydration window.
 - **Backend** (`backend/`): Go (1.26) API server — Echo, GORM, PostgreSQL 18 + pgvector.
   - Session auth with AES-GCM encrypted cookies; PAT (Bearer) auth for MCP.
   - Local file/avatar/cache storage (S3 config exists but is **not yet wired in `main.go`** — see Known Gaps).
@@ -62,31 +62,32 @@ Alcoves is a self-hosted collaborative file library with a Nuxt 4 (Vue 3) fronte
   - CPU-only ONNX/whisper.cpp inference; models download on demand.
 - The Go binary is **pure API** — it no longer embeds or serves the frontend.
 
-**Deploy topology**: Nitro server on **:3000** (Nuxt UI) + Go API on **:3001** (`/api/**`). In dev, Nitro's devProxy forwards `/api/**` (and `/s/**`) to the Go backend. In prod, both sit behind one reverse proxy (or Nitro's `routeRules["/api/**"]` proxy).
+**Deploy topology**: SvelteKit (adapter-node) server on **:3000** (UI + SSR) + Go API on **:3001** (`/api/**`). The SvelteKit server proxies same-origin `/api/**` to the co-located Go API (in-process catch-all route `src/routes/api/[...path]/+server.ts`); in dev the docker-compose `frontend` service points `INTERNAL_API_URL` at the backend. In prod both sit behind one reverse proxy, and `PUBLIC_API_ORIGIN` lets browsers stream binaries (and the activity WebSocket) directly from the API, bypassing the proxy.
 
-**Production image**: a single unified image (root `Dockerfile`, published as `ghcr.io/rustyguts/alcoves`) bundles the Go API/worker binary, a stdio MCP binary (`/alcoves-mcp`), and the Nuxt/Nitro frontend (via a copied Bun binary + `.output`). Its entrypoint (`docker/entrypoint.sh`) supervises both processes; a role arg (`all` default | `web` | `api` | `worker`) lets the same image run the whole stack or one role. `tini` is PID 1; unknown role → exit 64. The Helm chart's three workloads (`frontend`/`api`/`worker`) all pull this one image and set `args` to pick a role. Dev uses the two-service `docker-compose.yml` with `frontend/Dockerfile.dev` (hot reload) — only production packaging is unified.
+**Production image**: a single unified image (root `Dockerfile`, published as `ghcr.io/rustyguts/alcoves`) bundles the Go API/worker binary, a stdio MCP binary (`/alcoves-mcp`), and the SvelteKit frontend (adapter-node `build/` + its pruned production `node_modules`, run via a copied Bun binary as `bun /app/build/index.js`). Its entrypoint (`docker/entrypoint.sh`) supervises both processes; a role arg (`all` default | `web` | `api` | `worker`) lets the same image run the whole stack or one role. `tini` is PID 1; unknown role → exit 64. The Helm chart's three workloads (`frontend`/`api`/`worker`) all pull this one image and set `args` to pick a role. Dev uses the two-service `docker-compose.yml` with `client/Dockerfile.dev` (Vite dev server, hot reload) — only production packaging is unified.
 
 ## Core Commands
 
-### Frontend (run from `frontend/` directory)
+### Frontend (run from `client/` directory)
 
-- `bun install` — installs with hoisted linker (see `bunfig.toml`; avoids a Nitro symlink-loop ELOOP bug); `postinstall` runs `nuxt prepare`
-- `bun run dev` — Start Nuxt dev server on :3000; Nitro proxies `/api/**` + `/s/**` to the Go backend
-- `bun run build` — Build production Nitro server (writes `.output/`)
-- `bun run preview` — Serve the built server (`nuxt preview`)
-- `bun run typecheck` — `nuxt typecheck` (vue-tsc against generated types)
-- `bun run lint` / `bun run lint:fix` — OXlint (no-fix / `--fix`)
-- `bun run fmt` / `bun run fmt:check` — OXfmt (100-char, tabs)
-- `bun run test:unit` — Vitest unit tests once (`vitest run`, Nuxt test env)
-- `bun run test:unit:coverage` — Unit tests with V8 coverage
-- `bun run test:e2e` — Playwright e2e (`playwright test`); `test:e2e:flow`, `test:e2e:screenshots` (`@screenshot`), `test:e2e:headed`, `test:e2e:report` are scoped variants
-- `bun run test` — Full suite: `test:unit:coverage` then `test:e2e`
-- `bun run coverage:summary` — Print coverage summary from JSON artifact
+- `bun install` — install deps (`bun.lock`); `prepare` runs `svelte-kit sync` to generate `.svelte-kit/` types
+- `bun run dev` — Start the Vite dev server (SvelteKit) on :3000; same-origin `/api/**` is proxied to `INTERNAL_API_URL` (the Go backend)
+- `bun run build` — Build the production server with `adapter-node` (writes `build/`)
+- `bun run preview` — Serve the built app (`vite preview`)
+- `bun run typecheck` — `svelte-kit sync && svelte-check` (also aliased as `check`)
+- `bun run lint` — `prettier --check . && eslint .`
+- `bun run fmt` / `bun run fmt:check` — Prettier write / check (100-char, tabs; `prettier-plugin-svelte` + `-tailwindcss`)
+- `bun run test:unit` — Vitest run once (both `server` + `client` projects — see Testing Conventions)
+- `bun run test:unit:coverage` — Unit tests with V8 coverage (writes `coverage/`)
+- `bun run coverage:floor` — Enforce the per-file 60% floor (`scripts/coverage-floor.mjs`, reads `coverage/coverage-summary.json`)
+- `bun run test:e2e` — Playwright e2e (`playwright test`) against a **real running stack** (see Testing Conventions)
+- `bun run test` — `vitest run` then `playwright test`
 
 Run a single unit test file or pattern:
 ```bash
-bun run test:unit test/composables/useApiFetch.spec.ts
-bun run test:unit -- --reporter=verbose -t "pattern"
+bun run test:unit src/lib/api/fetch.test.ts          # one server-project file
+bun run test:unit src/lib/components/ui/AppIcon.svelte.test.ts   # one client-project (browser) file
+bun run test:unit -- -t "pattern"
 ```
 
 ### Backend (run from `backend/` directory)
@@ -107,12 +108,12 @@ Module: `github.com/alcoves/alcoves-backend`. Production builds inject version v
 ### Docker (local development)
 
 ```bash
-docker compose up                       # postgres + dragonfly + backend (Air) + frontend (bun dev)
+docker compose up                       # postgres + dragonfly + backend (Air) + frontend (SvelteKit Vite dev)
 docker compose up -d postgres dragonfly # Infrastructure only
 docker compose down -v                  # Drop the postgres_data volume (full reset, re-seeds)
 ```
 
-Ports: frontend :3000, backend :3001, postgres :5432, **Dragonfly published on host :6389 → container :6379**. The backend service sets `ALCOVES_QUEUE_PORT=6379` (in-container); the config default when the env var is absent is `6389`. The frontend container runs `bun install` at startup because the named `frontend_node_modules` volume starts empty.
+Ports: frontend :3000, backend :3001, postgres :5432, **Dragonfly published on host :6389 → container :6379**. The backend service sets `ALCOVES_QUEUE_PORT=6379` (in-container); the config default when the env var is absent is `6389`. The frontend container (`client/Dockerfile.dev`) sets `INTERNAL_API_URL=http://backend:3001`; the named `client_node_modules` volume plus anonymous volumes over `/app/.svelte-kit` and `/app/build` keep host-side build artifacts from leaking in.
 
 ## Local Dev Seed Data (`backend/internal/seed`)
 
@@ -244,36 +245,34 @@ Dev PAT: `alc_pat_localdev0000000000000000000000000000`.
 
 **Storage:** `Driver` interface (`EnsureReady`, `PutBuffer`/`PutStream`, `OpenReadStream` w/ `ByteRange`, `ReadBuffer`, `Exists`, `Stat`, `DeletePrefix`). Three scopes: `files` (`{libraryId}/{fileId}/blob`), `avatars` (`{userId}/avatar.webp`), `cache`. `LocalDriver` exposes `LocalFilePath()` so ffprobe/ffmpeg read on-disk without temp copies.
 
-### Frontend (`frontend/`)
+### Frontend (`client/`)
 
-- Nuxt 4, `srcDir: 'app'` (default). Config in `nuxt.config.ts`: modules `@nuxt/ui` (pulls Tailwind 4) + `@sentry/nuxt/module`; `nitro.preset: "bun"`; Vidstack via `media-*` custom elements + `vite.plugins`.
-- **`routeRules`:** `/api/**` → proxy to `${apiTarget}/api/**`; `/**` → `{ ssr: false }` (client-render all); `/s/**` → `{ ssr: true }` (public share pages need OG/SEO meta). `Document-Policy: js-profiling` header is for Sentry profiling.
-- **Nitro devProxy:** `/api` → `${apiTarget}/api` (`changeOrigin`, `ws: true`); `icon.localApiEndpoint: "/_nuxt_icon"` to avoid the backend proxy capturing it.
-- **`bunfig.toml`** sets `linker = "hoisted"` — Bun's default symlink layout self-references `vue`/`@vue/server-renderer` and triggers Node `ELOOP` during Nitro's dependency-trace at `nuxt build`. Removing it breaks the build.
-- `app/pages/` — file-based routes; dynamic segments `[id]`, `[token]`, `[fileId]`, `[personId]`.
-  - `libraries/[id]/index.vue` — browser, aliased to `/libraries/:id/trash`; sub-pages `feed`, `map`, `objects`, `tags`, `timeline`, `settings`, `people/`, `edit/[fileId]` (video editor)
-  - `s/[token].vue` — public moment share landing (SSR, `layout: false`, OG via `useSeoMeta`)
-  - `admin/index.vue` + `admin/jobs.vue` — owner-only; `invites/[token].vue` — public
-- `app/layouts/dashboard.vue` — authenticated shell (sidebar, search, `NotificationBell`, avatar menu); `app/layouts/library.vue` — nested layout (wraps `dashboard`, fetches the library, `provide()`s `libraryId`/`library`/`refreshLibrary`/`canManageLibrary`, renders `LibraryHeader` + `LibraryTabs` + `<slot>`).
-- `app/middleware/auth.global.ts` — runs every navigation; skips `/login`, `/register`, `/s/**`, `/invites/**`; lazily `fetchSession()`; redirects unauth → `/login?redirect=…`; gates `/admin*` to owners. Destructures `{ loggedIn, user, fetchSession }` from `useAuth()`.
-- `app/composables/` (auto-imported): `useAuth`, `useApiFetch`, `useLibraryExplorer`, `useUploadQueue` (TUS, endpoint `/api/tus`, concurrency 3), `useLibrariesList`, `useNotifications` + `useNotificationsSocket` (WS/SSE), plus per-feature hooks (`useLibraryPeople/Members/Moments/Feed/Timeline/Map/Tags/FolderPath/FolderActions`, `useTranscript`/`useTranscribeJob`, `useAudioDetections`/`useAudioDetectJob`, `useWaveform*`, `useHighlightFilters`, `useEditorHighlights`/`useEditorShortcuts`, `useMomentDownloads`, `useDownloadZip`, `useAsyncJobStatus`, `useFileDrop`, `useTheme`, `useToast`).
-- `app/utils/api-fetch.ts` — isomorphic fetch. **SSR:** prepends `runtimeConfig.apiUrl` and forwards `Cookie` via `useRequestHeaders(["cookie"])`. **Client:** uses `runtimeConfig.public.apiOrigin` if set (direct to Go, bypasses the proxy — avoids Range-request mangling for video), else relative URLs through Nitro. Exports `apiFetch`, `apiUrl`, `ApiError` (with `.status`/`.data`).
-- `app/api/index.ts` — typed API client (`api.auth.*`, `api.libraries.*`, …) built on `apiFetch`. `shared/types/api.ts` — response types, imported as `~~/shared/types/api`. `LibraryMap.client.vue` is client-only (Leaflet, no SSR).
-- **Runtime config:** server-only `apiUrl`; `public.googleAuthEnabled`, `public.apiOrigin`, `public.sentry.dsn`, `public.mapTileUrl`/`mapTileAttribution`.
+- SvelteKit + Svelte 5 (runes mode forced for non-`node_modules` files in `svelte.config.js`) + Skeleton UI v4 + Tailwind 4 + Bun. `adapter-node` with `envPrefix: 'FRONTEND_'` so the Node/Bun server reads `FRONTEND_HOST`/`FRONTEND_PORT`/etc. and never collides with the Go API's `PORT` in the unified `all` role. Tailwind + Skeleton are configured CSS-first in `src/app.css` (`@import 'tailwindcss'` + `@skeletonlabs/skeleton` + the `cerberus` theme; no `tailwind.config`). `vite.config.ts` wires `@tailwindcss/vite` + `sveltekit()` (and the Vitest config — see Testing Conventions).
+- **Rendering / SSR:** SvelteKit default SSR + hydration for the whole app. `app.html` carries a pre-paint theme bootstrap (reads `localStorage` key `alcoves.theme`, toggles the `.dark` class) and a pre-hydration form guard (blocks native `<form>` submits until `window.__alcovesReady`).
+- **`src/routes/` route groups** (file-based; dynamic segments `[id]`, `[token]`, `[fileId]`, `[personId]`, catch-all `[...path]`):
+  - `(app)/` — authed dashboard group. `(app)/+layout.server.ts` redirects anonymous users → `/login?redirect=…` and loads the sidebar libraries list (degrades to `[]` on failure); `(app)/+layout.svelte` is the shell (sidebar, search, notifications, avatar menu). Sub-routes: `libraries/[id]` (browser; `trash/` sibling) + `feed`, `map`, `objects`, `tags`, `timeline`, `settings`, `people/[personId]`, `edit/[fileId]` (video editor); plus `notifications`, `profile`, `search`, and owner-only `admin/` + `admin/jobs/` (gated by `(app)/admin/+layout.server.ts`, which redirects non-`owner` → `/`).
+  - Public routes (outside the group): `login`, `register`, `invites/[token]`, and `s/[token]` (public moment share landing — `+page.server.ts` SSRs OG/SEO meta).
+  - `api/[...path]/+server.ts` — in-process catch-all proxy (below).
+- **`hooks.server.ts`:** `handle` resolves `event.locals.user` for app navigations by calling the Go API's `GET /api/_auth/session` (never 401s; a backend hiccup returns `null` instead of 500ing the page) — skipped for `/api/*` paths. `handleFetch` rewrites same-origin `/api/*` fetches made in server `load`/actions to `INTERNAL_API_URL`, forwarding the session `cookie` plus `X-Forwarded-Host`/`-Proto` (the proto/host are load-bearing: backend `share.go` builds absolute OG/share URLs from the forwarded host). `hooks.client.ts` just logs client errors (Sentry is a later phase).
+- **`src/routes/api/[...path]/+server.ts`** — in-process catch-all proxy (browser → SvelteKit → co-located Go API) that streams bodies both ways and passes status/headers verbatim so Range (206), ETag, TUS, and `Set-Cookie` all work (`duplex: 'half'` for streamed PATCH bodies). Binary GETs and the activity WebSocket can bypass it via `PUBLIC_API_ORIGIN`; in single-port unified mode (no `PUBLIC_API_ORIGIN`) the notifications socket degrades to its poll fallback (the WS works directly via a k8s ingress or `PUBLIC_API_ORIGIN`).
+- **`src/lib/api/`** — `createApi(fetch)` factory (`client.ts`, 15 namespaces: `auth`, `libraries`, `files`, `folders`, `tags`, `highlightFilters`, `members`, `people`, `objects`, `downloads`, `search`, `invites`, `admin`, `moments`, `meta`). Server `load` passes `event.fetch`; the browser uses the `api` singleton (`index.ts`, bound to global `fetch`). `fetch.ts` is the isomorphic `apiFetch` + `ApiError` (`.status`/`.data`); `url.ts` resolves data-vs-asset URLs: server keeps `/api/*` relative (so `handleFetch` rewrites + forwards the cookie); browser uses `PUBLIC_API_ORIGIN` when set (direct to Go, avoids Range mangling) else relative through the proxy.
+- **`src/lib/state/`** — Svelte 5 rune stores in `*.svelte.ts` files (these replace the old Vue composables): `auth`, `theme`, `toast`, `library-explorer`, `upload-queue` (TUS, `/api/tus`), `libraries-list`, `notifications` + `notifications-socket`, `async-job-status`, plus per-feature stores (`library-people/members/moments/feed/timeline/map/tags/folder-path/folder-actions`, `transcript`/`transcribe-job`, `audio-detections`/`audio-detect-job`, `waveform*`, `highlight-filters`, `editor-highlights`/`editor-shortcuts`, `moment-downloads`, `download-zip`, `file-drop`).
+- **`src/lib/components/`** — `ui/` primitives (`AppIcon`, `AppModal`, `AppPanel`/`AppPanelRow`, `AlcovesImage`, `UserAvatar`, `ConfirmModal`, `AuthCardShell`, `OAuthGoogleButton`, `EmojiPicker`) plus feature dirs (`library/`, `editor/`, `admin/`, `notifications/`, `profile/`) and top-level components (`LibraryHeader`, `LibraryBreadcrumb`, `LibrarySwitcher`, `SidebarLibraryNav`, `JustifiedGallery`, `FilePreview`, `TimelineScrubber`, `UploadModal`/`UploadProgress`, `LibraryMap` — Leaflet, browser-only). `src/lib/actions/portal.ts` is a `use:portal` action.
+- **`src/lib/shared/`** (`image-variants`, `tag-colors`), **`src/lib/utils/`** (pure helpers — `activity-format`, `justified-layout`, `mime-icons`, `parse-vtt`, `highlight-expression`, `permissions`, `icons`, …), **`src/lib/types/api.ts`** (response types, imported as `$lib/types/api`).
+- **Icons:** `@iconify/svelte` rendered fully **offline** — `ui/AppIcon.svelte` calls `addCollection(@iconify-json/lineicons/icons.json)` (privacy-first; no network icon fetch). The `ICONS` registry (`src/lib/utils/icons.ts`) maps names → `lineicons:<glyph>`, validated against the installed set by `icons.test.ts`.
+- **Env (SvelteKit):** server-only `INTERNAL_API_URL` (via `$env/dynamic/private`); browser-visible `PUBLIC_*` (`$env/dynamic/public`): `PUBLIC_API_ORIGIN`, `PUBLIC_GOOGLE_AUTH_ENABLED`, `PUBLIC_SENTRY_DSN`, `PUBLIC_MAP_TILE_URL`/`_ATTRIBUTION`. adapter-node runtime: `FRONTEND_HOST`/`FRONTEND_PORT`/`FRONTEND_ORIGIN`/`FRONTEND_PROTOCOL_HEADER`/`FRONTEND_HOST_HEADER`/`FRONTEND_BODY_SIZE_LIMIT` (the last must be unbounded or TUS chunk PATCHes through the proxy are rejected).
 
 ### Testing Conventions
 
-**Frontend unit tests** (Vitest + `@nuxt/test-utils`, `environment: "nuxt"`, `vitest.config.ts` via `defineVitestConfig`):
-- Test globs under `test/{components,composables,shared,utils,app,pages,layouts,router}/**/*.spec.ts`; setup in `test/setup.ts`.
-- `test/setup.ts` stubs all Nuxt UI components by their **prefixed** names (`UButton`, `UModal`, …), plus `Teleport`/`Transition`/`NuxtLayout`/`NuxtPage`/`NuxtLink`. `localStorage`, `sessionStorage`, `navigator.clipboard`, `matchMedia` are shimmed there — **don't re-stub per file**.
-- Mock `useToast` via `vi.mock("@nuxt/ui/composables/useToast")`.
-- `#imports` mocks DO work inside the Nuxt test env.
-- Coverage: V8, thresholds set low (25%) — signal, not gate; excludes `app/pages/libraries/**`.
+**Frontend unit tests** (Vitest, dual `projects` defined in `vite.config.ts` — colocated `*.test.ts` next to source under `client/src/`):
+- **`server` project** (`environment: 'node'`, `*.{test,spec}.ts` excluding `*.svelte.*`) — pure logic, hooks, `load` functions, the `/api` proxy, the API client, utils. Route-server tests must NOT use `+`-prefixed filenames (use e.g. `layout.server.test.ts`, `page.server.test.ts`).
+- **`client` project** (`browser.enabled`, real **chromium** via `@vitest/browser-playwright` + `vitest-browser-svelte`, `*.svelte.{test,spec}.ts`, excludes `src/lib/server/**`) — components and DOM-touching rune stores. Route-page tests use `page.svelte.test.ts` (never `+page.svelte.test.ts`).
+- `$env/dynamic/public` isn't initialized in browser mode, so it's aliased to `vitest/env-public-stub.ts`; tests needing a value mock `$lib/api` directly.
+- ~1,600 unit tests total. Coverage: V8, headline thresholds 90% (lines/functions/statements) + 80% branches in `vite.config.ts`; the per-file 60% floor is enforced separately by `scripts/coverage-floor.mjs` (`bun run coverage:floor`). Coverage-excluded (e2e-covered instead): `LibraryMap.svelte`, `editor/VideoEditorPlayer.svelte`, and the two trivial `libraries/*/+page.svelte` / `trash/+page.svelte` passthrough wrappers.
 
-**Frontend E2E** (Playwright, `test/e2e/`, `baseURL` :4173, sequential `workers: 1`):
-- Playwright launches **two** processes: a mock backend (`test/e2e/helpers/mock-backend.mjs` on :3099) and `bun run dev --port 4173` pointed at it (`ALCOVES_API_URL=http://127.0.0.1:3099`).
-- `/s/**` share pages fetch metadata **server-side** through Nitro, so `page.route()` browser mocks can't intercept them — the :3099 mock backend handles those.
-- Flows in `test/e2e/flows/` (auth, library-browser, editor, people-objects, settings, modals, notifications, profile, responsive, search-invites, share, admin); `tus-upload.e2e.spec.ts` at the e2e root.
+**Frontend E2E** (Playwright, `client/playwright.config.ts`, `client/test/e2e/*.e2e.ts`, sequential `workers: 1`, chromium):
+- Runs against the **REAL full stack** — there is **no mock backend**. Local: `docker compose up` (brings up Postgres + Dragonfly + the seeded Go API/worker behind the SvelteKit server), then `bun run test:e2e`. CI brings the stack up via `docker compose` and sets `E2E_BASE_URL` (default `http://localhost:3000`).
+- Seed login: `test@alcoves.io` / `password123` (see `backend/internal/seed`). The shared login helper is `client/test/e2e/helpers/auth.ts`.
 
 **Backend tests** (standard `testing`):
 - `*_test.go` alongside source; `-run TestName` targets one function; `internal/testsupport` provides shared DB/ML fixtures.
@@ -296,21 +295,21 @@ Dev PAT: `alc_pat_localdev0000000000000000000000000000`.
 - `ALCOVES_IMAGE_PROXY_PREWARM_ENABLED` (default true), `ALCOVES_SENTRY_DSN` / `_TRACES_SAMPLE_RATE`
 - `PORT` (Go listen port, default 3001), `LD_LIBRARY_PATH=/usr/local/lib` (required in container for ONNX `dlopen`)
 
-**Frontend (Nuxt):**
+**Frontend (SvelteKit):**
 
-- `ALCOVES_API_URL` — Go backend URL for Nitro proxy / SSR calls (default `http://localhost:3001`); exposed as `runtimeConfig.apiUrl`
-- `NITRO_HOST` / `NITRO_PORT` — bind address (default `0.0.0.0:3000`)
-- `NUXT_PUBLIC_API_ORIGIN` — public API origin for browser binary streaming (bypasses the Nitro proxy)
-- `NUXT_PUBLIC_SENTRY_DSN`, `NUXT_PUBLIC_MAP_TILE_URL`/`_ATTRIBUTION`; `SENTRY_AUTH_TOKEN`/`_ORG`/`_PROJECT_FRONTEND` (CI source-map upload)
+- `INTERNAL_API_URL` — Go backend URL for the `/api/[...path]` proxy + server `load`/`handleFetch` (default `http://localhost:3001`; docker-compose uses `http://backend:3001`); server-only (`$env/dynamic/private`)
+- `FRONTEND_HOST` / `FRONTEND_PORT` — adapter-node bind address (default `0.0.0.0:3000`); `FRONTEND_ORIGIN` (required by adapter-node for POST/cookie origin checks unless `FRONTEND_PROTOCOL_HEADER`/`FRONTEND_HOST_HEADER` are set); `FRONTEND_BODY_SIZE_LIMIT` (set to `Infinity` so TUS PATCH chunks aren't rejected). All read via the `FRONTEND_` adapter `envPrefix`.
+- `PUBLIC_API_ORIGIN` — public API origin for browser binary streaming + the activity WebSocket (bypasses the SvelteKit proxy); empty = everything same-origin through the proxy
+- `PUBLIC_GOOGLE_AUTH_ENABLED`, `PUBLIC_SENTRY_DSN`, `PUBLIC_MAP_TILE_URL`/`_ATTRIBUTION` (browser-visible `$env/dynamic/public`)
 
 See `.env.example` for the full list and defaults.
 
 ## Build, Deploy & CI
 
-- **Root `Dockerfile`** — 4 stages: Go build (`golang:1.26-bookworm`, libvips/ffmpeg, ONNX Runtime v1.26.0, builds `/alcoves` + `/alcoves-mcp` with `CGO_ENABLED=1` and version ldflags), whisper.cpp build (`v1.8.4`, hardened x86 baseline `-march=x86-64-v3` / AVX-512 off), frontend build (`oven/bun:1`, `--frozen-lockfile`), and a `debian:bookworm-slim` runtime. Env defaults: `ALCOVES_MODE=all`, `NITRO_PORT=3000`, `PORT=3001`, `ALCOVES_API_URL=http://127.0.0.1:3001`. `EXPOSE 3000 3001`; `ENTRYPOINT tini -- /app/entrypoint.sh`; `CMD ["all"]`.
-- **`docker/entrypoint.sh`** — role arg `all|web|api|worker`. Single roles `exec` directly (signals pass through). `all` supervises both processes, `trap`s `TERM`/`INT` to `SIGTERM` both children, `wait -n`, and exits non-zero on any child exit to force orchestrator restart.
+- **Root `Dockerfile`** — 4 stages: Go build (`golang:1.26-bookworm`, libvips/ffmpeg, ONNX Runtime v1.26.0, builds `/alcoves` + `/alcoves-mcp` with `CGO_ENABLED=1` and version ldflags), whisper.cpp build (`v1.8.4`, hardened x86 baseline `-march=x86-64-v3` / AVX-512 off), SvelteKit client build (`oven/bun:1`, `--frozen-lockfile` → `bun run build` writes `build/`, then `bun install --production` prunes to a lean runtime `node_modules`), and a `debian:bookworm-slim` runtime that copies `build/` + the pruned `node_modules` + `package.json` + a `bun` binary. Env defaults: `ALCOVES_MODE=all`, `FRONTEND_HOST=0.0.0.0`, `FRONTEND_PORT=3000`, `FRONTEND_PROTOCOL_HEADER=x-forwarded-proto`, `FRONTEND_HOST_HEADER=x-forwarded-host`, `FRONTEND_BODY_SIZE_LIMIT=Infinity`, `PORT=3001`, `INTERNAL_API_URL=http://127.0.0.1:3001`. `EXPOSE 3000 3001`; `ENTRYPOINT tini -- /app/entrypoint.sh`; `CMD ["all"]`.
+- **`docker/entrypoint.sh`** — role arg `all|web|api|worker`. `web` `exec bun /app/build/index.js` (SvelteKit); `api`/`worker` `exec` the Go binary with `ALCOVES_MODE` set (signals pass through). `all` supervises the Go process AND `bun /app/build/index.js`, `trap`s `TERM`/`INT` to `SIGTERM` both children, `wait -n`, and exits non-zero on any child exit to force orchestrator restart.
 - **Helm (`helm/alcoves/`)** — three Deployments off the one image with different `args`: `frontend` (`web`, :3000), `backend-api` (`api`, :3001), `backend-worker` (`worker`, no Service). Single RWX PVC at `/app/data` for `local` storage; chart does NOT deploy Postgres/Dragonfly. Shared backend env from `_envvars.tpl`.
-- **CI (`.github/workflows/`)** — `ci.yml`: `backend-test` (`go test -race -count=1 -p 1`, sharded 3 ways by `go list` round-robin — each shard has its own postgres+dragonfly so the shared test DB/queue can't be contended across shards, and `-p 1` stays within a shard; whisper.cpp build cached), `unit-and-coverage` (lint + typecheck + vitest coverage), `e2e` (Playwright, 8-shard; runs against the mock backend only — no DB/queue service containers, browser cached). `build-images.yml` (reusable) builds + pushes to GHCR. `publish.yml` calls it on push/tags/release. `release-please.yml` runs release-please and, on release, re-publishes `X.Y.Z`/`X.Y` tags. `website.yml` builds + deploys the Starlight site.
+- **CI (`.github/workflows/`)** — `ci.yml`: `backend-test` (`go test -race -count=1 -p 1`, sharded 5 ways — each shard has its own postgres+dragonfly so the shared test DB/queue can't be contended across shards, and `-p 1` stays within a shard; the heavy `internal/handlers` package is split by test name across shards, everything else round-robined by `go list`; whisper.cpp build cached), `unit-and-coverage` (runs in `client/`: `bun run lint` + `typecheck` + `test:unit:coverage` + `coverage:floor`; installs the chromium Playwright browser because the `client` vitest project runs component tests in real chromium), `e2e` (Playwright against the **REAL full stack** — `docker compose up -d --build --wait` brings up Postgres + Dragonfly + the seeded Go API/worker behind the SvelteKit server, then `bunx playwright test` with `E2E_BASE_URL=http://localhost:3000`; **no mock backend**, chromium cached). `build-images.yml` (reusable) builds + pushes to GHCR. `publish.yml` calls it on push/tags/release. `release-please.yml` runs release-please and, on release, re-publishes `X.Y.Z`/`X.Y` tags. `website.yml` builds + deploys the Starlight site.
 
 ## Versioning
 
@@ -340,36 +339,36 @@ These rules are non-optional. Skipping them is what produced the multi-month tes
 
 **Before merging any feature, refactor, or bug fix:**
 
-1. **Run the targeted suite first.** Changed `frontend/app/` → `bun run test:unit -- <changed file paths>` + the matching `frontend/test/e2e/flows/` file if one exists. Changed `backend/` → `go test ./internal/<changed package>/...`. Don't claim done before this.
-   - **Frontend changes MUST run the Playwright e2e suite before being marked done — non-negotiable, not "if one exists".** A change to a shared component/layout/composable can break a flow unrelated to your feature: e.g. adding a "Files" item to the shared sidebar nav broke `admin.e2e.spec.ts`, whose `getByText("Files")` then matched two elements (strict-mode violation). Run `bunx playwright test` broadly, not just the one flow you think you touched, and watch for cross-flow text-locator collisions when adding shared UI. If the full sweep crashes the dev server mid-run (`ERR_CONNECTION_REFUSED` cascade), re-run the affected flows per-file to get a clean signal; CI shards the suite so it stays stable there.
-2. **Then run the full suite for the side you touched.** Frontend: `bun run typecheck && bun run lint && bun run test:unit && bunx playwright test` (all four exit 0). Backend: `go test ./... -race -count=1` (green).
+1. **Run the targeted suite first.** Changed `client/src/` → `bun run test:unit -- <changed file paths>` (the colocated `*.test.ts` / `*.svelte.test.ts`) + the matching `client/test/e2e/*.e2e.ts` if one exists. Changed `backend/` → `go test ./internal/<changed package>/...`. Don't claim done before this.
+   - **Frontend changes MUST run the Playwright e2e suite before being marked done — non-negotiable, not "if one exists".** A change to a shared component/layout/store can break a flow unrelated to your feature; run `bun run test:e2e` broadly, not just the one flow you think you touched, and watch for cross-flow text-locator collisions when adding shared UI. The e2e suite runs against the **real seeded stack**, so bring it up first (`docker compose up`); if it isn't up the e2e job has nothing to hit.
+2. **Then run the full suite for the side you touched.** Frontend (in `client/`): `bun run typecheck && bun run lint && bun run test:unit && bun run test:e2e` (all exit 0; e2e needs the stack up). Backend: `go test ./... -race -count=1` (green).
 3. **If a test fails, fix it before merge.** Either the test caught a real regression (fix the source) or it was wrong (update/delete in the same PR). **Never commit while ignoring a failure.** "Pre-existing failure, not mine" is how the suite rotted to 104 failures — if it failed during your run, you own quieting it (fix, update, delete, or `it.skip` with a comment + a `docs/internal/todos.md` entry).
 4. **If you skip a test, leave a paper trail.** `it.skip` with a comment saying *why* and a `docs/internal/todos.md` link. Never silently delete coverage.
-5. **Add tests for new behavior.** New composable, handler, util, or branch gets a test in the same PR. Bar: "would a future regression be caught?"
-6. **For UI/frontend changes, also exercise the feature in a browser.** Type-check + tests verify code correctness, not feature correctness. Start `bun run dev`, click the golden path and a couple edge cases, watch for unrelated regressions before reporting done.
+5. **Add tests for new behavior.** New rune store, component, handler, util, or branch gets a test in the same PR. Bar: "would a future regression be caught?"
+6. **For UI/frontend changes, also exercise the feature in a browser.** Type-check + tests verify code correctness, not feature correctness. Bring up the stack (`docker compose up`), then either hit the running SvelteKit server or `bun run dev`, click the golden path and a couple edge cases, watch for unrelated regressions before reporting done.
 
-**Frontend mocking gotchas (read before writing a new test):**
+**Frontend testing gotchas (read before writing a new test):**
 
-- `useRoute` / `useRouter` auto-import from `#app/composables/router`, **not** `vue-router`. Mocking `vue-router` alone does **not** intercept Nuxt's auto-imports — avoid `useRoute`-dependent paths or wait for a proper Nuxt route mount helper (`docs/internal/todos.md`).
-- When mocking `vue-router`, always spread `await importOriginal()` — partial mocks break Nuxt plugins needing `createWebHistory` / `router.beforeEach`.
-- When mocking `~/utils/api-fetch`, return `apiUrl` and `ApiError` alongside `apiFetch` — many components import `apiUrl`; several use `ApiError` for narrowing. Missing exports surface as opaque vitest module errors.
-- When mocking `~/composables/useAuth`, always include `{ loggedIn, user, fetchSession }` — the shape `auth.global.ts` destructures on every page mount. A partial shape crashes the middleware during app init.
-- `localStorage`, `sessionStorage`, `navigator.clipboard`, and `<NuxtLayout>` are stubbed in `test/setup.ts` — don't re-stub them per file.
+- **Pick the right vitest project by filename.** Pure logic / hooks / `load` / proxy / API-client tests are `*.test.ts` (the `server`/node project). Component and DOM-rune-store tests are `*.svelte.test.ts` (the `client`/chromium browser project, via `vitest-browser-svelte`). The wrong suffix routes the test to the wrong environment.
+- **Route tests must NOT use `+`-prefixed filenames.** SvelteKit treats `+page`/`+layout`/`+server` files as routes; a `+page.svelte.test.ts` would be picked up as a route module. Use `page.svelte.test.ts`, `layout.server.test.ts`, `page.server.test.ts`, `proxy.test.ts`, etc.
+- **Mock `$lib/api` (not `fetch`) for component/store tests** — `$env/dynamic/public` is stubbed in browser mode (`vitest/env-public-stub.ts`), so anything reading `PUBLIC_*` (e.g. `url.ts`) gets empty values unless the test mocks `$lib/api` directly.
+- **`createApi(fetch)` is the seam.** Server `load` tests pass a fake `fetch`; don't reach for a global fetch mock. `ApiError` carries `.status`/`.data` — assert on those for error-path narrowing.
+- Coverage is per-file-floored at 60% (`coverage:floor`) — a new `.svelte`/`.ts` under `src/` needs a colocated test or a documented exclusion.
 
 **Coverage targets (recommendations, not hard gates):**
 
-- **No single file below 60%.** If a file you touch or add is under, add tests in the same PR or note the gap in `docs/internal/todos.md`. Applies to both `frontend/` and `backend/`.
-- **Backend aims for 80% global** (`go test ./... -cover`); **frontend aims for 90% global** (Vitest summary). Aspirational, not CI gates — don't block a merge solely on the global number, but a change that lowers coverage should add tests.
-- Frontend thresholds live in `frontend/vitest.config.ts` (report-only). Treat any backend package at `0.0%` with non-test source as a known gap (`docs/internal/todos.md`). Current known under-floor package: `objectdetection` (~56%).
+- **No single file below 60%.** If a file you touch or add is under, add tests in the same PR or note the gap in `docs/internal/todos.md`. Applies to both `client/` and `backend/`. The frontend floor is **enforced in CI** by `client/scripts/coverage-floor.mjs` (`bun run coverage:floor`).
+- **Backend aims for 80% global** (`go test ./... -cover`); **frontend gates 90% global** (lines/functions/statements) + 80% branches via the V8 thresholds in `client/vite.config.ts`. Backend global is aspirational (not a CI gate); the frontend thresholds **do** fail CI.
+- Frontend coverage config (thresholds + the `LibraryMap`/`VideoEditorPlayer` + trivial `+page` passthrough exclusions) lives in `client/vite.config.ts`. Treat any backend package at `0.0%` with non-test source as a known gap (`docs/internal/todos.md`). Current known under-floor backend package: `objectdetection` (~56%).
 
 ## Engineering Guardrails
 
-- Do not switch package manager (Bun) or lint/format stack (OXlint/OXfmt).
+- Do not switch the package manager (Bun stays repo-wide). **Tooling deviation for `client/`:** because OXlint/OXfmt can't parse `.svelte`, the SvelteKit client uses `svelte-check` (typecheck), Prettier + `prettier-plugin-svelte` (+ `-tailwindcss`) (format), and ESLint flat config + `eslint-plugin-svelte` + `typescript-eslint` (lint). The Go backend keeps its own Go toolchain; don't try to unify the two stacks.
 - Schema is **Goose-owned only** — never use GORM `AutoMigrate` in production paths.
 - Use `bigint` for file sizes; never `integer` (PostgreSQL `integer` caps at ~2GB).
 - Prefer adding/adjusting tests when behavior changes; run targeted tests first, broader suites second.
 - Avoid destructive git commands and do not revert unrelated local changes.
-- DOM / `window` / `localStorage` access in a new component or composable: guard with `import.meta.client` or wrap in `onMounted` — top-level SSR is on.
+- DOM / `window` / `localStorage` access in a Svelte component or rune store: guard with `import { browser } from '$app/environment'` (or run it inside `onMount`/an effect) — SvelteKit SSR is on, so top-level browser-API access crashes the server render.
 
 ## Git commit authorship
 

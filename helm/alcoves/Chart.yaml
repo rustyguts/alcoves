@@ -1,7 +1,7 @@
 apiVersion: v2
 name: alcoves
 description: >-
-  Alcoves — self-hosted collaborative file library (Nuxt frontend + Go API +
+  Alcoves — self-hosted collaborative file library (SvelteKit frontend + Go API +
   async workers)
 type: application
 version: 0.25.2

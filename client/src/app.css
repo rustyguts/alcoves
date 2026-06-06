@@ -1,0 +1,25 @@
+/* Tailwind 4 + Skeleton UI (v4) — CSS-first config, no tailwind.config. */
+@import 'tailwindcss';
+
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton/themes/cerberus';
+@import '@skeletonlabs/skeleton-svelte';
+
+/*
+ * Class-based dark mode. Skeleton's base uses `@variant dark`; by redefining the
+ * variant to match the `.dark` class we drive light/dark from a manual, persisted
+ * toggle (see $lib/state/theme.svelte.ts) instead of `prefers-color-scheme` alone.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html,
+body {
+	height: 100%;
+}
+
+/* App-wide niceties on top of the Skeleton theme. */
+body {
+	min-height: 100%;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}

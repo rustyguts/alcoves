@@ -95,6 +95,32 @@ E2e green. Watch for snapshot drift after Tailwind/font changes —
   unselectable.
 
 
+## 10. SvelteKit `client/` — restore dropped full-stack e2e flows (Testing) — OPEN
+
+- **What:** The SvelteKit rewrite (`client/`) ships a leaner Playwright suite than
+  the old Nuxt app had. The full-stack flows currently covered are **auth**
+  (`auth.e2e.ts`), **library browser** (`library.e2e.ts`), **public share**
+  (`share.e2e.ts`), and **admin owner-gating** (`admin.e2e.ts`). The unit suite is
+  comprehensive (≥90% line coverage, per-file 60% floor), so these gaps are
+  e2e-only — the underlying logic is unit-tested, but the real-stack golden path
+  isn't exercised end-to-end.
+- **Dropped vs. the old Nuxt flows** (`frontend/test/e2e/flows/`, now removed):
+  `editor` (timeline editor + moment export), `people-objects` (face grid + object
+  labels), `settings` (library settings + reprocess), `modals` (confirm/share/upload
+  dialogs), `notifications` (bell + WS/SSE feed), `profile` (avatar upload + profile
+  edit), `responsive` (mobile drawer / breakpoints), `search-invites` (cross-library
+  search + invite redemption). The old `screenshots` snapshot flow was also not
+  ported.
+- **Why now:** the rewrite landed with the four highest-value smokes green against
+  the seeded stack; the rest were deferred to keep the cutover PR reviewable. Each
+  is a straightforward port — `login()` helper + navigate + assert against seed data
+  (`backend/internal/seed`). Add them back incrementally.
+- **Effort:** S–M per flow (mostly selector/seed-data wiring; no new infra — the CI
+  `e2e` job already boots postgres + dragonfly + the Go API with `ALCOVES_SEED=true`).
+- **Risk:** Low — additive test coverage only.
+- **Files:** `client/test/e2e/*.e2e.ts`, `client/test/e2e/helpers/`.
+
+
 ---
 
 ## Completed
