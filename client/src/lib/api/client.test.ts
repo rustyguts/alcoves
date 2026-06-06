@@ -131,8 +131,6 @@ describe('createApi — folders / tags / highlightFilters', () => {
 		expect(last()).toMatchObject({ url: '/api/libraries/L/folders/D1/move', method: 'POST' });
 		await api.folders.restore('L', { folderIds: ['a'] });
 		expect(last().url).toBe('/api/libraries/L/folders/restore');
-		await api.folders.purge('L', { folderIds: ['a'] });
-		expect(last().url).toBe('/api/libraries/L/folders/purge');
 	});
 
 	it('maps tag methods', async () => {

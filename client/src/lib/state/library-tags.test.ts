@@ -333,7 +333,7 @@ describe('createLibraryTags', () => {
 		const tag = makeTag({ id: 't1', name: 'Tag' });
 		const f1 = makeFile({ id: 'f1', name: 'a.txt', tags: [tag] });
 		const f2 = makeFile({ id: 'f2', name: 'b.txt', tags: [] });
-		apiMock.tags.syncFileTags.mockResolvedValue({ tags: [tag] });
+		apiMock.tags.syncFileTags.mockResolvedValue([tag]);
 
 		const { store } = setup([tag], [f1, f2]);
 		await store.toggleTagForFiles(['f1', 'f2'], 't1');
@@ -349,7 +349,7 @@ describe('createLibraryTags', () => {
 		const tag = makeTag({ id: 't1', name: 'Tag' });
 		const f1 = makeFile({ id: 'f1', name: 'a.txt', tags: [tag] });
 		const f2 = makeFile({ id: 'f2', name: 'b.txt', tags: [tag] });
-		apiMock.tags.syncFileTags.mockResolvedValue({ tags: [] });
+		apiMock.tags.syncFileTags.mockResolvedValue([]);
 
 		const { store } = setup([tag], [f1, f2]);
 		await store.toggleTagForFiles(['f1', 'f2'], 't1');
@@ -383,7 +383,7 @@ describe('createLibraryTags', () => {
 	it('saveFileTags assigns the returned tags to the file', async () => {
 		const tag = makeTag({ id: 't1', name: 'Tag' });
 		const file = makeFile({ id: 'f1', name: 'a.txt', tags: [] });
-		apiMock.tags.syncFileTags.mockResolvedValueOnce({ tags: [tag] });
+		apiMock.tags.syncFileTags.mockResolvedValueOnce([tag]);
 
 		const { store } = setup([tag], [file]);
 		await store.saveFileTags(file, ['t1']);
@@ -395,7 +395,7 @@ describe('createLibraryTags', () => {
 	it('toggleTagForFolder adds tag when not assigned', async () => {
 		const tag = makeTag({ id: 't1', name: 'Tag' });
 		const folder = makeFolder({ id: 'fo1', name: 'Docs', tags: [] });
-		apiMock.tags.syncFolderTags.mockResolvedValueOnce({ tags: [tag] });
+		apiMock.tags.syncFolderTags.mockResolvedValueOnce([tag]);
 
 		const { store } = setup([tag]);
 		await store.toggleTagForFolder(folder, 't1');
@@ -407,7 +407,7 @@ describe('createLibraryTags', () => {
 	it('toggleTagForFolder removes tag when assigned', async () => {
 		const tag = makeTag({ id: 't1', name: 'Tag' });
 		const folder = makeFolder({ id: 'fo1', name: 'Docs', tags: [tag] });
-		apiMock.tags.syncFolderTags.mockResolvedValueOnce({ tags: [] });
+		apiMock.tags.syncFolderTags.mockResolvedValueOnce([]);
 
 		const { store } = setup([tag]);
 		await store.toggleTagForFolder(folder, 't1');
@@ -433,7 +433,7 @@ describe('createLibraryTags', () => {
 	it('saveFolderTags assigns the returned tags to the folder', async () => {
 		const tag = makeTag({ id: 't1', name: 'Tag' });
 		const folder = makeFolder({ id: 'fo1', name: 'Docs', tags: [] });
-		apiMock.tags.syncFolderTags.mockResolvedValueOnce({ tags: [tag] });
+		apiMock.tags.syncFolderTags.mockResolvedValueOnce([tag]);
 
 		const { store } = setup([tag]);
 		await store.saveFolderTags(folder, ['t1']);

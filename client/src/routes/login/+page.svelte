@@ -5,6 +5,7 @@
 	import { auth } from '$lib/state/auth.svelte';
 	import { ApiError } from '$lib/api';
 	import { ICONS } from '$lib/utils/icons';
+	import { safeRedirect } from '$lib/utils/safe-redirect';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import AuthCardShell from '$lib/components/ui/AuthCardShell.svelte';
 	import OAuthGoogleButton from '$lib/components/ui/OAuthGoogleButton.svelte';
@@ -16,12 +17,10 @@
 
 	const googleAuthEnabled = env.PUBLIC_GOOGLE_AUTH_ENABLED === 'true';
 
-	// Where to land after a successful sign-in. Only honor in-app paths so a
-	// crafted `?redirect=https://evil` can't bounce the user off-site.
-	const redirectPath = $derived.by(() => {
-		const raw = page.url.searchParams.get('redirect');
-		return raw && raw.startsWith('/') ? raw : '/';
-	});
+	// Where to land after a successful sign-in. safeRedirect() honors only same-site
+	// absolute paths (rejects //host, /\host, and absolute URLs) so a crafted
+	// ?redirect= can't bounce the user off-site.
+	const redirectPath = $derived(safeRedirect(page.url.searchParams.get('redirect')));
 
 	const registerLink = $derived(
 		redirectPath === '/' ? '/register' : `/register?redirect=${encodeURIComponent(redirectPath)}`

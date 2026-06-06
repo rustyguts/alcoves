@@ -28,6 +28,7 @@ class NotificationsSocketStore {
 	#closed = false;
 	#pollFallback: ReturnType<typeof setInterval> | null = null;
 	#heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+	#reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	#lastMessageAt = 0;
 	#subscribedRooms = new Set<string>();
 	#handlers: ActivityHandler[] = [];
@@ -84,7 +85,10 @@ class NotificationsSocketStore {
 				void notifications.refreshUnreadCount();
 			}, 60_000);
 		}
-		setTimeout(() => this.connect(), delay);
+		this.#reconnectTimer = setTimeout(() => {
+			this.#reconnectTimer = null;
+			this.connect();
+		}, delay);
 	}
 
 	#stopPollFallback() {
@@ -161,6 +165,12 @@ class NotificationsSocketStore {
 		this.#closed = true;
 		this.#stopHeartbeat();
 		this.#stopPollFallback();
+		// Cancel any pending reconnect scheduled before this teardown, so it can't
+		// reopen the socket after disconnect().
+		if (this.#reconnectTimer) {
+			clearTimeout(this.#reconnectTimer);
+			this.#reconnectTimer = null;
+		}
 		if (this.#ws) {
 			try {
 				this.#ws.close();

@@ -50,13 +50,11 @@ export function createLibraryTags(
 	}
 
 	async function saveFileTags(file: LibraryFile, tagIds: string[]) {
-		const result = await api.tags.syncFileTags(getLibraryId(), file.id, { tagIds });
-		file.tags = result.tags;
+		file.tags = await api.tags.syncFileTags(getLibraryId(), file.id, { tagIds });
 	}
 
 	async function saveFolderTags(folder: LibraryFolder, tagIds: string[]) {
-		const result = await api.tags.syncFolderTags(getLibraryId(), folder.id, { tagIds });
-		folder.tags = result.tags;
+		folder.tags = await api.tags.syncFolderTags(getLibraryId(), folder.id, { tagIds });
 	}
 
 	function isTagAssigned(file: LibraryFile, tagId: string): boolean {

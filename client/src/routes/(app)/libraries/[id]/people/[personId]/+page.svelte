@@ -166,10 +166,10 @@
 	{:else if faces.length}
 		<div class="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
 			{#each faces as face (face.id)}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
-				<div
-					class="relative cursor-pointer overflow-hidden rounded-md bg-surface-100-900 transition hover:bg-surface-200-800"
+				<button
+					type="button"
+					class="relative cursor-pointer overflow-hidden rounded-md bg-surface-100-900 transition hover:bg-surface-200-800 focus-visible:ring-2 focus-visible:ring-primary-500"
+					aria-label="Preview {face.fileName}"
 					onclick={() => openFacePreview(face)}
 					oncontextmenu={(e) => openFaceMenu(face, e)}
 				>
@@ -185,7 +185,7 @@
 							<AppIcon name={ICONS.loading} class="size-5 animate-spin text-white" />
 						</div>
 					{/if}
-				</div>
+				</button>
 			{/each}
 		</div>
 	{:else}

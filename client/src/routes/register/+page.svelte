@@ -6,6 +6,7 @@
 	import { auth } from '$lib/state/auth.svelte';
 	import { api } from '$lib/api';
 	import { ICONS } from '$lib/utils/icons';
+	import { safeRedirect } from '$lib/utils/safe-redirect';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import AuthCardShell from '$lib/components/ui/AuthCardShell.svelte';
 	import OAuthGoogleButton from '$lib/components/ui/OAuthGoogleButton.svelte';
@@ -26,11 +27,7 @@
 		return t && t.length > 0 ? t : null;
 	});
 
-	const redirectPath = $derived.by(() => {
-		const raw = page.url.searchParams.get('redirect');
-		if (!raw || !raw.startsWith('/')) return '/';
-		return raw;
-	});
+	const redirectPath = $derived(safeRedirect(page.url.searchParams.get('redirect')));
 
 	const loginLink = $derived.by(() => {
 		const query = new URLSearchParams();

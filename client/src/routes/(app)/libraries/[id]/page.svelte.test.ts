@@ -959,9 +959,14 @@ describe('/libraries/[id] (browser)', () => {
 		const dt = new DataTransfer();
 		fileRow.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
 		folderRow.dispatchEvent(new DragEvent('dragenter', { bubbles: true, dataTransfer: dt }));
+		await tick();
+		// Entering a folder highlights it as the drop target (ring).
+		expect(folderRow.className).toContain('ring-primary-500/60');
 		folderRow.dispatchEvent(new DragEvent('dragleave', { bubbles: true, dataTransfer: dt }));
+		await tick();
+		// Leaving clears the highlight.
+		expect(folderRow.className).not.toContain('ring-primary-500/60');
 		fileRow.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
-		expect(true).toBe(true);
 	});
 
 	// ── File drop (upload) ─────────────────────────────────────────────────────

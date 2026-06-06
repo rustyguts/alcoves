@@ -259,13 +259,9 @@ export function createApi(fetchImpl: typeof globalThis.fetch) {
 		},
 		restore(libraryId: string, body: { folderIds: string[] }) {
 			return f<void>(`/api/libraries/${libraryId}/folders/restore`, { method: 'POST', body });
-		},
-		purge(libraryId: string, body?: { folderIds?: string[] }) {
-			return f<{ purged: number }>(`/api/libraries/${libraryId}/folders/purge`, {
-				method: 'POST',
-				body
-			});
 		}
+		// NOTE: no folders.purge — the backend has no /folders/purge route. Purging
+		// trashed folders goes through files.purge({ folderIds }) (POST /files/purge).
 	} as const;
 
 	// ─── Tags ──────────────────────────────────────────────
@@ -282,14 +278,15 @@ export function createApi(fetchImpl: typeof globalThis.fetch) {
 		delete(libraryId: string, tagId: string) {
 			return f<void>(`/api/libraries/${libraryId}/tags/${tagId}`, { method: 'DELETE' });
 		},
+		// Backend returns the updated tag list as a TOP-LEVEL array (see tag.go).
 		syncFileTags(libraryId: string, fileId: string, body: { tagIds: string[] }) {
-			return f<{ tags: LibraryTag[] }>(`/api/libraries/${libraryId}/files/${fileId}/tags`, {
+			return f<LibraryTag[]>(`/api/libraries/${libraryId}/files/${fileId}/tags`, {
 				method: 'PUT',
 				body
 			});
 		},
 		syncFolderTags(libraryId: string, folderId: string, body: { tagIds: string[] }) {
-			return f<{ tags: LibraryTag[] }>(`/api/libraries/${libraryId}/folders/${folderId}/tags`, {
+			return f<LibraryTag[]>(`/api/libraries/${libraryId}/folders/${folderId}/tags`, {
 				method: 'PUT',
 				body
 			});

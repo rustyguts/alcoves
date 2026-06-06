@@ -4,9 +4,10 @@ import { defineConfig, devices } from '@playwright/test';
  * Full-stack e2e: these tests run against a REAL running Alcoves stack — the Go
  * API + Postgres + Dragonfly (seeded) behind the SvelteKit server — NOT a mock.
  *
- * By default Playwright builds and runs the PRODUCTION SvelteKit server (adapter-
- * node, deterministic — no vite-dev on-demand compile) on :4173, pointed at the
- * Go API via INTERNAL_API_URL (default the docker-compose backend at :3001). Set
+ * By default Playwright builds and runs the PRODUCTION SvelteKit server under Bun
+ * (matching the deployed runtime; deterministic — no vite-dev on-demand compile)
+ * on :4173, pointed at the Go API via INTERNAL_API_URL (default the docker-compose
+ * backend at :3001). Set
  * E2E_BASE_URL to instead run against an already-running server (then no webServer).
  *
  * Local:  `docker compose up` (seeds the DB), then `bun run test:e2e`.
@@ -28,7 +29,7 @@ export default defineConfig({
 	webServer: process.env.E2E_BASE_URL
 		? undefined
 		: {
-				command: 'bun run build && node build',
+				command: 'bun run build && bun ./build/index.js',
 				port: 4173,
 				reuseExistingServer: !process.env.CI,
 				timeout: 180_000,
