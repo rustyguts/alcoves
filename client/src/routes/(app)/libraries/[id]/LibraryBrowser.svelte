@@ -1080,7 +1080,7 @@
 					title="List view"
 					data-icon={ICONS.listView}
 					data-color={explorer.entryViewMode === 'file' ? 'primary' : 'neutral'}
-					class="btn-icon {explorer.entryViewMode === 'file'
+					class="btn h-9 w-9 px-0 {explorer.entryViewMode === 'file'
 						? 'preset-tonal-primary'
 						: 'preset-tonal'}"
 					onclick={() => (explorer.entryViewMode = 'file')}
@@ -1092,7 +1092,7 @@
 					title="Grid view"
 					data-icon={ICONS.gridView}
 					data-color={explorer.entryViewMode === 'card' ? 'primary' : 'neutral'}
-					class="btn-icon {explorer.entryViewMode === 'card'
+					class="btn h-9 w-9 px-0 {explorer.entryViewMode === 'card'
 						? 'preset-tonal-primary'
 						: 'preset-tonal'}"
 					onclick={() => (explorer.entryViewMode = 'card')}
@@ -1116,7 +1116,7 @@
 				<div class="flex items-center gap-1.5">
 					<button
 						type="button"
-						class="btn preset-tonal-primary"
+						class="btn h-9 preset-tonal-primary"
 						onclick={() => folderActions.openCreateFolderModal()}
 					>
 						<AppIcon name={ICONS.folder} class="size-4" />
@@ -1124,7 +1124,7 @@
 					</button>
 					<button
 						type="button"
-						class="btn preset-tonal-primary"
+						class="btn h-9 preset-tonal-primary"
 						onclick={() => (uploadOpen = true)}
 					>
 						<AppIcon name={ICONS.upload} class="size-4" />
