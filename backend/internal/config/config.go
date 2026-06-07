@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -59,6 +60,19 @@ type Config struct {
 	MCPHTTPEnabled   bool
 	MCPSigningSecret string
 	MCPToken         string
+
+	// MCP OAuth 2.1 authorization server. When MCPOAuthEnabled is set, Alcoves
+	// acts as an OAuth 2.1 Authorization Server + Resource Server for /api/mcp,
+	// letting Claude's custom-connector dialog (and any spec-compliant remote
+	// MCP client) authenticate via a browser consent flow instead of a pasted
+	// PAT. The issuer is BaseURL; all endpoint URLs are derived from it.
+	// Requires MCPHTTPEnabled. Off by default. See docs/internal/mcp-oauth21-plan.md.
+	MCPOAuthEnabled              bool
+	MCPOAuthAccessTTL            time.Duration
+	MCPOAuthRefreshTTL           time.Duration
+	MCPOAuthCodeTTL              time.Duration
+	MCPOAuthDCREnabled           bool
+	MCPOAuthAllowedRedirectHosts []string
 
 	// ExtraCORSOrigins is an optional list of additional origins to allow in
 	// the CORS policy. Parsed from ALCOVES_EXTRA_CORS_ORIGINS (comma-separated).
@@ -179,6 +193,13 @@ func Load() (*Config, error) {
 		MCPSigningSecret: mcpSigningSecret,
 		MCPToken:         getEnv("ALCOVES_MCP_TOKEN", ""),
 
+		MCPOAuthEnabled:              getEnv("ALCOVES_MCP_OAUTH_ENABLED", "") == "true",
+		MCPOAuthAccessTTL:            parseDurationEnv("ALCOVES_MCP_OAUTH_ACCESS_TTL", time.Hour),
+		MCPOAuthRefreshTTL:           parseDurationEnv("ALCOVES_MCP_OAUTH_REFRESH_TTL", 30*24*time.Hour),
+		MCPOAuthCodeTTL:              parseDurationEnv("ALCOVES_MCP_OAUTH_CODE_TTL", 5*time.Minute),
+		MCPOAuthDCREnabled:           getEnv("ALCOVES_MCP_OAUTH_DCR_ENABLED", "true") != "false",
+		MCPOAuthAllowedRedirectHosts: parseCommaList(getEnv("ALCOVES_MCP_OAUTH_ALLOWED_REDIRECT_HOSTS", "")),
+
 		FaceDetectionMinScore:         faceMinScore,
 		FaceRecognitionMaxDistance:    faceMaxDist,
 		FaceRecognitionNeighborLookup: faceNeighborLookup,
@@ -235,6 +256,15 @@ func parseFloatEnv(key string, fallback float64) float64 {
 
 func parseIntEnv(key string, fallback int) int {
 	if v, err := strconv.Atoi(os.Getenv(key)); err == nil {
+		return v
+	}
+	return fallback
+}
+
+// parseDurationEnv parses a Go duration string (e.g. "1h", "30m", "720h") from
+// the environment, falling back when unset or unparseable.
+func parseDurationEnv(key string, fallback time.Duration) time.Duration {
+	if v, err := time.ParseDuration(os.Getenv(key)); err == nil {
 		return v
 	}
 	return fallback

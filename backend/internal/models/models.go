@@ -278,6 +278,104 @@ func (p *PersonalAccessToken) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+// OAuthClient is a remote MCP client registered via Dynamic Client Registration
+// (RFC 7591) — e.g. Claude's connector. Public clients (PKCE, no secret) only.
+// Array fields are stored as JSONB via GORM's json serializer.
+type OAuthClient struct {
+	ID                      uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	ClientID                string    `gorm:"column:client_id;type:text;not null;uniqueIndex" json:"clientId"`
+	ClientName              string    `gorm:"column:client_name;type:text;not null" json:"clientName"`
+	RedirectURIs            []string  `gorm:"column:redirect_uris;type:jsonb;serializer:json;not null" json:"redirectUris"`
+	GrantTypes              []string  `gorm:"column:grant_types;type:jsonb;serializer:json;not null" json:"grantTypes"`
+	Scope                   string    `gorm:"column:scope;type:text;not null;default:''" json:"scope"`
+	TokenEndpointAuthMethod string    `gorm:"column:token_endpoint_auth_method;type:text;not null;default:'none'" json:"tokenEndpointAuthMethod"`
+	RegistrationVia         string    `gorm:"column:registration_via;type:text;not null;default:'dcr'" json:"registrationVia"`
+	CreatedAt               time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (OAuthClient) TableName() string { return "oauth_clients" }
+
+func (c *OAuthClient) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == uuid.Nil {
+		c.ID = uuid.New()
+	}
+	return nil
+}
+
+// OAuthAuthorizationCode is a single-use authorization code (OAuth 2.1 + PKCE).
+// Only the SHA-256 hash is stored; bound to client/redirect/challenge/user.
+type OAuthAuthorizationCode struct {
+	ID                  uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	CodeHash            string     `gorm:"column:code_hash;type:text;not null;uniqueIndex" json:"-"`
+	ClientID            string     `gorm:"column:client_id;type:text;not null" json:"clientId"`
+	UserID              uuid.UUID  `gorm:"column:user_id;type:uuid;not null;index:oauth_authorization_codes_user_id_idx" json:"userId"`
+	RedirectURI         string     `gorm:"column:redirect_uri;type:text;not null" json:"redirectUri"`
+	CodeChallenge       string     `gorm:"column:code_challenge;type:text;not null" json:"-"`
+	CodeChallengeMethod string     `gorm:"column:code_challenge_method;type:text;not null;default:'S256'" json:"-"`
+	Scope               string     `gorm:"column:scope;type:text;not null;default:''" json:"scope"`
+	Resource            string     `gorm:"column:resource;type:text;not null;default:''" json:"resource"`
+	ExpiresAt           time.Time  `gorm:"column:expires_at;not null" json:"expiresAt"`
+	ConsumedAt          *time.Time `gorm:"column:consumed_at" json:"consumedAt"`
+	CreatedAt           time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (OAuthAuthorizationCode) TableName() string { return "oauth_authorization_codes" }
+
+func (c *OAuthAuthorizationCode) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == uuid.Nil {
+		c.ID = uuid.New()
+	}
+	return nil
+}
+
+// OAuthRefreshToken is a long-lived, rotating refresh credential. Only the
+// SHA-256 hash is stored. RotatedFrom links a token to its predecessor so reuse
+// of a rotated token can be detected.
+type OAuthRefreshToken struct {
+	ID          uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	TokenHash   string     `gorm:"column:token_hash;type:text;not null;uniqueIndex" json:"-"`
+	ClientID    string     `gorm:"column:client_id;type:text;not null;index:oauth_refresh_tokens_client_id_idx" json:"clientId"`
+	UserID      uuid.UUID  `gorm:"column:user_id;type:uuid;not null;index:oauth_refresh_tokens_user_id_idx" json:"userId"`
+	Scope       string     `gorm:"column:scope;type:text;not null;default:''" json:"scope"`
+	ExpiresAt   time.Time  `gorm:"column:expires_at;not null" json:"expiresAt"`
+	RotatedFrom *uuid.UUID `gorm:"column:rotated_from;type:uuid" json:"-"`
+	RevokedAt   *time.Time `gorm:"column:revoked_at" json:"revokedAt"`
+	CreatedAt   time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (OAuthRefreshToken) TableName() string { return "oauth_refresh_tokens" }
+
+func (t *OAuthRefreshToken) BeforeCreate(tx *gorm.DB) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	return nil
+}
+
+// OAuthAccessToken is a short-lived bearer credential, audience-bound to the MCP
+// resource and accepted only at /api/mcp. Only the SHA-256 hash is stored.
+type OAuthAccessToken struct {
+	ID             uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	TokenHash      string     `gorm:"column:token_hash;type:text;not null;uniqueIndex" json:"-"`
+	ClientID       string     `gorm:"column:client_id;type:text;not null;index:oauth_access_tokens_client_id_idx" json:"clientId"`
+	UserID         uuid.UUID  `gorm:"column:user_id;type:uuid;not null;index:oauth_access_tokens_user_id_idx" json:"userId"`
+	Scope          string     `gorm:"column:scope;type:text;not null;default:''" json:"scope"`
+	Resource       string     `gorm:"column:resource;type:text;not null;default:''" json:"resource"`
+	ExpiresAt      time.Time  `gorm:"column:expires_at;not null" json:"expiresAt"`
+	LastUsedAt     *time.Time `gorm:"column:last_used_at" json:"lastUsedAt"`
+	RefreshTokenID *uuid.UUID `gorm:"column:refresh_token_id;type:uuid" json:"-"`
+	CreatedAt      time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (OAuthAccessToken) TableName() string { return "oauth_access_tokens" }
+
+func (t *OAuthAccessToken) BeforeCreate(tx *gorm.DB) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	return nil
+}
+
 // Person maps to the "people" table (face recognition).
 type Person struct {
 	ID                   uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
