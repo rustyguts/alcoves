@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import type { Moment } from '$lib/types/api';
 
@@ -79,49 +80,60 @@
 		<div class="flex items-center justify-between gap-2 border-b border-surface-200-800 p-3">
 			<p class="text-sm font-semibold">Edit moment</p>
 			<div class="flex items-center gap-1">
-				<button
-					type="button"
-					class="btn preset-tonal-primary btn-sm"
+				<Button
+					variant="tonal"
+					color="primary"
+					size="sm"
 					disabled={reprocessDisabled}
 					title="Reprocess"
 					onclick={() => onexport?.(moment.id)}
 				>
-					<AppIcon name={ICONS.reload} class="size-4" />
+					{#snippet icon()}
+						<AppIcon name={ICONS.reload} class="size-4" />
+					{/snippet}
 					Reprocess
-				</button>
+				</Button>
 
-				<button
-					type="button"
-					class="btn-icon btn-icon-sm preset-tonal-surface"
+				<Button
+					iconOnly
+					size="sm"
+					variant="tonal"
+					color="surface"
 					title="Download"
-					disabled={downloadPending}
+					loading={downloadPending}
 					onclick={() => ondownload?.(moment.id)}
 				>
-					{#if downloadPending}
-						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-					{:else}
+					{#snippet icon()}
 						<AppIcon name={ICONS.download} class="size-4" />
-					{/if}
-				</button>
+					{/snippet}
+				</Button>
 
-				<button
-					type="button"
-					class="btn-icon btn-icon-sm preset-tonal-surface"
+				<Button
+					iconOnly
+					size="sm"
+					variant="tonal"
+					color="surface"
 					title="Share"
 					onclick={() => onshare?.(moment.id)}
 				>
-					<AppIcon name={ICONS.share} class="size-4" />
-				</button>
+					{#snippet icon()}
+						<AppIcon name={ICONS.share} class="size-4" />
+					{/snippet}
+				</Button>
 
-				<button
-					type="button"
-					class="btn-icon btn-icon-sm preset-tonal-surface"
+				<Button
+					iconOnly
+					size="sm"
+					variant="tonal"
+					color="surface"
 					aria-label="Close"
 					title="Close"
 					onclick={() => onclose?.()}
 				>
-					<AppIcon name={ICONS.close} class="size-4" />
-				</button>
+					{#snippet icon()}
+						<AppIcon name={ICONS.close} class="size-4" />
+					{/snippet}
+				</Button>
 			</div>
 		</div>
 
@@ -169,14 +181,18 @@
 						max={duration}
 						bind:value={startSeconds}
 					/>
-					<button
-						type="button"
-						class="btn-icon btn-icon-sm preset-tonal-primary"
+					<Button
+						iconOnly
+						size="sm"
+						variant="tonal"
+						color="primary"
 						title="Set to playhead"
 						onclick={() => onsetToPlayhead?.('start')}
 					>
-						<AppIcon name={ICONS.snapToPlayhead} class="size-4" />
-					</button>
+						{#snippet icon()}
+							<AppIcon name={ICONS.snapToPlayhead} class="size-4" />
+						{/snippet}
+					</Button>
 				</div>
 
 				<div class="flex min-w-[220px] flex-1 items-center gap-2">
@@ -192,28 +208,36 @@
 						max={duration}
 						bind:value={endSeconds}
 					/>
-					<button
-						type="button"
-						class="btn-icon btn-icon-sm preset-tonal-primary"
+					<Button
+						iconOnly
+						size="sm"
+						variant="tonal"
+						color="primary"
 						title="Set to playhead"
 						onclick={() => onsetToPlayhead?.('end')}
 					>
-						<AppIcon name={ICONS.snapToPlayhead} class="size-4" />
-					</button>
+						{#snippet icon()}
+							<AppIcon name={ICONS.snapToPlayhead} class="size-4" />
+						{/snippet}
+					</Button>
 				</div>
 			</div>
 		</div>
 
 		<!-- Footer -->
 		<div class="flex w-full items-center justify-end gap-2 border-t border-surface-200-800 p-3">
-			<button type="button" class="btn preset-tonal-error btn-sm" onclick={onDelete}>
-				<AppIcon name={ICONS.trash} class="size-4" />
+			<Button variant="tonal" color="error" size="sm" onclick={onDelete}>
+				{#snippet icon()}
+					<AppIcon name={ICONS.trash} class="size-4" />
+				{/snippet}
 				Delete
-			</button>
-			<button type="button" class="btn preset-filled-primary-500 btn-sm" onclick={onSave}>
-				<AppIcon name={ICONS.save} class="size-4" />
+			</Button>
+			<Button size="sm" onclick={onSave}>
+				{#snippet icon()}
+					<AppIcon name={ICONS.save} class="size-4" />
+				{/snippet}
 				Save
-			</button>
+			</Button>
 		</div>
 	</div>
 {/if}

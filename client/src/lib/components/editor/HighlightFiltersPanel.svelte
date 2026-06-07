@@ -8,6 +8,7 @@
 	 * `onseek` so the player can jump to that moment.
 	 */
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import type {
 		HighlightFilter,
@@ -166,23 +167,25 @@
 			{#if !collapsed}
 				<div class="flex shrink-0 items-center gap-1">
 					{#if filters.length === 0}
-						<button
-							type="button"
-							class="btn preset-tonal-primary btn-sm"
-							disabled={loading}
+						<Button
+							variant="tonal"
+							color="primary"
+							size="sm"
+							{loading}
 							onclick={() => onloadpresets?.()}
 						>
-							<AppIcon
-								name={loading ? ICONS.loading : ICONS.loadPresets}
-								class={loading ? 'size-4 animate-spin' : 'size-4'}
-							/>
+							{#snippet icon()}
+								<AppIcon name={ICONS.loadPresets} class="size-4" />
+							{/snippet}
 							Load presets
-						</button>
+						</Button>
 					{/if}
-					<button type="button" class="btn preset-filled-primary-500 btn-sm" onclick={startAdd}>
-						<AppIcon name={ICONS.plus} class="size-4" />
+					<Button size="sm" onclick={startAdd}>
+						{#snippet icon()}
+							<AppIcon name={ICONS.plus} class="size-4" />
+						{/snippet}
 						Add filter
-					</button>
+					</Button>
 				</div>
 			{/if}
 		</div>
@@ -240,17 +243,13 @@
 							/>
 						</div>
 						<div class="flex items-center gap-1">
-							<button type="button" class="btn preset-tonal-surface btn-sm" onclick={cancelAdd}>
-								Cancel
-							</button>
-							<button
-								type="button"
-								class="btn preset-filled-primary-500 btn-sm"
-								onclick={submitAdd}
-							>
-								<AppIcon name={ICONS.check} class="size-4" />
+							<Button variant="tonal" color="surface" size="sm" onclick={cancelAdd}>Cancel</Button>
+							<Button size="sm" onclick={submitAdd}>
+								{#snippet icon()}
+									<AppIcon name={ICONS.check} class="size-4" />
+								{/snippet}
 								Save
-							</button>
+							</Button>
 						</div>
 					</div>
 				</div>
@@ -301,21 +300,15 @@
 										/>
 									</div>
 									<div class="flex items-center gap-1">
-										<button
-											type="button"
-											class="btn preset-tonal-surface btn-sm"
-											onclick={cancelEdit}
-										>
+										<Button variant="tonal" color="surface" size="sm" onclick={cancelEdit}>
 											Cancel
-										</button>
-										<button
-											type="button"
-											class="btn preset-filled-primary-500 btn-sm"
-											onclick={() => submitEdit(f.id)}
-										>
-											<AppIcon name={ICONS.check} class="size-4" />
+										</Button>
+										<Button size="sm" onclick={() => submitEdit(f.id)}>
+											{#snippet icon()}
+												<AppIcon name={ICONS.check} class="size-4" />
+											{/snippet}
 											Save
-										</button>
+										</Button>
 									</div>
 								</div>
 							{:else}
@@ -362,22 +355,30 @@
 												{((aggregates[f.id]?.maxScore ?? 0) * 100).toFixed(0)}%
 											</span>
 										{/if}
-										<button
-											type="button"
-											class="btn-icon btn-icon-sm preset-tonal-surface"
+										<Button
+											iconOnly
+											size="sm"
+											variant="tonal"
+											color="surface"
 											aria-label="Edit filter"
 											onclick={() => startEdit(f)}
 										>
-											<AppIcon name={ICONS.edit} class="size-4" />
-										</button>
-										<button
-											type="button"
-											class="btn-icon btn-icon-sm preset-tonal-error"
+											{#snippet icon()}
+												<AppIcon name={ICONS.edit} class="size-4" />
+											{/snippet}
+										</Button>
+										<Button
+											iconOnly
+											size="sm"
+											variant="tonal"
+											color="error"
 											aria-label="Remove filter"
 											onclick={() => onremove?.(f.id)}
 										>
-											<AppIcon name={ICONS.trash} class="size-4" />
-										</button>
+											{#snippet icon()}
+												<AppIcon name={ICONS.trash} class="size-4" />
+											{/snippet}
+										</Button>
 									</div>
 								</div>
 

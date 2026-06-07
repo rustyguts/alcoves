@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import type { Moment } from '$lib/types/api';
 	import { createWaveformRenderer } from '$lib/state/waveform-renderer';
@@ -484,37 +485,39 @@
 		</span>
 		<span class="text-xs text-surface-500 tabular-nums">{(zoom * 100).toFixed(0)}%</span>
 		<div class="flex-1"></div>
-		<button
-			type="button"
-			class="btn-icon btn-icon-sm preset-tonal-surface"
+		<Button
+			iconOnly
+			size="sm"
+			variant="tonal"
+			color="surface"
 			title="Keyboard shortcuts"
 			aria-label="Keyboard shortcuts"
 			data-icon={ICONS.keyboard}
 			onclick={() => onopenShortcuts?.()}
 		>
-			<AppIcon name={ICONS.keyboard} class="size-4" />
-		</button>
-		<button
-			type="button"
-			class="btn preset-filled-primary-500 btn-sm"
-			onclick={() => oncreateMoment?.()}
-		>
-			<AppIcon name={ICONS.plus} class="size-4" />
+			{#snippet icon()}
+				<AppIcon name={ICONS.keyboard} class="size-4" />
+			{/snippet}
+		</Button>
+		<Button size="sm" onclick={() => oncreateMoment?.()}>
+			{#snippet icon()}
+				<AppIcon name={ICONS.plus} class="size-4" />
+			{/snippet}
 			New moment
-		</button>
-		<button
-			type="button"
-			class="btn btn-sm {hasPending ? 'preset-filled-warning-500' : 'preset-tonal-surface'}"
+		</Button>
+		<Button
+			size="sm"
+			variant={hasPending ? 'filled' : 'tonal'}
+			color={hasPending ? 'warning' : 'surface'}
+			loading={savingPending}
 			disabled={!hasPending || savingPending}
 			onclick={savePending}
 		>
-			{#if savingPending}
-				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-			{:else}
+			{#snippet icon()}
 				<AppIcon name={ICONS.save} class="size-4" />
-			{/if}
+			{/snippet}
 			Save changes
-		</button>
+		</Button>
 	</div>
 
 	<div bind:this={scrollEl} class="timeline-scroll overflow-x-scroll overflow-y-hidden">

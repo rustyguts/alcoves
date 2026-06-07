@@ -8,6 +8,7 @@
 	import { ICONS } from '$lib/utils/icons';
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import TagColorPickerDropdown from '$lib/components/library/TagColorPickerDropdown.svelte';
 	import type { LibraryEntry, LibraryTag } from '$lib/types/api';
 
@@ -246,20 +247,18 @@
 						if (e.key === 'Enter') createTagAndRefresh();
 					}}
 				/>
-				<button
-					type="button"
-					class="btn preset-filled-primary-500 btn-sm"
+				<Button
+					size="sm"
 					aria-label="Add tag"
+					loading={tags.creatingTag}
 					disabled={!tags.createTagName.trim() || tags.creatingTag}
 					onclick={createTagAndRefresh}
 				>
-					{#if tags.creatingTag}
-						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-					{:else}
+					{#snippet icon()}
 						<AppIcon name={ICONS.plus} class="size-4" />
-					{/if}
+					{/snippet}
 					<span>Add</span>
-				</button>
+				</Button>
 			</div>
 
 			{#if loading}
@@ -322,14 +321,19 @@
 							{/if}
 						</span>
 
-						<button
-							type="button"
-							class="btn-icon btn-icon-sm shrink-0 preset-tonal-error opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+						<Button
+							iconOnly
+							size="sm"
+							variant="tonal"
+							color="error"
+							class="shrink-0 opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
 							aria-label={`Delete tag ${tag.name}`}
 							onclick={() => deleteTagAndRefresh(tag.id)}
 						>
-							<AppIcon name={ICONS.trash} class="size-4" />
-						</button>
+							{#snippet icon()}
+								<AppIcon name={ICONS.trash} class="size-4" />
+							{/snippet}
+						</Button>
 					</div>
 				{/each}
 			{/if}

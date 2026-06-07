@@ -3,6 +3,7 @@
 	import { formatFileSize } from '$lib/utils/mime-icons';
 	import { uploadQueue } from '$lib/state/upload-queue.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	let expanded = $state(true);
 </script>
@@ -39,13 +40,9 @@
 					>
 						Retry All
 					</button>
-					<button
-						type="button"
-						class="btn preset-tonal-error btn-sm"
-						onclick={() => uploadQueue.clearErrors()}
-					>
+					<Button variant="tonal" color="error" size="sm" onclick={() => uploadQueue.clearErrors()}>
 						Clear
-					</button>
+					</Button>
 				</div>
 			</div>
 		{/if}
@@ -86,13 +83,14 @@
 									>
 										Retry
 									</button>
-									<button
-										type="button"
-										class="btn preset-tonal-error btn-sm"
+									<Button
+										variant="tonal"
+										color="error"
+										size="sm"
 										onclick={() => uploadQueue.removeFile(item.id)}
 									>
 										Remove
-									</button>
+									</Button>
 								</div>
 							</div>
 						{:else if item.status === 'done'}

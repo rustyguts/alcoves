@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import { uploadQueue } from '$lib/state/upload-queue.svelte';
 
@@ -66,14 +67,11 @@
 
 	<div class="flex justify-end gap-2">
 		<button type="button" class="btn preset-tonal" onclick={() => (open = false)}>Cancel</button>
-		<button
-			type="button"
-			class="btn preset-filled-primary-500"
-			disabled={!selectedFileCount}
-			onclick={handleUpload}
-		>
-			<AppIcon name={ICONS.upload} class="size-4" />
+		<Button disabled={!selectedFileCount} onclick={handleUpload}>
+			{#snippet icon()}
+				<AppIcon name={ICONS.upload} class="size-4" />
+			{/snippet}
 			<span>Upload</span>
-		</button>
+		</Button>
 	</div>
 </AppModal>

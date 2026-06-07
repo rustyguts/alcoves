@@ -8,6 +8,7 @@
 	import { createLibraryPeople } from '$lib/state/library-people.svelte';
 	import type { LibraryFile, PersonFace } from '$lib/types/api';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import AlcovesImage from '$lib/components/ui/AlcovesImage.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
@@ -160,10 +161,12 @@
 			description="This person no longer exists in this library."
 		>
 			{#snippet actions()}
-				<button type="button" class="btn preset-tonal-surface" onclick={goBack}>
-					<AppIcon name={ICONS.back} class="size-4" />
+				<Button variant="tonal" color="surface" onclick={goBack}>
+					{#snippet icon()}
+						<AppIcon name={ICONS.back} class="size-4" />
+					{/snippet}
 					Back to People
-				</button>
+				</Button>
 			{/snippet}
 		</EmptyState>
 	{:else if faces.length}

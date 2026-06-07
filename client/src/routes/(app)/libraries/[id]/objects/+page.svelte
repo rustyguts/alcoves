@@ -7,6 +7,7 @@
 	import { portal } from '$lib/actions/portal';
 	import { toast } from '$lib/state/toast';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { ObjectLabel } from '$lib/types/api';
 	import type { PageProps } from './$types';
@@ -62,18 +63,15 @@
 {#if canManage}
 	<!-- Injected into the library header's action row (see +layout.svelte). -->
 	<div use:portal={'#library-header-actions'}>
-		<button
-			type="button"
-			class="btn preset-tonal-surface btn-sm"
-			disabled={reprocessing}
-			onclick={reprocess}
-		>
-			<AppIcon
-				name={ICONS.objectDetection}
-				class={['size-4', reprocessing && 'animate-spin'].filter(Boolean).join(' ')}
-			/>
+		<Button variant="tonal" color="surface" size="sm" disabled={reprocessing} onclick={reprocess}>
+			{#snippet icon()}
+				<AppIcon
+					name={ICONS.objectDetection}
+					class={['size-4', reprocessing && 'animate-spin'].filter(Boolean).join(' ')}
+				/>
+			{/snippet}
 			<span>{reprocessing ? 'Queuing…' : 'Reprocess'}</span>
-		</button>
+		</Button>
 	</div>
 {/if}
 
@@ -90,10 +88,12 @@
 			tone="error"
 		>
 			{#snippet actions()}
-				<button type="button" class="btn preset-tonal-surface" onclick={load}>
-					<AppIcon name={ICONS.reload} class="size-4" />
+				<Button variant="tonal" color="surface" onclick={load}>
+					{#snippet icon()}
+						<AppIcon name={ICONS.reload} class="size-4" />
+					{/snippet}
 					Retry
-				</button>
+				</Button>
 			{/snippet}
 		</EmptyState>
 	{:else if labels.length === 0}

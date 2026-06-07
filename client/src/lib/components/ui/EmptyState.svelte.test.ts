@@ -22,7 +22,9 @@ describe('EmptyState', () => {
 
 	it('uses a neutral badge by default and an error badge for tone="error"', () => {
 		const neutral = render(EmptyState, { props: { icon: ICONS.search, title: 'Empty' } });
-		expect(neutral.container.querySelector('.rounded-full')?.className).toContain('text-surface-500');
+		expect(neutral.container.querySelector('.rounded-full')?.className).toContain(
+			'text-surface-500'
+		);
 
 		const error = render(EmptyState, {
 			props: { icon: ICONS.warning, title: 'Failed', tone: 'error' }

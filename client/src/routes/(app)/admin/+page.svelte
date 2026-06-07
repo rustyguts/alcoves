@@ -6,6 +6,7 @@
 	import { ICONS } from '$lib/utils/icons';
 	import { formatFileSize } from '$lib/utils/mime-icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
@@ -503,7 +504,7 @@
 		>
 			<AppIcon name={ICONS.warning} class="size-5 shrink-0" />
 			<span class="flex-1">Couldn't load instance statistics.</span>
-			<button type="button" class="btn preset-tonal-error btn-sm" onclick={loadStats}>Retry</button>
+			<Button variant="tonal" color="error" size="sm" onclick={loadStats}>Retry</Button>
 		</div>
 	{/if}
 
@@ -525,7 +526,7 @@
 		>
 			<AppIcon name={ICONS.warning} class="size-5 shrink-0" />
 			<span class="flex-1">Couldn't load instance settings — values below may be inaccurate.</span>
-			<button type="button" class="btn preset-tonal-error btn-sm" onclick={loadSettings}>Retry</button>
+			<Button variant="tonal" color="error" size="sm" onclick={loadSettings}>Retry</Button>
 		</div>
 	{/if}
 
@@ -746,10 +747,12 @@
 				tone="error"
 			>
 				{#snippet actions()}
-					<button type="button" class="btn preset-tonal-surface" onclick={loadUsers}>
-						<AppIcon name={ICONS.reload} class="size-4" />
+					<Button variant="tonal" color="surface" onclick={loadUsers}>
+						{#snippet icon()}
+							<AppIcon name={ICONS.reload} class="size-4" />
+						{/snippet}
 						Retry
-					</button>
+					</Button>
 				{/snippet}
 			</EmptyState>
 		{:else}

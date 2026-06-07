@@ -5,6 +5,7 @@
 	import { ICONS } from '$lib/utils/icons';
 	import { createLibraryPeople } from '$lib/state/library-people.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 
@@ -85,18 +86,14 @@
 	<div class="grid gap-4">
 		{#if people.selectedPeople.size >= 2}
 			<div class="flex items-center gap-2">
-				<button
-					type="button"
-					class="btn preset-filled-primary-500 btn-sm"
-					onclick={() => people.mergePeople()}
-				>
-					<AppIcon name={ICONS.mergePeople} class="size-4" />
+				<Button size="sm" onclick={() => people.mergePeople()}>
+					{#snippet icon()}
+						<AppIcon name={ICONS.mergePeople} class="size-4" />
+					{/snippet}
 					<span>Merge Selected</span>
-				</button>
+				</Button>
 				<span class="text-sm opacity-75">{people.selectedPeople.size} selected</span>
-				<button type="button" class="btn preset-tonal-surface btn-sm" onclick={clearSelection}>
-					Clear
-				</button>
+				<Button variant="tonal" color="surface" size="sm" onclick={clearSelection}>Clear</Button>
 			</div>
 		{/if}
 
@@ -177,25 +174,23 @@
 		</div>
 
 		<div class="flex w-full justify-end gap-2">
-			<button
-				type="button"
-				class="btn preset-tonal-surface btn-sm"
+			<Button
+				variant="tonal"
+				color="surface"
+				size="sm"
 				disabled={!!renamingPersonSavingId}
 				onclick={closeRenamePersonModal}
 			>
 				Cancel
-			</button>
-			<button
-				type="button"
-				class="btn preset-filled-primary-500 btn-sm"
+			</Button>
+			<Button
+				size="sm"
+				loading={!!renamingPersonSavingId}
 				disabled={!!renamingPersonSavingId || !renamePersonTarget}
 				onclick={confirmRenamePerson}
 			>
-				{#if renamingPersonSavingId}
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-				{/if}
 				<span>Save</span>
-			</button>
+			</Button>
 		</div>
 	</AppModal>
 </div>

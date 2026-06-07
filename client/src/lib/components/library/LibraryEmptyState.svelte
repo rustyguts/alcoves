@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	interface Props {
 		showTrashed: boolean;
@@ -27,10 +28,12 @@
 				<AppIcon name={ICONS.folder} class="size-4" />
 				<span>Create folder</span>
 			</button>
-			<button type="button" class="btn preset-tonal-primary" onclick={() => onuploadFiles?.()}>
-				<AppIcon name={ICONS.upload} class="size-4" />
+			<Button variant="tonal" color="primary" onclick={() => onuploadFiles?.()}>
+				{#snippet icon()}
+					<AppIcon name={ICONS.upload} class="size-4" />
+				{/snippet}
 				<span>Upload files</span>
-			</button>
+			</Button>
 		</div>
 	{/if}
 </div>
