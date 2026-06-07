@@ -156,6 +156,19 @@ describe('SidebarLibraryNav', () => {
 		expect(labels).toContain('Admin');
 	});
 
+	it('shows a load-error notice (distinct from "no libraries") when librariesError is set', () => {
+		const failed = render(SidebarLibraryNav, {
+			props: { libraries: [], user: owner, librariesError: true }
+		});
+		expect(failed.container.textContent).toContain("Couldn't load your libraries");
+
+		// A genuinely-empty (but successful) load shows no error notice.
+		const empty = render(SidebarLibraryNav, {
+			props: { libraries: [], user: owner }
+		});
+		expect(empty.container.textContent).not.toContain("Couldn't load your libraries");
+	});
+
 	it('re-emits create from the switcher via oncreate', async () => {
 		const oncreate = vi.fn();
 		const screen = render(SidebarLibraryNav, {

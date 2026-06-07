@@ -22,14 +22,20 @@ describe('(app) layout.server load', () => {
 		const result = (await call({ locals: { user: { id: 'u', role: 'member' } } })) as {
 			user: unknown;
 			libraries: unknown[];
+			librariesError: boolean;
 		};
 		expect(result.user).toEqual({ id: 'u', role: 'member' });
 		expect(result.libraries).toEqual([{ id: 'L1' }]);
+		expect(result.librariesError).toBe(false);
 	});
 
-	it('degrades to an empty library list when the API errors', async () => {
+	it('degrades to an empty library list and flags the error when the API fails', async () => {
 		listMock.mockRejectedValue(new Error('down'));
-		const result = (await call({ locals: { user: { id: 'u' } } })) as { libraries: unknown[] };
+		const result = (await call({ locals: { user: { id: 'u' } } })) as {
+			libraries: unknown[];
+			librariesError: boolean;
+		};
 		expect(result.libraries).toEqual([]);
+		expect(result.librariesError).toBe(true);
 	});
 });

@@ -130,7 +130,9 @@ describe('AdminJobsPanel', () => {
 		const { screen } = renderPanel();
 		const h1 = screen.container.querySelector('h1');
 		expect(h1?.textContent?.trim()).toBe('Background Jobs');
-		expect(screen.container.querySelector('h2')).toBeNull();
+		// Panel titles (e.g. "Jobs") are h2; the section heading itself must not be one.
+		const h2Text = [...screen.container.querySelectorAll('h2')].map((h) => h.textContent?.trim());
+		expect(h2Text).not.toContain('Background Jobs');
 	});
 
 	it('renders heading as h2 when embedded', async () => {
@@ -280,35 +282,46 @@ describe('AdminJobsPanel', () => {
 		expect(spinner).not.toBeNull();
 	});
 
-	it('calls the purge API after confirmation', async () => {
+	it('calls the purge API after confirming in the modal', async () => {
 		vi.stubGlobal('EventSource', MockEventSource);
-		const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
 		const { screen, es } = renderPanel();
 		es.simulateMessage(getSnapshot());
 		await tick();
-		const purgeBtn = [...screen.container.querySelectorAll('button')].find((b) =>
+		// The queue-row button opens the confirm modal rather than purging directly.
+		const rowPurge = [...screen.container.querySelectorAll('button')].find((b) =>
 			b.textContent?.includes('Purge')
 		) as HTMLButtonElement;
-		expect(purgeBtn).toBeDefined();
-		purgeBtn.click();
-		await tick();
-		expect(mocks.purgeQueue).toHaveBeenCalledWith('{video-processing}');
-		confirmSpy.mockRestore();
-	});
-
-	it('does not purge when confirmation is cancelled', async () => {
-		vi.stubGlobal('EventSource', MockEventSource);
-		const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-		const { screen, es } = renderPanel();
-		es.simulateMessage(getSnapshot());
-		await tick();
-		const purgeBtn = [...screen.container.querySelectorAll('button')].find((b) =>
-			b.textContent?.includes('Purge')
-		) as HTMLButtonElement;
-		purgeBtn.click();
+		expect(rowPurge).toBeDefined();
+		rowPurge.click();
 		await tick();
 		expect(mocks.purgeQueue).not.toHaveBeenCalled();
-		confirmSpy.mockRestore();
+		// Confirm in the modal (rendered in a portal on document.body).
+		const confirmBtn = [...document.querySelectorAll('button.preset-filled-error-500')].find((b) =>
+			b.textContent?.includes('Purge')
+		) as HTMLButtonElement;
+		expect(confirmBtn).toBeDefined();
+		confirmBtn.click();
+		await tick();
+		expect(mocks.purgeQueue).toHaveBeenCalledWith('{video-processing}');
+	});
+
+	it('does not purge when the modal is cancelled', async () => {
+		vi.stubGlobal('EventSource', MockEventSource);
+		const { screen, es } = renderPanel();
+		es.simulateMessage(getSnapshot());
+		await tick();
+		const rowPurge = [...screen.container.querySelectorAll('button')].find((b) =>
+			b.textContent?.includes('Purge')
+		) as HTMLButtonElement;
+		rowPurge.click();
+		await tick();
+		const cancelBtn = [...document.querySelectorAll('button')].find(
+			(b) => b.textContent?.trim() === 'Cancel'
+		) as HTMLButtonElement;
+		expect(cancelBtn).toBeDefined();
+		cancelBtn.click();
+		await tick();
+		expect(mocks.purgeQueue).not.toHaveBeenCalled();
 	});
 
 	it('closes the EventSource on unmount', async () => {

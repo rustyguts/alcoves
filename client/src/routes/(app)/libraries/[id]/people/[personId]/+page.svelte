@@ -9,6 +9,7 @@
 	import type { LibraryFile, PersonFace } from '$lib/types/api';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import AlcovesImage from '$lib/components/ui/AlcovesImage.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 
 	// This page reads route params (and the people store) rather than the layout's
@@ -153,16 +154,18 @@
 			<AppIcon name={ICONS.loading} class="size-5 animate-spin text-surface-600-400" />
 		</div>
 	{:else if !person}
-		<div class="flex flex-col items-center justify-center gap-3 px-4 py-16">
-			<p class="text-sm text-surface-600-400">Person not found in this library</p>
-			<button
-				type="button"
-				class="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-600"
-				onclick={goBack}
-			>
-				Back to People
-			</button>
-		</div>
+		<EmptyState
+			icon={ICONS.person}
+			title="Person not found"
+			description="This person no longer exists in this library."
+		>
+			{#snippet actions()}
+				<button type="button" class="btn preset-tonal-surface" onclick={goBack}>
+					<AppIcon name={ICONS.back} class="size-4" />
+					Back to People
+				</button>
+			{/snippet}
+		</EmptyState>
 	{:else if faces.length}
 		<div class="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
 			{#each faces as face (face.id)}
@@ -189,9 +192,11 @@
 			{/each}
 		</div>
 	{:else}
-		<div class="flex items-center justify-center py-16">
-			<p class="text-sm text-surface-600-400">No faces available for this person</p>
-		</div>
+		<EmptyState
+			icon={ICONS.people}
+			title="No faces available"
+			description="There are no face crops to show for this person yet."
+		/>
 	{/if}
 </div>
 

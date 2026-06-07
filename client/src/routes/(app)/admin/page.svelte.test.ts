@@ -329,20 +329,20 @@ describe('/admin page', () => {
 		mocks.listUsers.mockResolvedValueOnce([]);
 		const screen = await renderPage();
 		await vi.waitFor(() => {
-			expect(screen.container.textContent).toContain('No users found.');
+			expect(screen.container.textContent).toContain('No users found');
 		});
-		// The count badge is only shown when users is a non-null array; an empty
-		// array still renders the "0" badge.
-		expect(screen.container.textContent).toContain('No users found.');
+		// A genuinely-empty list is distinct from a failed load: no error copy.
+		expect(screen.container.textContent).not.toContain("Couldn't load users");
 	});
 
-	it('falls back to an empty user list when listUsers rejects', async () => {
+	it('shows a distinct error state when listUsers rejects', async () => {
 		mocks.listUsers.mockRejectedValueOnce(new Error('boom'));
 		const screen = await renderPage();
 		await vi.waitFor(() => {
-			expect(screen.container.textContent).toContain('No users found.');
+			expect(screen.container.textContent).toContain("Couldn't load users");
 		});
-		expect(screen.container.textContent).toContain('No users found.');
+		// A load error must NOT masquerade as an empty result.
+		expect(screen.container.textContent).not.toContain('No users found');
 	});
 
 	it('rolls back the user list and toasts on a role-update failure', async () => {

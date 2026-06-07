@@ -101,10 +101,12 @@ beforeEach(() => {
 });
 
 describe('/libraries/[id]/feed', () => {
-	it('renders the header', async () => {
+	it('no longer renders the redundant in-page title bar', async () => {
+		// The library breadcrumb + the sidebar already identify the Feed tab, so the
+		// duplicate "Activity feed" sub-header was removed.
 		const screen = render(Page);
-		await expect.element(screen.getByText('Activity feed')).toBeInTheDocument();
-		expect(screen.container.textContent).toContain('Everything that has happened in this library');
+		expect(screen.container.textContent).not.toContain('Activity feed');
+		expect(screen.container.textContent).not.toContain('Everything that has happened');
 	});
 
 	it('shows the loading state while loading with no entries', async () => {
@@ -115,7 +117,7 @@ describe('/libraries/[id]/feed', () => {
 
 	it('shows the empty state when there is no activity', async () => {
 		const screen = render(Page);
-		await expect.element(screen.getByText('No activity yet.')).toBeInTheDocument();
+		await expect.element(screen.getByText('No activity yet')).toBeInTheDocument();
 	});
 
 	it('renders grouped activity rows', async () => {

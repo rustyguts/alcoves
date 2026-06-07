@@ -5,6 +5,7 @@
 	import { ICONS } from '$lib/utils/icons';
 	import { createLibraryPeople } from '$lib/state/library-people.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 
 	/**
@@ -149,15 +150,11 @@
 				</div>
 			</div>
 		{:else}
-			<div class="flex flex-col items-center justify-center px-4 py-16">
-				<div class="mb-4 flex size-16 items-center justify-center rounded-full bg-surface-100-900">
-					<AppIcon name={ICONS.people} class="size-8 opacity-75" />
-				</div>
-				<p class="mb-1 text-lg font-medium">No faces detected yet</p>
-				<p class="max-w-md text-center text-sm opacity-75">
-					Upload images to this library and faces will be automatically detected and grouped.
-				</p>
-			</div>
+			<EmptyState
+				icon={ICONS.people}
+				title="No faces detected yet"
+				description="Upload images to this library and faces will be automatically detected and grouped."
+			/>
 		{/if}
 	</div>
 

@@ -101,6 +101,14 @@ describe('/libraries/[id]/objects', () => {
 		await expect.element(screen.getByText('No objects detected yet')).toBeInTheDocument();
 	});
 
+	it('shows a distinct error state when the labels request fails', async () => {
+		apiMock.objects.labels.mockRejectedValueOnce(new Error('boom'));
+		const screen = render(Page, { props: props() });
+		await expect.element(screen.getByText("Couldn't load object labels")).toBeInTheDocument();
+		// A load error must not be shown as a genuinely-empty result.
+		expect(screen.container.textContent).not.toContain('No objects detected yet');
+	});
+
 	it('renders the labels table with badges and counts', async () => {
 		state.labels = [
 			{ label: 'person', fileCount: 12 },

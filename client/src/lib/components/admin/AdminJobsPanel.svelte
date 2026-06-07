@@ -36,6 +36,9 @@
 	import { toast } from '$lib/state/toast';
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import AppPanel from '$lib/components/ui/AppPanel.svelte';
+	import StatCard from '$lib/components/ui/StatCard.svelte';
+	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 
 	interface Props {
 		embedded?: boolean;
@@ -50,6 +53,8 @@
 	let queueFilter = $state('all');
 	let actionJobId = $state<string | null>(null);
 	let actionQueueName = $state<string | null>(null);
+	let purgeTarget = $state<string | null>(null);
+	let purgeModalOpen = $state(false);
 	let expandedJobId = $state<string | null>(null);
 
 	const statusOptions = [
@@ -200,17 +205,22 @@
 		}
 	}
 
-	async function purgeQueue(queueName: string) {
+	function purgeQueue(queueName: string) {
+		purgeTarget = queueName;
+		purgeModalOpen = true;
+	}
+
+	async function confirmPurgeQueue() {
+		const queueName = purgeTarget;
+		if (!queueName) return;
 		const target = formatQueueName(queueName);
-		const confirmed = window.confirm(
-			`Purge jobs in queue "${target}"? This removes waiting, delayed, failed, and completed jobs.`
-		);
-		if (!confirmed) return;
 
 		actionQueueName = queueName;
 		try {
 			const result = await api.admin.purgeQueue(queueName);
 			toast.add({ title: `Purged ${result.total} jobs from ${target}`, color: 'success' });
+			purgeModalOpen = false;
+			purgeTarget = null;
 		} catch {
 			toast.add({ title: 'Failed to purge queue', color: 'error' });
 		} finally {
@@ -230,19 +240,30 @@
 		label: string;
 		value: number;
 		icon: string;
-		color: string;
+		iconClass: string;
 	}
 
+	const NEUTRAL_TILE = 'text-surface-500 bg-surface-500/10';
 	const statTiles = $derived<StatTile[]>([
-		{ label: 'Active', value: totalActive, icon: ICONS.stateActive, color: 'text-primary-500' },
-		{ label: 'Waiting', value: totalWaiting, icon: ICONS.stateWaiting, color: '' },
+		{
+			label: 'Active',
+			value: totalActive,
+			icon: ICONS.stateActive,
+			iconClass: 'text-primary-500 bg-primary-500/10'
+		},
+		{ label: 'Waiting', value: totalWaiting, icon: ICONS.stateWaiting, iconClass: NEUTRAL_TILE },
 		{
 			label: 'Failed',
 			value: totalFailed,
 			icon: ICONS.stateFailed,
-			color: totalFailed > 0 ? 'text-error-500' : ''
+			iconClass: totalFailed > 0 ? 'text-error-500 bg-error-500/10' : NEUTRAL_TILE
 		},
-		{ label: 'Delayed', value: totalDelayed, icon: ICONS.stateDelayed, color: 'text-warning-500' }
+		{
+			label: 'Delayed',
+			value: totalDelayed,
+			icon: ICONS.stateDelayed,
+			iconClass: 'text-warning-500 bg-warning-500/10'
+		}
 	]);
 </script>
 
@@ -264,20 +285,12 @@
 
 	<div class="grid grid-cols-2 gap-3 md:grid-cols-4">
 		{#each statTiles as tile (tile.label)}
-			<div class="card preset-filled-surface-100-900 p-4">
-				<div class="flex items-center justify-between gap-3">
-					<div>
-						<p class="text-xs tracking-wide text-surface-500 uppercase">{tile.label}</p>
-						<p class={['mt-1 text-3xl font-bold', tile.color]}>{tile.value}</p>
-					</div>
-					<AppIcon name={tile.icon} class={['size-6', tile.color].join(' ')} />
-				</div>
-			</div>
+			<StatCard title={tile.label} value={tile.value} icon={tile.icon} iconClass={tile.iconClass} />
 		{/each}
 	</div>
 
 	{#if queues.length}
-		<div class="max-h-[24rem] overflow-auto card preset-filled-surface-100-900">
+		<AppPanel title="Queues" icon={ICONS.jobDefault} flush bodyClass="max-h-[24rem] overflow-auto">
 			<table class="w-full text-sm">
 				<thead class="bg-surface-200-800">
 					<tr class="text-left">
@@ -333,27 +346,26 @@
 					{/each}
 				</tbody>
 			</table>
-		</div>
+		</AppPanel>
 	{/if}
 
-	<div class="overflow-hidden card preset-filled-surface-100-900">
-		<div class="flex flex-wrap items-center gap-3 border-b border-surface-200-800 p-4">
-			<h3 class="flex-1 text-lg font-semibold">Jobs</h3>
-			<select class="select w-40" bind:value={queueFilter}>
+	<AppPanel title="Jobs" icon={ICONS.jobDefault} flush>
+		{#snippet actions()}
+			<select class="select w-36 sm:w-40" aria-label="Filter by queue" bind:value={queueFilter}>
 				{#each queueOptions as opt (opt.value)}
 					<option value={opt.value}>{opt.label}</option>
 				{/each}
 			</select>
-			<select class="select w-36" bind:value={statusFilter}>
+			<select class="select w-32 sm:w-36" aria-label="Filter by status" bind:value={statusFilter}>
 				{#each statusOptions as opt (opt.value)}
 					<option value={opt.value}>{opt.label}</option>
 				{/each}
 			</select>
-			<span class="badge preset-tonal-surface">
+			<span class="badge preset-tonal-surface whitespace-nowrap">
 				{filteredJobs.length}
 				{filteredJobs.length === 1 ? 'job' : 'jobs'}
 			</span>
-		</div>
+		{/snippet}
 
 		<div class="max-h-[40rem] overflow-auto">
 			{#if !connected && jobs.length === 0}
@@ -481,5 +493,18 @@
 				</div>
 			{/if}
 		</div>
-	</div>
+	</AppPanel>
+
+	<ConfirmModal
+		bind:open={purgeModalOpen}
+		title="Purge queue?"
+		message={purgeTarget
+			? `Purge jobs in queue "${formatQueueName(purgeTarget)}"? This removes waiting, delayed, failed, and completed jobs.`
+			: ''}
+		confirmLabel="Purge"
+		confirmClass="error"
+		confirmIcon={ICONS.trash}
+		pending={actionQueueName !== null}
+		onconfirm={confirmPurgeQueue}
+	/>
 </div>

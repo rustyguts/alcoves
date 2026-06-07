@@ -8,6 +8,7 @@
 	import { ICONS } from '$lib/utils/icons';
 	import NotificationItem from '$lib/components/notifications/NotificationItem.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
 	const libraryId = $derived(page.params.id ?? '');
 
@@ -41,10 +42,6 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<div class="border-b border-surface-200-800 px-4 py-3">
-		<h2 class="text-base font-semibold">Activity feed</h2>
-		<p class="mt-0.5 text-xs text-surface-600-400">Everything that has happened in this library.</p>
-	</div>
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#if feed.loading && feed.entries.length === 0}
 			<div class="px-4 py-8 text-center text-sm text-surface-600-400">
@@ -52,7 +49,11 @@
 				<p class="mt-2">Loading…</p>
 			</div>
 		{:else if feed.entries.length === 0}
-			<div class="px-4 py-12 text-center text-sm text-surface-600-400">No activity yet.</div>
+			<EmptyState
+				icon={ICONS.feed}
+				title="No activity yet"
+				description="Uploads, edits, and shares in this library will show up here."
+			/>
 		{:else}
 			<div class="divide-y divide-surface-200-800">
 				{#each groups as g (g.head.id)}

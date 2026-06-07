@@ -117,7 +117,7 @@ describe('/notifications page', () => {
 
 	it('shows the empty state when there are no notifications', async () => {
 		const screen = render(Page);
-		await expect.element(screen.getByText("You're all caught up.")).toBeInTheDocument();
+		await expect.element(screen.getByText("You're all caught up")).toBeInTheDocument();
 	});
 
 	it('renders the header and groups rows under their library name', async () => {

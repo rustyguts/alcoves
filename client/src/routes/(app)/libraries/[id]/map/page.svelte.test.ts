@@ -97,10 +97,11 @@ describe('library map page', () => {
 		expect(store.load).toHaveBeenCalledWith('lib-1');
 	});
 
-	it('always renders the Map header', async () => {
+	it('does not render a redundant in-page Map title (breadcrumb identifies the tab)', async () => {
+		store.points = [makePoint('a')];
 		const screen = render(Page);
-		await expect.element(screen.getByRole('heading', { name: 'Map' })).toBeInTheDocument();
-		await expect.element(screen.getByText('Where your photos were taken.')).toBeInTheDocument();
+		expect(screen.container.querySelector('h2')).toBeNull();
+		expect(screen.container.textContent).not.toContain('Where your photos were taken.');
 	});
 
 	it('shows the loading spinner before any points arrive', async () => {
@@ -131,7 +132,7 @@ describe('library map page', () => {
 		// rendered once there are points to plot.
 		expect(screen.container.querySelector('.relative .absolute.inset-0')).not.toBeNull();
 		expect(screen.container.querySelector('[data-testid="map-stub"]')).not.toBeNull();
-		await expect.element(screen.getByText('2 geotagged')).toBeInTheDocument();
+		await expect.element(screen.getByText('2 geotagged photos')).toBeInTheDocument();
 		// The empty/loading overlays are gone when points are present.
 		expect(screen.container.textContent).not.toContain('No geotagged photos yet.');
 	});
