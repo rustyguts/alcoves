@@ -10,6 +10,7 @@
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import AccessTokensSection from '$lib/components/profile/AccessTokensSection.svelte';
+	import ConnectedAppsSection from '$lib/components/profile/ConnectedAppsSection.svelte';
 	import type { PageProps } from './$types';
 	import type { SessionInfo } from '$lib/types/api';
 
@@ -372,4 +373,6 @@
 	</AppPanel>
 
 	<AccessTokensSection />
+
+	<ConnectedAppsSection />
 </div>

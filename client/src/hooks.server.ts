@@ -28,7 +28,35 @@ async function resolveUser(event: RequestEvent): Promise<AuthUser | null> {
 	}
 }
 
+/**
+ * Proxy an OAuth `/.well-known/oauth-*` discovery request to the Go API and
+ * relay the JSON response (status, content-type, and the CORS/cache headers the
+ * backend set). A backend hiccup yields a 502 rather than a crash.
+ */
+async function forwardWellKnown(event: RequestEvent): Promise<Response> {
+	const target = `${INTERNAL_API_URL}${event.url.pathname}${event.url.search}`;
+	try {
+		const res = await event.fetch(target);
+		const body = await res.arrayBuffer();
+		const headers = new Headers();
+		for (const h of ['content-type', 'access-control-allow-origin', 'cache-control']) {
+			const v = res.headers.get(h);
+			if (v) headers.set(h, v);
+		}
+		return new Response(body, { status: res.status, headers });
+	} catch {
+		return new Response('upstream unavailable', { status: 502 });
+	}
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
+	// OAuth discovery documents (RFC 9728/8414) live at the domain root on the Go
+	// API, but this front door only proxies /api/*. Forward them so the whole MCP
+	// OAuth surface is reachable through one origin with zero operator config.
+	if (event.url.pathname.startsWith('/.well-known/oauth-')) {
+		return forwardWellKnown(event);
+	}
+
 	// The /api proxy forwards the raw cookie itself; resolving the session there
 	// would be wasted work, so only do it for app navigations.
 	if (event.url.pathname.startsWith('/api/')) {

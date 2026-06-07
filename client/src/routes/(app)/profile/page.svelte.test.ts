@@ -76,6 +76,10 @@ vi.mock('$lib/api', () => ({
 			listTokens: (...a: unknown[]) => h.listTokens(...(a as [])),
 			createToken: vi.fn(),
 			revokeToken: vi.fn()
+		},
+		oauth: {
+			connections: vi.fn(() => Promise.resolve({ connections: [] })),
+			revokeConnection: vi.fn()
 		}
 	}
 }));

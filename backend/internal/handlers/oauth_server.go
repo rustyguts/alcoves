@@ -91,9 +91,18 @@ func (h *OAuthServerHandler) Authorize(c echo.Context) error {
 			"clientId":   client.ClientID,
 			"clientName": client.ClientName,
 		},
-		"scopes":      strings.Fields(r.Scope),
-		"redirectUri": r.RedirectURI,
-		"state":       r.State,
+		"scopes": strings.Fields(r.Scope),
+		// The normalized request the consent token was signed over. The browser
+		// echoes this back verbatim on the decision call so the HMAC verifies.
+		"request": map[string]string{
+			"clientId":            r.ClientID,
+			"redirectUri":         r.RedirectURI,
+			"codeChallenge":       r.CodeChallenge,
+			"codeChallengeMethod": r.CodeChallengeMethod,
+			"scope":               r.Scope,
+			"resource":            r.Resource,
+			"state":               r.State,
+		},
 	})
 }
 

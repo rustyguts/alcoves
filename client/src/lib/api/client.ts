@@ -34,7 +34,10 @@ import type {
 	WaveformData,
 	HighlightFilter,
 	HighlightFilterCreate,
-	HighlightFilterPatch
+	HighlightFilterPatch,
+	OAuthConsentInfo,
+	OAuthAuthorizeRequest,
+	OAuthConnection
 } from '$lib/types/api';
 
 /**
@@ -527,6 +530,28 @@ export function createApi(fetchImpl: typeof globalThis.fetch) {
 		}
 	} as const;
 
+	// ─── MCP OAuth (custom-connector authorization) ────────
+	const oauth = {
+		/** GET /api/oauth/authorize — validate a request and fetch consent data. */
+		authorize(query: Record<string, string>) {
+			return f<OAuthConsentInfo>('/api/oauth/authorize', { query });
+		},
+		/** POST /api/oauth/authorize/decision — approve/deny; returns the redirect target. */
+		decision(body: { consentToken: string; approve: boolean } & OAuthAuthorizeRequest) {
+			return f<{ redirect: string }>('/api/oauth/authorize/decision', { method: 'POST', body });
+		},
+		/** GET /api/oauth/connections — clients the user has authorized for MCP. */
+		connections() {
+			return f<{ connections: OAuthConnection[] }>('/api/oauth/connections');
+		},
+		/** DELETE /api/oauth/connections/:clientId — disconnect a client. */
+		revokeConnection(clientId: string) {
+			return f<void>(`/api/oauth/connections/${encodeURIComponent(clientId)}`, {
+				method: 'DELETE'
+			});
+		}
+	} as const;
+
 	return {
 		auth,
 		libraries,
@@ -542,7 +567,8 @@ export function createApi(fetchImpl: typeof globalThis.fetch) {
 		invites,
 		admin,
 		moments,
-		meta
+		meta,
+		oauth
 	} as const;
 }
 

@@ -528,3 +528,33 @@ export interface NotificationsResponse {
 export interface UnreadCountResponse {
 	unreadCount: number;
 }
+
+// ─── MCP OAuth (custom-connector authorization) ────────────
+
+/** The normalized authorization request the consent token was signed over. */
+export interface OAuthAuthorizeRequest {
+	clientId: string;
+	redirectUri: string;
+	codeChallenge: string;
+	codeChallengeMethod: string;
+	scope: string;
+	resource: string;
+	state: string;
+}
+
+/** Payload for the consent screen (GET /api/oauth/authorize). */
+export interface OAuthConsentInfo {
+	consentToken: string;
+	client: { clientId: string; clientName: string };
+	scopes: string[];
+	request: OAuthAuthorizeRequest;
+}
+
+/** A client the user has authorized for MCP access. */
+export interface OAuthConnection {
+	clientId: string;
+	clientName: string;
+	scope: string;
+	lastUsedAt: string | null;
+	createdAt: string;
+}

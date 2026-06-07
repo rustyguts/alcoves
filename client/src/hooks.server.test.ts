@@ -137,3 +137,37 @@ describe('handleFetch', () => {
 		expect(fetch).toHaveBeenCalledWith(external);
 	});
 });
+
+describe('handle — well-known OAuth forwarding', () => {
+	it('forwards /.well-known/oauth-* to the API and relays the response', async () => {
+		const fetch = vi.fn(
+			async () =>
+				new Response(JSON.stringify({ resource: 'https://x/api/mcp' }), {
+					status: 200,
+					headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }
+				})
+		);
+		const event = makeEvent({ pathname: '/.well-known/oauth-protected-resource', fetch });
+		const resolve = vi.fn();
+
+		const res = await handle({ event, resolve });
+
+		// The Go API is hit directly; the SvelteKit page renderer is bypassed.
+		expect(fetch).toHaveBeenCalledWith(
+			'http://api.internal:3001/.well-known/oauth-protected-resource'
+		);
+		expect(resolve).not.toHaveBeenCalled();
+		expect(res.status).toBe(200);
+		expect(res.headers.get('access-control-allow-origin')).toBe('*');
+		expect(await res.json()).toEqual({ resource: 'https://x/api/mcp' });
+	});
+
+	it('returns 502 when the API is unreachable', async () => {
+		const fetch = vi.fn(async () => {
+			throw new Error('connection refused');
+		});
+		const event = makeEvent({ pathname: '/.well-known/oauth-authorization-server', fetch });
+		const res = await handle({ event, resolve: vi.fn() });
+		expect(res.status).toBe(502);
+	});
+});
