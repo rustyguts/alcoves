@@ -42,7 +42,7 @@
 <svelte:element
 	this={formatted.href ? 'a' : 'div'}
 	href={formatted.href ?? undefined}
-	class="group flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors hover:bg-surface-100-900"
+	class="group flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors hover:bg-surface-100-900 focus-visible:bg-surface-100-900 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none focus-visible:ring-inset"
 	onclick={onClick}
 	role={formatted.href ? undefined : 'button'}
 	tabindex={formatted.href ? undefined : 0}

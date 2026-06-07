@@ -20,6 +20,7 @@
 	import { createFileDrop } from '$lib/state/file-drop.svelte';
 	import type { AuthUser, Library, LibraryEntry, LibraryFile, LibraryFolder } from '$lib/types/api';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 	import UploadModal from '$lib/components/UploadModal.svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
@@ -1102,34 +1103,33 @@
 			{/if}
 
 			{#if trashed && !explorer.filesPending && explorer.totalCount > 0}
-				<button
-					type="button"
-					class="btn preset-tonal-error btn-sm"
-					onclick={() => openPurgeAllModal()}
-				>
-					<AppIcon name={ICONS.trash} class="size-4" />
+				<Button variant="tonal" color="error" size="sm" onclick={() => openPurgeAllModal()}>
+					{#snippet icon()}
+						<AppIcon name={ICONS.trash} class="size-4" />
+					{/snippet}
 					<span class="hidden sm:inline">Delete All</span>
-				</button>
+				</Button>
 			{/if}
 
 			{#if canManageLibrary && !trashed}
 				<div class="flex items-center gap-1.5">
-					<button
-						type="button"
-						class="btn h-9 preset-tonal-primary"
+					<Button
+						variant="tonal"
+						color="primary"
+						class="h-9"
 						onclick={() => folderActions.openCreateFolderModal()}
 					>
-						<AppIcon name={ICONS.folder} class="size-4" />
+						{#snippet icon()}
+							<AppIcon name={ICONS.folder} class="size-4" />
+						{/snippet}
 						<span class="hidden sm:inline">Folder</span>
-					</button>
-					<button
-						type="button"
-						class="btn h-9 preset-tonal-primary"
-						onclick={() => (uploadOpen = true)}
-					>
-						<AppIcon name={ICONS.upload} class="size-4" />
+					</Button>
+					<Button variant="tonal" color="primary" class="h-9" onclick={() => (uploadOpen = true)}>
+						{#snippet icon()}
+							<AppIcon name={ICONS.upload} class="size-4" />
+						{/snippet}
 						<span class="hidden sm:inline">Upload</span>
-					</button>
+					</Button>
 				</div>
 			{/if}
 		</div>
@@ -1230,7 +1230,7 @@
 	<!-- Context menu (replaces the Nuxt UContextMenu) -->
 	{#if contextMenuOpen}
 		<div
-			class="fixed z-50 flex w-56 flex-col gap-1 card rounded-md preset-filled-surface-50-950 p-1 shadow-xl"
+			class="fixed z-50 flex w-56 flex-col gap-1 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-1 shadow-xl"
 			style:left="{contextMenuX}px"
 			style:top="{contextMenuY}px"
 			role="menu"
@@ -1264,7 +1264,7 @@
 							</button>
 							{#if openSubmenuKey === `${gi}-${ii}`}
 								<div
-									class="absolute top-0 left-full ml-1 flex max-h-72 w-48 flex-col gap-1 overflow-y-auto card rounded-md preset-filled-surface-50-950 p-1 shadow-xl"
+									class="absolute top-0 left-full ml-1 flex max-h-72 w-48 flex-col gap-1 overflow-y-auto card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-1 shadow-xl"
 								>
 									{#each item.children as child, ci (`${ci}-${child.label}`)}
 										<button
@@ -1340,19 +1340,18 @@
 			>
 				Cancel
 			</button>
-			<button
-				type="button"
-				class="btn preset-tonal-primary"
+			<Button
+				variant="tonal"
+				color="primary"
+				loading={folderActions.creatingFolder}
 				disabled={!folderActions.createFolderName.trim() || folderActions.creatingFolder}
 				onclick={() => folderActions.createFolder()}
 			>
-				{#if folderActions.creatingFolder}
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-				{:else}
+				{#snippet icon()}
 					<AppIcon name={ICONS.folder} class="size-4" />
-				{/if}
+				{/snippet}
 				Create
-			</button>
+			</Button>
 		</div>
 	</AppModal>
 
@@ -1384,19 +1383,18 @@
 			>
 				Cancel
 			</button>
-			<button
-				type="button"
-				class="btn preset-tonal-primary"
+			<Button
+				variant="tonal"
+				color="primary"
+				loading={folderActions.moveFolderSaving}
 				disabled={folderActions.moveLoading || folderActions.moveFolderSaving}
 				onclick={() => folderActions.moveFolder()}
 			>
-				{#if folderActions.moveFolderSaving}
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-				{:else}
+				{#snippet icon()}
 					<AppIcon name={ICONS.folder} class="size-4" />
-				{/if}
+				{/snippet}
 				Move
-			</button>
+			</Button>
 		</div>
 	</AppModal>
 
@@ -1423,19 +1421,18 @@
 		</div>
 		<div class="flex w-full justify-end gap-2">
 			<button type="button" class="btn preset-tonal" onclick={closeMoveFilesModal}>Cancel</button>
-			<button
-				type="button"
-				class="btn preset-tonal-primary"
+			<Button
+				variant="tonal"
+				color="primary"
+				loading={moveFilesSaving}
 				disabled={moveFilesLoading || moveFilesSaving}
 				onclick={() => moveFiles()}
 			>
-				{#if moveFilesSaving}
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-				{:else}
+				{#snippet icon()}
 					<AppIcon name={ICONS.folder} class="size-4" />
-				{/if}
+				{/snippet}
 				Move
-			</button>
+			</Button>
 		</div>
 	</AppModal>
 
@@ -1468,15 +1465,16 @@
 			<button type="button" class="btn preset-tonal" onclick={() => (purgeModalOpen = false)}>
 				Cancel
 			</button>
-			<button
-				type="button"
-				class="btn preset-filled-error-500"
+			<Button
+				color="error"
 				disabled={purgeConfirmation !== 'delete'}
 				onclick={() => handlePermanentDelete()}
 			>
-				<AppIcon name={ICONS.trash} class="size-4" />
+				{#snippet icon()}
+					<AppIcon name={ICONS.trash} class="size-4" />
+				{/snippet}
 				Delete Permanently
-			</button>
+			</Button>
 		</div>
 	</AppModal>
 
@@ -1502,19 +1500,17 @@
 			<button type="button" class="btn preset-tonal" onclick={() => zip.cancelLargeDownload()}>
 				Cancel
 			</button>
-			<button
-				type="button"
-				class="btn preset-tonal-primary"
-				disabled={zip.downloading}
+			<Button
+				variant="tonal"
+				color="primary"
+				loading={zip.downloading}
 				onclick={() => zip.confirmLargeDownload()}
 			>
-				{#if zip.downloading}
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-				{:else}
+				{#snippet icon()}
 					<AppIcon name={ICONS.download} class="size-4" />
-				{/if}
+				{/snippet}
 				Download Anyway
-			</button>
+			</Button>
 		</div>
 	</AppModal>
 </div>

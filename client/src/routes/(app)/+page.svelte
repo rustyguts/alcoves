@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { toast } from '$lib/state/toast';
 	import type { PageProps } from './$types';
 
@@ -60,14 +61,12 @@
 						disabled={creating}
 					/>
 				</label>
-				<button
-					type="submit"
-					class="btn preset-filled-primary-500"
-					disabled={creating || name.trim().length === 0}
-				>
-					<AppIcon name={ICONS.plus} class="size-4" />
+				<Button type="submit" disabled={creating || name.trim().length === 0}>
+					{#snippet icon()}
+						<AppIcon name={ICONS.plus} class="size-4" />
+					{/snippet}
 					<span>{creating ? 'Creating…' : 'Create library'}</span>
-				</button>
+				</Button>
 			</form>
 		</div>
 	</div>

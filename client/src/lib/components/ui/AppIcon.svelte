@@ -25,6 +25,8 @@
 		class?: string;
 		width?: string | number;
 		height?: string | number;
+		/** Forwarded to the underlying icon (e.g. `aria-hidden`, `aria-label`). */
+		[key: string]: unknown;
 	}
 
 	let { name, size = 'md', class: klass = '', width, height, ...rest }: Props = $props();
@@ -36,4 +38,10 @@
 	const mergedClass = $derived([sizeClass, klass].filter(Boolean).join(' '));
 </script>
 
-<Icon icon={name} class={mergedClass} {width} {height} {...rest} />
+<!--
+	Icons are presentational by default — the accessible label lives on the
+	enclosing button/link. `aria-hidden="true"` keeps the glyph out of the a11y
+	tree (avoids double announcements); callers can override via `...rest`
+	(e.g. pass `aria-hidden={false}` / an `aria-label` for a standalone icon).
+-->
+<Icon icon={name} class={mergedClass} aria-hidden="true" {width} {height} {...rest} />

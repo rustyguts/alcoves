@@ -92,6 +92,7 @@
 	tabindex="0"
 	class={[
 		'cursor-pointer overflow-hidden rounded-md transition-colors select-none',
+		'focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none',
 		selected
 			? 'bg-primary-500/20 hover:bg-primary-500/30'
 			: 'bg-surface-100-900 hover:bg-primary-500/10',

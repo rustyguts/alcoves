@@ -37,4 +37,18 @@ describe('AppIcon', () => {
 		const cls = none.container.querySelector('svg')?.getAttribute('class') ?? '';
 		expect(cls).not.toContain('size-4');
 	});
+
+	it('is aria-hidden by default (decorative)', async () => {
+		const screen = render(AppIcon, { props: { name: ICONS.search } });
+		expect(screen.container.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+	});
+
+	it('lets callers override aria-hidden for a standalone labelled icon', async () => {
+		const screen = render(AppIcon, {
+			props: { name: ICONS.search, 'aria-hidden': false, 'aria-label': 'Search' }
+		});
+		const svg = screen.container.querySelector('svg');
+		expect(svg?.getAttribute('aria-hidden')).not.toBe('true');
+		expect(svg?.getAttribute('aria-label')).toBe('Search');
+	});
 });

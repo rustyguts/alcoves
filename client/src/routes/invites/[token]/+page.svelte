@@ -9,6 +9,7 @@
 	import { toast } from '$lib/state/toast';
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import AuthCardShell from '$lib/components/ui/AuthCardShell.svelte';
 	import type { InviteLookupResponse } from '$lib/types/api';
@@ -126,25 +127,18 @@
 
 			<div class="flex flex-wrap items-center gap-2">
 				{#if invite?.canAccept}
-					<button
-						type="button"
-						class="btn preset-filled-primary-500"
-						disabled={accepting}
-						onclick={acceptInvite}
-					>
-						{#if accepting}
-							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-						{:else}
+					<Button loading={accepting} disabled={accepting} onclick={acceptInvite}>
+						{#snippet icon()}
 							<AppIcon name={ICONS.check} class="size-4" />
-						{/if}
+						{/snippet}
 						Accept Invite
-					</button>
+					</Button>
 				{/if}
 				{#if invite?.library.id}
-					<a href={`/libraries/${invite.library.id}`} class="btn preset-tonal-surface">
+					<Button href={`/libraries/${invite.library.id}`} variant="tonal" color="surface">
 						Go to library
 						<AppIcon name={ICONS.arrowRight} class="size-4" />
-					</a>
+					</Button>
 				{/if}
 			</div>
 		{/if}

@@ -19,6 +19,8 @@
 		user: AuthUser | null;
 		/** Current route path, e.g. `/libraries/abc/timeline`. */
 		currentPath?: string;
+		/** The shell's libraries fetch failed (distinct from "no libraries"). */
+		librariesError?: boolean;
 		oncreate?: () => void;
 	}
 
@@ -30,7 +32,7 @@
 		active: boolean;
 	}
 
-	let { libraries, user, currentPath = '', oncreate }: Props = $props();
+	let { libraries, user, currentPath = '', librariesError = false, oncreate }: Props = $props();
 
 	function libBase(id: string): string {
 		return `/libraries/${id}`;
@@ -174,6 +176,15 @@
 	</div>
 
 	<hr class="my-2 border-surface-200-800" />
+
+	{#if librariesError && !currentLibrary}
+		<div
+			class="mx-2 mb-2 flex items-start gap-2 rounded-lg border border-error-500/30 bg-error-500/10 px-3 py-2 text-xs text-error-600"
+		>
+			<AppIcon name={ICONS.warning} class="size-4 shrink-0" />
+			<span>Couldn't load your libraries. Refresh to try again.</span>
+		</div>
+	{/if}
 
 	<div class="flex-1 overflow-y-auto px-2">
 		<nav aria-label="Library sections" class="flex w-full flex-col gap-1">

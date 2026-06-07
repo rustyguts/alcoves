@@ -3,6 +3,7 @@
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import { api } from '$lib/api';
 	import { toast } from '$lib/state/toast';
@@ -138,19 +139,12 @@
 					{/each}
 				</select>
 			</label>
-			<button
-				type="button"
-				class="btn preset-filled-primary-500"
-				disabled={creating}
-				onclick={createToken}
-			>
-				{#if creating}
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-				{:else}
+			<Button loading={creating} disabled={creating} onclick={createToken}>
+				{#snippet icon()}
 					<AppIcon name={ICONS.plus} class="size-4" />
-				{/if}
+				{/snippet}
 				Create token
-			</button>
+			</Button>
 		</div>
 
 		<hr class="border-surface-200-800" />
@@ -183,19 +177,19 @@
 								</div>
 							</div>
 						</div>
-						<button
-							type="button"
-							class="btn preset-tonal-error btn-sm"
+						<Button
+							variant="tonal"
+							color="error"
+							size="sm"
+							loading={revokingId === token.id}
 							disabled={revokingId === token.id}
 							onclick={() => revokeToken(token.id)}
 						>
-							{#if revokingId === token.id}
-								<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-							{:else}
+							{#snippet icon()}
 								<AppIcon name={ICONS.trash} class="size-4" />
-							{/if}
+							{/snippet}
 							Revoke
-						</button>
+						</Button>
 					</div>
 				{/each}
 			</div>
@@ -222,14 +216,18 @@
 	<div class="space-y-4">
 		<div class="flex items-center gap-2">
 			<input class="input w-full font-mono text-xs" value={createdToken?.token ?? ''} readonly />
-			<button
-				type="button"
-				class="btn-icon shrink-0 preset-tonal-surface"
+			<Button
+				iconOnly
+				variant="tonal"
+				color="surface"
+				class="shrink-0"
 				aria-label="Copy token"
 				onclick={copyToken}
 			>
-				<AppIcon name={ICONS.copy} class="size-4" />
-			</button>
+				{#snippet icon()}
+					<AppIcon name={ICONS.copy} class="size-4" />
+				{/snippet}
+			</Button>
 		</div>
 		<div class="flex items-start gap-3 card preset-tonal-warning p-4">
 			<AppIcon name={ICONS.shield} class="size-5 shrink-0 opacity-80" />
@@ -241,13 +239,7 @@
 			</div>
 		</div>
 		<div class="flex w-full justify-end">
-			<button
-				type="button"
-				class="btn preset-filled-primary-500"
-				onclick={() => (showCreated = false)}
-			>
-				Done
-			</button>
+			<Button onclick={() => (showCreated = false)}>Done</Button>
 		</div>
 	</div>
 </AppModal>

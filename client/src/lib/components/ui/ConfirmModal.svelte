@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Dialog } from '@skeletonlabs/skeleton-svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { ICONS } from '$lib/utils/icons';
 
 	interface Props {
@@ -25,15 +26,17 @@
 		onconfirm
 	}: Props = $props();
 
-	// Map the legacy Nuxt UI `confirmClass` hint onto a Skeleton preset color, the
-	// same substring matching the Vue original used to derive its UButton color.
-	const confirmPreset = $derived.by(() => {
+	// Map the legacy Nuxt UI `confirmClass` hint onto a Button color, the same
+	// substring matching the Vue original used to derive its UButton color. The
+	// Button renders `preset-filled-{color}-500` — byte-equivalent to the prior
+	// hand-rolled preset string.
+	const confirmColor = $derived.by<'primary' | 'surface' | 'error' | 'warning' | 'success'>(() => {
 		const c = confirmClass;
-		if (c.includes('error')) return 'preset-filled-error-500';
-		if (c.includes('warning')) return 'preset-filled-warning-500';
-		if (c.includes('success')) return 'preset-filled-success-500';
-		if (c.includes('neutral')) return 'preset-filled-surface-500';
-		return 'preset-filled-primary-500';
+		if (c.includes('error')) return 'error';
+		if (c.includes('warning')) return 'warning';
+		if (c.includes('success')) return 'success';
+		if (c.includes('neutral')) return 'surface';
+		return 'primary';
 	});
 </script>
 
@@ -45,30 +48,18 @@
 		>
 			<header class="flex flex-col gap-1">
 				<Dialog.Title class="text-lg font-semibold">{title}</Dialog.Title>
-				<Dialog.Description class="text-sm opacity-75">{message}</Dialog.Description>
+				<Dialog.Description class="text-sm text-surface-600-400">{message}</Dialog.Description>
 			</header>
 			<footer class="flex w-full justify-end gap-2">
-				<button
-					type="button"
-					class="btn preset-tonal-surface"
-					disabled={pending}
-					onclick={() => (open = false)}
-				>
+				<Button variant="tonal" color="surface" disabled={pending} onclick={() => (open = false)}>
 					Cancel
-				</button>
-				<button
-					type="button"
-					class="btn {confirmPreset}"
-					disabled={pending}
-					onclick={() => onconfirm?.()}
-				>
-					{#if pending}
-						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-					{:else}
+				</Button>
+				<Button color={confirmColor} loading={pending} onclick={() => onconfirm?.()}>
+					{#snippet icon()}
 						<AppIcon name={confirmIcon} class="size-4" />
-					{/if}
+					{/snippet}
 					{confirmLabel}
-				</button>
+				</Button>
 			</footer>
 		</Dialog.Content>
 	</Dialog.Positioner>

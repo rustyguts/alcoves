@@ -6,6 +6,8 @@
 	import { groupActivities, type ActivityGroup } from '$lib/utils/activity-format';
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import NotificationItem from '$lib/components/notifications/NotificationItem.svelte';
 
 	let unsubscribe: (() => void) | null = null;
@@ -51,20 +53,20 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<div class="flex items-center justify-between border-b border-surface-200-800 px-4 py-3">
-		<div>
-			<h1 class="text-lg font-semibold">Notifications</h1>
-			<p class="mt-0.5 text-xs text-surface-600-400">Activity across all your libraries.</p>
-		</div>
-		{#if notifications.entries.length > 0}
-			<button
-				type="button"
-				class="text-sm text-surface-600-400 underline hover:text-surface-950-50"
-				onclick={() => notifications.dismissAll()}
-			>
-				Dismiss all
-			</button>
-		{/if}
+	<div class="border-b border-surface-200-800 px-4 py-3">
+		<PageHeader title="Notifications" description="Activity across all your libraries.">
+			{#snippet actions()}
+				{#if notifications.entries.length > 0}
+					<button
+						type="button"
+						class="text-sm text-surface-600-400 underline hover:text-surface-950-50"
+						onclick={() => notifications.dismissAll()}
+					>
+						Dismiss all
+					</button>
+				{/if}
+			{/snippet}
+		</PageHeader>
 	</div>
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#if notifications.loading && notifications.entries.length === 0}
@@ -73,7 +75,11 @@
 				<p class="mt-2">Loading…</p>
 			</div>
 		{:else if notifications.entries.length === 0}
-			<div class="px-4 py-12 text-center text-sm text-surface-600-400">You're all caught up.</div>
+			<EmptyState
+				icon={ICONS.bell}
+				title="You're all caught up"
+				description="New activity across your libraries will appear here."
+			/>
 		{:else}
 			{#each groupedByLibrary as lib (lib.libraryId)}
 				<section class="border-b border-surface-200-800">

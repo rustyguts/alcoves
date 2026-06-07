@@ -1,8 +1,12 @@
 <script lang="ts">
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import type { LibraryFile } from '$lib/types/api';
 	import type { JobButtonColor, JobStatusButton } from '$lib/utils/job-status-button';
+
+	type ButtonColor = 'primary' | 'surface' | 'error' | 'warning' | 'success';
+	type ButtonVariant = 'filled' | 'tonal';
 
 	interface Props {
 		file: LibraryFile | null | undefined;
@@ -38,9 +42,9 @@
 		return !!mimeType && (mimeType.startsWith('video/') || mimeType.startsWith('audio/'));
 	}
 
-	// JobButtonColor -> Skeleton color token. `neutral` has no preset of its own;
+	// JobButtonColor -> Button color token. `neutral` has no preset of its own;
 	// it maps onto the surface palette.
-	const colorToken: Record<JobButtonColor, string> = {
+	const colorToken: Record<JobButtonColor, ButtonColor> = {
 		primary: 'primary',
 		neutral: 'surface',
 		warning: 'warning',
@@ -48,10 +52,10 @@
 	};
 
 	// The Vue original used `solid` (filled) for a failed job and `soft` (tonal)
-	// otherwise. Mirror that here with Skeleton presets.
-	function actionPreset(btn: JobStatusButton, failed: boolean): string {
-		const token = colorToken[btn.color];
-		return failed ? `preset-filled-${token}-500` : `preset-tonal-${token}`;
+	// otherwise. Mirror that here: filled when failed, tonal otherwise. The Button
+	// renders the same `preset-filled-{color}-500` / `preset-tonal-{color}` tokens.
+	function actionVariant(failed: boolean): ButtonVariant {
+		return failed ? 'filled' : 'tonal';
 	}
 
 	const playable = $derived(!!file && isPlayable(file.mimeType));
@@ -65,60 +69,62 @@
 </script>
 
 <div class="flex w-full items-center gap-3">
-	<button type="button" class="btn preset-tonal-surface btn-sm" onclick={() => onback?.()}>
-		<AppIcon name={ICONS.back} class="size-4" />
+	<Button variant="tonal" color="surface" size="sm" onclick={() => onback?.()}>
+		{#snippet icon()}
+			<AppIcon name={ICONS.back} class="size-4" />
+		{/snippet}
 		Back
-	</button>
+	</Button>
 
 	<div class="min-w-0 flex-1">
 		<p class="truncate text-lg font-semibold">{file?.name ?? 'Loading…'}</p>
 	</div>
 
 	{#if playable}
-		<button
-			type="button"
-			class="btn btn-sm {actionPreset(transcribeButton, transcribeFailed)}"
+		<Button
+			size="sm"
+			variant={actionVariant(transcribeFailed)}
+			color={colorToken[transcribeButton.color]}
+			loading={transcribeLoading}
 			disabled={transcribeButton.disabled || transcribing}
 			onclick={() => ontranscribe?.()}
 		>
-			{#if transcribeLoading}
-				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-			{:else}
+			{#snippet icon()}
 				<AppIcon name={ICONS.transcript} class="size-4" />
-			{/if}
+			{/snippet}
 			{transcribeButton.label}
-		</button>
+		</Button>
 	{/if}
 
 	{#if canDetectAudio}
-		<button
-			type="button"
-			class="btn btn-sm {actionPreset(audioDetectButton, audioDetectFailed)}"
+		<Button
+			size="sm"
+			variant={actionVariant(audioDetectFailed)}
+			color={colorToken[audioDetectButton.color]}
+			loading={audioDetectLoading}
 			disabled={audioDetectButton.disabled || audioDetecting}
 			onclick={() => onaudioDetect?.()}
 		>
-			{#if audioDetectLoading}
-				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-			{:else}
+			{#snippet icon()}
 				<AppIcon name={ICONS.audioDetect} class="size-4" />
-			{/if}
+			{/snippet}
 			{audioDetectButton.label}
-		</button>
+		</Button>
 	{/if}
 
 	{#if playable}
-		<button
-			type="button"
-			class="btn btn-sm {actionPreset(waveformButton, waveformFailed)}"
+		<Button
+			size="sm"
+			variant={actionVariant(waveformFailed)}
+			color={colorToken[waveformButton.color]}
+			loading={waveformLoading}
 			disabled={waveformButton.disabled || waveformGenerating}
 			onclick={() => onwaveform?.()}
 		>
-			{#if waveformLoading}
-				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-			{:else}
+			{#snippet icon()}
 				<AppIcon name={ICONS.waveform} class="size-4" />
-			{/if}
+			{/snippet}
 			{waveformButton.label}
-		</button>
+		</Button>
 	{/if}
 </div>

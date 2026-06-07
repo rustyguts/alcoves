@@ -194,7 +194,7 @@
 
 	{#if open}
 		<div
-			class="absolute top-full left-0 z-50 mt-2 w-72 card rounded-xl border border-surface-200-800 preset-filled-surface-50-950 p-3 shadow-lg"
+			class="absolute top-full left-0 z-50 mt-2 w-72 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-3 shadow-xl"
 		>
 			<div class="mb-2 flex items-center justify-between">
 				<span class="text-xs font-semibold opacity-60">Pick an icon</span>

@@ -36,7 +36,9 @@
 						<Dialog.Title class="text-lg font-semibold">{title}</Dialog.Title>
 					{/if}
 					{#if description}
-						<Dialog.Description class="text-sm opacity-75">{description}</Dialog.Description>
+						<Dialog.Description class="text-sm text-surface-600-400"
+							>{description}</Dialog.Description
+						>
 					{/if}
 				</header>
 			{/if}

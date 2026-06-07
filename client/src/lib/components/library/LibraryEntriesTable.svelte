@@ -88,8 +88,11 @@
 	<tbody class="divide-y divide-surface-200-800/60 select-none">
 		{#each entries as entry (`${entry.kind}-${entry.id}`)}
 			<tr
+				role="button"
+				tabindex="0"
 				class={[
 					'cursor-pointer transition-colors',
+					'focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none focus-visible:ring-inset',
 					isEntrySelected(entry)
 						? 'bg-primary-500/20 hover:bg-primary-500/30'
 						: 'hover:bg-primary-500/10',
@@ -106,6 +109,12 @@
 				]}
 				draggable={dragEnabled && !isRenaming(entry)}
 				onclick={(e) => onrowClick?.(entry, e)}
+				onkeydown={(e) => {
+					if (!isRenaming(entry) && (e.key === 'Enter' || e.key === ' ')) {
+						e.preventDefault();
+						onrowClick?.(entry, e as unknown as MouseEvent);
+					}
+				}}
 				ondblclick={() => onrowDoubleClick?.(entry)}
 				oncontextmenu={(e) => onrowContextMenu?.(entry, e)}
 				ondragstart={(e) => ondragStart?.(entry, e)}

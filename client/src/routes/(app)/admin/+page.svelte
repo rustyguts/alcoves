@@ -6,7 +6,11 @@
 	import { ICONS } from '$lib/utils/icons';
 	import { formatFileSize } from '$lib/utils/mime-icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import StatCard from '$lib/components/ui/StatCard.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import AdminJobsPanel from '$lib/components/admin/AdminJobsPanel.svelte';
 	import type { AdminStats, AdminUser, AppSettings, RegistrationMode } from '$lib/types/api';
@@ -33,11 +37,14 @@
 		void loadVersion();
 	});
 
+	let statsError = $state(false);
 	async function loadStats() {
+		statsError = false;
 		try {
 			stats = await api.admin.stats();
 		} catch {
 			stats = null;
+			statsError = true;
 		}
 	}
 
@@ -52,11 +59,14 @@
 		}
 	}
 
+	let settingsError = $state(false);
 	async function loadSettings() {
+		settingsError = false;
 		try {
 			settings = await api.admin.getSettings();
 		} catch {
 			settings = null;
+			settingsError = true;
 		}
 	}
 
@@ -483,29 +493,42 @@
 </script>
 
 <div class="min-h-0 flex-1 space-y-6 overflow-y-auto px-0.5">
-	<div>
-		<h1 class="text-2xl font-bold">Admin Dashboard</h1>
-		<p class="mt-0.5 text-sm text-surface-500">
-			Instance overview, user management, and background jobs.
-		</p>
-	</div>
+	<PageHeader
+		title="Admin Dashboard"
+		description="Instance overview, user management, and background jobs."
+	/>
+
+	{#if statsError}
+		<div
+			class="flex items-center gap-3 rounded-lg border border-error-500/30 bg-error-500/10 px-4 py-3 text-sm text-error-600"
+		>
+			<AppIcon name={ICONS.warning} class="size-5 shrink-0" />
+			<span class="flex-1">Couldn't load instance statistics.</span>
+			<Button variant="tonal" color="error" size="sm" onclick={loadStats}>Retry</Button>
+		</div>
+	{/if}
 
 	<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
 		{#each statCards as s (s.key)}
-			<div class="card border border-surface-200-800 preset-tonal-surface p-4">
-				<div class="flex items-start justify-between gap-3">
-					<div>
-						<p class="text-xs text-surface-500">{s.title}</p>
-						<p class="mt-1 text-3xl font-semibold">{s.value}</p>
-						<p class="mt-1 text-xs text-surface-500">{s.caption}</p>
-					</div>
-					<div class="flex size-10 items-center justify-center rounded-lg {s.color}">
-						<AppIcon name={s.icon} class="size-5" />
-					</div>
-				</div>
-			</div>
+			<StatCard
+				title={s.title}
+				value={s.value}
+				caption={s.caption}
+				icon={s.icon}
+				iconClass={s.color}
+			/>
 		{/each}
 	</div>
+
+	{#if settingsError}
+		<div
+			class="flex items-center gap-3 rounded-lg border border-error-500/30 bg-error-500/10 px-4 py-3 text-sm text-error-600"
+		>
+			<AppIcon name={ICONS.warning} class="size-5 shrink-0" />
+			<span class="flex-1">Couldn't load instance settings — values below may be inaccurate.</span>
+			<Button variant="tonal" color="error" size="sm" onclick={loadSettings}>Retry</Button>
+		</div>
+	{/if}
 
 	<AppPanel
 		title="Registration"
@@ -716,8 +739,24 @@
 					</tbody>
 				</table>
 			</div>
+		{:else if usersStatus === 'error'}
+			<EmptyState
+				icon={ICONS.warning}
+				title="Couldn't load users"
+				description="Something went wrong fetching the user list. Try again."
+				tone="error"
+			>
+				{#snippet actions()}
+					<Button variant="tonal" color="surface" onclick={loadUsers}>
+						{#snippet icon()}
+							<AppIcon name={ICONS.reload} class="size-4" />
+						{/snippet}
+						Retry
+					</Button>
+				{/snippet}
+			</EmptyState>
 		{:else}
-			<p class="px-6 pb-6 text-sm text-surface-500">No users found.</p>
+			<EmptyState icon={ICONS.members} title="No users found" />
 		{/if}
 	</AppPanel>
 

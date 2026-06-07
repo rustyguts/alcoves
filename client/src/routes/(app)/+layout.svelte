@@ -88,6 +88,7 @@
 					libraries={data.libraries}
 					user={data.user}
 					currentPath={page.url.pathname}
+					librariesError={data.librariesError}
 					oncreate={createLibrary}
 				/>
 			</Dialog.Content>
@@ -108,6 +109,7 @@
 			libraries={data.libraries}
 			user={data.user}
 			currentPath={page.url.pathname}
+			librariesError={data.librariesError}
 			oncreate={createLibrary}
 		/>
 	</aside>

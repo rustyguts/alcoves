@@ -5,6 +5,8 @@
 	import type { GalleryGroup } from '$lib/utils/gallery-types';
 	import type { GlobalSearchResponse, GlobalSearchResult, LibraryFile } from '$lib/types/api';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import JustifiedGallery from '$lib/components/JustifiedGallery.svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 
@@ -129,6 +131,13 @@
 </script>
 
 <div class="min-h-0 w-full flex-1 space-y-6 overflow-y-auto px-0.5">
+	<PageHeader
+		title="Search"
+		description={activeQuery.length >= MIN_QUERY_LENGTH
+			? `Results for “${activeQuery}”`
+			: 'Search across all your libraries.'}
+	/>
+
 	{#if results.length}
 		<div class="flex flex-wrap items-center gap-2 text-xs text-surface-500">
 			<span class="rounded bg-surface-200-800 px-2 py-0.5 font-medium">
@@ -165,12 +174,11 @@
 			</div>
 		</div>
 	{:else if !results.length}
-		<div
-			class="flex items-center gap-3 rounded-lg bg-surface-200-800 px-4 py-3 text-sm text-surface-500"
-		>
-			<AppIcon name={ICONS.folder} class="size-5 shrink-0" />
-			<span>No results found for “{activeQuery}”.</span>
-		</div>
+		<EmptyState
+			icon={ICONS.search}
+			title="No results found"
+			description={`Nothing matched “${activeQuery}”. Try a different term.`}
+		/>
 	{:else}
 		<div>
 			<JustifiedGallery groups={galleryGroups} onselect={openPreview} />

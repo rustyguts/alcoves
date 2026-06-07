@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import { getMimeIcon } from '$lib/utils/mime-icons';
 	import { proxyQueryString, resolveVariant } from '$lib/shared/image-variants';
@@ -327,6 +327,23 @@
 			});
 	});
 
+	// Focus management: the lightbox is a hand-rolled dialog (not Skeleton's
+	// `Dialog`), so move focus into it on open and restore the trigger on close —
+	// otherwise keyboard/AT users are dropped back at the top of the page.
+	let dialogEl = $state<HTMLDivElement | null>(null);
+	let previouslyFocused: HTMLElement | null = null;
+
+	$effect(() => {
+		if (open) {
+			previouslyFocused = (document.activeElement as HTMLElement) ?? null;
+			// dialogEl mounts during this render pass; focus once it exists.
+			void tick().then(() => dialogEl?.focus());
+		} else if (previouslyFocused) {
+			previouslyFocused.focus();
+			previouslyFocused = null;
+		}
+	});
+
 	// Keyboard navigation
 	function handleKeydown(event: KeyboardEvent) {
 		if (!open) return;
@@ -339,6 +356,28 @@
 		} else if (event.key === 'Escape') {
 			event.preventDefault();
 			closePreview();
+		} else if (event.key === 'Tab' && dialogEl) {
+			// Trap Tab within the dialog.
+			const focusables = [
+				...dialogEl.querySelectorAll<HTMLElement>(
+					'a[href], button:not([disabled]), input, select, textarea, video, [tabindex]:not([tabindex="-1"])'
+				)
+			].filter((el) => el.offsetParent !== null || el === dialogEl);
+			if (focusables.length === 0) {
+				event.preventDefault();
+				dialogEl.focus();
+				return;
+			}
+			const first = focusables[0];
+			const last = focusables[focusables.length - 1];
+			const active = document.activeElement as HTMLElement;
+			if (event.shiftKey && (active === first || active === dialogEl)) {
+				event.preventDefault();
+				last.focus();
+			} else if (!event.shiftKey && active === last) {
+				event.preventDefault();
+				first.focus();
+			}
 		}
 	}
 
@@ -357,8 +396,11 @@
 </script>
 
 {#if open}
+	<!-- Backdrop click closes; keyboard (Esc/arrows/Tab-trap) is handled globally in handleKeydown. -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
-		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-sm"
+		bind:this={dialogEl}
+		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-sm focus:outline-none"
 		role="dialog"
 		aria-modal="true"
 		aria-label={file.name}
@@ -366,7 +408,6 @@
 		onclick={(e) => {
 			if (e.target === e.currentTarget) closePreview();
 		}}
-		onkeydown={() => {}}
 	>
 		<!-- Media content: fills the entire viewport -->
 		{#if previewType === 'video'}

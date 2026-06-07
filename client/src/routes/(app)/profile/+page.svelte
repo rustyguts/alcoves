@@ -8,6 +8,7 @@
 	import { ICONS } from '$lib/utils/icons';
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import AccessTokensSection from '$lib/components/profile/AccessTokensSection.svelte';
 	import type { PageProps } from './$types';
 	import type { SessionInfo } from '$lib/types/api';
@@ -242,19 +243,12 @@
 		icon={ICONS.person}
 	>
 		{#snippet actions()}
-			<button
-				type="button"
-				class="btn preset-filled-primary-500"
-				disabled={!hasProfileChanges || saving}
-				onclick={save}
-			>
-				{#if saving}
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-				{:else}
+			<Button loading={saving} disabled={!hasProfileChanges || saving} onclick={save}>
+				{#snippet icon()}
 					<AppIcon name={ICONS.save} class="size-4" />
-				{/if}
+				{/snippet}
 				Save changes
-			</button>
+			</Button>
 		{/snippet}
 
 		<div class="space-y-4">
@@ -271,9 +265,7 @@
 						<AppIcon name={ICONS.camera} class="size-4 shrink-0" />
 						New photo selected — save changes to apply.
 					</span>
-					<button type="button" class="btn preset-tonal-primary btn-sm" onclick={discardAvatar}>
-						Discard
-					</button>
+					<Button variant="tonal" color="primary" size="sm" onclick={discardAvatar}>Discard</Button>
 				</div>
 			{/if}
 		</div>
@@ -354,17 +346,16 @@
 							</div>
 						</div>
 						{#if !session.isCurrent}
-							<button
-								type="button"
-								class="btn preset-tonal-error btn-sm"
+							<Button
+								variant="tonal"
+								color="error"
+								size="sm"
+								loading={revokingId === session.id}
 								disabled={revokingId === session.id}
 								onclick={() => revokeSession(session.id)}
 							>
-								{#if revokingId === session.id}
-									<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-								{/if}
 								Revoke
-							</button>
+							</Button>
 						{/if}
 					</div>
 				{/each}

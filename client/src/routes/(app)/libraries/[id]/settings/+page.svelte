@@ -9,6 +9,7 @@
 	import { canManageLibrary } from '$lib/utils/permissions';
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import AppPanelRow from '$lib/components/ui/AppPanelRow.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import EmojiPicker from '$lib/components/ui/EmojiPicker.svelte';
@@ -432,19 +433,18 @@
 						if (e.key === 'Enter') saveLibraryNameFromSettings();
 					}}
 				/>
-				<button
-					type="button"
-					class="btn preset-tonal-primary"
+				<Button
+					variant="tonal"
+					color="primary"
+					loading={savingLibraryName}
 					disabled={!canSaveName}
 					onclick={saveLibraryNameFromSettings}
 				>
-					{#if savingLibraryName}
-						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-					{:else}
+					{#snippet icon()}
 						<AppIcon name={ICONS.check} class="size-4" />
-					{/if}
+					{/snippet}
 					Save
-				</button>
+				</Button>
 			</div>
 		</SettingsSection>
 
@@ -478,19 +478,12 @@
 								<span class="mb-1 block text-xs font-medium">Expires at</span>
 								<input bind:value={newLinkExpiresAt} type="datetime-local" class="input w-full" />
 							</label>
-							<button
-								type="button"
-								class="btn preset-filled-primary-500"
-								disabled={members.createInviteLinkLoading}
-								onclick={submitCreateInviteLink}
-							>
-								{#if members.createInviteLinkLoading}
-									<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-								{:else}
+							<Button loading={members.createInviteLinkLoading} onclick={submitCreateInviteLink}>
+								{#snippet icon()}
 									<AppIcon name={ICONS.link} class="size-4" />
-								{/if}
+								{/snippet}
 								Create Link
-							</button>
+							</Button>
 						</div>
 						<p class="text-xs text-surface-600-400">
 							Leave both fields blank for unlimited uses that never expire.
@@ -577,19 +570,18 @@
 					title="Queue full reprocessing"
 					description="Deletes current face inference data, then re-runs detection on all images."
 				>
-					<button
-						type="button"
-						class="btn preset-tonal-warning"
+					<Button
+						variant="tonal"
+						color="warning"
+						loading={faceRecReprocessing}
 						disabled={!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing}
 						onclick={() => (faceRecReprocessOpen = true)}
 					>
-						{#if faceRecReprocessing}
-							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-						{:else}
+						{#snippet icon()}
 							<AppIcon name={ICONS.reload} class="size-4" />
-						{/if}
+						{/snippet}
 						Reprocess Faces
-					</button>
+					</Button>
 				</AppPanelRow>
 			</div>
 		</SettingsSection>
@@ -622,16 +614,18 @@
 					title="Browse detected objects"
 					description="View detected object labels and their frequency across the library."
 				>
-					<a
-						class="btn preset-tonal-surface"
-						class:pointer-events-none={!library?.objectDetectionEnabled}
-						class:opacity-50={!library?.objectDetectionEnabled}
-						aria-disabled={!library?.objectDetectionEnabled}
+					<Button
+						variant="tonal"
+						color="surface"
 						href={`/libraries/${libraryId}/objects`}
+						disabled={!library?.objectDetectionEnabled}
+						class={!library?.objectDetectionEnabled ? 'opacity-50' : ''}
 					>
-						<AppIcon name={ICONS.objectDetection} class="size-4" />
+						{#snippet icon()}
+							<AppIcon name={ICONS.objectDetection} class="size-4" />
+						{/snippet}
 						View Objects
-					</a>
+					</Button>
 				</AppPanelRow>
 
 				<hr class="hr" />
@@ -640,19 +634,18 @@
 					title="Queue full reprocessing"
 					description="Deletes current object detection data, then re-runs detection on all images."
 				>
-					<button
-						type="button"
-						class="btn preset-tonal-warning"
+					<Button
+						variant="tonal"
+						color="warning"
+						loading={objDetReprocessing}
 						disabled={!library?.objectDetectionEnabled || objDetToggling || objDetReprocessing}
 						onclick={() => (objDetReprocessOpen = true)}
 					>
-						{#if objDetReprocessing}
-							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-						{:else}
+						{#snippet icon()}
 							<AppIcon name={ICONS.reload} class="size-4" />
-						{/if}
+						{/snippet}
 						Reprocess Objects
-					</button>
+					</Button>
 				</AppPanelRow>
 			</div>
 		</SettingsSection>
@@ -667,19 +660,17 @@
 				title="Re-transcribe all videos"
 				description="Queues transcription for every video and audio file in this library, overwriting existing transcripts. Useful after a model upgrade or hallucination-fix rollout."
 			>
-				<button
-					type="button"
-					class="btn preset-tonal-warning"
-					disabled={transcribeReprocessing}
+				<Button
+					variant="tonal"
+					color="warning"
+					loading={transcribeReprocessing}
 					onclick={() => (transcribeReprocessOpen = true)}
 				>
-					{#if transcribeReprocessing}
-						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-					{:else}
+					{#snippet icon()}
 						<AppIcon name={ICONS.transcript} class="size-4" />
-					{/if}
+					{/snippet}
 					Reprocess Transcripts
-				</button>
+				</Button>
 			</AppPanelRow>
 		</SettingsSection>
 
@@ -693,19 +684,17 @@
 				title="Re-run audio detection on all videos"
 				description="Queues PANNs detection for every video and audio file with a ready transcript, overwriting existing audio-event tags."
 			>
-				<button
-					type="button"
-					class="btn preset-tonal-warning"
-					disabled={audioDetectReprocessing}
+				<Button
+					variant="tonal"
+					color="warning"
+					loading={audioDetectReprocessing}
 					onclick={() => (audioDetectReprocessOpen = true)}
 				>
-					{#if audioDetectReprocessing}
-						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-					{:else}
+					{#snippet icon()}
 						<AppIcon name={ICONS.audioDetect} class="size-4" />
-					{/if}
+					{/snippet}
 					Reprocess Audio Detections
-				</button>
+				</Button>
 			</AppPanelRow>
 		</SettingsSection>
 
@@ -739,19 +728,17 @@
 				icon={ICONS.image}
 			>
 				<div class="flex sm:justify-end">
-					<button
-						type="button"
-						class="btn preset-tonal-warning"
-						disabled={videoThumbReprocessing}
+					<Button
+						variant="tonal"
+						color="warning"
+						loading={videoThumbReprocessing}
 						onclick={() => (videoThumbReprocessOpen = true)}
 					>
-						{#if videoThumbReprocessing}
-							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-						{:else}
+						{#snippet icon()}
 							<AppIcon name={ICONS.image} class="size-4" />
-						{/if}
+						{/snippet}
 						Regenerate Thumbnails
-					</button>
+					</Button>
 				</div>
 			</SettingsSection>
 		{/if}
@@ -764,19 +751,17 @@
 				icon={ICONS.location}
 			>
 				<div class="flex sm:justify-end">
-					<button
-						type="button"
-						class="btn preset-tonal-warning"
-						disabled={metadataReprocessing}
+					<Button
+						variant="tonal"
+						color="warning"
+						loading={metadataReprocessing}
 						onclick={() => (metadataReprocessOpen = true)}
 					>
-						{#if metadataReprocessing}
-							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-						{:else}
+						{#snippet icon()}
 							<AppIcon name={ICONS.reload} class="size-4" />
-						{/if}
+						{/snippet}
 						Reprocess Metadata
-					</button>
+					</Button>
 				</div>
 			</SettingsSection>
 		{/if}
@@ -794,15 +779,17 @@
 				description="Permanently remove this library. Must be empty first."
 				danger
 			>
-				<button
-					type="button"
-					class="btn preset-tonal-error"
+				<Button
+					variant="tonal"
+					color="error"
 					disabled={!canDeleteLibrary}
 					onclick={() => (deleteLibraryOpen = true)}
 				>
-					<AppIcon name={ICONS.trash} class="size-4" />
+					{#snippet icon()}
+						<AppIcon name={ICONS.trash} class="size-4" />
+					{/snippet}
 					Delete
-				</button>
+				</Button>
 			</AppPanelRow>
 		</SettingsSection>
 	</div>
@@ -880,27 +867,20 @@
 		description="This will permanently delete all detected object data for this library. This action cannot be undone."
 	>
 		<div class="flex w-full justify-end gap-2">
-			<button
-				type="button"
-				class="btn preset-tonal-surface"
+			<Button
+				variant="tonal"
+				color="surface"
 				disabled={objDetToggling}
 				onclick={() => (objDetDisableOpen = false)}
 			>
 				Cancel
-			</button>
-			<button
-				type="button"
-				class="btn preset-filled-error-500"
-				disabled={objDetToggling}
-				onclick={confirmDisableObjectDetection}
-			>
-				{#if objDetToggling}
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-				{:else}
+			</Button>
+			<Button color="error" loading={objDetToggling} onclick={confirmDisableObjectDetection}>
+				{#snippet icon()}
 					<AppIcon name={ICONS.trash} class="size-4" />
-				{/if}
+				{/snippet}
 				Disable & Delete Data
-			</button>
+			</Button>
 		</div>
 	</AppModal>
 
@@ -911,27 +891,20 @@
 		description="This deletes all existing object detection data and queues a full rebuild. Detected objects may change if the model or settings have been updated."
 	>
 		<div class="flex w-full justify-end gap-2">
-			<button
-				type="button"
-				class="btn preset-tonal-surface"
+			<Button
+				variant="tonal"
+				color="surface"
 				disabled={objDetReprocessing}
 				onclick={() => (objDetReprocessOpen = false)}
 			>
 				Cancel
-			</button>
-			<button
-				type="button"
-				class="btn preset-filled-warning-500"
-				disabled={objDetReprocessing}
-				onclick={reprocessObjectDetection}
-			>
-				{#if objDetReprocessing}
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-				{:else}
+			</Button>
+			<Button color="warning" loading={objDetReprocessing} onclick={reprocessObjectDetection}>
+				{#snippet icon()}
 					<AppIcon name={ICONS.reload} class="size-4" />
-				{/if}
+				{/snippet}
 				Delete Data & Requeue
-			</button>
+			</Button>
 		</div>
 	</AppModal>
 
@@ -954,22 +927,20 @@
 		</div>
 
 		<div class="flex w-full justify-end gap-2">
-			<button
-				type="button"
-				class="btn preset-tonal-surface"
-				onclick={() => (deleteLibraryOpen = false)}
-			>
+			<Button variant="tonal" color="surface" onclick={() => (deleteLibraryOpen = false)}>
 				Cancel
-			</button>
-			<button
-				type="button"
-				class="btn preset-tonal-error"
+			</Button>
+			<Button
+				variant="tonal"
+				color="error"
 				disabled={deleteLibraryConfirmation !== 'delete'}
 				onclick={deleteLibrary}
 			>
-				<AppIcon name={ICONS.trash} class="size-4" />
+				{#snippet icon()}
+					<AppIcon name={ICONS.trash} class="size-4" />
+				{/snippet}
 				Delete Library
-			</button>
+			</Button>
 		</div>
 	</AppModal>
 </div>

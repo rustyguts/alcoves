@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import { api } from '$lib/api';
 	import { toast } from '$lib/state/toast';
@@ -88,19 +89,17 @@
 
 <AppModal bind:open title="Share moment" {description}>
 	<div class="flex flex-col gap-3">
-		<button
-			type="button"
-			class="btn self-start preset-filled-primary-500"
+		<Button
+			class="self-start"
+			loading={creating}
 			disabled={!sharingEnabled || creating}
 			onclick={onCreate}
 		>
-			{#if creating}
-				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-			{:else}
+			{#snippet icon()}
 				<AppIcon name={ICONS.link} class="size-4" />
-			{/if}
+			{/snippet}
 			<span>Create share link</span>
-		</button>
+		</Button>
 
 		{#if loading}
 			<div class="text-sm opacity-60">Loading…</div>
@@ -119,10 +118,12 @@
 						>
 							<AppIcon name={ICONS.copy} class="size-4" />
 						</button>
-						<button type="button" class="btn preset-tonal-error" onclick={() => onRevoke(s.token)}>
-							<AppIcon name={ICONS.close} class="size-4" />
+						<Button variant="tonal" color="error" onclick={() => onRevoke(s.token)}>
+							{#snippet icon()}
+								<AppIcon name={ICONS.close} class="size-4" />
+							{/snippet}
 							<span>Revoke</span>
-						</button>
+						</Button>
 					</div>
 				{/each}
 			</div>

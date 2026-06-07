@@ -74,17 +74,11 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<div class="flex items-center justify-between gap-3 border-b border-surface-200-800 px-4 py-3">
-		<div class="min-w-0">
-			<h2 class="text-base font-semibold">Map</h2>
-			<p class="mt-0.5 text-xs text-surface-500">Where your photos were taken.</p>
+	{#if map.points.length > 0}
+		<div class="border-b border-surface-200-800 px-4 py-2 text-xs text-surface-500">
+			{map.points.length} geotagged {map.points.length === 1 ? 'photo' : 'photos'}
 		</div>
-		{#if map.points.length > 0}
-			<span class="shrink-0 text-xs text-surface-500">
-				{map.points.length} geotagged
-			</span>
-		{/if}
-	</div>
+	{/if}
 
 	{#if map.truncated}
 		<div

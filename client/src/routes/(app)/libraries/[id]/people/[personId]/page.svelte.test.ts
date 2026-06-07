@@ -200,7 +200,7 @@ describe('person detail page', () => {
 
 		const screen = render(Page);
 
-		await expect.element(screen.getByText('Person not found in this library')).toBeInTheDocument();
+		await expect.element(screen.getByText('Person not found')).toBeInTheDocument();
 		const back = screen.getByRole('button', { name: 'Back to People' });
 		await back.click();
 		expect(goto).toHaveBeenCalledWith('/libraries/lib-1/people');
@@ -216,9 +216,7 @@ describe('person detail page', () => {
 
 		const screen = render(Page);
 
-		await expect
-			.element(screen.getByText('No faces available for this person'))
-			.toBeInTheDocument();
+		await expect.element(screen.getByText('No faces available')).toBeInTheDocument();
 	});
 
 	it('renders a tile per face and opens the file preview on click', async () => {

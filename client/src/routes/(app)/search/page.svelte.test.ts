@@ -114,7 +114,8 @@ describe('search/+page.svelte', () => {
 		const screen = render(SearchPage);
 		await vi.waitFor(() => expect(mocks.searchQuery).toHaveBeenCalled());
 
-		await expect.element(screen.getByText(/No results found for/)).toBeInTheDocument();
+		await expect.element(screen.getByText('No results found')).toBeInTheDocument();
+		await expect.element(screen.getByText(/Nothing matched/)).toBeInTheDocument();
 	});
 
 	it('shows the error state when the search request fails', async () => {
