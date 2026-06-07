@@ -1230,7 +1230,7 @@
 	<!-- Context menu (replaces the Nuxt UContextMenu) -->
 	{#if contextMenuOpen}
 		<div
-			class="fixed z-50 flex w-56 flex-col gap-1 card rounded-md preset-filled-surface-50-950 p-1 shadow-xl"
+			class="fixed z-50 flex w-56 flex-col gap-1 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-1 shadow-xl"
 			style:left="{contextMenuX}px"
 			style:top="{contextMenuY}px"
 			role="menu"
@@ -1264,7 +1264,7 @@
 							</button>
 							{#if openSubmenuKey === `${gi}-${ii}`}
 								<div
-									class="absolute top-0 left-full ml-1 flex max-h-72 w-48 flex-col gap-1 overflow-y-auto card rounded-md preset-filled-surface-50-950 p-1 shadow-xl"
+									class="absolute top-0 left-full ml-1 flex max-h-72 w-48 flex-col gap-1 overflow-y-auto card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-1 shadow-xl"
 								>
 									{#each item.children as child, ci (`${ci}-${child.label}`)}
 										<button

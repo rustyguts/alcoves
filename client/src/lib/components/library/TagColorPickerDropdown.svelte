@@ -45,7 +45,7 @@
 	</button>
 	{#if open}
 		<div
-			class="absolute top-full left-0 z-20 mt-2 w-52 card rounded-xl border border-surface-200-800 preset-filled-surface-50-950 p-4 shadow-lg"
+			class="absolute top-full left-0 z-20 mt-2 w-52 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-4 shadow-xl"
 		>
 			<div class="grid grid-cols-4 gap-2">
 				{#each palette as entry (`${keyId}-${entry}`)}

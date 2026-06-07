@@ -48,7 +48,7 @@
 		>
 			<header class="flex flex-col gap-1">
 				<Dialog.Title class="text-lg font-semibold">{title}</Dialog.Title>
-				<Dialog.Description class="text-sm opacity-75">{message}</Dialog.Description>
+				<Dialog.Description class="text-sm text-surface-600-400">{message}</Dialog.Description>
 			</header>
 			<footer class="flex w-full justify-end gap-2">
 				<Button variant="tonal" color="surface" disabled={pending} onclick={() => (open = false)}>

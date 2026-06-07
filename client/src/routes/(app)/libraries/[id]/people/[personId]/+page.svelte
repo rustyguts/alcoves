@@ -208,7 +208,7 @@
 	<!-- The window listener closes the menu on any click; stop propagation here so a
 	     click inside the menu (on the items) doesn't immediately dismiss it. -->
 	<div
-		class="fixed z-50 w-56 card rounded-md border border-surface-200-800 preset-filled-surface-50-950 p-1 shadow-lg"
+		class="fixed z-50 w-56 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-1 shadow-xl"
 		style="left: {menuX}px; top: {menuY}px;"
 		role="menu"
 		tabindex="-1"

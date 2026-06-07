@@ -215,7 +215,7 @@
 	});
 </script>
 
-<div class="flex w-full flex-1 flex-col gap-4 overflow-y-auto px-0.5 pb-6">
+<div class="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-auto px-0.5 pb-6">
 	<AppPanel
 		title="Tags"
 		description="Colored labels you attach to files and folders."

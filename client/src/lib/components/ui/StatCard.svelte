@@ -30,10 +30,10 @@
 <div class="card border border-surface-200-800 preset-tonal-surface p-4">
 	<div class="flex items-start justify-between gap-3">
 		<div class="min-w-0">
-			<p class="text-xs text-surface-500">{title}</p>
+			<p class="text-xs text-surface-600-400">{title}</p>
 			<p class="mt-1 text-3xl font-semibold">{value}</p>
 			{#if caption}
-				<p class="mt-1 text-xs text-surface-500">{caption}</p>
+				<p class="mt-1 text-xs text-surface-600-400">{caption}</p>
 			{/if}
 		</div>
 		<div class="flex size-10 shrink-0 items-center justify-center rounded-lg {iconClass}">
