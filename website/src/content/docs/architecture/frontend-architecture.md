@@ -219,7 +219,7 @@ The Helm chart's `frontend` Deployment runs the one image with `args: ["web"]` a
 | Owner-only admin guard | `client/src/routes/(app)/admin/+layout.server.ts` |
 | Dashboard shell | `client/src/routes/(app)/+layout.svelte` |
 | In-process `/api` proxy | `client/src/routes/api/[...path]/+server.ts` |
-| Typed API client factory (15 namespaces) | `client/src/lib/api/client.ts` |
+| Typed API client factory (16 namespaces) | `client/src/lib/api/client.ts` |
 | Isomorphic `apiFetch` + `ApiError` | `client/src/lib/api/fetch.ts` |
 | URL resolution + `PUBLIC_API_ORIGIN` bypass | `client/src/lib/api/url.ts` |
 | Backend contract types | `client/src/lib/types/api.ts` |

@@ -32,6 +32,8 @@ const request = {
 };
 
 const okData = {
+	// `user` is merged in from the parent layout's data at runtime.
+	user: null,
 	ok: true as const,
 	info: {
 		consentToken: 'ct',
@@ -96,7 +98,11 @@ describe('oauth/authorize +page.svelte', () => {
 
 	it('renders the failure card when the request is invalid', async () => {
 		const screen = render(Page, {
-			data: { ok: false as const, error: 'This authorization request is invalid or has expired.' }
+			data: {
+				user: null,
+				ok: false as const,
+				error: 'This authorization request is invalid or has expired.'
+			}
 		});
 		await expect.element(screen.getByText('Authorization failed')).toBeInTheDocument();
 		await expect

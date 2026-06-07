@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { api, createApi, apiUrl, ApiError } from './index';
 
 describe('api barrel', () => {
-	it('exposes the browser singleton with all 15 resource namespaces', () => {
+	it('exposes the browser singleton with all 16 resource namespaces', () => {
 		expect(Object.keys(api).sort()).toEqual([
 			'admin',
 			'auth',
@@ -15,6 +15,7 @@ describe('api barrel', () => {
 			'members',
 			'meta',
 			'moments',
+			'oauth',
 			'objects',
 			'people',
 			'search',
