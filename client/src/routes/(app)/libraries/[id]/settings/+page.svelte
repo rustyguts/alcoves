@@ -415,7 +415,7 @@
 	});
 </script>
 
-<div class="min-h-0 w-full max-w-3xl flex-1 overflow-y-auto px-0.5">
+<div class="min-h-0 w-full flex-1 overflow-y-auto px-0.5">
 	<div class="divide-y divide-surface-200-800">
 		<!-- Library Name -->
 		<SettingsSection

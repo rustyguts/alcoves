@@ -1,28 +1,28 @@
 ---
 const faqs = [
 	{
-		q: 'Do I need a GPU?',
-		a: 'No. Every model — face and object detection, audio-event tagging, and speech transcription — runs on CPU by design. Models are chosen for that constraint, not to chase state-of-the-art at any cost.',
+		q: 'What is Alcoves?',
+		a: 'A self-hosted application for managing your files, with strong support for media and collaboration. It gives you one place to keep, organize, and share what matters to you, on hardware you control.',
 	},
 	{
-		q: 'Is any of my data sent anywhere?',
-		a: 'No. There is no telemetry, no analytics, and no inference that ever leaves your instance. The Go backend is a pure API that never phones home — and never will.',
+		q: 'Who is it for?',
+		a: 'Individuals and small, trusted groups — a person keeping their files, a family sharing memories, a small team working together. It is not a public, internet-scale service.',
 	},
 	{
-		q: 'What hardware do I need?',
-		a: 'Roughly 8 GB of RAM is the practical ceiling for the CPU-only models. Storage scales with your library on local disk or any S3-compatible object store. A Raspberry Pi with a USB drive and a rack with object storage are both first-class.',
+		q: 'Is my data private?',
+		a: 'Yes. Your files live on your own hardware, and the parts of Alcoves that read your media run there too. You can always get your files back out and take them elsewhere.',
 	},
 	{
-		q: 'How do I deploy it?',
-		a: 'Docker and Docker Compose for a single host, or the Helm chart for Kubernetes. External PostgreSQL and Dragonfly/Redis are expected; storage is local or S3.',
+		q: 'How do I run it?',
+		a: 'With Docker and Docker Compose on a single machine, or the Helm chart on Kubernetes. It is designed to run comfortably on modest hardware.',
 	},
 	{
-		q: 'Who can administer an instance?',
-		a: 'The first registered user becomes the owner. Owner-gated surfaces include the admin panel, the job-queue dashboard, registration policy, and ML-model selection. Within libraries, roles are owner / admin / viewer.',
+		q: 'Can I connect my own tools?',
+		a: 'Yes. A built-in MCP server lets AI assistants and your own scripts work with your library, so you can automate tasks and build workflows that fit how you work.',
 	},
 	{
-		q: 'Is it production-ready?',
-		a: 'Alcoves is alpha (0.x.y). Expect breaking changes — they ship with migrations and changelog entries. It targets bounded, trusted instances of 1–100 users, not anonymous mass signup.',
+		q: 'Is it ready to use?',
+		a: 'Alcoves is early and still evolving, so expect things to change as it grows. It is open and free to try today if you want to run your own instance.',
 	},
 ];
 ---
