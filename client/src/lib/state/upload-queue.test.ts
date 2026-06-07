@@ -187,30 +187,32 @@ describe('uploadQueue — upload lifecycle', () => {
 		expect(uploadQueue.isProcessing).toBe(false);
 	});
 
-	it('uploads multiple files concurrently (up to 3)', async () => {
-		const files = Array.from({ length: 5 }, (_, i) => new File([`data${i}`], `file${i}.txt`));
+	it('uploads multiple files concurrently (up to 4)', async () => {
+		const files = Array.from({ length: 6 }, (_, i) => new File([`data${i}`], `file${i}.txt`));
 
 		uploadQueue.addFiles(files, 'lib-1', 'Library One');
 		await flushPromises();
 
-		// Should have started 3 concurrent uploads
-		expect(MockTusUpload.instances).toHaveLength(3);
-		expect(uploadQueue.queue.filter((f) => f.status === 'uploading')).toHaveLength(3);
+		// Should have started 4 concurrent uploads
+		expect(MockTusUpload.instances).toHaveLength(4);
+		expect(uploadQueue.queue.filter((f) => f.status === 'uploading')).toHaveLength(4);
 		expect(uploadQueue.queue.filter((f) => f.status === 'pending')).toHaveLength(2);
+		expect(uploadQueue.uploadingCount).toBe(4);
+		expect(uploadQueue.pendingCount).toBe(2);
 
-		// Complete the first upload — should start the 4th
+		// Complete the first upload — should start the 5th
 		MockTusUpload.instances[0]!.triggerSuccess();
 		await flushPromises();
 
-		expect(MockTusUpload.instances).toHaveLength(4);
-		expect(uploadQueue.queue.filter((f) => f.status === 'uploading')).toHaveLength(3);
+		expect(MockTusUpload.instances).toHaveLength(5);
+		expect(uploadQueue.queue.filter((f) => f.status === 'uploading')).toHaveLength(4);
 		expect(uploadQueue.queue.filter((f) => f.status === 'pending')).toHaveLength(1);
 
-		// Complete the second — should start the 5th
+		// Complete the second — should start the 6th
 		MockTusUpload.instances[1]!.triggerSuccess();
 		await flushPromises();
 
-		expect(MockTusUpload.instances).toHaveLength(5);
+		expect(MockTusUpload.instances).toHaveLength(6);
 		expect(uploadQueue.queue.filter((f) => f.status === 'pending')).toHaveLength(0);
 	});
 
@@ -641,5 +643,357 @@ describe('uploadQueue — derived getters', () => {
 		const item = queued({ id: '1', status: 'done' });
 		expect(item.id).toBe('1');
 		expect(item.status).toBe('done');
+	});
+});
+
+describe('uploadQueue — O(1) counters', () => {
+	it('keeps status counters in sync through the upload lifecycle', async () => {
+		const files = Array.from({ length: 6 }, (_, i) => new File([`d${i}`], `f${i}.txt`));
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		// 4 uploading (concurrency), 2 pending, 0 error/done.
+		expect(uploadQueue.uploadingCount).toBe(4);
+		expect(uploadQueue.pendingCount).toBe(2);
+		expect(uploadQueue.errorCount).toBe(0);
+		expect(uploadQueue.doneCount).toBe(0);
+		expect(uploadQueue.totalCount).toBe(6);
+
+		// One success: uploading 4→3 then drain pulls a pending up → uploading 4, done 1, pending 1.
+		MockTusUpload.instances[0]!.triggerSuccess();
+		await flushPromises();
+		expect(uploadQueue.doneCount).toBe(1);
+		expect(uploadQueue.uploadingCount).toBe(4);
+		expect(uploadQueue.pendingCount).toBe(1);
+
+		// Counters must always equal a fresh recompute over the queue.
+		const recompute = (s: string) => uploadQueue.queue.filter((f) => f.status === s).length;
+		expect(uploadQueue.uploadingCount).toBe(recompute('uploading'));
+		expect(uploadQueue.pendingCount).toBe(recompute('pending'));
+		expect(uploadQueue.doneCount).toBe(recompute('done'));
+		expect(uploadQueue.errorCount).toBe(recompute('error'));
+	});
+});
+
+describe('uploadQueue — cancel + slot refill', () => {
+	it('cancelFile aborts an in-flight upload and pulls the next pending file forward', async () => {
+		const files = Array.from({ length: 5 }, (_, i) => new File([`d${i}`], `f${i}.txt`));
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		// 4 uploading, 1 pending.
+		expect(uploadQueue.uploadingCount).toBe(4);
+		expect(uploadQueue.pendingCount).toBe(1);
+		const inFlight = MockTusUpload.instances[0]!;
+		const cancelId = uploadQueue.queue[0]!.id;
+
+		uploadQueue.cancelFile(cancelId);
+		await flushPromises();
+
+		// The tus upload was aborted, the item is gone, and the freed slot was refilled
+		// by the previously-pending file (so a 5th tus upload started).
+		expect(inFlight.aborted).toBe(true);
+		expect(uploadQueue.queue.some((f) => f.id === cancelId)).toBe(false);
+		expect(uploadQueue.uploadingCount).toBe(4);
+		expect(uploadQueue.pendingCount).toBe(0);
+		expect(MockTusUpload.instances).toHaveLength(5);
+	});
+
+	it('cancelling a pending item does not start an extra upload', async () => {
+		const files = Array.from({ length: 6 }, (_, i) => new File([`d${i}`], `f${i}.txt`));
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		expect(MockTusUpload.instances).toHaveLength(4); // 4 in-flight, 2 pending
+		const pendingItem = uploadQueue.queue.find((f) => f.status === 'pending')!;
+
+		uploadQueue.cancelFile(pendingItem.id);
+		await flushPromises();
+
+		// A pending cancel frees no slot, so no new upload starts; one pending remains.
+		expect(MockTusUpload.instances).toHaveLength(4);
+		expect(uploadQueue.pendingCount).toBe(1);
+		expect(uploadQueue.totalCount).toBe(5);
+	});
+});
+
+describe('uploadQueue — batched cleanup', () => {
+	it('sweeps many finished items in a single pass once they age out', async () => {
+		const files = Array.from({ length: 4 }, (_, i) => new File([`d${i}`], `f${i}.txt`));
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		// Complete all 4 concurrently.
+		for (const inst of MockTusUpload.instances) inst.triggerSuccess();
+		await flushPromises();
+
+		expect(uploadQueue.doneCount).toBe(4);
+		expect(uploadQueue.totalCount).toBe(4);
+
+		// After the cleanup window the batched sweep removes them all and the queue empties.
+		vi.advanceTimersByTime(3000);
+		await flushPromises();
+
+		expect(uploadQueue.totalCount).toBe(0);
+		expect(uploadQueue.doneCount).toBe(0);
+		expect(uploadQueue.hasActiveUploads).toBe(false);
+	});
+});
+
+describe('uploadQueue — overall progress (monotonic)', () => {
+	it('does not regress when the sweep removes done items mid-run, and resets when empty', async () => {
+		const files = Array.from({ length: 4 }, (_, i) => new File([`d${i}`], `f${i}.txt`));
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		expect(uploadQueue.submittedCount).toBe(4);
+		expect(uploadQueue.overallProgress).toBe(0);
+
+		// Two of four complete → 50%.
+		MockTusUpload.instances[0]!.triggerSuccess();
+		MockTusUpload.instances[1]!.triggerSuccess();
+		await flushPromises();
+		expect(uploadQueue.completedCount).toBe(2);
+		expect(uploadQueue.overallProgress).toBe(50);
+
+		// The sweep removes the two done items, but progress must NOT drop back toward 0.
+		vi.advanceTimersByTime(3000);
+		await flushPromises();
+		expect(uploadQueue.doneCount).toBe(0); // swept out of the queue
+		expect(uploadQueue.overallProgress).toBe(50); // monotonic
+
+		// Finish the rest → 100%, then everything sweeps and the session resets.
+		MockTusUpload.instances[2]!.triggerSuccess();
+		MockTusUpload.instances[3]!.triggerSuccess();
+		await flushPromises();
+		expect(uploadQueue.overallProgress).toBe(100);
+
+		vi.advanceTimersByTime(3000);
+		await flushPromises();
+		expect(uploadQueue.totalCount).toBe(0);
+		expect(uploadQueue.submittedCount).toBe(0);
+		expect(uploadQueue.overallProgress).toBe(0);
+	});
+});
+
+describe('uploadQueue — cancelAll', () => {
+	it('aborts every pending/in-flight upload in one pass and stops processing', async () => {
+		const files = Array.from({ length: 6 }, (_, i) => new File([`d${i}`], `f${i}.txt`));
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		expect(uploadQueue.uploadingCount).toBe(4);
+		expect(uploadQueue.pendingCount).toBe(2);
+
+		uploadQueue.cancelAll();
+		await flushPromises();
+
+		// All four in-flight tus uploads aborted; nothing left in the queue.
+		expect(MockTusUpload.instances.every((i) => i.aborted)).toBe(true);
+		expect(uploadQueue.totalCount).toBe(0);
+		expect(uploadQueue.uploadingCount).toBe(0);
+		expect(uploadQueue.pendingCount).toBe(0);
+		expect(uploadQueue.hasInFlightUploads).toBe(false);
+		expect(uploadQueue.isProcessing).toBe(false);
+	});
+
+	it('leaves errored items in place so they can still be retried', async () => {
+		const files = [new File(['a'], 'a.txt'), new File(['b'], 'b.txt')];
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		// Drive the second file to a terminal error (exhaust retries).
+		while (uploadQueue.errorCount === 0) {
+			for (const inst of MockTusUpload.instances) {
+				if (inst.started && !inst.aborted) inst.triggerError('fail');
+			}
+			await flushPromises();
+			if (MockTusUpload.instances.length > 20) break; // safety
+		}
+		expect(uploadQueue.errorCount).toBeGreaterThanOrEqual(1);
+
+		uploadQueue.cancelAll();
+		await flushPromises();
+
+		// Errors remain; only pending/uploading were cancelled.
+		expect(uploadQueue.errorCount).toBeGreaterThanOrEqual(1);
+		expect(uploadQueue.uploadingCount).toBe(0);
+		expect(uploadQueue.pendingCount).toBe(0);
+		expect(uploadQueue.hasInFlightUploads).toBe(false);
+	});
+});
+
+describe('uploadQueue — cancel during the findPreviousUploads window', () => {
+	it('does not start an orphaned upload when cancelled before start()', async () => {
+		const file = new File(['x'], 'race.txt');
+		// Do NOT flush — start() runs in the findPreviousUploads().then microtask.
+		uploadQueue.addFiles([file], 'lib-1', 'Library One');
+
+		const inst = MockTusUpload.instances[0]!;
+		expect(inst.started).toBe(false); // not started yet
+		const id = uploadQueue.queue[0]!.id;
+
+		uploadQueue.cancelFile(id);
+		await flushPromises();
+
+		// The deferred start was guarded out — no orphaned, untracked upload.
+		expect(inst.started).toBe(false);
+		expect(inst.aborted).toBe(true);
+		expect(uploadQueue.uploadingCount).toBe(0);
+		expect(uploadQueue.totalCount).toBe(0);
+	});
+
+	it('ignores a late onError/onSuccess from a removed item (no negative counters)', async () => {
+		const file = new File(['x'], 'late.txt');
+		uploadQueue.addFiles([file], 'lib-1', 'Library One');
+		await flushPromises();
+
+		const inst = MockTusUpload.instances[0]!;
+		const id = uploadQueue.queue[0]!.id;
+		uploadQueue.removeFile(id);
+
+		// A late callback from the aborted upload must be a no-op.
+		inst.triggerError('late failure');
+		inst.triggerSuccess();
+		await flushPromises();
+
+		expect(uploadQueue.uploadingCount).toBe(0);
+		expect(uploadQueue.errorCount).toBe(0);
+		expect(uploadQueue.doneCount).toBe(0);
+		expect(uploadQueue.totalCount).toBe(0);
+	});
+});
+
+describe('uploadQueue — remove on terminal items + empty add', () => {
+	it('removeFile on an errored item clears it without refilling a slot', async () => {
+		const file = new File(['x'], 'err.txt');
+		uploadQueue.addFiles([file], 'lib-1', 'Library One');
+		await flushPromises();
+
+		// Exhaust retries → error.
+		while (uploadQueue.errorCount === 0) {
+			for (const inst of MockTusUpload.instances) {
+				if (inst.started && !inst.aborted) inst.triggerError('fail');
+			}
+			await flushPromises();
+			if (MockTusUpload.instances.length > 20) break;
+		}
+		const before = MockTusUpload.instances.length;
+		const id = uploadQueue.queue[0]!.id;
+
+		uploadQueue.removeFile(id);
+		expect(uploadQueue.errorCount).toBe(0);
+		expect(uploadQueue.totalCount).toBe(0);
+		expect(MockTusUpload.instances.length).toBe(before); // no drain/refill
+	});
+
+	it('removeFile on a done item before the sweep leaves no negative count', async () => {
+		const file = new File(['x'], 'ok.txt');
+		uploadQueue.addFiles([file], 'lib-1', 'Library One');
+		await flushPromises();
+		MockTusUpload.instances[0]!.triggerSuccess();
+		await flushPromises();
+
+		const id = uploadQueue.queue[0]!.id;
+		uploadQueue.removeFile(id);
+		expect(uploadQueue.doneCount).toBe(0);
+		expect(uploadQueue.totalCount).toBe(0);
+
+		vi.advanceTimersByTime(3000);
+		await flushPromises();
+		expect(uploadQueue.doneCount).toBe(0); // sweep didn't double-decrement
+	});
+
+	it('addFiles with an empty array is a no-op', () => {
+		uploadQueue.addFiles([], 'lib-1', 'Library One');
+		expect(uploadQueue.totalCount).toBe(0);
+		expect(uploadQueue.isProcessing).toBe(false);
+		expect(MockTusUpload.instances).toHaveLength(0);
+	});
+});
+
+describe('uploadQueue — counters cross-check & invariants', () => {
+	it('all four counters equal a fresh recompute across done/error/retry/sweep', async () => {
+		const files = [new File(['a'], 'a.txt'), new File(['b'], 'b.txt')];
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		// One success → done.
+		MockTusUpload.instances[0]!.triggerSuccess();
+		await flushPromises();
+
+		// Second → terminal error.
+		while (uploadQueue.errorCount === 0) {
+			for (const inst of MockTusUpload.instances) {
+				if (inst.started && !inst.aborted) inst.triggerError('fail');
+			}
+			await flushPromises();
+			if (MockTusUpload.instances.length > 20) break;
+		}
+
+		const recompute = (s: QueuedFile['status']) =>
+			uploadQueue.queue.filter((f) => f.status === s).length;
+		const check = () => {
+			expect(uploadQueue.pendingCount).toBe(recompute('pending'));
+			expect(uploadQueue.uploadingCount).toBe(recompute('uploading'));
+			expect(uploadQueue.doneCount).toBe(recompute('done'));
+			expect(uploadQueue.errorCount).toBe(recompute('error'));
+		};
+		check();
+
+		// Manual retry: error → pending → uploading.
+		uploadQueue.retryFile(uploadQueue.queue.find((f) => f.status === 'error')!.id);
+		await flushPromises();
+		check();
+
+		// Sweep removes the done item.
+		vi.advanceTimersByTime(3000);
+		await flushPromises();
+		check();
+	});
+
+	it('reports no in-flight uploads when every file has errored (beforeunload guard input)', async () => {
+		const files = [new File(['a'], 'a.txt'), new File(['b'], 'b.txt')];
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		while (uploadQueue.queue.some((f) => f.status !== 'error')) {
+			for (const inst of MockTusUpload.instances) {
+				if (inst.started && !inst.aborted) inst.triggerError('fail');
+			}
+			await flushPromises();
+			if (MockTusUpload.instances.length > 40) break;
+		}
+
+		expect(uploadQueue.errorCount).toBe(2);
+		expect(uploadQueue.hasInFlightUploads).toBe(false); // → beforeunload would NOT block
+		expect(uploadQueue.hasActiveUploads).toBe(true); // panel stays visible to show failures
+	});
+
+	it('keeps the queue array reference stable across in-place progress mutation', async () => {
+		const file = new File(['x'.repeat(100)], 'stable.bin');
+		uploadQueue.addFiles([file], 'lib-1', 'Library One');
+		await flushPromises();
+
+		const ref = uploadQueue.queue;
+		MockTusUpload.instances[0]!.triggerProgress(700, 1000);
+		expect(uploadQueue.queue).toBe(ref); // mutated in place, not reassigned
+		expect(uploadQueue.currentUpload?.progress).toBe(70);
+
+		// A structural change (adding files) DOES create a new array reference.
+		uploadQueue.addFiles([new File(['y'], 'y.txt')], 'lib-1', 'Library One');
+		expect(uploadQueue.queue).not.toBe(ref);
+	});
+
+	it('attributes speed across concurrent uploads without overwriting', async () => {
+		const files = [new File(['a'], 'a.txt'), new File(['b'], 'b.txt')];
+		uploadQueue.addFiles(files, 'lib-1', 'Library One');
+		await flushPromises();
+
+		// Two concurrent uploads report progress within the same sampling window.
+		MockTusUpload.instances[0]!.triggerProgress(600, 5000);
+		MockTusUpload.instances[1]!.triggerProgress(400, 5000);
+		vi.advanceTimersByTime(500);
+		expect(uploadQueue.uploadSpeed).toBe((600 + 400) * 2); // summed, not last-wins
 	});
 });

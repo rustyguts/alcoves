@@ -1,16 +1,18 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { Dialog, Popover } from '@skeletonlabs/skeleton-svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/state/auth.svelte';
 	import { registerLibrariesRefresh } from '$lib/state/libraries-list.svelte';
+	import { uploadQueue } from '$lib/state/upload-queue.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import SidebarLibraryNav from '$lib/components/SidebarLibraryNav.svelte';
 	import NotificationBell from '$lib/components/notifications/NotificationBell.svelte';
+	import UploadProgress from '$lib/components/UploadProgress.svelte';
 	import type { LayoutProps } from './$types';
 
 	/**
@@ -44,6 +46,11 @@
 	onMount(() => {
 		registerLibrariesRefresh(() => invalidateAll());
 	});
+
+	// The authed shell unmounts on logout / leaving the app group — tear down the
+	// global upload queue (abort in-flight uploads, clear timers/handles) so an
+	// abandoned session doesn't leak uploads or File references.
+	onDestroy(() => uploadQueue.reset());
 
 	function submitGlobalSearch() {
 		const q = globalSearchQuery.trim();
@@ -208,3 +215,6 @@
 		</main>
 	</div>
 </div>
+
+<!-- App-wide upload progress: pinned bottom-right, persists across navigation. -->
+<UploadProgress />
