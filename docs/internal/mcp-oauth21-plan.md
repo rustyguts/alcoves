@@ -1,6 +1,11 @@
 # Implementation Plan — OAuth 2.1 authorization for MCP connections
 
-**Status:** Draft / not started · **Branch:** `feat/mcp-oauth` · **Owner:** TBD
+**Status:** Shipped (gated by `ALCOVES_MCP_OAUTH_ENABLED`, default off) · **Branch:** `feat/mcp-oauth`
+
+> This document is kept as the design record. Where the implementation diverged
+> from the original draft it has been reconciled below (e.g. the authorization-code
+> TTL shipped as `5m`, and the redirect-host allowlist defaults to empty/allow-any
+> exact match rather than `claude.ai,claude.com`).
 
 ## Goal
 
@@ -134,7 +139,7 @@ discovery working through the single front door with zero operator config.
 
 Opaque, hashed-at-rest tokens (Decision D2) in new tables, reusing `hashToken`:
 
-- **Authorization code** — single-use, short TTL (~60s), bound to
+- **Authorization code** — single-use, short TTL (shipped default `5m`), bound to
   `client_id + redirect_uri + code_challenge + user_id + scope + resource`.
 - **Access token** — short TTL (default 1h), audience = MCP resource. Accepted
   **only at `/api/mcp`** (not as a general API bearer — see Security S3).
@@ -219,12 +224,13 @@ Add to `Config` + `Load()` (`config/config.go`):
 | `ALCOVES_MCP_OAUTH_ENABLED` | `false` | Master gate for the AS + RS OAuth path |
 | `ALCOVES_MCP_OAUTH_ACCESS_TTL` | `1h` | Access-token lifetime |
 | `ALCOVES_MCP_OAUTH_REFRESH_TTL` | `720h` | Refresh-token lifetime |
-| `ALCOVES_MCP_OAUTH_CODE_TTL` | `60s` | Authorization-code lifetime |
+| `ALCOVES_MCP_OAUTH_CODE_TTL` | `5m` | Authorization-code lifetime |
 | `ALCOVES_MCP_OAUTH_DCR_ENABLED` | `true` | Allow Dynamic Client Registration |
-| `ALCOVES_MCP_OAUTH_ALLOWED_REDIRECT_HOSTS` | `claude.ai,claude.com` | Optional allowlist for DCR redirect hosts (empty = allow any, exact-URI-matched) |
+| `ALCOVES_MCP_OAUTH_ALLOWED_REDIRECT_HOSTS` | _(empty)_ | Optional allowlist for DCR redirect hosts; empty = allow any exact-URI-matched host |
 
-Issuer = `ALCOVES_BASE_URL` (must be HTTPS in prod). The metadata builder fails
-fast if OAuth is enabled but `BaseURL` is unset.
+Issuer = `ALCOVES_BASE_URL` (must be HTTPS in prod). `config.Load()` fails fast
+when OAuth is enabled but `ALCOVES_MCP_HTTP_ENABLED` is off or `BaseURL` is not a
+valid absolute URL (and, in production, not HTTPS).
 
 ## Security checklist
 

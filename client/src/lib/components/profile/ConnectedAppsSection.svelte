@@ -19,6 +19,7 @@
 
 	let connections = $state<OAuthConnection[]>([]);
 	let available = $state(true);
+	let loadError = $state(false);
 	let revokingId = $state<string | null>(null);
 
 	async function refresh() {
@@ -26,12 +27,16 @@
 			const res = await api.oauth.connections();
 			connections = res.connections;
 			available = true;
+			loadError = false;
 		} catch (err) {
 			if (err instanceof ApiError && err.status === 404) {
 				// OAuth authorization server is disabled on this instance.
 				available = false;
+				return;
 			}
-			// Other (transient) errors: keep the current list and stay visible.
+			// Operational/transient error (incl. an expired-session 401): surface
+			// it rather than silently rendering "0 connected" as authoritative.
+			loadError = true;
 		}
 	}
 
@@ -68,10 +73,21 @@
 		icon={ICONS.link}
 	>
 		{#snippet actions()}
-			<span class="badge preset-tonal-surface">{connections.length} connected</span>
+			{#if !loadError}
+				<span class="badge preset-tonal-surface">{connections.length} connected</span>
+			{/if}
 		{/snippet}
 
-		{#if connections.length}
+		{#if loadError}
+			<div class="flex items-center gap-3 card preset-tonal-error p-4" role="alert">
+				<AppIcon name={ICONS.error} class="size-5 shrink-0" />
+				<div class="flex-1 space-y-0.5">
+					<p class="text-sm font-medium">Couldn't load connected apps</p>
+					<p class="text-xs opacity-80">Something went wrong. Try again in a moment.</p>
+				</div>
+				<Button variant="tonal" color="surface" size="sm" onclick={refresh}>Retry</Button>
+			</div>
+		{:else if connections.length}
 			<div class="overflow-hidden rounded-md border border-surface-200-800">
 				{#each connections as conn (conn.clientId)}
 					<div

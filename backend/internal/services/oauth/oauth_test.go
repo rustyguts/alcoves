@@ -435,3 +435,140 @@ func TestMetadata(t *testing.T) {
 		t.Fatalf("must advertise S256 only: %v", asm.CodeChallengeMethodsSupported)
 	}
 }
+
+func TestRegisterClientRejectsSpoofedLoopback(t *testing.T) {
+	svc, _, _ := newTestService(t)
+	ctx := context.Background()
+	// A publicly-resolvable host that merely *looks* like loopback must NOT be
+	// treated as loopback (which would bypass the https requirement + allowlist).
+	spoofs := []string{
+		"http://127.0.0.1.attacker.com/cb",
+		"http://127.evil.com/cb",
+	}
+	for _, s := range spoofs {
+		if _, err := svc.RegisterClient(ctx, ClientRegistration{RedirectURIs: []string{s}}); err == nil {
+			t.Fatalf("spoofed-loopback redirect %q must be rejected", s)
+		}
+	}
+	// A genuine loopback IP literal is still allowed.
+	if _, err := svc.RegisterClient(ctx, ClientRegistration{RedirectURIs: []string{"http://127.0.0.1:8080/cb"}}); err != nil {
+		t.Fatalf("genuine loopback should be allowed: %v", err)
+	}
+}
+
+func TestNormalizeScope(t *testing.T) {
+	svc, _, _ := newTestService(t)
+	cases := map[string]string{
+		"":            DefaultScope, // empty → default
+		"mcp":         "mcp",
+		"mcp mcp":     "mcp",        // de-duplicated
+		"mcp admin":   "mcp",        // unknown token dropped
+		"admin write": DefaultScope, // nothing supported → default
+	}
+	for in, want := range cases {
+		if got := svc.NormalizeScope(in); got != want {
+			t.Fatalf("NormalizeScope(%q)=%q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestValidateAccessTokenResourceMismatch(t *testing.T) {
+	svc, db, u := newTestService(t)
+	ctx := context.Background()
+	tok := "alc_oat_foreignaudience"
+	at := &models.OAuthAccessToken{
+		TokenHash: hashToken(tok),
+		ClientID:  "alc_oc_x",
+		UserID:    u.ID,
+		Scope:     DefaultScope,
+		Resource:  "https://evil.example.com/api/mcp",
+		ExpiresAt: time.Now().Add(time.Hour),
+	}
+	if err := db.Create(at).Error; err != nil {
+		t.Fatalf("seed token: %v", err)
+	}
+	if user, _, _ := svc.ValidateAccessToken(ctx, tok); user != nil {
+		t.Fatal("token bound to a foreign resource must be rejected (RFC 8707 audience binding)")
+	}
+}
+
+func TestConsentTokenBindsStateAndResource(t *testing.T) {
+	svc, _, u := newTestService(t)
+	r := AuthorizeRequest{
+		ClientID:            "alc_oc_x",
+		RedirectURI:         "https://claude.ai/cb",
+		CodeChallenge:       "chal",
+		CodeChallengeMethod: "S256",
+		Scope:               DefaultScope,
+		Resource:            svc.Resource(),
+		State:               "abc123",
+	}
+	tok := svc.NewConsentToken(r, u.ID)
+	if !svc.VerifyConsentToken(tok, r, u.ID) {
+		t.Fatal("matching request must verify")
+	}
+	badState := r
+	badState.State = "tampered"
+	if svc.VerifyConsentToken(tok, badState, u.ID) {
+		t.Fatal("tampered state must invalidate the consent token")
+	}
+	badRes := r
+	badRes.Resource = "https://evil.example.com/api/mcp"
+	if svc.VerifyConsentToken(tok, badRes, u.ID) {
+		t.Fatal("tampered resource must invalidate the consent token")
+	}
+}
+
+func TestRefreshReuseInvalidatesAccessTokens(t *testing.T) {
+	svc, _, u := newTestService(t)
+	ctx := context.Background()
+	redirect := "https://claude.ai/cb"
+	client := mustClient(t, svc, redirect)
+
+	code, _ := svc.IssueCode(ctx, u.ID, authReq(client, redirect, "v"))
+	first, err := svc.ExchangeCode(ctx, client.ClientID, code, redirect, "v")
+	if err != nil {
+		t.Fatalf("ExchangeCode: %v", err)
+	}
+	if user, _, _ := svc.ValidateAccessToken(ctx, first.AccessToken); user == nil {
+		t.Fatal("freshly issued access token should validate")
+	}
+
+	second, err := svc.Refresh(ctx, client.ClientID, first.RefreshToken)
+	if err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	// Reusing the rotated refresh token trips reuse detection → chain revoked.
+	if _, err := svc.Refresh(ctx, client.ClientID, first.RefreshToken); err == nil {
+		t.Fatal("reuse of a rotated refresh token must fail")
+	}
+	// Both access tokens must now be dead — revocation cannot leave live access.
+	if user, _, _ := svc.ValidateAccessToken(ctx, first.AccessToken); user != nil {
+		t.Fatal("first access token must be invalidated after reuse detection")
+	}
+	if user, _, _ := svc.ValidateAccessToken(ctx, second.AccessToken); user != nil {
+		t.Fatal("second access token must be invalidated after reuse detection")
+	}
+}
+
+func TestRevokeTokenCascadesToAccess(t *testing.T) {
+	svc, _, u := newTestService(t)
+	ctx := context.Background()
+	redirect := "https://claude.ai/cb"
+	client := mustClient(t, svc, redirect)
+
+	code, _ := svc.IssueCode(ctx, u.ID, authReq(client, redirect, "v"))
+	res, err := svc.ExchangeCode(ctx, client.ClientID, code, redirect, "v")
+	if err != nil {
+		t.Fatalf("ExchangeCode: %v", err)
+	}
+	if user, _, _ := svc.ValidateAccessToken(ctx, res.AccessToken); user == nil {
+		t.Fatal("access token should be valid before revoke")
+	}
+	if err := svc.RevokeToken(ctx, res.RefreshToken); err != nil {
+		t.Fatalf("RevokeToken: %v", err)
+	}
+	if user, _, _ := svc.ValidateAccessToken(ctx, res.AccessToken); user != nil {
+		t.Fatal("revoking the refresh token (RFC 7009) must invalidate its access token")
+	}
+}

@@ -72,6 +72,11 @@ describe('oauth/authorize +page.svelte', () => {
 		).toEqual(expect.arrayContaining([expect.stringContaining('Deny')]));
 	});
 
+	it('surfaces the redirect host so an impostor client name can be spotted', async () => {
+		const screen = render(Page, { data: okData });
+		await expect.element(screen.getByText('claude.ai')).toBeInTheDocument();
+	});
+
 	it('sends approve=true with the full request when Approve is clicked', async () => {
 		// Reject so the success-path navigation (window.location) is not triggered.
 		mocks.decision.mockRejectedValue(new mocks.ApiError(400, { error_description: 'nope' }));

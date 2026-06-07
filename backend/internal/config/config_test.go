@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestGetEnv(t *testing.T) {
@@ -232,4 +233,86 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if cfg.BaseURL != "http://localhost:3000" {
 		t.Errorf("Expected default BaseURL 'http://localhost:3000', got '%s'", cfg.BaseURL)
 	}
+}
+
+func TestParseDurationEnv(t *testing.T) {
+	const key = "ALCOVES_TEST_DURATION"
+	cases := []struct {
+		name string
+		val  string
+		want time.Duration
+	}{
+		{"unset falls back", "", time.Hour},
+		{"valid positive", "30m", 30 * time.Minute},
+		{"negative rejected", "-1h", time.Hour},
+		{"zero rejected", "0", time.Hour},
+		{"unparseable falls back", "not-a-duration", time.Hour},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(key, tc.val)
+			if got := parseDurationEnv(key, time.Hour); got != tc.want {
+				t.Fatalf("parseDurationEnv(%q)=%v, want %v", tc.val, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestValidateOAuthIssuer(t *testing.T) {
+	cases := []struct {
+		name    string
+		baseURL string
+		env     string
+		wantErr bool
+	}{
+		{"https prod ok", "https://alcoves.example.com", "production", false},
+		{"http prod rejected", "http://alcoves.example.com", "production", true},
+		{"http dev ok", "http://localhost:3000", "development", false},
+		{"relative rejected", "/relative", "development", true},
+		{"empty rejected", "", "development", true},
+		{"no host rejected", "https://", "production", true},
+		{"query rejected", "https://x.example.com?a=b", "production", true},
+		{"fragment rejected", "https://x.example.com#frag", "production", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateOAuthIssuer(tc.baseURL, tc.env)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("validateOAuthIssuer(%q,%q) err=%v, wantErr=%v", tc.baseURL, tc.env, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoadOAuthFailFast(t *testing.T) {
+	t.Run("OAuth requires HTTP transport", func(t *testing.T) {
+		t.Setenv("ALCOVES_SESSION_SECRET", "this-is-a-test-secret-at-least-32-chars-long")
+		t.Setenv("ALCOVES_MCP_OAUTH_ENABLED", "true")
+		t.Setenv("ALCOVES_MCP_HTTP_ENABLED", "")
+		if _, err := Load(); err == nil {
+			t.Fatal("expected error when OAuth is enabled without the MCP HTTP transport")
+		}
+	})
+
+	t.Run("OAuth requires https issuer in production", func(t *testing.T) {
+		t.Setenv("ALCOVES_SESSION_SECRET", "this-is-a-test-secret-at-least-32-chars-long")
+		t.Setenv("ALCOVES_MCP_OAUTH_ENABLED", "true")
+		t.Setenv("ALCOVES_MCP_HTTP_ENABLED", "true")
+		t.Setenv("ALCOVES_ENV", "production")
+		t.Setenv("ALCOVES_BASE_URL", "http://alcoves.example.com")
+		if _, err := Load(); err == nil {
+			t.Fatal("expected error when OAuth issuer is non-https in production")
+		}
+	})
+
+	t.Run("valid OAuth config loads", func(t *testing.T) {
+		t.Setenv("ALCOVES_SESSION_SECRET", "this-is-a-test-secret-at-least-32-chars-long")
+		t.Setenv("ALCOVES_MCP_OAUTH_ENABLED", "true")
+		t.Setenv("ALCOVES_MCP_HTTP_ENABLED", "true")
+		t.Setenv("ALCOVES_ENV", "production")
+		t.Setenv("ALCOVES_BASE_URL", "https://alcoves.example.com")
+		if _, err := Load(); err != nil {
+			t.Fatalf("expected a valid OAuth config to load, got %v", err)
+		}
+	})
 }

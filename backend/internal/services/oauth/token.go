@@ -62,19 +62,32 @@ func (s *Service) ExchangeCode(ctx context.Context, clientID, code, redirectURI,
 		return nil, ErrInvalidGrant
 	}
 
-	// Atomically mark consumed; a zero row count means another request already
-	// spent it (replay) — reject.
-	res := s.db.WithContext(ctx).Model(&models.OAuthAuthorizationCode{}).
-		Where("id = ? AND consumed_at IS NULL", rec.ID).
-		Update("consumed_at", time.Now())
-	if res.Error != nil {
-		return nil, res.Error
+	// Atomically mark consumed and issue the token pair in one transaction: a
+	// zero row count means another request already spent it (replay) — reject;
+	// and if minting fails, the consumption rolls back so the client can retry
+	// the still-unexpired code instead of being stranded.
+	var out *TokenResult
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&models.OAuthAuthorizationCode{}).
+			Where("id = ? AND consumed_at IS NULL", rec.ID).
+			Update("consumed_at", time.Now())
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrInvalidGrant
+		}
+		pair, perr := s.issuePair(tx, clientID, rec.UserID, rec.Scope, rec.Resource, nil)
+		if perr != nil {
+			return perr
+		}
+		out = pair
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	if res.RowsAffected == 0 {
-		return nil, ErrInvalidGrant
-	}
-
-	return s.issuePair(ctx, clientID, rec.UserID, rec.Scope, rec.Resource, nil)
+	return out, nil
 }
 
 // Refresh validates a refresh token, rotates it (revoking the old one), and
@@ -102,22 +115,35 @@ func (s *Service) Refresh(ctx context.Context, clientID, refreshToken string) (*
 		return nil, ErrInvalidGrant
 	}
 
-	now := time.Now()
-	res := s.db.WithContext(ctx).Model(&models.OAuthRefreshToken{}).
-		Where("id = ? AND revoked_at IS NULL", rt.ID).
-		Update("revoked_at", now)
-	if res.Error != nil {
-		return nil, res.Error
+	// Rotate (revoke the presented token) and mint the replacement pair in one
+	// transaction: a zero row count means a concurrent rotation already spent it.
+	var out *TokenResult
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&models.OAuthRefreshToken{}).
+			Where("id = ? AND revoked_at IS NULL", rt.ID).
+			Update("revoked_at", time.Now())
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrInvalidGrant
+		}
+		pair, perr := s.issuePair(tx, clientID, rt.UserID, rt.Scope, s.Resource(), &rt.ID)
+		if perr != nil {
+			return perr
+		}
+		out = pair
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	if res.RowsAffected == 0 {
-		return nil, ErrInvalidGrant
-	}
-
-	return s.issuePair(ctx, clientID, rt.UserID, rt.Scope, s.Resource(), &rt.ID)
+	return out, nil
 }
 
-// issuePair mints a refresh token then an access token bound to it.
-func (s *Service) issuePair(ctx context.Context, clientID string, userID uuid.UUID, scope, resource string, rotatedFrom *uuid.UUID) (*TokenResult, error) {
+// issuePair mints a refresh token then an access token bound to it, on the
+// provided handle (a transaction, so a partial mint rolls back atomically).
+func (s *Service) issuePair(tx *gorm.DB, clientID string, userID uuid.UUID, scope, resource string, rotatedFrom *uuid.UUID) (*TokenResult, error) {
 	if scope == "" {
 		scope = DefaultScope
 	}
@@ -137,7 +163,7 @@ func (s *Service) issuePair(ctx context.Context, clientID string, userID uuid.UU
 		ExpiresAt:   time.Now().Add(s.cfg.RefreshTTL),
 		RotatedFrom: rotatedFrom,
 	}
-	if err := s.db.WithContext(ctx).Create(refresh).Error; err != nil {
+	if err := tx.Create(refresh).Error; err != nil {
 		return nil, err
 	}
 
@@ -154,7 +180,7 @@ func (s *Service) issuePair(ctx context.Context, clientID string, userID uuid.UU
 		ExpiresAt:      time.Now().Add(s.cfg.AccessTTL),
 		RefreshTokenID: &refresh.ID,
 	}
-	if err := s.db.WithContext(ctx).Create(access).Error; err != nil {
+	if err := tx.Create(access).Error; err != nil {
 		return nil, err
 	}
 
@@ -186,6 +212,12 @@ func (s *Service) ValidateAccessToken(ctx context.Context, token string) (*model
 	if time.Now().After(at.ExpiresAt) {
 		return nil, nil, nil
 	}
+	// Audience binding (RFC 8707): only honor tokens minted for this server's
+	// MCP resource. The authorize endpoint enforces this at mint time, so a
+	// mismatch here means a stale/foreign-audience row — reject it.
+	if at.Resource != "" && at.Resource != s.Resource() {
+		return nil, nil, nil
+	}
 
 	var user models.User
 	err = s.db.WithContext(ctx).Where("id = ?", at.UserID).First(&user).Error
@@ -203,11 +235,20 @@ func (s *Service) ValidateAccessToken(ctx context.Context, token string) (*model
 	return &user, &at, nil
 }
 
-// revokeChain revokes every (still-active) refresh token for a client+user.
+// revokeChain revokes every (still-active) refresh token for a client+user AND
+// deletes that client+user's access tokens. Reuse detection means the chain is
+// compromised, so the short-lived access tokens must not outlive the revocation
+// (otherwise a thief keeps MCP access for up to AccessTTL after detection).
 func (s *Service) revokeChain(ctx context.Context, userID uuid.UUID, clientID string) error {
-	return s.db.WithContext(ctx).Model(&models.OAuthRefreshToken{}).
-		Where("user_id = ? AND client_id = ? AND revoked_at IS NULL", userID, clientID).
-		Update("revoked_at", time.Now()).Error
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.OAuthRefreshToken{}).
+			Where("user_id = ? AND client_id = ? AND revoked_at IS NULL", userID, clientID).
+			Update("revoked_at", time.Now()).Error; err != nil {
+			return err
+		}
+		return tx.Where("user_id = ? AND client_id = ?", userID, clientID).
+			Delete(&models.OAuthAccessToken{}).Error
+	})
 }
 
 // Connection summarizes a client a user has authorized, for the profile UI.
@@ -279,9 +320,24 @@ func (s *Service) RevokeToken(ctx context.Context, token string) error {
 		return s.db.WithContext(ctx).Where("token_hash = ?", hashToken(token)).
 			Delete(&models.OAuthAccessToken{}).Error
 	case strings.HasPrefix(token, refreshTokenPrefix):
-		return s.db.WithContext(ctx).Model(&models.OAuthRefreshToken{}).
-			Where("token_hash = ?", hashToken(token)).
-			Update("revoked_at", time.Now()).Error
+		var rt models.OAuthRefreshToken
+		err := s.db.WithContext(ctx).Where("token_hash = ?", hashToken(token)).First(&rt).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		// Revoke the refresh token and delete the access token it minted, so
+		// revocation cuts live access immediately rather than after AccessTTL.
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&models.OAuthRefreshToken{}).
+				Where("id = ?", rt.ID).Update("revoked_at", time.Now()).Error; err != nil {
+				return err
+			}
+			return tx.Where("refresh_token_id = ?", rt.ID).
+				Delete(&models.OAuthAccessToken{}).Error
+		})
 	default:
 		return nil
 	}

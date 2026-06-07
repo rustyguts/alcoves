@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -172,7 +173,7 @@ func (s *Service) VerifyConsentToken(token string, r AuthorizeRequest, userID uu
 func (s *Service) signConsent(r AuthorizeRequest, userID uuid.UUID, exp int64) string {
 	msg := strings.Join([]string{
 		r.ClientID, r.RedirectURI, r.CodeChallenge, r.CodeChallengeMethod,
-		r.Scope, r.Resource, userID.String(), strconv.FormatInt(exp, 10),
+		r.Scope, r.Resource, r.State, userID.String(), strconv.FormatInt(exp, 10),
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte(s.cfg.Secret))
 	mac.Write([]byte(msg))
@@ -181,9 +182,18 @@ func (s *Service) signConsent(r AuthorizeRequest, userID uuid.UUID, exp int64) s
 }
 
 // isLoopback reports whether a hostname is a loopback address (used to permit
-// http redirect URIs for native/desktop clients per OAuth 2.1).
+// http redirect URIs for native/desktop clients per OAuth 2.1). It parses the
+// host as an IP literal rather than matching a "127." string prefix, so a
+// publicly-resolvable spoof like "127.0.0.1.attacker.com" is NOT treated as
+// loopback (which would otherwise bypass the https requirement + host allowlist).
 func isLoopback(host string) bool {
-	return host == "localhost" || host == "127.0.0.1" || host == "::1" || strings.HasPrefix(host, "127.")
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 func hostAllowed(host string, allowed []string) bool {
@@ -215,10 +225,28 @@ func (s *Service) validateRedirectURI(raw string) error {
 	return nil
 }
 
-func scopeOrDefault(scope string) string {
-	scope = strings.TrimSpace(scope)
-	if scope == "" {
+// NormalizeScope reduces a requested scope string to the server's supported
+// set: it splits on whitespace, drops unknown and duplicate tokens, and falls
+// back to DefaultScope when nothing supported remains. This keeps the advertised
+// scope set authoritative — a client cannot mint a token bearing a scope the AS
+// never sanctioned — while staying lenient per RFC 6749 §3.3 (ignore unknown
+// scopes rather than reject). It also guarantees the scope is duplicate-free,
+// which the consent screen relies on for its keyed {#each}.
+func (s *Service) NormalizeScope(requested string) string {
+	supported := make(map[string]bool, len(s.SupportedScopes()))
+	for _, sc := range s.SupportedScopes() {
+		supported[sc] = true
+	}
+	seen := make(map[string]bool)
+	kept := make([]string, 0)
+	for _, tok := range strings.Fields(requested) {
+		if supported[tok] && !seen[tok] {
+			seen[tok] = true
+			kept = append(kept, tok)
+		}
+	}
+	if len(kept) == 0 {
 		return DefaultScope
 	}
-	return scope
+	return strings.Join(kept, " ")
 }

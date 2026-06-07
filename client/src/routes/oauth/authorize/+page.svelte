@@ -16,6 +16,17 @@
 		mcp: 'Read, organize, and manage your libraries through MCP — acting as you'
 	};
 
+	// The real trust anchor: where the client will send the authorization code.
+	// (client_name comes from unauthenticated registration and can be spoofed.)
+	const redirectHost = $derived.by(() => {
+		if (!data.ok) return '';
+		try {
+			return new URL(data.info.request.redirectUri).host;
+		} catch {
+			return data.info.request.redirectUri;
+		}
+	});
+
 	async function decide(approve: boolean) {
 		if (!data.ok) return;
 		submitting = true;
@@ -49,7 +60,7 @@
 				<div class="space-y-1.5 text-sm">
 					<p class="font-medium">This will allow {data.info.client.clientName} to:</p>
 					<ul class="space-y-1">
-						{#each data.info.scopes as scope (scope)}
+						{#each data.info.scopes as scope, i (i)}
 							<li class="flex items-start gap-2 text-surface-700-300">
 								<AppIcon name={ICONS.check} class="mt-0.5 size-4 shrink-0 opacity-70" />
 								<span>{scopeLabels[scope] ?? scope}</span>
@@ -58,6 +69,11 @@
 					</ul>
 				</div>
 			</div>
+
+			<p class="text-xs text-surface-600-400">
+				After you approve, you'll be sent to
+				<span class="font-medium break-all">{redirectHost}</span>. Make sure you recognize it.
+			</p>
 
 			<p class="text-xs text-surface-600-400">
 				Signed in as <span class="font-medium">{data.userName}</span>. Only approve apps you trust —

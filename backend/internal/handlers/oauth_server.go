@@ -120,11 +120,13 @@ func (h *OAuthServerHandler) validateAuthorize(c echo.Context, r *oauthservice.A
 	if r.CodeChallengeMethod != "S256" {
 		return nil, &oauthservice.Error{Code: "invalid_request", Description: "code_challenge_method must be S256"}
 	}
-	if r.Scope == "" {
-		r.Scope = oauthservice.DefaultScope
-	}
+	r.Scope = h.oauth.NormalizeScope(r.Scope)
 	if r.Resource == "" {
 		r.Resource = h.oauth.Resource()
+	} else if r.Resource != h.oauth.Resource() {
+		// RFC 8707: reject a resource indicator we do not serve rather than
+		// minting a token bound to a foreign audience.
+		return nil, &oauthservice.Error{Code: "invalid_target", Description: "resource does not match this server's MCP resource"}
 	}
 
 	client, err := h.oauth.GetClient(c.Request().Context(), r.ClientID)
@@ -178,9 +180,13 @@ func (h *OAuthServerHandler) Decision(c echo.Context) error {
 		ResponseType:        "code",
 		CodeChallenge:       req.CodeChallenge,
 		CodeChallengeMethod: defaultStr(req.CodeChallengeMethod, "S256"),
-		Scope:               defaultStr(req.Scope, oauthservice.DefaultScope),
+		Scope:               h.oauth.NormalizeScope(req.Scope),
 		State:               req.State,
 		Resource:            defaultStr(req.Resource, h.oauth.Resource()),
+	}
+
+	if r.Resource != h.oauth.Resource() {
+		return writeOAuthError(c, &oauthservice.Error{Code: "invalid_target", Description: "resource does not match this server's MCP resource"})
 	}
 
 	if !h.oauth.VerifyConsentToken(req.ConsentToken, r, userID) {

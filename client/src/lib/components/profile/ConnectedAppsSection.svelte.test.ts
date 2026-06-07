@@ -73,6 +73,28 @@ describe('ConnectedAppsSection', () => {
 		expect(screen.container.textContent).not.toContain('Connected apps');
 	});
 
+	it('shows a "last used" date when present', async () => {
+		mocks.connections.mockResolvedValue({
+			connections: [{ ...conn, lastUsedAt: '2026-02-15T00:00:00Z' }]
+		});
+		const screen = render(ConnectedAppsSection);
+		await flush();
+		await expect.element(screen.getByText('Last used Feb 15, 2026')).toBeInTheDocument();
+	});
+
+	it('surfaces an error (not a false empty state) on a non-404 failure', async () => {
+		mocks.connections.mockRejectedValue(new mocks.ApiError(500, null));
+		const screen = render(ConnectedAppsSection);
+		await flush();
+		// Panel stays visible but shows an error instead of "0 connected".
+		await expect
+			.element(screen.getByRole('heading', { name: 'Connected apps' }))
+			.toBeInTheDocument();
+		await expect.element(screen.getByText("Couldn't load connected apps")).toBeInTheDocument();
+		expect(screen.container.textContent).not.toContain('0 connected');
+		expect(screen.container.textContent).not.toContain('No connected apps');
+	});
+
 	it('disconnects an app and refreshes', async () => {
 		const screen = render(ConnectedAppsSection);
 		await flush();
@@ -84,5 +106,17 @@ describe('ConnectedAppsSection', () => {
 		expect(mocks.revokeConnection).toHaveBeenCalledWith('alc_oc_1');
 		expect(mocks.connections).toHaveBeenCalledTimes(2);
 		expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'App disconnected', color: 'success' });
+	});
+
+	it('shows an error toast when disconnect fails', async () => {
+		mocks.revokeConnection.mockRejectedValue(new Error('boom'));
+		const screen = render(ConnectedAppsSection);
+		await flush();
+		const btn = [...screen.container.querySelectorAll('button')].find((b) =>
+			b.textContent?.includes('Disconnect')
+		)!;
+		btn.click();
+		await flush();
+		expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'Failed to disconnect', color: 'error' });
 	});
 });

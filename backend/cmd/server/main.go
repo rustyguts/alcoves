@@ -565,6 +565,10 @@ func main() {
 				streamable.ServeHTTP(w, r)
 			})
 
+			// opts.Scopes is intentionally left unset: v1 has a single coarse
+			// "mcp" scope and the real authorization gate is the per-tool,
+			// per-library RBAC inside the MCP tools. (Setting it would also need
+			// the PAT path to advertise the scope, or PAT auth would 403.)
 			opts := &auth.RequireBearerTokenOptions{}
 			if cfg.MCPOAuthEnabled {
 				opts.ResourceMetadataURL = strings.TrimRight(cfg.BaseURL, "/") + "/.well-known/oauth-protected-resource"
@@ -620,9 +624,18 @@ func main() {
 // API route). The resolved user rides in TokenInfo.Extra for the identity
 // bridge. PATs have no usable expiry here (ValidateMCPToken already rejects
 // expired ones), so a far-future Expiration satisfies the SDK's required check.
+//
+// Both validators follow the (nil-user, nil-err) "not this credential" / (nil,
+// err) "operational failure" convention. A real DB/operational error is
+// propagated so the SDK answers 500 — not collapsed into a 401, which would
+// mask an outage as a revoked credential and re-trigger the OAuth/consent dance.
 func mcpBearerVerifier(authSvc *authservice.Service, oauthSvc *oauthservice.Service) auth.TokenVerifier {
 	return func(ctx context.Context, token string, _ *http.Request) (*auth.TokenInfo, error) {
-		if u, err := authSvc.ValidateMCPToken(ctx, token); err == nil && u != nil {
+		u, err := authSvc.ValidateMCPToken(ctx, token)
+		if err != nil {
+			return nil, err
+		}
+		if u != nil {
 			return &auth.TokenInfo{
 				UserID:     u.ID.String(),
 				Expiration: time.Now().Add(365 * 24 * time.Hour),
@@ -630,7 +643,11 @@ func mcpBearerVerifier(authSvc *authservice.Service, oauthSvc *oauthservice.Serv
 			}, nil
 		}
 		if oauthSvc != nil && oauthSvc.Enabled() {
-			if u, at, err := oauthSvc.ValidateAccessToken(ctx, token); err == nil && u != nil {
+			u, at, err := oauthSvc.ValidateAccessToken(ctx, token)
+			if err != nil {
+				return nil, err
+			}
+			if u != nil {
 				return &auth.TokenInfo{
 					UserID:     u.ID.String(),
 					Expiration: at.ExpiresAt,

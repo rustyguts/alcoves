@@ -37,6 +37,13 @@ services:
       # Safe on every boot: it no-ops once any user exists. Local-dev only —
       # never set in real deployments, so real first-time setups are untouched.
       - ALCOVES_SEED=true
+      # Enable the MCP HTTP transport + OAuth 2.1 authorization server so the
+      # consent screen (/oauth/authorize) and profile "Connected apps" panel are
+      # exercisable (and e2e-testable) locally. Both are local-dev convenience
+      # toggles — real deployments opt in explicitly. Issuer is the dev front door.
+      - ALCOVES_MCP_HTTP_ENABLED=true
+      - ALCOVES_MCP_OAUTH_ENABLED=true
+      - ALCOVES_BASE_URL=http://localhost:3000
     env_file:
       # Optional so the stack still comes up without a local .env (e.g. in CI,
       # which writes a minimal one for the e2e job).

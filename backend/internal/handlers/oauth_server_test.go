@@ -299,6 +299,47 @@ func TestRevokeAlwaysOK(t *testing.T) {
 	}
 }
 
+func TestAuthorizeRejectsForeignResource(t *testing.T) {
+	h, svc, user := setupOAuthServer(t)
+	e := echo.New()
+	uid := user.ID.String()
+	client, _ := svc.RegisterClient(t.Context(), oauthservice.ClientRegistration{
+		ClientName: "Claude", RedirectURIs: []string{testRedirect},
+	})
+	q := url.Values{}
+	q.Set("client_id", client.ClientID)
+	q.Set("redirect_uri", testRedirect)
+	q.Set("response_type", "code")
+	q.Set("code_challenge", pkceChal("v"))
+	q.Set("resource", "https://evil.example.com/api/mcp")
+	rec := jsonCall(t, e, h.Authorize, http.MethodGet, "/api/oauth/authorize?"+q.Encode(), "", uid)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "invalid_target") {
+		t.Fatalf("foreign resource must be rejected with invalid_target: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestRegisterDCRDisabled(t *testing.T) {
+	dsn := "postgres://postgres:postgres@localhost:5455/alcoves_test"
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Skipf("Skipping test: database not available: %v", err)
+	}
+	if err := db.AutoMigrate(&models.OAuthClient{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	svc := oauthservice.New(db, oauthservice.Config{
+		Enabled: true, Issuer: "https://alcoves.example.com", DCREnabled: false,
+		Secret: "oauth-handler-test-secret-32bytes-xx",
+	})
+	h := NewOAuthServerHandler(svc)
+	e := echo.New()
+	rec := jsonCall(t, e, h.Register, http.MethodPost, "/api/oauth/register",
+		`{"client_name":"X","redirect_uris":["https://claude.ai/cb"]}`, "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "access_denied") {
+		t.Fatalf("DCR-disabled register must return access_denied: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestMetadataEndpoints(t *testing.T) {
 	h, _, _ := setupOAuthServer(t)
 	e := echo.New()

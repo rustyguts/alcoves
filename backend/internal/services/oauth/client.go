@@ -56,7 +56,7 @@ func (s *Service) RegisterClient(ctx context.Context, reg ClientRegistration) (*
 		ClientName:              name,
 		RedirectURIs:            reg.RedirectURIs,
 		GrantTypes:              grantTypes,
-		Scope:                   scopeOrDefault(reg.Scope),
+		Scope:                   s.NormalizeScope(reg.Scope),
 		TokenEndpointAuthMethod: "none",
 		RegistrationVia:         "dcr",
 	}

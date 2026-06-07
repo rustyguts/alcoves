@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -237,7 +238,40 @@ func Load() (*Config, error) {
 		SentryTracesSampleRate: parseFloatEnv("ALCOVES_SENTRY_TRACES_SAMPLE_RATE", 0.2),
 	}
 
+	// The MCP OAuth authorization server publishes discovery documents whose
+	// issuer + endpoint URLs are all derived from BaseURL, and it has nothing to
+	// protect without the MCP HTTP transport. Fail fast on a misconfiguration
+	// rather than serving a self-inconsistent, half-broken OAuth surface.
+	if cfg.MCPOAuthEnabled {
+		if !cfg.MCPHTTPEnabled {
+			return nil, fmt.Errorf("ALCOVES_MCP_OAUTH_ENABLED requires ALCOVES_MCP_HTTP_ENABLED=true (the OAuth resource server protects the MCP HTTP transport)")
+		}
+		if err := validateOAuthIssuer(cfg.BaseURL, cfg.Environment); err != nil {
+			return nil, err
+		}
+	}
+
 	return cfg, nil
+}
+
+// validateOAuthIssuer checks that BaseURL is a usable OAuth 2.1 issuer: an
+// absolute URL with a host, no query/fragment, and https in production (it is
+// advertised to remote clients and must match the origin they discover).
+func validateOAuthIssuer(baseURL, environment string) error {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return fmt.Errorf("ALCOVES_BASE_URL must be a valid URL when ALCOVES_MCP_OAUTH_ENABLED=true: %w", err)
+	}
+	if !u.IsAbs() || u.Host == "" {
+		return fmt.Errorf("ALCOVES_BASE_URL must be an absolute URL with a host when OAuth is enabled (it is the OAuth issuer), got %q", baseURL)
+	}
+	if u.Fragment != "" || u.RawQuery != "" {
+		return fmt.Errorf("ALCOVES_BASE_URL must not contain a query or fragment when OAuth is enabled, got %q", baseURL)
+	}
+	if environment == "production" && u.Scheme != "https" {
+		return fmt.Errorf("ALCOVES_BASE_URL must use https in production (it is the public OAuth issuer), got %q", baseURL)
+	}
+	return nil
 }
 
 func getEnv(key, fallback string) string {
@@ -262,9 +296,11 @@ func parseIntEnv(key string, fallback int) int {
 }
 
 // parseDurationEnv parses a Go duration string (e.g. "1h", "30m", "720h") from
-// the environment, falling back when unset or unparseable.
+// the environment, falling back when unset, unparseable, or non-positive. A
+// zero/negative TTL would mint born-expired codes and tokens, so it is rejected
+// in favor of the (always positive) default.
 func parseDurationEnv(key string, fallback time.Duration) time.Duration {
-	if v, err := time.ParseDuration(os.Getenv(key)); err == nil {
+	if v, err := time.ParseDuration(os.Getenv(key)); err == nil && v > 0 {
 		return v
 	}
 	return fallback

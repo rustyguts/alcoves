@@ -147,7 +147,7 @@ ALCOVES_MCP_HTTP_ENABLED=true
 
 The simplest way to connect a remote client like **Claude's "Add custom connector"** is OAuth. When enabled, Alcoves acts as an **OAuth 2.1 authorization server** for its MCP endpoint, so you paste your instance URL and approve a browser consent screen — no token to copy, no bridge tool.
 
-Enable it on the server (it also turns on the HTTP transport):
+Enable it on the server (both flags are required — OAuth secures the HTTP transport rather than turning it on for you):
 
 ```bash
 ALCOVES_MCP_HTTP_ENABLED=true
