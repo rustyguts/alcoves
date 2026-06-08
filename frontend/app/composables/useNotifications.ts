@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { apiFetch } from "~/utils/api-fetch";
+import { useCursorList } from "~/composables/useCursorList";
 import type { Activity, NotificationsResponse, UnreadCountResponse } from "~~/shared/types/api";
 
 interface UseNotificationsReturn {
@@ -35,35 +36,19 @@ export function useNotifications(): UseNotificationsReturn {
     return await apiFetch<NotificationsResponse>("/api/notifications", { query });
   }
 
-  async function loadFirst() {
-    loading.value = true;
-    error.value = null;
-    try {
-      const resp = await fetchPage();
-      entries.value = resp.entries;
-      nextCursor.value = resp.nextCursor;
+  // Each page also carries the authoritative unread count; a live prepend bumps
+  // it by one. dismiss/dismissAll below adjust it on the optimistic path.
+  const { loadFirst, loadMore, prependLive } = useCursorList<Activity, NotificationsResponse>({
+    state: { entries, nextCursor, loading, loadingMore, error },
+    fetchPage,
+    getId: (activity) => activity.id,
+    onPage: (resp) => {
       unreadCount.value = resp.unreadCount;
-    } catch (e) {
-      error.value = (e as Error).message;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function loadMore() {
-    if (!nextCursor.value || loadingMore.value) return;
-    loadingMore.value = true;
-    try {
-      const resp = await fetchPage(nextCursor.value);
-      entries.value = entries.value.concat(resp.entries);
-      nextCursor.value = resp.nextCursor;
-      unreadCount.value = resp.unreadCount;
-    } catch (e) {
-      error.value = (e as Error).message;
-    } finally {
-      loadingMore.value = false;
-    }
-  }
+    },
+    onPrepend: () => {
+      unreadCount.value = unreadCount.value + 1;
+    },
+  });
 
   async function refreshUnreadCount() {
     try {
@@ -96,12 +81,6 @@ export function useNotifications(): UseNotificationsReturn {
     } catch (e) {
       error.value = (e as Error).message;
     }
-  }
-
-  function prependLive(activity: Activity) {
-    if (entries.value.some((a) => a.id === activity.id)) return;
-    entries.value = [activity, ...entries.value];
-    unreadCount.value = unreadCount.value + 1;
   }
 
   return {

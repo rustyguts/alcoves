@@ -2,11 +2,10 @@ import type { Ref } from "vue";
 import type { LibraryFolder } from "~~/shared/types/api";
 import { api } from "~/api";
 import { useToast } from "~/composables/useToast";
+import { ROOT_MOVE_VALUE, buildFolderLabel, collectDescendantIds } from "~/utils/folder-tree";
 
 type RefreshFoldersFn = () => Promise<LibraryFolder[]>;
 type AsyncVoidFn = () => Promise<void>;
-
-const ROOT_MOVE_VALUE = "__root__";
 
 export function useLibraryFolderActions(
   libraryId: Ref<string>,
@@ -48,47 +47,6 @@ export function useLibraryFolderActions(
     } finally {
       creatingFolder.value = false;
     }
-  }
-
-  function collectDescendantIds(rootId: string, folders: LibraryFolder[]): Set<string> {
-    const children = new Map<string | null, LibraryFolder[]>();
-    for (const folder of folders) {
-      const key = folder.parentFolderId;
-      const list = children.get(key) ?? [];
-      list.push(folder);
-      children.set(key, list);
-    }
-
-    const descendants = new Set<string>();
-    const stack = [rootId];
-
-    while (stack.length) {
-      const current = stack.pop()!;
-      const directChildren = children.get(current) ?? [];
-      for (const child of directChildren) {
-        if (descendants.has(child.id)) continue;
-        descendants.add(child.id);
-        stack.push(child.id);
-      }
-    }
-
-    return descendants;
-  }
-
-  function buildFolderLabel(folder: LibraryFolder, folderMap: Map<string, LibraryFolder>) {
-    const parts: string[] = [folder.name];
-    let current = folder.parentFolderId;
-    let guard = 0;
-
-    while (current && guard < 100) {
-      const parent = folderMap.get(current);
-      if (!parent) break;
-      parts.unshift(parent.name);
-      current = parent.parentFolderId;
-      guard++;
-    }
-
-    return parts.join(" / ");
   }
 
   const moveDestinationOptions = computed(() => {

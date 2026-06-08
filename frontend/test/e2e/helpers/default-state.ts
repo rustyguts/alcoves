@@ -666,5 +666,3 @@ export function createDefaultState(overrides: DeepPartial<MockState> = {}): Mock
 
   return Object.assign(base, overrides) as MockState;
 }
-
-export { makeSearchResults, TIMESTAMP };

@@ -14,7 +14,7 @@ const STABILIZE_STYLE = `
 	html { scroll-behavior: auto !important; }
 `;
 
-export async function stabilize(page: Page): Promise<void> {
+async function stabilize(page: Page): Promise<void> {
   try {
     await page.waitForLoadState("networkidle", { timeout: 5_000 });
   } catch {
@@ -73,5 +73,3 @@ export async function setupDeterminism(page: Page): Promise<void> {
     };
   });
 }
-
-export const snapshotsDir = snapshotsRoot;

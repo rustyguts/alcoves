@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { apiFetch } from "~/utils/api-fetch";
+import { useCursorList } from "~/composables/useCursorList";
 import type { Activity, LibraryFeedResponse } from "~~/shared/types/api";
 
 interface UseLibraryFeedReturn {
@@ -33,39 +34,13 @@ export function useLibraryFeed(libraryId: Ref<string> | string): UseLibraryFeedR
     return await apiFetch<LibraryFeedResponse>(`/api/libraries/${idRef.value}/feed`, { query });
   }
 
-  async function loadFirst() {
-    loading.value = true;
-    error.value = null;
-    try {
-      const resp = await fetchPage();
-      entries.value = resp.entries;
-      nextCursor.value = resp.nextCursor;
-    } catch (e) {
-      error.value = (e as Error).message;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function loadMore() {
-    if (!nextCursor.value || loadingMore.value) return;
-    loadingMore.value = true;
-    try {
-      const resp = await fetchPage(nextCursor.value);
-      entries.value = entries.value.concat(resp.entries);
-      nextCursor.value = resp.nextCursor;
-    } catch (e) {
-      error.value = (e as Error).message;
-    } finally {
-      loadingMore.value = false;
-    }
-  }
-
-  // Insert a live-pushed activity at the top of the list, deduping by ID.
-  function prependLive(activity: Activity) {
-    if (entries.value.some((a) => a.id === activity.id)) return;
-    entries.value = [activity, ...entries.value];
-  }
+  // Live-pushed activities (deduped by id) arrive via prependLive; the
+  // WebSocket subscription is wired up by the page.
+  const { loadFirst, loadMore, prependLive } = useCursorList<Activity, LibraryFeedResponse>({
+    state: { entries, nextCursor, loading, loadingMore, error },
+    fetchPage,
+    getId: (activity) => activity.id,
+  });
 
   return { entries, nextCursor, loading, loadingMore, error, loadFirst, loadMore, prependLive };
 }

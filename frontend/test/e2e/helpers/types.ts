@@ -76,8 +76,6 @@ export interface MockFile {
   waveformPeaks?: number[];
 }
 
-export type MockEntry = MockFolder | MockFile;
-
 export interface MockMember {
   id: string;
   userId: string;

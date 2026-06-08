@@ -10,7 +10,7 @@
 
 export type ImageFormat = "jpeg" | "webp" | "avif" | "png";
 
-export interface ImageVariant {
+interface ImageVariant {
   /** Stable identifier shared with the Go registry. */
   name: string;
   /** Output box; aspect ratio is preserved and the source is only downscaled. */

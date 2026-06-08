@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { LibraryEntry, LibraryFile, LibraryFolder } from "~~/shared/types/api";
 import { getMimeIcon, formatFileSize, formatDate } from "~/utils/mime-icons";
+import { ROOT_MOVE_VALUE, buildFolderLabel } from "~/utils/folder-tree";
 
 definePageMeta({ layout: "library", alias: ["/libraries/:id/trash"] });
 
@@ -23,7 +24,6 @@ import LibraryEmptyState from "~/components/library/LibraryEmptyState.vue";
 import LibraryEntriesTable from "~/components/library/LibraryEntriesTable.vue";
 
 const ENTRY_VIEW_STORAGE_KEY = "alcoves.library.entry-view";
-const ROOT_MOVE_VALUE = "__root__";
 
 const toast = useToast();
 const router = useRouter();
@@ -288,22 +288,6 @@ function isImageFile(file: LibraryFile): boolean {
 
 function isSmallImage(file: LibraryFile): boolean {
   return Boolean(file.width && file.height && file.width < 320 && file.height < 160);
-}
-
-function buildFolderLabel(folder: LibraryFolder, folderMap: Map<string, LibraryFolder>) {
-  const parts: string[] = [folder.name];
-  let current = folder.parentFolderId;
-  let guard = 0;
-
-  while (current && guard < 100) {
-    const parent = folderMap.get(current);
-    if (!parent) break;
-    parts.unshift(parent.name);
-    current = parent.parentFolderId;
-    guard++;
-  }
-
-  return parts.join(" / ");
 }
 
 const moveFileDestinationOptions = computed(() => {
@@ -799,9 +783,242 @@ async function handlePermanentDelete() {
   }
 }
 
+// ── Context-menu builders ─────────────────────────────────────────────────────
+// The right-click menu has five shapes (trash / read-only viewer / multi-select
+// / single folder / single file). Each lives in its own builder below; they all
+// close over the page's selection state and action handlers. getContextMenuItems
+// resolves the acted-on target ids, then dispatches to exactly one builder.
+
+const NO_TAGS_ITEM: ContextMenuItem = { label: "No tags yet", disabled: true };
+
+function buildFileTagChildren(fileIds: string[]): ContextMenuItem[] {
+  if (!libraryTags.value.length) return [NO_TAGS_ITEM];
+  return libraryTags.value.map((tag) => ({
+    label: tag.name,
+    icon: areAllFilesTagged(fileIds, tag.id) ? "i-lucide-check" : "i-lucide-tag",
+    onSelect: () => toggleTagForFiles(fileIds, tag.id),
+  }));
+}
+
+function buildFolderTagChildren(folder: LibraryFolder): ContextMenuItem[] {
+  if (!libraryTags.value.length) return [NO_TAGS_ITEM];
+  return libraryTags.value.map((tag) => ({
+    label: tag.name,
+    icon: isFolderTagAssigned(folder, tag.id) ? "i-lucide-check" : "i-lucide-tag",
+    onSelect: () => toggleTagForFolder(folder, tag.id),
+  }));
+}
+
+// Trash view: only files support per-item restore/purge; folders use their own
+// restore path. When multiple items are selected handle both.
+function buildTrashMenu(targetFileIds: string[], targetFolderIds: string[]): ContextMenuItem[][] {
+  const restoreItems: ContextMenuItem[] = [];
+  const purgeItems: ContextMenuItem[] = [];
+
+  if (targetFileIds.length) {
+    restoreItems.push({
+      label: targetFileIds.length > 1 ? `Restore ${targetFileIds.length} files` : "Restore",
+      icon: "i-lucide-undo-2",
+      onSelect: () => restoreFiles(targetFileIds),
+    });
+    purgeItems.push({
+      label:
+        targetFileIds.length > 1
+          ? `Permanently delete ${targetFileIds.length} files`
+          : "Permanently delete",
+      icon: "i-lucide-trash-2",
+      color: "error" as const,
+      onSelect: () => openPurgeModal(targetFileIds),
+    });
+  }
+  if (targetFolderIds.length) {
+    restoreItems.push({
+      label:
+        targetFolderIds.length > 1 ? `Restore ${targetFolderIds.length} folders` : "Restore folder",
+      icon: "i-lucide-undo-2",
+      onSelect: () => restoreFolders(targetFolderIds),
+    });
+    purgeItems.push({
+      label:
+        targetFolderIds.length > 1
+          ? `Permanently delete ${targetFolderIds.length} folders`
+          : "Permanently delete folder",
+      icon: "i-lucide-trash-2",
+      color: "error" as const,
+      onSelect: () => openPurgeFolderModal(targetFolderIds),
+    });
+  }
+
+  return [
+    ...(restoreItems.length ? [restoreItems] : []),
+    ...(purgeItems.length ? [purgeItems] : []),
+  ];
+}
+
+// Read-only viewer: open (single folder only) + download.
+function buildViewerMenu(
+  entry: LibraryEntry,
+  targetFileIds: string[],
+  targetFolderIds: string[],
+  totalCount: number,
+  isMulti: boolean,
+): ContextMenuItem[][] {
+  return [
+    [
+      ...(entry.kind === "folder" && !isMulti
+        ? [{ label: "Open", icon: "i-lucide-folder-open", onSelect: () => openFolder(entry.id) }]
+        : []),
+      {
+        label:
+          totalCount > 1
+            ? `Download ${totalCount} items as ZIP`
+            : entry.kind === "folder"
+              ? "Download as ZIP"
+              : "Download",
+        icon: "i-lucide-download",
+        onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
+      },
+    ],
+  ];
+}
+
+// Multi-selection (files + folders mixed, or multiple of one kind).
+function buildMultiMenu(
+  targetFileIds: string[],
+  targetFolderIds: string[],
+  totalCount: number,
+): ContextMenuItem[][] {
+  return [
+    [
+      {
+        label: `Download ${totalCount} items as ZIP`,
+        icon: "i-lucide-download",
+        onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
+      },
+      ...(targetFileIds.length
+        ? [
+            {
+              label: targetFileIds.length > 1 ? `Move ${targetFileIds.length} files` : "Move",
+              icon: "i-lucide-folder-input",
+              onSelect: () => openMoveFilesModal(targetFileIds),
+            },
+            {
+              label: `Transcribe ${targetFileIds.length} file(s)`,
+              icon: "i-lucide-captions",
+              onSelect: () => runBulkAction("transcribe", targetFileIds),
+            },
+            {
+              label: `Detect audio in ${targetFileIds.length} file(s)`,
+              icon: "i-lucide-audio-waveform",
+              onSelect: () => runBulkAction("audio-detect", targetFileIds),
+            },
+          ]
+        : []),
+      {
+        label: `Tags`,
+        icon: "i-lucide-tags",
+        children: buildFileTagChildren(targetFileIds),
+      },
+    ],
+    [
+      {
+        label: `Delete ${totalCount} items`,
+        icon: "i-lucide-trash-2",
+        color: "error" as const,
+        onSelect: () => {
+          if (targetFileIds.length) void trashFiles(targetFileIds);
+          if (targetFolderIds.length) void deleteFolders(targetFolderIds);
+        },
+      },
+    ],
+  ];
+}
+
+// Single folder.
+function buildFolderMenu(entry: LibraryFolder): ContextMenuItem[][] {
+  return [
+    [
+      { label: "Open", icon: "i-lucide-folder-open", onSelect: () => openFolder(entry.id) },
+      {
+        label: "Download as ZIP",
+        icon: "i-lucide-download",
+        onSelect: () => downloadFolders([entry.id]),
+      },
+      { label: "Rename", icon: "i-lucide-pencil", onSelect: () => startEntryRename(entry) },
+      { label: "Move", icon: "i-lucide-folder-input", onSelect: () => openMoveFolderModal(entry) },
+      { label: "Tags", icon: "i-lucide-tags", children: buildFolderTagChildren(entry) },
+    ],
+    [
+      {
+        label: "Delete folder",
+        icon: "i-lucide-trash-2",
+        color: "error" as const,
+        onSelect: () => deleteFolder(entry),
+      },
+    ],
+  ];
+}
+
+// Single file.
+function buildFileMenu(entry: LibraryFile): ContextMenuItem[][] {
+  const isVideo = entry.mimeType.startsWith("video/");
+  const isAudioOrVideo = isVideo || entry.mimeType.startsWith("audio/");
+  return [
+    [
+      { label: "Download", icon: "i-lucide-download", onSelect: () => downloadFiles([entry.id]) },
+      {
+        label: "Move",
+        icon: "i-lucide-folder-input",
+        onSelect: () => openMoveFilesModal([entry.id]),
+      },
+      { label: "Rename", icon: "i-lucide-pencil", onSelect: () => startEntryRename(entry) },
+      ...(isVideo
+        ? [
+            {
+              label: "Editor",
+              icon: "i-lucide-video",
+              onSelect: () =>
+                router.push({
+                  path: `/libraries/${libraryId.value}/edit/${entry.id}`,
+                  // Carry the originating folder so the editor's back button
+                  // returns the user to where they were browsing instead of
+                  // the library root.
+                  query: currentFolderId.value ? { from: currentFolderId.value } : {},
+                }),
+            },
+          ]
+        : []),
+      ...(isAudioOrVideo
+        ? [
+            {
+              label: "Transcribe",
+              icon: "i-lucide-captions",
+              onSelect: () => runBulkAction("transcribe", [entry.id]),
+            },
+            {
+              label: "Detect audio",
+              icon: "i-lucide-audio-waveform",
+              onSelect: () => runBulkAction("audio-detect", [entry.id]),
+            },
+          ]
+        : []),
+      { label: "Tags", icon: "i-lucide-tags", children: buildFileTagChildren([entry.id]) },
+    ],
+    [
+      {
+        label: "Delete",
+        icon: "i-lucide-trash-2",
+        color: "error" as const,
+        onSelect: () => trashFiles([entry.id]),
+      },
+    ],
+  ];
+}
+
 function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
-  // Determine the full selection. If the right-clicked item is part of the current
-  // selection, act on everything selected; otherwise act only on the clicked item.
+  // Determine the full selection. If the right-clicked item is part of the
+  // current selection, act on everything selected; otherwise act only on the
+  // clicked item.
   const isInSelection =
     entry.kind === "file" ? selectedFiles.has(entry.id) : selectedFolders.has(entry.id);
 
@@ -818,255 +1035,24 @@ function getContextMenuItems(entry: LibraryEntry): ContextMenuItem[][] {
   const totalCount = targetFileIds.length + targetFolderIds.length;
   const isMulti = totalCount > 1;
 
-  // ── Trash view ──────────────────────────────────────────────────────────────
   if (showTrashed.value) {
     if (!canManageLibrary.value) return [];
-
-    // Only files support restore/purge from a per-item menu for now; folders
-    // use their own restore path. When multiple items are selected handle both.
-    const restoreItems: ContextMenuItem[] = [];
-    const purgeItems: ContextMenuItem[] = [];
-
-    if (targetFileIds.length) {
-      restoreItems.push({
-        label: targetFileIds.length > 1 ? `Restore ${targetFileIds.length} files` : "Restore",
-        icon: "i-lucide-undo-2",
-        onSelect: () => restoreFiles(targetFileIds),
-      });
-      purgeItems.push({
-        label:
-          targetFileIds.length > 1
-            ? `Permanently delete ${targetFileIds.length} files`
-            : "Permanently delete",
-        icon: "i-lucide-trash-2",
-        color: "error" as const,
-        onSelect: () => openPurgeModal(targetFileIds),
-      });
-    }
-    if (targetFolderIds.length) {
-      restoreItems.push({
-        label:
-          targetFolderIds.length > 1
-            ? `Restore ${targetFolderIds.length} folders`
-            : "Restore folder",
-        icon: "i-lucide-undo-2",
-        onSelect: () => restoreFolders(targetFolderIds),
-      });
-      purgeItems.push({
-        label:
-          targetFolderIds.length > 1
-            ? `Permanently delete ${targetFolderIds.length} folders`
-            : "Permanently delete folder",
-        icon: "i-lucide-trash-2",
-        color: "error" as const,
-        onSelect: () => openPurgeFolderModal(targetFolderIds),
-      });
-    }
-
-    return [
-      ...(restoreItems.length ? [restoreItems] : []),
-      ...(purgeItems.length ? [purgeItems] : []),
-    ];
+    return buildTrashMenu(targetFileIds, targetFolderIds);
   }
 
-  // ── Read-only viewer ─────────────────────────────────────────────────────────
   if (!canManageLibrary.value) {
-    return [
-      [
-        ...(entry.kind === "folder" && !isMulti
-          ? [{ label: "Open", icon: "i-lucide-folder-open", onSelect: () => openFolder(entry.id) }]
-          : []),
-        {
-          label:
-            totalCount > 1
-              ? `Download ${totalCount} items as ZIP`
-              : entry.kind === "folder"
-                ? "Download as ZIP"
-                : "Download",
-          icon: "i-lucide-download",
-          onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
-        },
-      ],
-    ];
+    return buildViewerMenu(entry, targetFileIds, targetFolderIds, totalCount, isMulti);
   }
 
-  // ── Multi-selection (files + folders mixed, or multiple of one kind) ─────────
   if (isMulti) {
-    const multiTagItems = libraryTags.value.length
-      ? libraryTags.value.map((tag) => ({
-          label: tag.name,
-          icon: areAllFilesTagged(targetFileIds, tag.id) ? "i-lucide-check" : "i-lucide-tag",
-          onSelect: () => toggleTagForFiles(targetFileIds, tag.id),
-        }))
-      : [{ label: "No tags yet", disabled: true }];
-
-    return [
-      [
-        {
-          label: `Download ${totalCount} items as ZIP`,
-          icon: "i-lucide-download",
-          onSelect: () => downloadSelection(targetFileIds, targetFolderIds),
-        },
-        ...(targetFileIds.length
-          ? [
-              {
-                label: targetFileIds.length > 1 ? `Move ${targetFileIds.length} files` : "Move",
-                icon: "i-lucide-folder-input",
-                onSelect: () => openMoveFilesModal(targetFileIds),
-              },
-              {
-                label: `Transcribe ${targetFileIds.length} file(s)`,
-                icon: "i-lucide-captions",
-                onSelect: () => runBulkAction("transcribe", targetFileIds),
-              },
-              {
-                label: `Detect audio in ${targetFileIds.length} file(s)`,
-                icon: "i-lucide-audio-waveform",
-                onSelect: () => runBulkAction("audio-detect", targetFileIds),
-              },
-            ]
-          : []),
-        {
-          label: `Tags`,
-          icon: "i-lucide-tags",
-          children: multiTagItems,
-        },
-      ],
-      [
-        {
-          label: `Delete ${totalCount} items`,
-          icon: "i-lucide-trash-2",
-          color: "error" as const,
-          onSelect: () => {
-            if (targetFileIds.length) void trashFiles(targetFileIds);
-            if (targetFolderIds.length) void deleteFolders(targetFolderIds);
-          },
-        },
-      ],
-    ];
+    return buildMultiMenu(targetFileIds, targetFolderIds, totalCount);
   }
 
-  // ── Single folder ────────────────────────────────────────────────────────────
   if (entry.kind === "folder") {
-    const folderTagItems = libraryTags.value.length
-      ? libraryTags.value.map((tag) => ({
-          label: tag.name,
-          icon: isFolderTagAssigned(entry, tag.id) ? "i-lucide-check" : "i-lucide-tag",
-          onSelect: () => toggleTagForFolder(entry, tag.id),
-        }))
-      : [{ label: "No tags yet", disabled: true }];
-
-    return [
-      [
-        {
-          label: "Open",
-          icon: "i-lucide-folder-open",
-          onSelect: () => openFolder(entry.id),
-        },
-        {
-          label: "Download as ZIP",
-          icon: "i-lucide-download",
-          onSelect: () => downloadFolders([entry.id]),
-        },
-        {
-          label: "Rename",
-          icon: "i-lucide-pencil",
-          onSelect: () => startEntryRename(entry),
-        },
-        {
-          label: "Move",
-          icon: "i-lucide-folder-input",
-          onSelect: () => openMoveFolderModal(entry),
-        },
-        {
-          label: "Tags",
-          icon: "i-lucide-tags",
-          children: folderTagItems,
-        },
-      ],
-      [
-        {
-          label: "Delete folder",
-          icon: "i-lucide-trash-2",
-          color: "error" as const,
-          onSelect: () => deleteFolder(entry),
-        },
-      ],
-    ];
+    return buildFolderMenu(entry);
   }
 
-  // ── Single file ──────────────────────────────────────────────────────────────
-  const tagItems = libraryTags.value.length
-    ? libraryTags.value.map((tag) => ({
-        label: tag.name,
-        icon: areAllFilesTagged([entry.id], tag.id) ? "i-lucide-check" : "i-lucide-tag",
-        onSelect: () => toggleTagForFiles([entry.id], tag.id),
-      }))
-    : [{ label: "No tags yet", disabled: true }];
-
-  return [
-    [
-      {
-        label: "Download",
-        icon: "i-lucide-download",
-        onSelect: () => downloadFiles([entry.id]),
-      },
-      {
-        label: "Move",
-        icon: "i-lucide-folder-input",
-        onSelect: () => openMoveFilesModal([entry.id]),
-      },
-      {
-        label: "Rename",
-        icon: "i-lucide-pencil",
-        onSelect: () => startEntryRename(entry),
-      },
-      ...(entry.kind === "file" && entry.mimeType.startsWith("video/")
-        ? [
-            {
-              label: "Editor",
-              icon: "i-lucide-video",
-              onSelect: () =>
-                router.push({
-                  path: `/libraries/${libraryId.value}/edit/${entry.id}`,
-                  // Carry the originating folder so the editor's back
-                  // button returns the user to where they were
-                  // browsing instead of the library root.
-                  query: currentFolderId.value ? { from: currentFolderId.value } : {},
-                }),
-            },
-          ]
-        : []),
-      ...(entry.kind === "file" &&
-      (entry.mimeType.startsWith("video/") || entry.mimeType.startsWith("audio/"))
-        ? [
-            {
-              label: "Transcribe",
-              icon: "i-lucide-captions",
-              onSelect: () => runBulkAction("transcribe", [entry.id]),
-            },
-            {
-              label: "Detect audio",
-              icon: "i-lucide-audio-waveform",
-              onSelect: () => runBulkAction("audio-detect", [entry.id]),
-            },
-          ]
-        : []),
-      {
-        label: "Tags",
-        icon: "i-lucide-tags",
-        children: tagItems,
-      },
-    ],
-    [
-      {
-        label: "Delete",
-        icon: "i-lucide-trash-2",
-        color: "error" as const,
-        onSelect: () => trashFiles([entry.id]),
-      },
-    ],
-  ];
+  return buildFileMenu(entry);
 }
 
 const contextMenuGroups = computed<UIContextMenuItem[][]>(() =>
