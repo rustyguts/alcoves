@@ -1,97 +1,122 @@
 ---
 title: Quickstart
-description: Get a full Alcoves stack — frontend, API, Postgres, and the job queue — running locally with Docker Compose.
+description: Run Alcoves with Docker Compose — the published image plus PostgreSQL and a job queue.
 ---
 
-This guide gets a complete Alcoves instance running locally: the Nuxt frontend,
-the Go API + worker, PostgreSQL, and Dragonfly (a Redis-compatible queue).
-
-:::note[Sample doc]
-This is a starter quickstart. Commands mirror the repo's
-[deployment & operations](https://github.com/rustyguts/alcoves/blob/main/docs/deployment-and-operations.md)
-guide — check there for the authoritative, full reference.
-:::
+The fastest way to run Alcoves is Docker Compose: the published all-in-one
+image, PostgreSQL (with pgvector), and Dragonfly (a Redis-compatible queue for
+background jobs).
 
 ## Prerequisites
 
-- **Docker** and **Docker Compose** (v2)
-- ~8 GB of free RAM (the CPU-only ML models are the ceiling)
-- Git
+- **Docker** with **Docker Compose** (v2)
+- An x86_64 machine. 8 GB of RAM is comfortable; the biggest consumer is
+  transcription, and you can pick a smaller whisper model in the admin panel
+  if memory is tight. No GPU is needed.
 
-## 1. Clone and configure
+## 1. Create a compose file
+
+Save this as `docker-compose.yml` in an empty directory:
+
+```yaml
+services:
+  alcoves:
+    image: ghcr.io/rustyguts/alcoves:0.28.0 # pin to the latest release
+    ports:
+      - '3000:3000'
+    environment:
+      - ALCOVES_BASE_URL=http://localhost:3000
+      - ALCOVES_SESSION_SECRET=${ALCOVES_SESSION_SECRET:?set in .env}
+      - ALCOVES_DATABASE_URL=postgres://postgres:postgres@postgres:5432/alcoves
+      - ALCOVES_QUEUE_HOST=dragonfly
+      - ALCOVES_QUEUE_PORT=6379
+    volumes:
+      - alcoves_data:/app/data
+    depends_on:
+      - postgres
+      - dragonfly
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg18
+    environment:
+      - POSTGRES_DB=alcoves
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    restart: unless-stopped
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    restart: unless-stopped
+
+volumes:
+  alcoves_data:
+  postgres_data:
+```
+
+Then generate a session secret (used to encrypt login cookies) into a `.env`
+file next to it:
+
+```sh
+echo "ALCOVES_SESSION_SECRET=$(openssl rand -base64 48)" > .env
+```
+
+## 2. Start it
+
+```sh
+docker compose up -d
+```
+
+The one Alcoves container runs the whole stack: the web UI, the Go API, and
+the background worker. Database migrations apply automatically on startup.
+Check it's up:
+
+```sh
+curl http://localhost:3000/api/health
+# {"mode":"all","status":"ok"}
+```
+
+## 3. Open the app
+
+Visit **http://localhost:3000** and register an account. The first account
+becomes the instance **owner** — the only role that can open the admin panel,
+the job-queue dashboard, registration policy, and ML model selection.
+
+Upload a few photos or a short video and watch the library fill in:
+thumbnails appear first, then faces, labels, and transcripts as the
+background jobs finish. Models download on first use, so the very first
+detection or transcription job takes longer than the rest.
+
+## Putting it on the internet
+
+The compose file above binds plain HTTP on one port, which is fine on your own
+machine. For a real deployment, put a reverse proxy with TLS in front, set
+`ALCOVES_BASE_URL` to the public URL, and set `ALCOVES_ENV=production`. The
+[deployment guide](/self-hosting/deploying-alcoves/) covers reverse-proxy
+settings (uploads and video streaming need a couple of specific ones), the
+Helm chart for Kubernetes, and the rest of the operational details.
+
+## Hacking on Alcoves instead?
+
+The repository's own `docker-compose.yml` runs the **development** stack — hot
+reload for both the Go backend and the SvelteKit frontend, plus seeded demo
+data (sample users, libraries, photos, transcripts) so every feature has
+something to show:
 
 ```sh
 git clone https://github.com/rustyguts/alcoves.git
 cd alcoves
-cp .env.example .env
-```
-
-Open `.env` and set a real session secret before anything else:
-
-```sh
-# Generate an AES-GCM key (must be ≥ 32 bytes)
-openssl rand -base64 32
-```
-
-Paste the result into `ALCOVES_SESSION_SECRET`.
-
-## 2. Start the stack
-
-```sh
 docker compose up
 ```
 
-This brings up four services:
-
-| Service     | Host port  | Purpose                                                         |
-| ----------- | ---------- | -------------------------------------------------------------- |
-| Frontend    | `3000`     | Nuxt (Nitro) server — open this in your browser                |
-| Backend API | `3001`     | Go API + worker (`ALCOVES_MODE=all`)                           |
-| Dragonfly   | `6389`     | Redis-compatible async job queue (Asynq)                       |
-| PostgreSQL  | _internal_ | Primary database; reachable in-network at `postgres:5432` only |
-
-:::note
-PostgreSQL is **not** published to the host by the default `docker-compose.yml` —
-it's only reachable from the other containers (at `postgres:5432`). If you want to
-connect from your machine, add a `ports:` mapping to the `postgres` service.
-:::
-
-Goose migrations run automatically on startup, so the schema is ready the first
-time the API boots.
-
-## 3. Open the app
-
-Visit **http://localhost:3000** and register the first account. The first user
-becomes the instance **owner** — the only role that can reach the admin panel,
-the job queue dashboard, registration policy, and ML-model selection.
-
-:::tip
-The AI features (faces, objects, audio events, transcription) run **asynchronously**.
-Upload a few photos or a short video, then watch the job queue in the admin
-panel work through detection — no GPU required.
-:::
-
-## 4. Infrastructure only (optional)
-
-To run Postgres and Dragonfly in Docker but the apps from source:
-
-```sh
-docker compose up -d postgres dragonfly
-```
-
-Then start each side from its own directory:
-
-```sh
-# Backend (from backend/)
-go run cmd/server/main.go
-
-# Frontend (from frontend/)
-bun install
-bun run dev
-```
+Then log in at http://localhost:3000 as `test@alcoves.io` / `password123`
+(the seeded owner account — the demo data means you do *not* register a first
+account here).
 
 ## Next steps
 
-- [Configuration](/getting-started/configuration/) — every `ALCOVES_*` knob.
-- [Architecture overview](/architecture/overview/) — how the pieces fit together.
-- [Privacy & local AI](/concepts/privacy-and-local-ai/) — how inference stays on your box.
+- [Configuration](/getting-started/configuration/) — the environment variables that matter.
+- [Deploying Alcoves](/self-hosting/deploying-alcoves/) — production setups, Helm, operations.
+- [Privacy & local AI](/concepts/privacy-and-local-ai/) — what runs locally and what doesn't.
