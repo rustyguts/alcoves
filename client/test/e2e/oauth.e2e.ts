@@ -8,8 +8,13 @@ import { login } from './helpers/auth';
 // plus the profile "Connected apps" surface.
 
 // A loopback redirect keeps the post-approval navigation on the local origin
-// (the backend permits http only for loopback hosts).
-const REDIRECT_URI = 'http://localhost:3000/oauth-test-callback';
+// (the backend permits http only for loopback hosts). Derived from the suite's
+// base URL — Playwright's default webServer runs the production build on
+// :4173, while E2E_BASE_URL points at an already-running stack (e.g. :3000) —
+// so the callback navigation always lands on whichever server is actually up.
+const APP_ORIGIN = process.env.E2E_BASE_URL ?? 'http://localhost:4173';
+const REDIRECT_URI = new URL('/oauth-test-callback', APP_ORIGIN).toString();
+const REDIRECT_HOST = new URL(REDIRECT_URI).host;
 
 function pkce() {
 	const verifier = randomBytes(32).toString('base64url');
@@ -50,7 +55,7 @@ test.describe('MCP OAuth custom-connector flow (full stack)', () => {
 		await expect(page.getByText('Connect to Alcoves')).toBeVisible();
 		await expect(page.getByText(/Claude E2E wants to connect/)).toBeVisible();
 		// The real redirect host (with port) is surfaced so an impostor is spottable.
-		await expect(page.getByText('localhost:3000', { exact: true })).toBeVisible();
+		await expect(page.getByText(REDIRECT_HOST, { exact: true })).toBeVisible();
 
 		// Approve → the browser is sent back to the client's redirect with a code.
 		await page.getByRole('button', { name: /approve/i }).click();

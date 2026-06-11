@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('$env/dynamic/private', () => ({ env: { INTERNAL_API_URL: 'http://api.internal:3001' } }));
 
-import { GET, POST, OPTIONS } from './+server';
+import { GET, POST, DELETE, OPTIONS } from './+server';
 
 let captured: { url: string; init: RequestInit } | undefined;
 
@@ -108,5 +108,90 @@ describe('/api proxy', () => {
 		stubUpstream(new Response(null, { status: 304 }));
 		const res = await OPTIONS(makeEvent({ method: 'OPTIONS', path: 'tus' }));
 		expect(res.status).toBe(304);
+	});
+
+	// Browser-CSRF guard (replaces SvelteKit's global csrf.checkOrigin — see
+	// svelte.config.js). Form-encoded mutations are rejected only when the
+	// Origin header is present and cross-site; origin-less posts (curl, OAuth
+	// token exchanges) and same-origin posts pass through.
+	describe('cross-site form submission guard', () => {
+		it('rejects a form POST with a cross-site Origin without contacting upstream', async () => {
+			const upstream = stubUpstream(new Response('{}', { status: 200 }));
+			const res = await POST(
+				makeEvent({
+					method: 'POST',
+					path: 'libraries',
+					headers: {
+						'content-type': 'application/x-www-form-urlencoded',
+						origin: 'http://evil.example'
+					},
+					body: 'name=x'
+				})
+			);
+			expect(res.status).toBe(403);
+			expect(upstream).not.toHaveBeenCalled();
+		});
+
+		it('rejects multipart and text/plain cross-site mutations too (DELETE/PUT)', async () => {
+			const upstream = stubUpstream(new Response('{}', { status: 200 }));
+			const del = await DELETE(
+				makeEvent({
+					method: 'DELETE',
+					path: 'libraries/L',
+					headers: { 'content-type': 'text/plain', origin: 'http://evil.example' },
+					body: 'x'
+				})
+			);
+			expect(del.status).toBe(403);
+			expect(upstream).not.toHaveBeenCalled();
+		});
+
+		it('proxies an origin-less form POST (an OAuth token exchange)', async () => {
+			stubUpstream(
+				new Response('{"access_token":"t"}', {
+					status: 200,
+					headers: { 'content-type': 'application/json' }
+				})
+			);
+			const res = await POST(
+				makeEvent({
+					method: 'POST',
+					path: 'oauth/token',
+					headers: { 'content-type': 'application/x-www-form-urlencoded' },
+					body: 'grant_type=authorization_code'
+				})
+			);
+			expect(res.status).toBe(200);
+			expect(captured!.url).toBe('http://api.internal:3001/api/oauth/token');
+		});
+
+		it('proxies a same-origin form POST', async () => {
+			stubUpstream(new Response('{}', { status: 200 }));
+			const res = await POST(
+				makeEvent({
+					method: 'POST',
+					path: 'oauth/revoke',
+					headers: {
+						'content-type': 'application/x-www-form-urlencoded; charset=utf-8',
+						origin: 'http://localhost'
+					},
+					body: 'token=t'
+				})
+			);
+			expect(res.status).toBe(200);
+		});
+
+		it('does not block JSON mutations regardless of Origin (CORS territory, not form CSRF)', async () => {
+			stubUpstream(new Response('{}', { status: 200 }));
+			const res = await POST(
+				makeEvent({
+					method: 'POST',
+					path: 'libraries',
+					headers: { 'content-type': 'application/json', origin: 'http://evil.example' },
+					body: '{}'
+				})
+			);
+			expect(res.status).toBe(200);
+		});
 	});
 });
