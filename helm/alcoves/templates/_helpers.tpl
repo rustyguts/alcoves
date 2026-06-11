@@ -198,4 +198,12 @@ runs on install, upgrade, and template.
 {{- if and (eq .Values.deploymentMode "standalone") (gt (int .Values.standalone.replicaCount) 1) (eq .Values.storage.driver "local") (not (has "ReadWriteMany" .Values.storage.persistentVolume.accessModes)) -}}
 {{- fail "standalone.replicaCount > 1 with local storage requires a ReadWriteMany access mode (or storage.driver=s3)" -}}
 {{- end -}}
+{{- /* An autoscaling HPA needs at least one metric, or the API server rejects it. */ -}}
+{{- if eq .Values.deploymentMode "distributed" -}}
+{{- range $name, $as := dict "frontend" .Values.frontend.autoscaling "backend.api" .Values.backend.api.autoscaling "backend.worker" .Values.backend.worker.autoscaling -}}
+{{- if and $as.enabled (not $as.targetCPUUtilizationPercentage) (not $as.targetMemoryUtilizationPercentage) -}}
+{{- fail (printf "%s.autoscaling.enabled needs at least one of targetCPUUtilizationPercentage / targetMemoryUtilizationPercentage set (an HPA with no metrics is rejected by the API server)" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}

@@ -424,4 +424,5 @@ jobs:
             --set mcp.oauth.enabled=true \
             --set networkPolicy.enabled=true \
             --set frontend.autoscaling.enabled=true \
-            --set backend.api.autoscaling.enabled=true > /dev/null
+            --set backend.api.autoscaling.enabled=true \
+            --set backend.worker.autoscaling.enabled=true > /dev/null

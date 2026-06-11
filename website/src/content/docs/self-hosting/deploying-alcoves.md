@@ -159,7 +159,7 @@ prefixed `ALCOVES_`.
 
 | Variable | Description |
 |---|---|
-| `ALCOVES_SESSION_SECRET` | AES-GCM key for encrypted session cookies. **Must be ≥ 32 bytes.** The API refuses to start without this. Generate with `openssl rand -base64 32`. |
+| `ALCOVES_SESSION_SECRET` | Key for encrypted session cookies. Required — the API won't start without it. It's hashed into the AES-GCM key, so any non-empty value works; use a long random one, e.g. `openssl rand -base64 48`. |
 | `ALCOVES_DATABASE_URL` | PostgreSQL connection string. Must point to a pgvector-enabled database. |
 
 :::caution
