@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/alcoves/alcoves-backend/internal/services/modelfetch"
+	"github.com/alcoves/alcoves-backend/internal/services/onnxinit"
 	ort "github.com/yalue/onnxruntime_go"
 )
 
@@ -42,7 +43,7 @@ func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error
 		return nil, fmt.Errorf("failed to ensure object detection model: %w", err)
 	}
 
-	if err := initONNXRuntime(); err != nil {
+	if err := onnxinit.Ensure(); err != nil {
 		return nil, err
 	}
 

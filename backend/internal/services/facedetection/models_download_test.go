@@ -57,13 +57,5 @@ func TestEnsureModelsDownloaded_MkdirError(t *testing.T) {
 	}
 }
 
-// TestInitONNXRuntime ensures the once-guarded initializer runs without panicking.
-// It may succeed or fail depending on whether the ORT shared library is present;
-// either way the function must return idempotently.
-func TestInitONNXRuntime(t *testing.T) {
-	err1 := initONNXRuntime()
-	err2 := initONNXRuntime()
-	if (err1 == nil) != (err2 == nil) {
-		t.Errorf("initONNXRuntime not idempotent: %v vs %v", err1, err2)
-	}
-}
+// The once-guarded ONNX runtime initializer moved to
+// internal/services/onnxinit; its idempotence/concurrency tests live there.
