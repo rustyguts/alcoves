@@ -12,7 +12,7 @@ in the repository is the complete, always-current list.
 
 | Variable                 | Description                                                                  |
 | ------------------------ | ---------------------------------------------------------------------------- |
-| `ALCOVES_SESSION_SECRET` | Key for encrypted session cookies. **At least 32 bytes** — the API refuses to start without it. |
+| `ALCOVES_SESSION_SECRET` | Key for encrypted session cookies. Required — the API won't start without it. It's hashed into the encryption key, so any non-empty value works, but use a long random one (below). |
 | `ALCOVES_DATABASE_URL`   | PostgreSQL connection string. The database needs the pgvector extension.      |
 
 Generate a session secret with:
@@ -51,7 +51,7 @@ background pipeline independently — see
 | Variable                      | Default        | Description                                |
 | ----------------------------- | -------------- | ------------------------------------------ |
 | `ALCOVES_STORAGE_DRIVER`      | `local`        | Storage backend.                           |
-| `ALCOVES_STORAGE_PATH`        | `./data`       | Root path for uploaded files.              |
+| `ALCOVES_STORAGE_PATH`        | `./data`       | Base data directory. Uploaded files live under `{path}/files`. |
 | `ALCOVES_AVATAR_STORAGE_PATH` | `{path}/avatars` | Override path for avatars.               |
 | `ALCOVES_CACHE_STORAGE_PATH`  | `{path}/.cache`  | Override path for derived media (thumbnails, transcodes). |
 
