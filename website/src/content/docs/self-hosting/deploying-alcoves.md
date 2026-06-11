@@ -54,10 +54,12 @@ together:
 | PostgreSQL 18 + pgvector | 5432 | System of record. pgvector is required from the first migration (512-dim face embeddings). |
 | Dragonfly (Redis-compatible) | 6379 prod / 6389 dev | Backs the Asynq job queue and the cross-process activity pub/sub bus. |
 
-**Single-image quick start:** `docker run -p 3000:3000 ghcr.io/rustyguts/alcoves`
-runs the whole stack. SvelteKit serves the UI on `:3000` and proxies `/api/**`
-to the co-located Go API on `127.0.0.1:3001`, so a single published port is
-enough to get going.
+**Single container:** the image's default `all` role runs both processes in
+one container — it still needs PostgreSQL, the queue, and a session secret to
+boot (the [Quickstart](/getting-started/quickstart/) has a ready-made Compose
+file). SvelteKit serves the UI on `:3000` and proxies `/api/**` to the
+co-located Go API on `127.0.0.1:3001`, so a single published port is enough to
+get going.
 
 **Routing contract (production):** front the container with one reverse proxy.
 Route `/api/**` to the Go API on `:3001` and everything else (including the SSR
