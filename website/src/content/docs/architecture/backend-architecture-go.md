@@ -4,9 +4,10 @@ description: "How the Go API server boots, handles requests, manages async jobs,
 ---
 
 The Alcoves backend is a pure JSON API written in Go. It runs as a single binary
-against PostgreSQL, a Dragonfly/Redis-compatible queue, and either local or S3
-blob storage. It serves no HTML — the Nuxt frontend is a separate process that
-proxies `/api/**` and `/s/**` to this service.
+against PostgreSQL, a Dragonfly/Redis-compatible queue, and local blob storage
+(an S3 driver exists in the codebase but is not wired up yet). It serves no
+HTML — the SvelteKit frontend is a separate process that renders the UI and
+proxies same-origin `/api/**` requests to this service.
 
 If you are contributing a new feature, adding a service, or debugging a
 production issue, this page gives you the mental model you need: how the process
@@ -191,7 +192,7 @@ session:
 
 **Public paths (no session required):**
 - `/api/auth/{login,register,providers,logout,google,google/callback}`
-- `/api/_auth/session` (used by the Nuxt auth guard)
+- `/api/_auth/session` (used by the SvelteKit server to resolve the signed-in user)
 - `/api/share/**` (public moment share)
 - `/api/health`, `/api/version`, `/api/_meta/**`
 - `GET /api/invites/{token}` (invite lookup; the accept POST is guarded inside
@@ -234,7 +235,7 @@ the image/file proxy) call the access service directly and return **404** (not
 | `GET /api/health` | Health check — always available, always public |
 | `GET /api/version` | Build version, commit SHA, build time |
 | `/api/auth/**` | Login, register, logout, session, avatar, Google OAuth |
-| `/api/_auth/session` | Session validation for the Nuxt route guard |
+| `/api/_auth/session` | Session resolution for the SvelteKit server hooks |
 | `/api/libraries` | Library CRUD |
 | `/api/libraries/:id/**` | Files, folders, tags, moments, members, people, objects, downloads, notifications |
 | `/api/invites/**` | Invite lookup (public GET) and accept |
