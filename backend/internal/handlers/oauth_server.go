@@ -302,7 +302,7 @@ func (h *OAuthServerHandler) ListConnections(c echo.Context) error {
 	}
 	conns, err := h.oauth.ListConnections(c.Request().Context(), userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to list connections")
+		return internalError("failed to list connections", err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"connections": conns})
 }
@@ -317,7 +317,7 @@ func (h *OAuthServerHandler) RevokeConnection(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "clientId is required")
 	}
 	if err := h.oauth.RevokeConnection(c.Request().Context(), userID, clientID); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to revoke connection")
+		return internalError("failed to revoke connection", err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
