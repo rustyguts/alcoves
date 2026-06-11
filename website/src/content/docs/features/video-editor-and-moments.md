@@ -1,26 +1,28 @@
 ---
 title: "Video editor & moments"
-description: "Clip, export, and share highlights from any video with a zoomable timeline editor, smart highlight filters, and public share links."
+description: "Clip, export, and share highlights from any video with a multi-track timeline editor, frame-accurate transport controls, smart highlight filters, and public share links."
 ---
 
-The video editor turns any uploaded video into a workspace for clipping highlights. From a single page you can scrub a zoomable waveform timeline, mark named time ranges called **moments**, export each moment to a standalone MP4, and surface interesting segments automatically with **highlight filters** that match against the file's transcript and audio-event detections.
+The video editor turns any uploaded video (or audio file) into a workspace for clipping highlights. From a single page you can scrub a zoomable multi-track timeline, mark named time ranges called **moments**, split and snap clips, export each moment to a standalone MP4, and surface interesting segments automatically with **highlight filters** that match against the file's transcript and audio-event detections.
 
 ## Opening the editor
 
-Open any video in your library browser and choose **Open in editor** from the right-click menu, or navigate directly to a video's edit page. The editor remembers which folder you came from, so the Back button returns you exactly where you started.
+Open any video or audio file in your library browser and choose **Editor** from the right-click menu, or navigate directly to a file's edit page. The editor remembers which folder you came from, so the Back button returns you exactly where you started.
 
-The editor layout splits into two halves:
+The editor uses an NLE-style layout:
 
-- **Left** — a video player for playback and scrubbing.
-- **Right** — a moments list showing every clip you've created for the video.
+- **Top bar** — back navigation, the file's name and duration, and the local-inference job buttons (**Transcribe**, **Waveform**, and — once a transcript exists — **Detect audio**).
+- **Stage (left)** — a chrome-less video preview with a **transport bar** underneath: jump ±5s, ~1-frame stepping, play/pause, a live timecode, playback rate (0.25×–2×), loop-the-selected-moment, mute/volume, and fullscreen.
+- **Inspector (right)** — a tabbed panel: **Moments**, **Transcript**, **Highlights**, and **Audio**. The active tab and the panel's width (drag its left edge) are remembered between visits.
+- **Timeline (bottom, full width)** — the ruler, draggable moment bars, a merged **markers lane** showing highlight-filter matches in their filter colors, and the audio **waveform track**.
 
-Below both, a full-width **timeline** shows the waveform with draggable moment bars on top.
+On phones and small screens the same panels stack vertically — player, transport, timeline, then the inspector — and the page scrolls.
 
 ---
 
 ## Moments
 
-A **moment** is a named time range on a video. It has a start and end time (stored to millisecond precision), an optional description, and optional tags. Each moment can be independently exported, downloaded, and shared.
+A **moment** is a named time range on a video. It has a start and end time (stored to millisecond precision) and an optional description. Each moment can be independently exported, downloaded, and shared.
 
 ### Creating a moment
 
@@ -30,56 +32,75 @@ Press **M** (or **N**) to create a new moment at the current playhead position, 
 2. Scrub forward to where the highlight ends.
 3. Press **O** to set the out-point (end).
 
-You can also drag either edge of a moment bar on the timeline to resize it, or drag the bar body to shift it in time.
+You can also drag either edge of a moment bar on the timeline to resize it, or drag the bar body to shift it in time. With **snapping** enabled (the magnet button, or `G`), dragged edges snap onto other moments' edges and the playhead.
+
+A focused moment bar can also be nudged with the keyboard: **←**/**→** moves it about one frame, **Shift+←/→** moves it a full second.
+
+### Splitting a moment
+
+Park the playhead inside the selected moment and press **S** (or the scissors button in the timeline controls) to split it in two. The right-hand half gets a numbered name (`Clip` → `Clip (2)`) and becomes the selection. Splitting commits what you see — any unsaved drag edits to that moment are saved as part of the split.
 
 ### Editing a moment
 
-Click any moment in the list or on the timeline to select it. A form appears below the timeline where you can:
+Click any moment in the list or on the timeline to select it. The inspector switches to the Moments tab and shows an edit form where you can:
 
 - Rename the moment and add a description.
-- Type exact start/end times in seconds.
-- Apply or remove tags.
+- Type exact start/end times in seconds, snap either edge to the playhead, or jump the player to either edge.
 - Export, download, or share the moment.
 
-While you drag moment bars, edits appear **highlighted in orange** on the timeline to indicate unsaved changes. Click **Save changes** to commit all pending edits in one batch.
+While you drag moment bars, edits appear **highlighted in orange** on the timeline to indicate unsaved changes. Click **Save changes** to commit all pending edits in one batch (each saved moment automatically re-exports). Navigating away with unsaved drag edits asks for confirmation first.
 
 ### Keyboard shortcuts
 
 | Key | Action |
 |-----|--------|
+| `Space` or `K` | Toggle playback |
+| `J` / `L` or `←` / `→` | Jump back / forward 5 seconds |
+| `,` / `.` | Step back / forward ~1 frame |
+| `R` | Loop the selected moment |
 | `M` or `N` | Create a new moment |
 | `I` | Set in-point to current playhead |
 | `O` | Set out-point to current playhead |
-| `Space` | Toggle playback |
-| `Z` / `X` | Zoom in / out on the timeline |
+| `S` | Split the selected moment at the playhead |
+| `Delete` / `Backspace` | Delete the selected moment (with confirmation) |
+| `Z` or `+` / `X` or `-` | Zoom in / out on the timeline |
+| `F` | Zoom to fit |
 | `A` / `D` | Scroll the timeline left / right |
 | `C` | Center the timeline on the playhead |
+| `G` | Toggle snapping |
+| `←` / `→` on a focused bar | Nudge the moment ~1 frame (`Shift` = 1s) |
+| `?` | Open the keyboard reference |
 
-Shortcuts are disabled when focus is inside a text field. Press the **?** button in the editor header to open the full keyboard reference.
+Shortcuts are disabled while focus is inside a text field or while a dialog is open. Press the **keyboard** button in the editor top bar to open the full reference.
 
 ---
 
 ## The timeline
 
-The timeline is a zoomable, scrollable ruler with the waveform underneath and your moment bars on top.
+The timeline is a zoomable, scrollable multi-track strip: a tick ruler on top, your moment bars beneath it, a merged markers lane (when highlight filters have matches), and the audio waveform track at the bottom.
 
 ### Zoom and scroll
 
-- **Zoom range:** 1x to 50x. Use `Z`/`X` on the keyboard or hold Ctrl/Cmd and scroll the mouse wheel. Zoom preserves the position of whatever you're looking at — the playhead stays anchored on screen.
+- **Zoom range:** 1x to 50x. Use `Z`/`X`, the zoom buttons, or hold Ctrl/Cmd and scroll the mouse wheel. Zoom preserves the position of whatever you're looking at — the playhead stays anchored on screen. `F` (or the fit button) resets to the full file.
 - **Scroll:** use `A`/`D`, trackpad, or the scroll wheel. `C` snaps back to center on the playhead.
-- When zoomed in, the timeline auto-scrolls to keep the playhead visible during playback.
+- When zoomed in, the timeline auto-scrolls to keep the playhead visible during playback (but never while you're mid-drag).
+- **Scrubbing:** press and drag anywhere on the ruler or the waveform to scrub playback continuously.
 
 ### Waveform
 
-The waveform canvas renders the audio amplitude of the video as a mirror-image bar chart. It updates to show only the visible region, so it stays fast even on long videos. Click anywhere on the waveform to seek.
+The waveform track renders the audio amplitude as a mirror-image bar chart. It draws only the visible region, so it stays fast even on long videos at deep zoom. Click or drag on the waveform to seek.
 
 :::note
-The waveform must be generated before it appears. Click the **Waveform** button in the editor header to queue the generation job. This runs once per video and the result is stored for future visits.
+The waveform must be generated before it appears. Click the **Waveform** button in the editor top bar to queue the generation job. This runs once per video and the result is stored for future visits.
 :::
+
+### Markers lane
+
+Every highlight-filter match renders as a slim marker in the filter's color on a single merged lane — hover for the filter name, time, and evidence; click to seek. The lane appears automatically once any filter has matches.
 
 ### Moment status pills
 
-When a moment bar is wide enough, a status pill appears showing whether its export clip is `not processed`, `processing`, `ready`, or `failed`. A progress ring animates during encoding.
+When a moment bar is wide enough, a status pill appears showing whether its export clip is `Not processed`, `Processing`, `Processed`, or `Failed`. A progress ring animates during encoding.
 
 ---
 
@@ -87,21 +108,21 @@ When a moment bar is wide enough, a status pill appears showing whether its expo
 
 ### Export a moment
 
-Click **Export** in the moment edit form (or in the moments list). Alcoves queues an encoding job that:
+Click **Reprocess** in the moment edit form. Alcoves queues an encoding job that:
 
 1. Cuts the source video to the exact start/end times.
 2. Re-encodes to H.264 video and AAC audio, clamped to a maximum of 1080p, with a web-optimized MP4 container (`faststart`).
 3. Stores the result so future downloads are instant.
 
-Export progress and an estimated time remaining are shown in the status pill while encoding runs.
+Export progress and an estimated time remaining are shown in the edit form and the status pill while encoding runs.
 
 :::tip
-If you edit a moment's time range after exporting, the old export is automatically invalidated and the status resets. Export again to get a clip matching the new boundaries.
+If you edit a moment's time range after exporting, the old export is automatically invalidated and the status resets — the edit form shows an **Edited since export** chip. Export again to get a clip matching the new boundaries.
 :::
 
 ### Download a clip
 
-Once a moment's status shows **ready**, click **Download** to save the MP4 file. If the clip isn't exported yet, Alcoves queues the export and downloads it automatically as soon as encoding finishes — you don't need to wait on the page.
+Once a moment's status shows **ready**, click **Download** to save the MP4 file. If the clip isn't exported yet, Alcoves queues the export and — as long as you keep the editor open — starts the download automatically as soon as encoding finishes. The export job itself always survives navigation, so coming back later and clicking Download again is instant.
 
 ---
 
@@ -126,10 +147,10 @@ The video, thumbnail, and metadata are served without authentication. Only momen
 
 ## Highlight filters
 
-Highlight filters automatically surface interesting segments by matching against the video's **transcript** and **audio-event detections**. Results update instantly as data loads — the matching runs entirely in the browser with no extra round-trips.
+Highlight filters automatically surface interesting segments by matching against the video's **transcript** and **audio-event detections**. Results update instantly as data loads — the matching runs entirely in the browser with no extra round-trips. Matches appear both in the Highlights tab and as colored markers on the timeline.
 
 :::note
-Highlight filters require a transcript and/or audio detections for the video. Use the **Transcribe** and **Audio Detect** buttons in the editor header to generate these. See the [audio detection & transcription](/features/audio-detection-and-transcription/) page for details on how Alcoves runs these locally.
+Highlight filters require a transcript and/or audio detections for the video. Use the **Transcribe** button in the editor top bar to generate the transcript, then **Detect audio** (which appears once transcription completes). See the [audio detection & transcription](/features/audio-detection-and-transcription/) page for details on how Alcoves runs these locally.
 :::
 
 ### Writing a filter expression
@@ -183,12 +204,12 @@ Presets are a starting point — you can edit, rename, or delete any of them aft
 
 ---
 
-## Transcript and audio detections panels
+## Transcript and audio tabs
 
-The editor includes two additional panels beneath the timeline:
+The inspector includes two signal tabs alongside Moments and Highlights:
 
-**Transcript panel** — shows the full speech transcript as time-aligned cues. You can search the transcript to find specific words, and the active cue highlights as the video plays. A "Top words" tab shows the most frequent words in the transcript.
+**Transcript** — shows the full speech transcript as time-aligned cues. You can search the transcript to find specific words, and the active cue highlights as the video plays. A "Top words" tab shows the most frequent words in the transcript. If no transcript exists yet, the tab offers to run the transcription job directly.
 
-**Audio detections panel** — groups audio events by label (e.g., "Laughter", "Applause") and shows a timeline strip of every occurrence. Click any occurrence to seek to it.
+**Audio** — groups audio events by label (e.g., "Laughter", "Applause") and shows a timeline strip of every occurrence. Click any occurrence to seek to it. Audio detection requires a completed transcript first; the tab says so until one exists.
 
-Both panels are populated by the same AI jobs that power highlight filters. Run **Transcribe** and **Audio Detect** from the editor header to generate them. These jobs run locally on your server using CPU-only inference — no data leaves your instance.
+Both tabs are populated by the same AI jobs that power highlight filters. Run **Transcribe** and **Detect audio** from the editor top bar (or from the tabs' own empty states) to generate them. These jobs run locally on your server using CPU-only inference — no data leaves your instance.

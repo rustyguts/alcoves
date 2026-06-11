@@ -3,16 +3,16 @@ import { render } from 'vitest-browser-svelte';
 import MomentsList from './MomentsList.svelte';
 import type { Moment } from '$lib/types/api';
 
-function makeMoment(over: Partial<Moment>): Moment {
+function makeMoment(over: Partial<Moment> = {}): Moment {
 	return {
 		id: 'm1',
-		libraryId: 'lib1',
 		fileId: 'file1',
+		libraryId: 'lib1',
 		createdById: 'u1',
 		name: 'Clip',
 		description: '',
-		startSeconds: 0,
-		endSeconds: 1,
+		startSeconds: 1,
+		endSeconds: 2.5,
 		exportStatus: null,
 		exportProgress: null,
 		exportEtaSeconds: null,
@@ -23,16 +23,37 @@ function makeMoment(over: Partial<Moment>): Moment {
 		updatedAt: '',
 		tags: [],
 		...over
-	} as Moment;
+	};
+}
+
+function cards(container: ParentNode): HTMLElement[] {
+	return Array.from(container.querySelectorAll<HTMLElement>("[role='button']"));
 }
 
 describe('MomentsList', () => {
-	it('shows an empty state when there are no moments', () => {
+	it('shows the empty state when there are no moments', async () => {
 		const screen = render(MomentsList, { props: { moments: [], selectedId: null } });
-		expect(screen.container.textContent).toContain('No moments yet');
+		await expect.element(screen.getByText('No moments yet')).toBeInTheDocument();
+		expect(screen.container.textContent).toContain('Mark a time range to clip');
+		expect(screen.container.querySelector('[data-testid="moments-list"]')).toBeNull();
 	});
 
-	it('renders moments sorted by startSeconds with a count', () => {
+	it('fires oncreate from the New moment CTA', async () => {
+		const oncreate = vi.fn();
+		const screen = render(MomentsList, { props: { moments: [], selectedId: null, oncreate } });
+		await screen.getByRole('button', { name: /new moment/i }).click();
+		expect(oncreate).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not throw when the CTA fires without an oncreate callback', () => {
+		const screen = render(MomentsList, { props: { moments: [], selectedId: null } });
+		const cta = Array.from(screen.container.querySelectorAll('button')).find((b) =>
+			b.textContent?.includes('New moment')
+		)!;
+		expect(() => cta.click()).not.toThrow();
+	});
+
+	it('renders moments sorted by startSeconds', () => {
 		const screen = render(MomentsList, {
 			props: {
 				moments: [
@@ -46,18 +67,14 @@ describe('MomentsList', () => {
 		expect(items).toHaveLength(2);
 		expect(items[0]!.textContent).toContain('Early');
 		expect(items[1]!.textContent).toContain('Late');
-		expect(screen.container.querySelector('header')!.textContent).toContain('2');
 	});
 
-	it('shows the duration and range for a moment', () => {
+	it('shows the timecode range and clip length', () => {
 		const screen = render(MomentsList, {
-			props: {
-				moments: [makeMoment({ startSeconds: 1.2, endSeconds: 3.7 })],
-				selectedId: null
-			}
+			props: { moments: [makeMoment({ startSeconds: 1, endSeconds: 2.5 })], selectedId: null }
 		});
-		expect(screen.container.textContent).toContain('1.2s – 3.7s');
-		expect(screen.container.textContent).toContain('2.50s');
+		expect(screen.container.textContent).toContain('0:01.0 – 0:02.5');
+		expect(screen.container.textContent).toContain('1.50s');
 	});
 
 	it("falls back to 'Untitled' when a moment has no name", () => {
@@ -67,60 +84,93 @@ describe('MomentsList', () => {
 		expect(screen.container.textContent).toContain('Untitled');
 	});
 
-	it('fires onselect with the moment id on click', async () => {
+	it('fires onselect with the moment id on click', () => {
 		const onselect = vi.fn();
 		const screen = render(MomentsList, {
 			props: { moments: [makeMoment({ id: 'abc' })], selectedId: null, onselect }
 		});
-		screen.container.querySelector<HTMLElement>("[role='button']")!.click();
+		cards(screen.container)[0]!.click();
 		expect(onselect).toHaveBeenCalledTimes(1);
 		expect(onselect).toHaveBeenCalledWith('abc');
 	});
 
-	it('fires onselect when Enter is pressed on a moment card', async () => {
+	it.each([
+		['Enter', 'Enter'],
+		['Space', ' ']
+	])('selects and prevents default on %s keydown', (_label, key) => {
 		const onselect = vi.fn();
 		const screen = render(MomentsList, {
 			props: { moments: [makeMoment({ id: 'kbd' })], selectedId: null, onselect }
 		});
-		const card = screen.container.querySelector<HTMLElement>("[role='button']")!;
-		card.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+		cards(screen.container)[0]!.dispatchEvent(event);
 		expect(onselect).toHaveBeenCalledWith('kbd');
+		expect(event.defaultPrevented).toBe(true);
+	});
+
+	it('ignores unrelated keys on the card', () => {
+		const onselect = vi.fn();
+		const screen = render(MomentsList, {
+			props: { moments: [makeMoment()], selectedId: null, onselect }
+		});
+		const event = new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true });
+		cards(screen.container)[0]!.dispatchEvent(event);
+		expect(onselect).not.toHaveBeenCalled();
+		expect(event.defaultPrevented).toBe(false);
 	});
 
 	it.each([
-		['queued', 'queued'],
-		['ready', 'ready'],
-		['failed', 'failed']
-	] as const)('renders the %s status badge', (status, label) => {
-		const screen = render(MomentsList, {
-			props: { moments: [makeMoment({ exportStatus: status })], selectedId: null }
-		});
-		expect(screen.container.querySelector('.badge')!.textContent).toContain(label);
-	});
+		[null, null, '—', 'preset-tonal-surface'],
+		['queued', null, 'queued', 'preset-tonal-warning'],
+		['ready', null, 'ready', 'preset-tonal-success'],
+		['failed', null, 'failed', 'preset-tonal-error'],
+		['processing', null, 'processing', 'preset-tonal-warning'],
+		['processing', 42, '42%', 'preset-tonal-warning']
+	] as Array<[Moment['exportStatus'], number | null, string, string]>)(
+		'renders the %s (progress %s) status badge as %s',
+		(exportStatus, exportProgress, label, preset) => {
+			const screen = render(MomentsList, {
+				props: { moments: [makeMoment({ exportStatus, exportProgress })], selectedId: null }
+			});
+			const badge = screen.container.querySelector('.badge')!;
+			expect(badge.textContent!.trim()).toBe(label);
+			expect(badge.className).toContain(preset);
+		}
+	);
 
-	it('renders processing progress percentage when available', () => {
+	it('highlights the selected moment card and not its siblings', () => {
 		const screen = render(MomentsList, {
 			props: {
-				moments: [makeMoment({ exportStatus: 'processing', exportProgress: 42 })],
-				selectedId: null
+				moments: [
+					makeMoment({ id: 'sel' }),
+					makeMoment({ id: 'other', startSeconds: 5, endSeconds: 6 })
+				],
+				selectedId: 'sel'
 			}
 		});
-		expect(screen.container.textContent).toContain('42%');
+		const [selected, other] = cards(screen.container);
+		expect(selected!.className).toContain('preset-tonal-primary');
+		expect(selected!.className).toContain('ring-primary-500');
+		expect(other!.className).toContain('preset-tonal-surface');
+		expect(other!.className).not.toContain('preset-tonal-primary');
 	});
 
-	it('renders a dash when there is no export status', () => {
+	it('fires onjumpto from the Jump button without selecting (stopPropagation)', async () => {
+		const onselect = vi.fn();
+		const onjumpto = vi.fn();
 		const screen = render(MomentsList, {
-			props: { moments: [makeMoment({ exportStatus: null })], selectedId: null }
+			props: { moments: [makeMoment({ id: 'jmp' })], selectedId: null, onselect, onjumpto }
 		});
-		expect(screen.container.querySelector('.badge')!.textContent).toContain('—');
+		await screen.getByRole('button', { name: 'Jump to start of Clip', exact: true }).click();
+		expect(onjumpto).toHaveBeenCalledWith('jmp');
+		expect(onselect).not.toHaveBeenCalled();
 	});
 
-	it('highlights the selected moment', () => {
-		const screen = render(MomentsList, {
-			props: { moments: [makeMoment({ id: 'sel' })], selectedId: 'sel' }
-		});
-		const card = screen.container.querySelector<HTMLElement>("[role='button']")!;
-		expect(card.className).toContain('ring-primary-500');
-		expect(card.className).toContain('preset-tonal-primary');
+	it('is safe to interact without onselect/onjumpto callbacks', () => {
+		const screen = render(MomentsList, { props: { moments: [makeMoment()], selectedId: null } });
+		expect(() => {
+			cards(screen.container)[0]!.click();
+			screen.container.querySelector<HTMLButtonElement>("[title='Jump to start']")!.click();
+		}).not.toThrow();
 	});
 });

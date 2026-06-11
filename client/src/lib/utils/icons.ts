@@ -101,6 +101,21 @@ export const ICONS = {
 	keyboard: 'lineicons:keyboard',
 	save: 'lineicons:save',
 
+	// — Editor transport & timeline —
+	pause: 'lineicons:pause',
+	split: 'lineicons:scissors-1-vertical',
+	snap: 'lineicons:magnet',
+	zoomIn: 'lineicons:zoom-in',
+	zoomOut: 'lineicons:zoom-out',
+	zoomFit: 'lineicons:frame-expand',
+	loop: 'lineicons:reload', // no dedicated repeat glyph in Lineicons
+	jumpBack: 'lineicons:angle-double-left',
+	jumpForward: 'lineicons:angle-double-right',
+	volumeOn: 'lineicons:volume-high',
+	volumeOff: 'lineicons:volume-mute',
+	fullscreen: 'lineicons:full-screen',
+	marker: 'lineicons:flag',
+
 	// — Notifications & activity —
 	bell: 'lineicons:bell-1',
 	fileCreated: 'lineicons:file-plus-circle',

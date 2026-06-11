@@ -896,7 +896,7 @@
 				{ label: 'Download', icon: ICONS.download, onSelect: () => downloadFiles([entry.id]) },
 				{ label: 'Move', icon: ICONS.move, onSelect: () => openMoveFilesModal([entry.id]) },
 				{ label: 'Rename', icon: ICONS.edit, onSelect: () => startEntryRename(entry) },
-				...(entry.mimeType.startsWith('video/')
+				...(entry.mimeType.startsWith('video/') || entry.mimeType.startsWith('audio/')
 					? [
 							{
 								label: 'Editor',

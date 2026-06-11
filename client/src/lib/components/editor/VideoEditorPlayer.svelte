@@ -1,30 +1,31 @@
 <script lang="ts">
 	/**
-	 * VideoEditorPlayer — Vidstack-backed video surface for the editor.
+	 * VideoEditorPlayer — chrome-less Vidstack surface for the editor.
+	 *
+	 * The editor renders NO on-video controls: the TransportBar below the stage
+	 * is the single control surface, so this component is just the media frame —
+	 * `<media-player>` + `<media-provider>` with no layout element. Clicking the
+	 * frame toggles play (Space does the same via the global shortcut map).
 	 *
 	 * The Vidstack runtime touches `window`/custom-element registration, so the
 	 * player modules are dynamically imported inside `onMount` (guarded by
-	 * `browser`) and never run during SSR. Svelte renders the `media-*` custom
-	 * elements natively — no extra config needed.
+	 * `browser`) and never run during SSR. The surface is letterboxed inside a
+	 * 16:9 frame whose pixel size is measured by a ResizeObserver, so vertical/
+	 * square/odd sources fit without clipping or stretching.
 	 *
-	 * The player surface is letterboxed inside a 16:9 frame whose pixel size is
-	 * measured by a ResizeObserver, so vertical/square/odd sources fit without
-	 * clipping or stretching. Player time/duration/pause changes are surfaced via
-	 * callback props; `seek`/`togglePlay` are exported for `bind:this` (and also
-	 * handed out through `oncontroller`).
+	 * State flows out via callback props (time/duration/paused/rate/volume); an
+	 * imperative controller — seek/togglePlay/play/pause/setRate/setMuted/
+	 * setVolume/enterFullscreen — is available both as bind:this exports and via
+	 * the `oncontroller` callback.
 	 */
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { browser } from '$app/environment';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import { api } from '$lib/api';
 	import { apiUrl } from '$lib/api';
 	import type { LibraryFile, PlaybackSource } from '$lib/types/api';
-
-	interface Controller {
-		seek: (seconds: number) => void;
-		togglePlay: () => void;
-	}
+	import type { PlaybackController } from '$lib/state/playback.svelte';
 
 	interface Props {
 		file: LibraryFile;
@@ -33,7 +34,9 @@
 		oncurrenttimeupdate?: (value: number) => void;
 		ondurationupdate?: (value: number) => void;
 		onpausedupdate?: (value: boolean) => void;
-		oncontroller?: (controller: Controller) => void;
+		onratechange?: (value: number) => void;
+		onvolumechange?: (volume: number, muted: boolean) => void;
+		oncontroller?: (controller: PlaybackController) => void;
 	}
 
 	let {
@@ -43,6 +46,8 @@
 		oncurrenttimeupdate,
 		ondurationupdate,
 		onpausedupdate,
+		onratechange,
+		onvolumechange,
 		oncontroller
 	}: Props = $props();
 
@@ -50,10 +55,22 @@
 		currentTime?: number;
 		duration?: number;
 		paused?: boolean;
+		playbackRate?: number;
+		muted?: boolean;
+		volume?: number;
 		play?: () => Promise<void>;
 		pause?: () => void;
+		enterFullscreen?: () => Promise<void>;
+		requestFullscreen?: () => Promise<void>;
 		subscribe?: (
-			cb: (state: { currentTime: number; duration: number; paused: boolean }) => void
+			cb: (state: {
+				currentTime: number;
+				duration: number;
+				paused: boolean;
+				playbackRate: number;
+				muted: boolean;
+				volume: number;
+			}) => void
 		) => () => void;
 	};
 
@@ -64,24 +81,24 @@
 
 	let currentTime = $state(0);
 	// Seed `duration` from the file's known duration (snapshot of the initial
-	// prop, mirroring the original `ref(file.duration ?? 0)`). Later changes flow
-	// through the file-duration `$effect` below, so capturing only the initial
-	// value here is intentional.
+	// prop). Later changes flow through the file-duration $effect below.
 	// svelte-ignore state_referenced_locally
 	let duration = $state(file.duration ?? 0);
 	let paused = $state(true);
+	let rate = $state(1);
+	let muted = $state(false);
+	let volume = $state(1);
 
-	// Aspect ratio of the frame box. Vidstack's default video layout draws
-	// chrome (controls, gradients) inside the player surface, so we letterbox
-	// the actual <video> via object-contain inside a 16:9 frame.
+	const isAudio = $derived(!!file.mimeType && file.mimeType.startsWith('audio/'));
+
+	// Letterbox the actual surface via object-contain inside a 16:9 frame.
 	const FRAME_ASPECT = 16 / 9;
 
-	// Outer container fills its grid cell; we then size an inner frame to the
-	// largest 16:9 box that fits inside that cell. Pure-CSS approaches with
-	// aspect-ratio + max-w/max-h end up either clipping or breaking the ratio
-	// when the cell is short and wide vs tall and narrow, so we measure with
-	// ResizeObserver and write px dimensions back to an inline style.
+	// Outer container fills its cell; the inner frame is sized to the largest
+	// 16:9 box that fits, measured with a ResizeObserver (pure-CSS approaches
+	// clip or break the ratio when the cell is short-and-wide vs tall-and-narrow).
 	let wrapperEl = $state<HTMLElement | null>(null);
+	let frameEl = $state<HTMLElement | null>(null);
 	let frameWidth = $state(0);
 	let frameHeight = $state(0);
 
@@ -92,11 +109,9 @@
 		const h = el.clientHeight;
 		if (!w || !h) return;
 		if (w / h > FRAME_ASPECT) {
-			// cell wider than 16:9 → height-bound, derive width
 			frameHeight = h;
 			frameWidth = h * FRAME_ASPECT;
 		} else {
-			// cell taller-or-equal to 16:9 → width-bound, derive height
 			frameWidth = w;
 			frameHeight = w / FRAME_ASPECT;
 		}
@@ -140,24 +155,36 @@
 
 	function attachPlayerListeners(el: VidstackPlayer) {
 		if (typeof el.subscribe === 'function') {
-			const unsub = el.subscribe(({ currentTime: ct, duration: d, paused: p }) => {
-				if (typeof ct === 'number' && ct !== currentTime) {
-					currentTime = ct;
-					oncurrenttimeupdate?.(ct);
+			const unsub = el.subscribe(
+				({ currentTime: ct, duration: d, paused: p, playbackRate: r, muted: m, volume: v }) => {
+					if (typeof ct === 'number' && ct !== currentTime) {
+						currentTime = ct;
+						oncurrenttimeupdate?.(ct);
+					}
+					if (typeof d === 'number' && Number.isFinite(d) && d > 0 && d !== duration) {
+						duration = d;
+						ondurationupdate?.(d);
+					}
+					if (typeof p === 'boolean' && p !== paused) {
+						paused = p;
+						onpausedupdate?.(p);
+					}
+					if (typeof r === 'number' && r > 0 && r !== rate) {
+						rate = r;
+						onratechange?.(r);
+					}
+					if ((typeof v === 'number' && v !== volume) || (typeof m === 'boolean' && m !== muted)) {
+						if (typeof v === 'number') volume = v;
+						if (typeof m === 'boolean') muted = m;
+						onvolumechange?.(volume, muted);
+					}
 				}
-				if (typeof d === 'number' && Number.isFinite(d) && d > 0 && d !== duration) {
-					duration = d;
-					ondurationupdate?.(d);
-				}
-				if (typeof p === 'boolean' && p !== paused) {
-					paused = p;
-					onpausedupdate?.(p);
-				}
-			});
+			);
 			unsubs = [unsub];
 			return;
 		}
 
+		// DOM-event fallback for environments without the state subscription.
 		const onTime = () => {
 			const ct = el.currentTime;
 			if (typeof ct === 'number') {
@@ -196,7 +223,10 @@
 		];
 	}
 
-	// (re)bind player listeners whenever the element or readiness changes.
+	// (re)bind player listeners whenever the element or readiness changes. The
+	// attach call is untracked: Vidstack's subscribe fires synchronously with
+	// the current state, and the callback reads the local $state diffs — left
+	// tracked, every media tick would tear down and rebuild the subscription.
 	$effect(() => {
 		const el = playerEl;
 		const ready = playerReady;
@@ -204,7 +234,7 @@
 			unsubs.forEach((fn) => fn());
 			unsubs = [];
 		}
-		if (el && ready) attachPlayerListeners(el as VidstackPlayer);
+		if (el && ready) untrack(() => attachPlayerListeners(el as VidstackPlayer));
 	});
 
 	// Re-emit duration when the file's own duration becomes available/changes.
@@ -223,9 +253,13 @@
 			resizeObserver.observe(wrapperEl);
 			recomputeFrame();
 		}
+		// Surface the seeded metadata duration immediately. The change guards
+		// below only emit on *difference*, and the media's real duration often
+		// equals the stored one exactly — without this initial emit the page
+		// would never learn the duration at all.
+		if (duration > 0) ondurationupdate?.(duration);
 		(async () => {
 			await import('vidstack/player');
-			await import('vidstack/player/layouts');
 			await import('vidstack/player/ui');
 			playerReady = true;
 			await refreshPlaybackSources();
@@ -244,6 +278,16 @@
 		if (el) el.currentTime = Math.max(0, seconds);
 	}
 
+	export function play() {
+		const el = playerEl as VidstackPlayer | null;
+		void el?.play?.();
+	}
+
+	export function pause() {
+		const el = playerEl as VidstackPlayer | null;
+		el?.pause?.();
+	}
+
 	export function togglePlay() {
 		const el = playerEl as VidstackPlayer | null;
 		if (!el) return;
@@ -251,26 +295,65 @@
 		else el.pause?.();
 	}
 
-	// Hand the imperative controller to any parent that wants it without bind:this.
+	export function setRate(value: number) {
+		const el = playerEl as VidstackPlayer | null;
+		if (el) el.playbackRate = value;
+	}
+
+	export function setMuted(value: boolean) {
+		const el = playerEl as VidstackPlayer | null;
+		if (el) el.muted = value;
+	}
+
+	export function setVolume(value: number) {
+		const el = playerEl as VidstackPlayer | null;
+		if (el) el.volume = Math.min(1, Math.max(0, value));
+	}
+
+	export function enterFullscreen() {
+		const el = playerEl as VidstackPlayer | null;
+		if (!el) return;
+		if (typeof el.enterFullscreen === 'function') void el.enterFullscreen();
+		else if (typeof frameEl?.requestFullscreen === 'function') void frameEl.requestFullscreen();
+	}
+
+	// Hand the imperative controller to any parent that wants it without
+	// bind:this — only once the Vidstack element actually exists, so a transport
+	// click during the loading spinner can't silently no-op against a null el.
 	$effect(() => {
-		oncontroller?.({ seek, togglePlay });
+		if (!playerReady || !playerEl) return;
+		oncontroller?.({
+			seek,
+			togglePlay,
+			play,
+			pause,
+			setRate,
+			setMuted,
+			setVolume,
+			enterFullscreen
+		});
 	});
 </script>
 
 <!--
-	Outer wrapper fills its grid cell. ResizeObserver measures the cell's content
-	box on every layout change and writes pixel dimensions onto the inner frame so
-	the largest possible 16:9 box fits without clipping. The video itself uses
-	object-contain inside that frame so vertical / square / odd sources letterbox
-	instead of being cropped or stretched.
+	Outer wrapper fills its cell; the ResizeObserver writes pixel dimensions
+	onto the inner frame so the largest 16:9 box fits without clipping. The
+	video letterboxes via object-contain inside that frame. Clicking the frame
+	toggles play — keyboard users get the same via Space/K on the global keymap.
 -->
-<div bind:this={wrapperEl} class="relative flex w-full items-center justify-center">
+<div bind:this={wrapperEl} class="relative flex h-full w-full items-center justify-center">
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div
+		bind:this={frameEl}
 		class="relative flex items-center justify-center overflow-hidden rounded-lg bg-black"
 		style:width={frameWidth ? `${frameWidth}px` : '100%'}
 		style:height={frameHeight ? `${frameHeight}px` : 'auto'}
+		onclick={togglePlay}
 	>
 		{#if playerReady}
+			<!-- key-disabled: the editor owns ALL keyboard input — Vidstack's own
+			     keymap would otherwise hijack M (mute), I (PiP), F (fullscreen)
+			     whenever the player surface has focus. -->
 			<media-player
 				bind:this={playerEl}
 				class="player h-full w-full"
@@ -278,10 +361,18 @@
 				title={file.name}
 				crossorigin="use-credentials"
 				playsinline
+				key-disabled
 			>
 				<media-provider></media-provider>
-				<media-video-layout></media-video-layout>
 			</media-player>
+			{#if isAudio}
+				<div
+					class="pointer-events-none absolute inset-0 flex items-center justify-center"
+					data-testid="audio-backdrop"
+				>
+					<AppIcon name={ICONS.music} class="size-16 text-white/25" />
+				</div>
+			{/if}
 		{:else}
 			<div class="flex items-center justify-center py-16">
 				<AppIcon name={ICONS.loading} class="size-6 animate-spin text-white/60" />
@@ -300,8 +391,7 @@
 		--media-border-radius: 0;
 	}
 	/* Force the inner <video> to letterbox inside the frame regardless of source
-	 * aspect ratio. Vidstack's default fits to the player element (already 16:9),
-	 * but a vertical source would stretch without an explicit object-fit override. */
+	 * aspect ratio. */
 	.player :global(video) {
 		width: 100%;
 		height: 100%;
