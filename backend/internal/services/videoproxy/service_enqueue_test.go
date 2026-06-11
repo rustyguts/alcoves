@@ -52,12 +52,12 @@ func TestEnqueueExistingVideoThumbnails(t *testing.T) {
 
 	// Two source videos + one non-video + one derivative (source_file_id set) +
 	// one trashed video. Only the two active source videos should be queued.
-	v1 := models.File{ID: uuid.New(), LibraryID: libID, Name: "a.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
-	v2 := models.File{ID: uuid.New(), LibraryID: libID, Name: "b.mov", MimeType: "video/quicktime", OwnerID: &ownerID}
-	doc := models.File{ID: uuid.New(), LibraryID: libID, Name: "c.txt", MimeType: "text/plain", OwnerID: &ownerID}
-	deriv := models.File{ID: uuid.New(), LibraryID: libID, Name: "d.mp4", MimeType: "video/mp4", OwnerID: &ownerID, SourceFileID: uuidPtr(v1.ID)}
+	v1 := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "a.mp4", MimeType: "video/mp4", OwnerID: &ownerID}
+	v2 := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "b.mov", MimeType: "video/quicktime", OwnerID: &ownerID}
+	doc := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "c.txt", MimeType: "text/plain", OwnerID: &ownerID}
+	deriv := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "d.mp4", MimeType: "video/mp4", OwnerID: &ownerID, SourceFileID: uuidPtr(v1.ID)}
 	trashedAt := time.Now()
-	trashed := models.File{ID: uuid.New(), LibraryID: libID, Name: "e.mp4", MimeType: "video/mp4", OwnerID: &ownerID, TrashedAt: &trashedAt}
+	trashed := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "e.mp4", MimeType: "video/mp4", OwnerID: &ownerID, TrashedAt: &trashedAt}
 	for _, f := range []*models.File{&v1, &v2, &doc, &deriv, &trashed} {
 		if err := db.Create(f).Error; err != nil {
 			t.Fatalf("create file: %v", err)

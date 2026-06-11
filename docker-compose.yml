@@ -37,8 +37,18 @@ services:
       # Safe on every boot: it no-ops once any user exists. Local-dev only —
       # never set in real deployments, so real first-time setups are untouched.
       - ALCOVES_SEED=true
+      # Enable the MCP HTTP transport + OAuth 2.1 authorization server so the
+      # consent screen (/oauth/authorize) and profile "Connected apps" panel are
+      # exercisable (and e2e-testable) locally. Both are local-dev convenience
+      # toggles — real deployments opt in explicitly. Issuer is the dev front door.
+      - ALCOVES_MCP_HTTP_ENABLED=true
+      - ALCOVES_MCP_OAUTH_ENABLED=true
+      - ALCOVES_BASE_URL=http://localhost:3000
     env_file:
-      - .env
+      # Optional so the stack still comes up without a local .env (e.g. in CI,
+      # which writes a minimal one for the e2e job).
+      - path: .env
+        required: false
     volumes:
       - ./backend:/app
       # Mount the repo's .git directory so `go build`'s VCS detection
@@ -58,23 +68,22 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ./client
       dockerfile: Dockerfile.dev
     user: "${UID:-1000}:${GID:-1000}"
     environment:
-      - ALCOVES_API_URL=http://backend:3001
-      - NITRO_HOST=0.0.0.0
-      - NITRO_PORT=3000
+      # SSR load + the /api proxy route reach the co-located Go API here.
+      - INTERNAL_API_URL=http://backend:3001
       - HOME=/tmp
     volumes:
-      - ./frontend:/app
-      - frontend_node_modules:/app/node_modules
+      - ./client:/app
+      - client_node_modules:/app/node_modules
       # Anonymous volumes shadow the bind mount so host-side build artifacts
       # (generated when running bun dev/typecheck/playwright on the host)
       # never leak in — they bake host-absolute node_modules paths that don't
       # resolve inside the container and crash the dev server.
-      - /app/.nuxt
-      - /app/.output
+      - /app/.svelte-kit
+      - /app/build
     ports:
       - "3000:3000"
     depends_on:
@@ -94,4 +103,4 @@ volumes:
   postgres_data:
   go_mod_cache:
   go_build_cache:
-  frontend_node_modules:
+  client_node_modules:

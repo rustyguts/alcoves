@@ -2,10 +2,12 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -59,6 +61,19 @@ type Config struct {
 	MCPHTTPEnabled   bool
 	MCPSigningSecret string
 	MCPToken         string
+
+	// MCP OAuth 2.1 authorization server. When MCPOAuthEnabled is set, Alcoves
+	// acts as an OAuth 2.1 Authorization Server + Resource Server for /api/mcp,
+	// letting Claude's custom-connector dialog (and any spec-compliant remote
+	// MCP client) authenticate via a browser consent flow instead of a pasted
+	// PAT. The issuer is BaseURL; all endpoint URLs are derived from it.
+	// Requires MCPHTTPEnabled. Off by default. See docs/internal/mcp-oauth21-plan.md.
+	MCPOAuthEnabled              bool
+	MCPOAuthAccessTTL            time.Duration
+	MCPOAuthRefreshTTL           time.Duration
+	MCPOAuthCodeTTL              time.Duration
+	MCPOAuthDCREnabled           bool
+	MCPOAuthAllowedRedirectHosts []string
 
 	// ExtraCORSOrigins is an optional list of additional origins to allow in
 	// the CORS policy. Parsed from ALCOVES_EXTRA_CORS_ORIGINS (comma-separated).
@@ -179,6 +194,13 @@ func Load() (*Config, error) {
 		MCPSigningSecret: mcpSigningSecret,
 		MCPToken:         getEnv("ALCOVES_MCP_TOKEN", ""),
 
+		MCPOAuthEnabled:              getEnv("ALCOVES_MCP_OAUTH_ENABLED", "") == "true",
+		MCPOAuthAccessTTL:            parseDurationEnv("ALCOVES_MCP_OAUTH_ACCESS_TTL", time.Hour),
+		MCPOAuthRefreshTTL:           parseDurationEnv("ALCOVES_MCP_OAUTH_REFRESH_TTL", 30*24*time.Hour),
+		MCPOAuthCodeTTL:              parseDurationEnv("ALCOVES_MCP_OAUTH_CODE_TTL", 5*time.Minute),
+		MCPOAuthDCREnabled:           getEnv("ALCOVES_MCP_OAUTH_DCR_ENABLED", "true") != "false",
+		MCPOAuthAllowedRedirectHosts: parseCommaList(getEnv("ALCOVES_MCP_OAUTH_ALLOWED_REDIRECT_HOSTS", "")),
+
 		FaceDetectionMinScore:         faceMinScore,
 		FaceRecognitionMaxDistance:    faceMaxDist,
 		FaceRecognitionNeighborLookup: faceNeighborLookup,
@@ -216,7 +238,40 @@ func Load() (*Config, error) {
 		SentryTracesSampleRate: parseFloatEnv("ALCOVES_SENTRY_TRACES_SAMPLE_RATE", 0.2),
 	}
 
+	// The MCP OAuth authorization server publishes discovery documents whose
+	// issuer + endpoint URLs are all derived from BaseURL, and it has nothing to
+	// protect without the MCP HTTP transport. Fail fast on a misconfiguration
+	// rather than serving a self-inconsistent, half-broken OAuth surface.
+	if cfg.MCPOAuthEnabled {
+		if !cfg.MCPHTTPEnabled {
+			return nil, fmt.Errorf("ALCOVES_MCP_OAUTH_ENABLED requires ALCOVES_MCP_HTTP_ENABLED=true (the OAuth resource server protects the MCP HTTP transport)")
+		}
+		if err := validateOAuthIssuer(cfg.BaseURL, cfg.Environment); err != nil {
+			return nil, err
+		}
+	}
+
 	return cfg, nil
+}
+
+// validateOAuthIssuer checks that BaseURL is a usable OAuth 2.1 issuer: an
+// absolute URL with a host, no query/fragment, and https in production (it is
+// advertised to remote clients and must match the origin they discover).
+func validateOAuthIssuer(baseURL, environment string) error {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return fmt.Errorf("ALCOVES_BASE_URL must be a valid URL when ALCOVES_MCP_OAUTH_ENABLED=true: %w", err)
+	}
+	if !u.IsAbs() || u.Host == "" {
+		return fmt.Errorf("ALCOVES_BASE_URL must be an absolute URL with a host when OAuth is enabled (it is the OAuth issuer), got %q", baseURL)
+	}
+	if u.Fragment != "" || u.RawQuery != "" {
+		return fmt.Errorf("ALCOVES_BASE_URL must not contain a query or fragment when OAuth is enabled, got %q", baseURL)
+	}
+	if environment == "production" && u.Scheme != "https" {
+		return fmt.Errorf("ALCOVES_BASE_URL must use https in production (it is the public OAuth issuer), got %q", baseURL)
+	}
+	return nil
 }
 
 func getEnv(key, fallback string) string {
@@ -235,6 +290,17 @@ func parseFloatEnv(key string, fallback float64) float64 {
 
 func parseIntEnv(key string, fallback int) int {
 	if v, err := strconv.Atoi(os.Getenv(key)); err == nil {
+		return v
+	}
+	return fallback
+}
+
+// parseDurationEnv parses a Go duration string (e.g. "1h", "30m", "720h") from
+// the environment, falling back when unset, unparseable, or non-positive. A
+// zero/negative TTL would mint born-expired codes and tokens, so it is rejected
+// in favor of the (always positive) default.
+func parseDurationEnv(key string, fallback time.Duration) time.Duration {
+	if v, err := time.ParseDuration(os.Getenv(key)); err == nil && v > 0 {
 		return v
 	}
 	return fallback

@@ -34,71 +34,75 @@ func (s *seeder) seedFamily(lib *models.Library, admin, alice, bob *models.User)
 	s.tagFolder(beach.ID, tBeach.ID)
 
 	// Files — photos with capture time + GPS so Timeline/Map have content.
+	// Capture dates are deliberately spread across ~2 years (three calendar
+	// years) so the timeline's date scrubber has multiple year/month buckets to
+	// render in local dev. "Beach 2025" / "Vacations" photos stay in 2025 to
+	// match their folder names.
 	beachF := s.addFile(fileSpec{
 		idName: "file/family/beach", lib: lib.ID, parent: up(beach.ID), owner: admin.ID,
 		name: "beach-sunset.jpg", assetRel: "images/beach-sunset.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(108 * day)), gpsLat: fp(34.0089), gpsLon: fp(-118.4973),
-		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(108 * day),
+		capturedAt: tp(s.ago(330 * day)), gpsLat: fp(34.0089), gpsLon: fp(-118.4973),
+		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(330 * day),
 	})
 	lakeF := s.addFile(fileSpec{
 		idName: "file/family/lake", lib: lib.ID, parent: up(beach.ID), owner: admin.ID,
 		name: "mountain-lake.jpg", assetRel: "images/mountain-lake.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(106 * day)), gpsLat: fp(39.0968), gpsLon: fp(-120.0324),
-		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(106 * day),
+		capturedAt: tp(s.ago(325 * day)), gpsLat: fp(39.0968), gpsLon: fp(-120.0324),
+		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(325 * day),
 	})
 	desertF := s.addFile(fileSpec{
 		idName: "file/family/desert", lib: lib.ID, parent: up(vacations.ID), owner: alice.ID,
 		name: "desert-dunes.jpg", assetRel: "images/desert-dunes.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(70 * day)), gpsLat: fp(33.8734), gpsLon: fp(-115.9010),
-		cameraMake: canon, camera: canonModel, createdAt: s.ago(70 * day),
+		capturedAt: tp(s.ago(300 * day)), gpsLat: fp(33.8734), gpsLon: fp(-115.9010),
+		cameraMake: canon, camera: canonModel, createdAt: s.ago(300 * day),
 	})
 	vacVideo := s.addFile(fileSpec{
 		idName: "file/family/vacation-video", lib: lib.ID, parent: up(vacations.ID), owner: admin.ID,
 		name: "vacation-recap.mp4", assetRel: "videos/vacation-recap.mp4", mime: "video/mp4",
 		width: 1280, height: 720, duration: 5, thumbAsset: "thumbs/vacation-recap.webp",
-		capturedAt: tp(s.ago(69 * day)), gpsLat: fp(33.8740), gpsLon: fp(-115.9020),
-		createdAt: s.ago(69 * day),
+		capturedAt: tp(s.ago(298 * day)), gpsLat: fp(33.8740), gpsLon: fp(-115.9020),
+		createdAt: s.ago(298 * day),
 	})
 	familyPortrait := s.addFile(fileSpec{
 		idName: "file/family/portrait", lib: lib.ID, parent: up(birthdays.ID), owner: admin.ID,
 		name: "family-portrait.jpg", assetRel: "images/family-portrait.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(90 * day)), cameraMake: canon, camera: canonModel, createdAt: s.ago(90 * day),
+		capturedAt: tp(s.ago(420 * day)), cameraMake: canon, camera: canonModel, createdAt: s.ago(420 * day),
 	})
 	birthdayParty := s.addFile(fileSpec{
 		idName: "file/family/birthday", lib: lib.ID, parent: up(birthdays.ID), owner: alice.ID,
 		name: "birthday-party.jpg", assetRel: "images/birthday-party.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(60 * day)), cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(60 * day),
+		capturedAt: tp(s.ago(560 * day)), cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(560 * day),
 	})
 	// Root-level photos
 	cityF := s.addFile(fileSpec{
 		idName: "file/family/city", lib: lib.ID, owner: admin.ID,
 		name: "city-skyline.jpg", assetRel: "images/city-skyline.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(50 * day)), gpsLat: fp(37.7749), gpsLon: fp(-122.4194),
-		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(50 * day),
+		capturedAt: tp(s.ago(40 * day)), gpsLat: fp(37.7749), gpsLon: fp(-122.4194),
+		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(40 * day),
 	})
 	dogF := s.addFile(fileSpec{
 		idName: "file/family/dog", lib: lib.ID, owner: admin.ID,
 		name: "golden-retriever.jpg", assetRel: "images/golden-retriever.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(45 * day)), gpsLat: fp(37.7690), gpsLon: fp(-122.4830),
-		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(45 * day),
+		capturedAt: tp(s.ago(120 * day)), gpsLat: fp(37.7690), gpsLon: fp(-122.4830),
+		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(120 * day),
 	})
 	cafeF := s.addFile(fileSpec{
 		idName: "file/family/cafe", lib: lib.ID, owner: bob.ID,
 		name: "street-cafe.jpg", assetRel: "images/street-cafe.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(40 * day)), gpsLat: fp(37.7600), gpsLon: fp(-122.4350),
-		cameraMake: canon, camera: canonModel, createdAt: s.ago(40 * day),
+		capturedAt: tp(s.ago(200 * day)), gpsLat: fp(37.7600), gpsLon: fp(-122.4350),
+		cameraMake: canon, camera: canonModel, createdAt: s.ago(200 * day),
 	})
 	bikeF := s.addFile(fileSpec{
 		idName: "file/family/bike", lib: lib.ID, owner: admin.ID,
 		name: "mountain-bike.jpg", assetRel: "images/mountain-bike.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(30 * day)), gpsLat: fp(39.1900), gpsLon: fp(-106.8175),
-		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(30 * day),
+		capturedAt: tp(s.ago(620 * day)), gpsLat: fp(39.1900), gpsLon: fp(-106.8175),
+		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(620 * day),
 	})
 	forestF := s.addFile(fileSpec{
 		idName: "file/family/forest", lib: lib.ID, owner: admin.ID,
 		name: "forest-trail.jpg", assetRel: "images/forest-trail.jpg", mime: "image/jpeg",
-		capturedAt: tp(s.ago(20 * day)), gpsLat: fp(37.8970), gpsLon: fp(-122.5811),
-		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(20 * day),
+		capturedAt: tp(s.ago(720 * day)), gpsLat: fp(37.8970), gpsLon: fp(-122.5811),
+		cameraMake: iphone, camera: iphoneModel, createdAt: s.ago(720 * day),
 	})
 
 	// Tags on files

@@ -59,11 +59,11 @@ func (h *MemberHandler) ListUsers(c echo.Context) error {
 	// Get owner
 	var library models.Library
 	if err := h.db.Select("owner_id").Where("id = ?", libraryID).First(&library).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load library")
+		return internalError("Failed to load library", err)
 	}
 	var owner models.User
 	if err := h.db.Select("id, email, display_name, avatar_url").Where("id = ?", library.OwnerID).First(&owner).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load library owner")
+		return internalError("Failed to load library owner", err)
 	}
 
 	// Build member list with owner first
@@ -242,10 +242,10 @@ func (h *MemberHandler) RemoveMember(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Member not found")
 	}
 
-	if h.activitySvc != nil {
+	{
 		libUUID, _ := uuid.Parse(libraryID)
 		actor := userID
-		h.activitySvc.EmitAsync(activity.EmitParams{
+		emitActivity(h.activitySvc, activity.EmitParams{
 			LibraryID:   libUUID,
 			ActorID:     &actor,
 			Action:      activity.ActionMemberRemoved,
@@ -297,7 +297,7 @@ func (h *MemberHandler) CreateInviteLink(c echo.Context) error {
 	}
 
 	if err := h.db.Create(&invite).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create invite")
+		return internalError("Failed to create invite", err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

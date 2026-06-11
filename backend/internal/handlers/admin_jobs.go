@@ -37,7 +37,7 @@ func (h *AdminJobsHandler) Stats(c echo.Context) error {
 
 	queueStats, _, err := h.buildSnapshot(100)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load queue stats")
+		return internalError("Failed to load queue stats", err)
 	}
 
 	result := map[string]interface{}{}
@@ -62,7 +62,7 @@ func (h *AdminJobsHandler) ListJobs(c echo.Context) error {
 	queue := c.Param("queueName")
 	jobs, err := h.listJobsForQueue(queue, 200)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to list jobs")
+		return internalError("Failed to list jobs", err)
 	}
 
 	return c.JSON(http.StatusOK, jobs)

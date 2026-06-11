@@ -130,7 +130,7 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		h.fail(fileID, fmt.Errorf("marshal waveform: %w", err))
 		return err
 	}
-	cacheKey := fmt.Sprintf("%s/%s/waveform.json", libraryID, fileID)
+	cacheKey := storage.WaveformKey(libraryID, fileID)
 	if err := h.storage.StoreCacheBuffer(cacheKey, jsonBytes); err != nil {
 		h.fail(fileID, fmt.Errorf("store waveform cache: %w", err))
 		return err
@@ -289,7 +289,7 @@ func (h *TaskHandler) storeEmptyWaveform(libraryID, fileID string) {
 		"sampleRate":     sampleRateHz,
 	}
 	jsonBytes, _ := json.Marshal(data)
-	cacheKey := fmt.Sprintf("%s/%s/waveform.json", libraryID, fileID)
+	cacheKey := storage.WaveformKey(libraryID, fileID)
 	_ = h.storage.StoreCacheBuffer(cacheKey, jsonBytes)
 }
 

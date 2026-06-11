@@ -11,6 +11,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/middleware"
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
+	"github.com/alcoves/alcoves-backend/internal/services/files"
 )
 
 type FolderHandler struct {
@@ -40,7 +41,7 @@ func (h *FolderHandler) List(c echo.Context) error {
 		Where("library_id = ? AND trashed_at IS NULL", libraryID).
 		Order("created_at ASC").
 		Find(&folders).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch folders")
+		return internalError("Failed to fetch folders", err)
 	}
 
 	response := make([]map[string]interface{}, 0, len(folders))
@@ -97,26 +98,24 @@ func (h *FolderHandler) Create(c echo.Context) error {
 	}
 
 	if err := h.db.Create(&folder).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create folder")
+		return internalError("Failed to create folder", err)
 	}
 	if err := h.db.Preload("Owner").Where("id = ?", folder.ID).First(&folder).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folder")
+		return internalError("Failed to load folder", err)
 	}
 
-	if h.activitySvc != nil {
-		aid := userID
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   libraryID,
-			ActorID:     &aid,
-			Action:      activity.ActionFolderCreated,
-			SubjectType: activity.SubjectFolder,
-			SubjectID:   &folder.ID,
-			Metadata: map[string]any{
-				"name":           folder.Name,
-				"parentFolderId": parentFolderID,
-			},
-		})
-	}
+	aid := userID
+	emitActivity(h.activitySvc, activity.EmitParams{
+		LibraryID:   libraryID,
+		ActorID:     &aid,
+		Action:      activity.ActionFolderCreated,
+		SubjectType: activity.SubjectFolder,
+		SubjectID:   &folder.ID,
+		Metadata: map[string]any{
+			"name":           folder.Name,
+			"parentFolderId": parentFolderID,
+		},
+	})
 
 	return c.JSON(http.StatusOK, folderToJSON(&folder))
 }
@@ -198,10 +197,10 @@ func (h *FolderHandler) Delete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Folder not found")
 	}
 
-	if h.activitySvc != nil {
+	{
 		actorID := middleware.GetUserID(c)
 		libUUID, _ := uuid.Parse(libraryID)
-		h.activitySvc.EmitAsync(activity.EmitParams{
+		emitActivity(h.activitySvc, activity.EmitParams{
 			LibraryID:   libUUID,
 			ActorID:     &actorID,
 			Action:      activity.ActionFolderDeleted,
@@ -214,7 +213,7 @@ func (h *FolderHandler) Delete(c echo.Context) error {
 	}
 
 	// Cascade soft-delete to descendant folders
-	descendantIDs := h.getDescendantFolderIDs(libraryID, folderID)
+	descendantIDs := files.DescendantFolderIDs(h.db, libraryID, folderID)
 	if len(descendantIDs) > 0 {
 		h.db.Model(&models.Folder{}).
 			Where("id IN ? AND trashed_at IS NULL", descendantIDs).
@@ -306,7 +305,7 @@ func (h *FolderHandler) Restore(c echo.Context) error {
 
 	// Also restore descendant folders and their files
 	for _, fid := range req.FolderIDs {
-		descendants := h.getDescendantFolderIDs(libraryID, fid)
+		descendants := files.DescendantFolderIDs(h.db, libraryID, fid)
 		if len(descendants) > 0 {
 			h.db.Model(&models.Folder{}).
 				Where("id IN ?", descendants).
@@ -319,36 +318,6 @@ func (h *FolderHandler) Restore(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]int64{"restored": result.RowsAffected})
-}
-
-func (h *FolderHandler) getDescendantFolderIDs(libraryID, rootFolderID string) []string {
-	var descendants []string
-	visited := map[string]bool{}
-	queue := []string{rootFolderID}
-
-	for len(queue) > 0 {
-		currentID := queue[0]
-		queue = queue[1:]
-		if visited[currentID] {
-			continue
-		}
-		visited[currentID] = true
-
-		var children []struct {
-			ID string `gorm:"column:id"`
-		}
-		h.db.Raw(
-			"SELECT id FROM folders WHERE library_id = ? AND parent_folder_id = ?",
-			libraryID, currentID,
-		).Scan(&children)
-
-		for _, child := range children {
-			descendants = append(descendants, child.ID)
-			queue = append(queue, child.ID)
-		}
-	}
-
-	return descendants
 }
 
 func (h *FolderHandler) assertMoveParentValid(libraryID, folderID, parentFolderID string) error {

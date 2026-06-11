@@ -95,6 +95,75 @@ E2e green. Watch for snapshot drift after Tailwind/font changes —
   unselectable.
 
 
+## 10. SvelteKit `client/` — restore dropped full-stack e2e flows (Testing) — OPEN
+
+- **What:** The SvelteKit rewrite (`client/`) ships a leaner Playwright suite than
+  the old Nuxt app had. The full-stack flows currently covered are **auth**
+  (`auth.e2e.ts`), **library browser** (`library.e2e.ts`), **public share**
+  (`share.e2e.ts`), and **admin owner-gating** (`admin.e2e.ts`). The unit suite is
+  comprehensive (≥90% line coverage, per-file 60% floor), so these gaps are
+  e2e-only — the underlying logic is unit-tested, but the real-stack golden path
+  isn't exercised end-to-end.
+- **Dropped vs. the old Nuxt flows** (`frontend/test/e2e/flows/`, now removed):
+  `editor` (timeline editor + moment export), `people-objects` (face grid + object
+  labels), `settings` (library settings + reprocess), `modals` (confirm/share/upload
+  dialogs), `notifications` (bell + WS/SSE feed), `profile` (avatar upload + profile
+  edit), `responsive` (mobile drawer / breakpoints), `search-invites` (cross-library
+  search + invite redemption). The old `screenshots` snapshot flow was also not
+  ported.
+- **Why now:** the rewrite landed with the four highest-value smokes green against
+  the seeded stack; the rest were deferred to keep the cutover PR reviewable. Each
+  is a straightforward port — `login()` helper + navigate + assert against seed data
+  (`backend/internal/seed`). Add them back incrementally.
+- **Effort:** S–M per flow (mostly selector/seed-data wiring; no new infra — the CI
+  `e2e` job already boots postgres + dragonfly + the Go API with `ALCOVES_SEED=true`).
+- **Risk:** Low — additive test coverage only.
+- **Files:** `client/test/e2e/*.e2e.ts`, `client/test/e2e/helpers/`.
+
+
+## 11. MCP OAuth 2.1 — deferred hardening (Security/Ops) — OPEN
+
+The OAuth authorization server (shipped in `feat/mcp-oauth`, gated by
+`ALCOVES_MCP_OAUTH_ENABLED`) closed its high/medium review findings in the same
+PR (loopback-spoof redirect bypass, RFC 8707 audience validation on both
+issue+validate sides, bearer-verifier error masking, startup fail-fast, refresh
+reuse cascading to access tokens, non-positive TTL clamp, scope normalization,
+atomic code consume+issue, consent `state` binding). These lower-severity items
+were consciously deferred:
+
+- **Public DCR has no rate-limit or client cap** — `POST /api/oauth/register`
+  mints an `oauth_clients` row per call with no throttle. Bounded-trust
+  deployment limits the blast radius, but pairs with item 1 (general rate
+  limiting). Files: `backend/internal/handlers/oauth_server.go`.
+- **No GC of expired/consumed/revoked OAuth rows** — `oauth_authorization_codes`
+  (consumed), `oauth_access_tokens`/`oauth_refresh_tokens` (expired/revoked)
+  accumulate forever; expired rows are logically rejected but never deleted. Add
+  a `Service.PurgeExpired(ctx)` swept by the existing maintenance loop
+  (`metadata.StartMaintenance`/`jobreaper` pattern in `main.go`).
+- **Consent token is stateless (not single-use)** — a captured consent token can
+  mint multiple codes within its 10-min window (each code is still independently
+  single-use + PKCE + redirect-bound). Track a server-side `jti` or bind it to
+  the issued code if true one-time semantics are wanted (plan S6).
+- **`grant_types` / `token_endpoint_auth_method` registered but not enforced** —
+  the token endpoint accepts any grant regardless of the client's registered
+  `grant_types`, and DCR silently downgrades a confidential-client request to
+  public (`none`) instead of `invalid_client_metadata`. Harmless for the single
+  public-client model; reject/enforce if multiple client types are introduced.
+- **Echo `Logger` logs the `/api/oauth/authorize` query string** (`state`,
+  `code_challenge` — both non-secret). No token/code is logged, but a Skipper
+  redacting `/api/oauth/*` + `/api/mcp` query strings is cheap defense-in-depth.
+- **No client-existence check on the refresh grant** — a refresh token survives
+  out-of-band deletion of its `oauth_clients` row until expiry (no in-app client
+  deletion path exists today). Look up the client in the token handler if one is
+  added.
+- **Migration `00025` is not exercised by a migration test** — the OAuth tests
+  build their schema via GORM `AutoMigrate`, so SQL/model drift in
+  `00025_oauth_mcp.sql` would go uncaught (existing repo-wide pattern).
+
+- **Effort:** S–M each. **Risk:** Low (feature is default-off, bounded-trust).
+- **Files:** `backend/internal/services/oauth/*`, `backend/internal/handlers/oauth_server.go`, `backend/cmd/server/main.go`.
+
+
 ---
 
 ## Completed

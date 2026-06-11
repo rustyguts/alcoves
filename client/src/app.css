@@ -1,0 +1,41 @@
+/* Tailwind 4 + Skeleton UI (v4) — CSS-first config, no tailwind.config. */
+@import 'tailwindcss';
+
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton/themes/cerberus';
+@import '@skeletonlabs/skeleton-svelte';
+
+/*
+ * Class-based dark mode. Skeleton's base uses `@variant dark`; by redefining the
+ * variant to match the `.dark` class we drive light/dark from a manual, persisted
+ * toggle (see $lib/state/theme.svelte.ts) instead of `prefers-color-scheme` alone.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html,
+body {
+	height: 100%;
+}
+
+/* App-wide niceties on top of the Skeleton theme. */
+body {
+	min-height: 100%;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+/*
+ * Layout conventions (keep the app visually consistent):
+ *
+ * - Full-height frame: the (app) shell is `h-dvh overflow-hidden`. Use the
+ *   DYNAMIC viewport unit (`dvh`/`svh`), never `vh`/`h-screen`, for any
+ *   full-height measure — the mobile URL bar otherwise clips the bottom.
+ * - Scrolling lives in the innermost `overflow-y-auto min-h-0 flex-1`. Every
+ *   flex ancestor between the frame and that scroller must carry `min-h-0`,
+ *   or the child can't shrink and content gets cut off.
+ * - Page padding: `p-4 sm:p-6`. Vertical section rhythm: `flex flex-col gap-4`.
+ *   Tight control rows: `gap-1.5`. Card padding scale: p-3 / p-4 / p-6 = the
+ *   Card primitive's sm / md / lg.
+ * - Buttons go through `ui/Button.svelte`; surfaces through `ui/Card.svelte` /
+ *   `ui/AppPanel.svelte`; icons through `ui/AppIcon.svelte` (default size-4).
+ */

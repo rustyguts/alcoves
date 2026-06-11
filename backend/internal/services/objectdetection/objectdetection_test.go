@@ -3,8 +3,6 @@ package objectdetection
 import (
 	"encoding/json"
 	"math"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -331,7 +329,7 @@ func TestService_NewTaskHandler(t *testing.T) {
 	}
 }
 
-// --- models.go: EnsureModelsDownloaded / downloadIfNeeded / doDownload ---
+// --- models.go: EnsureModelsDownloaded ---
 
 func TestEnsureModelsDownloaded_AlreadyPresent(t *testing.T) {
 	dir := t.TempDir()
@@ -346,142 +344,5 @@ func TestEnsureModelsDownloaded_AlreadyPresent(t *testing.T) {
 	}
 }
 
-func TestDownloadIfNeeded_SkipsWhenLargeEnough(t *testing.T) {
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	if err := os.WriteFile(dest, make([]byte, minModelSize+1), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// URL is bogus but should never be hit because file is large enough.
-	if err := downloadIfNeeded(dest, "http://127.0.0.1:1/never"); err != nil {
-		t.Fatalf("expected skip, got %v", err)
-	}
-}
-
-func TestDownloadIfNeeded_Non5xxErrorReturnsImmediately(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	err := downloadIfNeeded(dest, srv.URL)
-	if err == nil {
-		t.Fatal("expected error for 404")
-	}
-	if !strings.Contains(err.Error(), "404") {
-		t.Errorf("error = %v, want it to mention 404", err)
-	}
-}
-
-func TestDoDownload_HTMLResponseRejected(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("<html>LFS pointer</html>"))
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	err := doDownload(dest, srv.URL)
-	if err == nil || !strings.Contains(err.Error(), "HTML") {
-		t.Fatalf("expected HTML rejection, got %v", err)
-	}
-}
-
-func TestDoDownload_TooSmallRejected(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("tiny"))
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	err := doDownload(dest, srv.URL)
-	if err == nil || !strings.Contains(err.Error(), "too small") {
-		t.Fatalf("expected too-small rejection, got %v", err)
-	}
-	// tmp file must have been cleaned up
-	if _, statErr := os.Stat(dest + ".tmp"); !os.IsNotExist(statErr) {
-		t.Error("expected .tmp file to be removed")
-	}
-}
-
-func TestDoDownload_SuccessRenamesIntoPlace(t *testing.T) {
-	payload := make([]byte, minModelSize+100)
-	for i := range payload {
-		payload[i] = byte(i % 251)
-	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(payload)
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	if err := doDownload(dest, srv.URL); err != nil {
-		t.Fatalf("doDownload: %v", err)
-	}
-	info, err := os.Stat(dest)
-	if err != nil {
-		t.Fatalf("dest not created: %v", err)
-	}
-	if info.Size() != int64(len(payload)) {
-		t.Errorf("dest size = %d, want %d", info.Size(), len(payload))
-	}
-}
-
-func TestDoDownload_RequestErrorReturned(t *testing.T) {
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	// Unroutable address triggers an HTTP request failure.
-	err := doDownload(dest, "http://127.0.0.1:0/nope")
-	if err == nil {
-		t.Fatal("expected request error")
-	}
-}
-
-func TestDownloadIfNeeded_5xxRetriesThenFails(t *testing.T) {
-	// Server always returns 503; downloadIfNeeded retries (with backoff) and
-	// eventually gives up. We can't wait through real backoff for 6 attempts,
-	// so cap the test by routing through a server that returns a non-retryable
-	// status after the first hit is not possible — instead assert on the
-	// non-5xx fast path already covered. Here we only verify that the HTML/
-	// status helpers compose: a 500 once then 200 success.
-	hits := 0
-	payload := make([]byte, minModelSize+50)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits++
-		if hits == 1 {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(payload)
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	// First attempt 503 (transient) -> sleeps 1s backoff -> second attempt 200.
-	if err := downloadIfNeeded(dest, srv.URL); err != nil {
-		t.Fatalf("expected eventual success after retry, got %v", err)
-	}
-	if hits < 2 {
-		t.Errorf("expected at least 2 hits (retry), got %d", hits)
-	}
-}
-
-// --- onnx.go: initONNXRuntime ---
-
-func TestInitONNXRuntime_Idempotent(t *testing.T) {
-	// We can't guarantee a working ORT shared lib in CI, so we only assert
-	// the call is stable across invocations (same result each time) and does
-	// not panic. The sync.Once means the second call returns the cached error.
-	err1 := initONNXRuntime()
-	err2 := initONNXRuntime()
-	if (err1 == nil) != (err2 == nil) {
-		t.Errorf("initONNXRuntime not idempotent: %v then %v", err1, err2)
-	}
-}
+// The once-guarded ONNX runtime initializer moved to
+// internal/services/onnxinit; its idempotence/concurrency tests live there.

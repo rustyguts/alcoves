@@ -23,29 +23,20 @@ func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
 
 // User maps to the "users" table.
 type User struct {
-	ID                         uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	BaseModel
 	Email                      string     `gorm:"column:email;type:text;not null;uniqueIndex" json:"email"`
 	PasswordHash               *string    `gorm:"column:password_hash;type:text" json:"-"`
 	DisplayName                string     `gorm:"column:display_name;type:text;not null" json:"displayName"`
 	AvatarUrl                  *string    `gorm:"column:avatar_url;type:text" json:"avatarUrl"`
 	Role                       string     `gorm:"column:role;type:text;not null;default:member" json:"role"`
 	NotificationsClearedBefore *time.Time `gorm:"column:notifications_cleared_before" json:"-"`
-	CreatedAt                  time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt                  time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 }
 
 func (User) TableName() string { return "users" }
 
-func (u *User) BeforeCreate(tx *gorm.DB) error {
-	if u.ID == uuid.Nil {
-		u.ID = uuid.New()
-	}
-	return nil
-}
-
 // Library maps to the "libraries" table.
 type Library struct {
-	ID                     uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	BaseModel
 	Name                   string    `gorm:"column:name;type:text;not null" json:"name"`
 	Emoji                  *string   `gorm:"column:emoji;type:text" json:"emoji"`
 	IsDefault              bool      `gorm:"column:is_default;not null;default:false" json:"isDefault"`
@@ -53,31 +44,20 @@ type Library struct {
 	ObjectDetectionEnabled bool      `gorm:"column:object_detection_enabled;not null;default:false" json:"objectDetectionEnabled"`
 	SharingEnabled         bool      `gorm:"column:sharing_enabled;not null;default:false" json:"sharingEnabled"`
 	OwnerID                uuid.UUID `gorm:"column:owner_id;type:uuid;not null" json:"ownerId"`
-	CreatedAt              time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt              time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 
 	Owner *User `gorm:"foreignKey:OwnerID" json:"-"`
 }
 
 func (Library) TableName() string { return "libraries" }
 
-func (l *Library) BeforeCreate(tx *gorm.DB) error {
-	if l.ID == uuid.Nil {
-		l.ID = uuid.New()
-	}
-	return nil
-}
-
 // Folder maps to the "folders" table.
 type Folder struct {
-	ID             uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	BaseModel
 	LibraryID      uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:folders_library_trash_parent_name_idx" json:"libraryId"`
 	ParentFolderID *uuid.UUID `gorm:"column:parent_folder_id;type:uuid;index:folders_library_trash_parent_name_idx" json:"parentFolderId"`
 	OwnerID        *uuid.UUID `gorm:"column:owner_id;type:uuid;index:folders_owner_id_idx" json:"ownerId"`
 	Name           string     `gorm:"column:name;type:text;not null;index:folders_library_trash_parent_name_idx" json:"name"`
 	TrashedAt      *time.Time `gorm:"column:trashed_at;index:folders_library_trash_parent_name_idx" json:"trashedAt"`
-	CreatedAt      time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt      time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 
 	Library *Library `gorm:"foreignKey:LibraryID" json:"-"`
 	Owner   *User    `gorm:"foreignKey:OwnerID" json:"-"`
@@ -86,16 +66,9 @@ type Folder struct {
 
 func (Folder) TableName() string { return "folders" }
 
-func (f *Folder) BeforeCreate(tx *gorm.DB) error {
-	if f.ID == uuid.Nil {
-		f.ID = uuid.New()
-	}
-	return nil
-}
-
 // File maps to the "files" table.
 type File struct {
-	ID                       uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	BaseModel
 	LibraryID                uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:files_library_parent_trash_name_idx" json:"libraryId"`
 	ParentFolderID           *uuid.UUID `gorm:"column:parent_folder_id;type:uuid;index:files_library_parent_trash_name_idx" json:"parentFolderId"`
 	Name                     string     `gorm:"column:name;type:text;not null;index:files_library_parent_trash_name_idx" json:"name"`
@@ -149,8 +122,6 @@ type File struct {
 	OriginalCreatedAt        *time.Time `gorm:"column:original_created_at" json:"originalCreatedAt"`
 	Hash                     *string    `gorm:"column:hash;type:text" json:"hash"`
 	TrashedAt                *time.Time `gorm:"column:trashed_at;index:files_library_parent_trash_name_idx" json:"trashedAt"`
-	CreatedAt                time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt                time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 
 	Library *Library `gorm:"foreignKey:LibraryID" json:"-"`
 	Owner   *User    `gorm:"foreignKey:OwnerID" json:"-"`
@@ -159,31 +130,15 @@ type File struct {
 
 func (File) TableName() string { return "files" }
 
-func (f *File) BeforeCreate(tx *gorm.DB) error {
-	if f.ID == uuid.Nil {
-		f.ID = uuid.New()
-	}
-	return nil
-}
-
 // Tag maps to the "tags" table.
 type Tag struct {
-	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	BaseModel
 	LibraryID uuid.UUID `gorm:"column:library_id;type:uuid;not null;uniqueIndex:tags_library_name_idx;index:tags_library_color_idx" json:"libraryId"`
 	Name      string    `gorm:"column:name;type:text;not null;uniqueIndex:tags_library_name_idx" json:"name"`
 	Color     string    `gorm:"column:color;type:text;not null;index:tags_library_color_idx" json:"color"`
-	CreatedAt time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 }
 
 func (Tag) TableName() string { return "tags" }
-
-func (t *Tag) BeforeCreate(tx *gorm.DB) error {
-	if t.ID == uuid.Nil {
-		t.ID = uuid.New()
-	}
-	return nil
-}
 
 // FileTag maps to the "file_tags" junction table.
 type FileTag struct {
@@ -323,6 +278,104 @@ func (p *PersonalAccessToken) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+// OAuthClient is a remote MCP client registered via Dynamic Client Registration
+// (RFC 7591) — e.g. Claude's connector. Public clients (PKCE, no secret) only.
+// Array fields are stored as JSONB via GORM's json serializer.
+type OAuthClient struct {
+	ID                      uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	ClientID                string    `gorm:"column:client_id;type:text;not null;uniqueIndex" json:"clientId"`
+	ClientName              string    `gorm:"column:client_name;type:text;not null" json:"clientName"`
+	RedirectURIs            []string  `gorm:"column:redirect_uris;type:jsonb;serializer:json;not null" json:"redirectUris"`
+	GrantTypes              []string  `gorm:"column:grant_types;type:jsonb;serializer:json;not null" json:"grantTypes"`
+	Scope                   string    `gorm:"column:scope;type:text;not null;default:''" json:"scope"`
+	TokenEndpointAuthMethod string    `gorm:"column:token_endpoint_auth_method;type:text;not null;default:'none'" json:"tokenEndpointAuthMethod"`
+	RegistrationVia         string    `gorm:"column:registration_via;type:text;not null;default:'dcr'" json:"registrationVia"`
+	CreatedAt               time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (OAuthClient) TableName() string { return "oauth_clients" }
+
+func (c *OAuthClient) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == uuid.Nil {
+		c.ID = uuid.New()
+	}
+	return nil
+}
+
+// OAuthAuthorizationCode is a single-use authorization code (OAuth 2.1 + PKCE).
+// Only the SHA-256 hash is stored; bound to client/redirect/challenge/user.
+type OAuthAuthorizationCode struct {
+	ID                  uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	CodeHash            string     `gorm:"column:code_hash;type:text;not null;uniqueIndex" json:"-"`
+	ClientID            string     `gorm:"column:client_id;type:text;not null" json:"clientId"`
+	UserID              uuid.UUID  `gorm:"column:user_id;type:uuid;not null;index:oauth_authorization_codes_user_id_idx" json:"userId"`
+	RedirectURI         string     `gorm:"column:redirect_uri;type:text;not null" json:"redirectUri"`
+	CodeChallenge       string     `gorm:"column:code_challenge;type:text;not null" json:"-"`
+	CodeChallengeMethod string     `gorm:"column:code_challenge_method;type:text;not null;default:'S256'" json:"-"`
+	Scope               string     `gorm:"column:scope;type:text;not null;default:''" json:"scope"`
+	Resource            string     `gorm:"column:resource;type:text;not null;default:''" json:"resource"`
+	ExpiresAt           time.Time  `gorm:"column:expires_at;not null" json:"expiresAt"`
+	ConsumedAt          *time.Time `gorm:"column:consumed_at" json:"consumedAt"`
+	CreatedAt           time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (OAuthAuthorizationCode) TableName() string { return "oauth_authorization_codes" }
+
+func (c *OAuthAuthorizationCode) BeforeCreate(tx *gorm.DB) error {
+	if c.ID == uuid.Nil {
+		c.ID = uuid.New()
+	}
+	return nil
+}
+
+// OAuthRefreshToken is a long-lived, rotating refresh credential. Only the
+// SHA-256 hash is stored. RotatedFrom links a token to its predecessor so reuse
+// of a rotated token can be detected.
+type OAuthRefreshToken struct {
+	ID          uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	TokenHash   string     `gorm:"column:token_hash;type:text;not null;uniqueIndex" json:"-"`
+	ClientID    string     `gorm:"column:client_id;type:text;not null;index:oauth_refresh_tokens_client_id_idx" json:"clientId"`
+	UserID      uuid.UUID  `gorm:"column:user_id;type:uuid;not null;index:oauth_refresh_tokens_user_id_idx" json:"userId"`
+	Scope       string     `gorm:"column:scope;type:text;not null;default:''" json:"scope"`
+	ExpiresAt   time.Time  `gorm:"column:expires_at;not null" json:"expiresAt"`
+	RotatedFrom *uuid.UUID `gorm:"column:rotated_from;type:uuid" json:"-"`
+	RevokedAt   *time.Time `gorm:"column:revoked_at" json:"revokedAt"`
+	CreatedAt   time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (OAuthRefreshToken) TableName() string { return "oauth_refresh_tokens" }
+
+func (t *OAuthRefreshToken) BeforeCreate(tx *gorm.DB) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	return nil
+}
+
+// OAuthAccessToken is a short-lived bearer credential, audience-bound to the MCP
+// resource and accepted only at /api/mcp. Only the SHA-256 hash is stored.
+type OAuthAccessToken struct {
+	ID             uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	TokenHash      string     `gorm:"column:token_hash;type:text;not null;uniqueIndex" json:"-"`
+	ClientID       string     `gorm:"column:client_id;type:text;not null;index:oauth_access_tokens_client_id_idx" json:"clientId"`
+	UserID         uuid.UUID  `gorm:"column:user_id;type:uuid;not null;index:oauth_access_tokens_user_id_idx" json:"userId"`
+	Scope          string     `gorm:"column:scope;type:text;not null;default:''" json:"scope"`
+	Resource       string     `gorm:"column:resource;type:text;not null;default:''" json:"resource"`
+	ExpiresAt      time.Time  `gorm:"column:expires_at;not null" json:"expiresAt"`
+	LastUsedAt     *time.Time `gorm:"column:last_used_at" json:"lastUsedAt"`
+	RefreshTokenID *uuid.UUID `gorm:"column:refresh_token_id;type:uuid" json:"-"`
+	CreatedAt      time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (OAuthAccessToken) TableName() string { return "oauth_access_tokens" }
+
+func (t *OAuthAccessToken) BeforeCreate(tx *gorm.DB) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	return nil
+}
+
 // Person maps to the "people" table (face recognition).
 type Person struct {
 	ID                   uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
@@ -392,7 +445,7 @@ func (o *ObjectDetection) BeforeCreate(tx *gorm.DB) error {
 
 // Moment maps to the "moments" table — a named time range on a video file.
 type Moment struct {
-	ID               uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	BaseModel
 	FileID           uuid.UUID  `gorm:"column:file_id;type:uuid;not null;index:moments_file_idx" json:"fileId"`
 	LibraryID        uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:moments_library_idx" json:"libraryId"`
 	CreatedByID      uuid.UUID  `gorm:"column:created_by_id;type:uuid;not null" json:"createdById"`
@@ -406,8 +459,6 @@ type Moment struct {
 	ExportVersion    int        `gorm:"column:export_version;not null;default:1" json:"exportVersion"`
 	ExportedVersion  *int       `gorm:"column:exported_version" json:"exportedVersion"`
 	TrashedAt        *time.Time `gorm:"column:trashed_at" json:"trashedAt"`
-	CreatedAt        time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt        time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 
 	File      *File    `gorm:"foreignKey:FileID" json:"-"`
 	Library   *Library `gorm:"foreignKey:LibraryID" json:"-"`
@@ -415,13 +466,6 @@ type Moment struct {
 }
 
 func (Moment) TableName() string { return "moments" }
-
-func (m *Moment) BeforeCreate(tx *gorm.DB) error {
-	if m.ID == uuid.Nil {
-		m.ID = uuid.New()
-	}
-	return nil
-}
 
 // MomentTag links a moment to a library tag.
 type MomentTag struct {
@@ -473,25 +517,16 @@ func (a *AudioDetection) BeforeCreate(tx *gorm.DB) error {
 // detection signals into matchable highlights. The match logic is encoded as
 // a small expression language; see the frontend parser for grammar.
 type HighlightFilter struct {
-	ID               uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	BaseModel
 	LibraryID        uuid.UUID  `gorm:"column:library_id;type:uuid;not null;index:highlight_filters_library_idx" json:"libraryId"`
 	CreatedByID      *uuid.UUID `gorm:"column:created_by_id;type:uuid" json:"createdById"`
 	Name             string     `gorm:"column:name;type:text;not null" json:"name"`
 	Expression       string     `gorm:"column:expression;type:text;not null" json:"expression"`
 	ProximitySeconds int        `gorm:"column:proximity_seconds;type:integer;not null;default:5" json:"proximitySeconds"`
 	Color            string     `gorm:"column:color;type:text;not null;default:'#3B82F6'" json:"color"`
-	CreatedAt        time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
-	UpdatedAt        time.Time  `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
 }
 
 func (HighlightFilter) TableName() string { return "highlight_filters" }
-
-func (h *HighlightFilter) BeforeCreate(tx *gorm.DB) error {
-	if h.ID == uuid.Nil {
-		h.ID = uuid.New()
-	}
-	return nil
-}
 
 // LibraryActivity is the canonical activity log row. Inserted by
 // services/activity.Service.Emit. The bell feed is derived

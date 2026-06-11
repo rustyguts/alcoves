@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -136,7 +137,7 @@ func (h *DownloadHandler) Download(c echo.Context) error {
 			continue // skip files that can't be read
 		}
 
-		w, err := zipWriter.Create(file.Name)
+		w, err := zipWriter.Create(safeZipName(file.Name))
 		if err != nil {
 			reader.Close()
 			continue
@@ -147,6 +148,23 @@ func (h *DownloadHandler) Download(c echo.Context) error {
 	}
 
 	return nil
+}
+
+// safeZipName sanitizes an attacker-controlled file name (file.Name is set from
+// tus upload metadata and from the rename handler with no path validation) for
+// use as a zip entry path. Without this, a name like "../../../.ssh/authorized_keys"
+// is written verbatim into the archive and a victim extracting it with a
+// non-hardening unzip would have bytes written outside the extraction directory
+// (zip slip). We collapse to the final path element so no traversal survives.
+func safeZipName(name string) string {
+	name = strings.ReplaceAll(name, "\\", "/")
+	// path.Clean on an absolute path resolves any ".." away; Base then takes the
+	// final element, so "/../../etc/passwd" -> "/etc/passwd" -> "passwd".
+	name = path.Base(path.Clean("/" + name))
+	if name == "." || name == "/" || name == "" {
+		return "file"
+	}
+	return name
 }
 
 // Public file proxy handler
@@ -197,7 +215,7 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	// Require library membership.
 	acc, err := access.NewService(h.db).GetLibraryAccess(userID, libraryID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to check library access")
+		return internalError("Failed to check library access", err)
 	}
 	if acc == nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Library not found")
@@ -218,7 +236,7 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	if imageproxy.NeedsTransform(opts) && isImageMime(file.MimeType) && h.imgSvc.HasProcessor() {
 		outBytes, mime, err := h.imgSvc.ServeTransform(c.Request().Context(), libraryID.String(), fileID.String(), opts)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to transform image")
+			return internalError("Failed to transform image", err)
 		}
 
 		c.Response().Header().Set("Content-Type", mime)
@@ -236,7 +254,7 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 
 	reader, err := h.storageSvc.OpenFileReadStream(libraryID.String(), fileID.String(), nil)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read file")
+		return internalError("Failed to read file", err)
 	}
 	defer reader.Close()
 

@@ -54,9 +54,9 @@ func registerUploadTool(srv *mcp.Server, d Deps) {
 		Name:        "upload_file",
 		Description: "Upload a file into a library. With `path` (local/stdio) the server streams the file in directly and returns the created file. Without `path`, returns a signed PUT URL plus a ready-to-run curl command (and a resumable tus fallback) for an out-of-band upload.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in uploadFileInput) (*mcp.CallToolResult, uploadFileOutput, error) {
-		libraryID, err := uuid.Parse(in.LibraryID)
+		libraryID, err := parseUUIDArg("libraryId", in.LibraryID)
 		if err != nil {
-			return nil, uploadFileOutput{}, fmt.Errorf("invalid libraryId: %q", in.LibraryID)
+			return nil, uploadFileOutput{}, err
 		}
 		if in.Filename == "" {
 			return nil, uploadFileOutput{}, fmt.Errorf("filename is required")
@@ -72,12 +72,14 @@ func registerUploadTool(srv *mcp.Server, d Deps) {
 
 		var folderID *uuid.UUID
 		if in.FolderID != "" {
-			fid, err := uuid.Parse(in.FolderID)
+			fid, err := parseUUIDArg("folderId", in.FolderID)
 			if err != nil {
-				return nil, uploadFileOutput{}, fmt.Errorf("invalid folderId: %q", in.FolderID)
+				return nil, uploadFileOutput{}, err
 			}
 			var count int64
-			d.DB.Model(&models.Folder{}).Where("id = ? AND library_id = ?", fid, libraryID).Count(&count)
+			if err := d.DB.Model(&models.Folder{}).Where("id = ? AND library_id = ?", fid, libraryID).Count(&count).Error; err != nil {
+				return nil, uploadFileOutput{}, fmt.Errorf("failed to look up folder")
+			}
 			if count == 0 {
 				return nil, uploadFileOutput{}, fmt.Errorf("folder %s not found in library", fid)
 			}

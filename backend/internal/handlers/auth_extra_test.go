@@ -22,7 +22,7 @@ func mkUserWithPassword(t *testing.T, db *gorm.DB, email, password string) model
 	if err != nil {
 		t.Fatalf("hash: %v", err)
 	}
-	u := models.User{ID: uuid.New(), Email: email, DisplayName: "U", Role: "member", PasswordHash: &hash}
+	u := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: email, DisplayName: "U", Role: "member", PasswordHash: &hash}
 	if err := db.Create(&u).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}

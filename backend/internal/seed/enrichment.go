@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
+	"github.com/alcoves/alcoves-backend/internal/services/storage"
 )
 
 // --- faces & people --------------------------------------------------------
@@ -71,7 +73,7 @@ func (s *seeder) addFace(idName string, file *models.File, lib uuid.UUID, person
 			s.fail(cerr)
 			return fd
 		}
-		if serr := s.st.StoreCacheBuffer(fmt.Sprintf("%s/faces/%s.webp", lib.String(), fd.ID.String()), crop); serr != nil {
+		if serr := s.st.StoreCacheBuffer(storage.FaceCropKey(lib.String(), fd.ID.String()), crop); serr != nil {
 			s.fail(fmt.Errorf("store face crop %s: %w", idName, serr))
 			return fd
 		}
@@ -130,7 +132,7 @@ func (s *seeder) addMoment(idName string, file *models.File, lib, creator uuid.U
 		return &models.Moment{}
 	}
 	m := &models.Moment{
-		ID:            id(idName),
+		BaseModel:     models.BaseModel{ID: id(idName), CreatedAt: createdAt, UpdatedAt: createdAt},
 		FileID:        file.ID,
 		LibraryID:     lib,
 		CreatedByID:   creator,
@@ -139,8 +141,6 @@ func (s *seeder) addMoment(idName string, file *models.File, lib, creator uuid.U
 		StartSeconds:  start,
 		EndSeconds:    end,
 		ExportVersion: 1,
-		CreatedAt:     createdAt,
-		UpdatedAt:     createdAt,
 	}
 	s.create(m)
 	if s.err == nil {
@@ -190,15 +190,13 @@ func (s *seeder) exportAndShare(m *models.Moment, lib, creator uuid.UUID, clipAs
 
 func (s *seeder) addHighlightFilter(idName string, lib uuid.UUID, creator *uuid.UUID, name, expr, color string, proximity int, createdAt time.Time) {
 	s.create(&models.HighlightFilter{
-		ID:               id(idName),
+		BaseModel:        models.BaseModel{ID: id(idName), CreatedAt: createdAt, UpdatedAt: createdAt},
 		LibraryID:        lib,
 		CreatedByID:      creator,
 		Name:             name,
 		Expression:       expr,
 		ProximitySeconds: proximity,
 		Color:            color,
-		CreatedAt:        createdAt,
-		UpdatedAt:        createdAt,
 	})
 }
 
@@ -262,7 +260,7 @@ func (s *seeder) addWaveform(file *models.File, lib uuid.UUID, duration int) {
 		"peaksPerSecond": peaksPerSecond,
 		"sampleRate":     16000,
 	})
-	cacheKey := fmt.Sprintf("%s/%s/waveform.json", lib.String(), file.ID.String())
+	cacheKey := storage.WaveformKey(lib.String(), file.ID.String())
 	if err := s.st.StoreCacheBuffer(cacheKey, payload); err != nil {
 		s.fail(fmt.Errorf("store waveform: %w", err))
 		return
@@ -304,6 +302,19 @@ func (s *seeder) addActivity(idName string, lib uuid.UUID, actor *uuid.UUID, act
 func hashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// generateDevToken returns a fresh random personal access token (alc_pat_ +
+// 32 hex chars, 128 bits of entropy). The dev PAT must NOT be a compiled-in
+// constant: a fixed value published in the open-source repo means anyone could
+// authenticate to any seeded-and-reachable instance. A per-seed random token,
+// printed once to the seed log, keeps the dev convenience without that risk.
+func generateDevToken() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return "alc_pat_" + hex.EncodeToString(buf), nil
 }
 
 func (s *seeder) addPAT(idName string, user uuid.UUID, name, plaintext string, createdAt time.Time) {

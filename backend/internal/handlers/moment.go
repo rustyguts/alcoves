@@ -159,7 +159,7 @@ func (h *MomentHandler) List(c echo.Context) error {
 		Where("library_id = ? AND file_id = ? AND trashed_at IS NULL", libraryID, fileID).
 		Order("start_seconds ASC, created_at ASC").
 		Find(&moments).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to list moments")
+		return internalError("Failed to list moments", err)
 	}
 
 	ids := make([]uuid.UUID, 0, len(moments))
@@ -168,7 +168,7 @@ func (h *MomentHandler) List(c echo.Context) error {
 	}
 	tagsByMoment, err := h.loadTagsByMoment(ids)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load moment tags")
+		return internalError("Failed to load moment tags", err)
 	}
 
 	resp := make([]momentResponse, 0, len(moments))
@@ -220,7 +220,7 @@ func (h *MomentHandler) Create(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "File not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load file")
+		return internalError("Failed to load file", err)
 	}
 
 	moment := models.Moment{
@@ -234,26 +234,24 @@ func (h *MomentHandler) Create(c echo.Context) error {
 		ExportVersion: 1,
 	}
 	if err := h.db.Create(&moment).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create moment")
+		return internalError("Failed to create moment", err)
 	}
 
-	if h.activitySvc != nil {
-		aid := userID
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   libraryID,
-			ActorID:     &aid,
-			Action:      activity.ActionMomentCreated,
-			SubjectType: activity.SubjectMoment,
-			SubjectID:   &moment.ID,
-			Metadata: map[string]any{
-				"name":         moment.Name,
-				"fileId":       file.ID.String(),
-				"fileName":     file.Name,
-				"startSeconds": moment.StartSeconds,
-				"endSeconds":   moment.EndSeconds,
-			},
-		})
-	}
+	aid := userID
+	emitActivity(h.activitySvc, activity.EmitParams{
+		LibraryID:   libraryID,
+		ActorID:     &aid,
+		Action:      activity.ActionMomentCreated,
+		SubjectType: activity.SubjectMoment,
+		SubjectID:   &moment.ID,
+		Metadata: map[string]any{
+			"name":         moment.Name,
+			"fileId":       file.ID.String(),
+			"fileName":     file.Name,
+			"startSeconds": moment.StartSeconds,
+			"endSeconds":   moment.EndSeconds,
+		},
+	})
 
 	return c.JSON(http.StatusCreated, h.toMomentResponse(&moment, nil))
 }
@@ -334,12 +332,12 @@ func (h *MomentHandler) Update(c echo.Context) error {
 	}
 
 	if err := h.db.Model(&models.Moment{}).Where("id = ?", moment.ID).Updates(updates).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update moment")
+		return internalError("Failed to update moment", err)
 	}
 
 	// Reload with fresh values.
 	if err := h.db.Where("id = ?", moment.ID).First(moment).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to reload moment")
+		return internalError("Failed to reload moment", err)
 	}
 
 	tagsByMoment, _ := h.loadTagsByMoment([]uuid.UUID{moment.ID})
@@ -357,7 +355,7 @@ func (h *MomentHandler) Delete(c echo.Context) error {
 	now := time.Now()
 	if err := h.db.Model(&models.Moment{}).Where("id = ?", moment.ID).
 		Update("trashed_at", &now).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete moment")
+		return internalError("Failed to delete moment", err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -394,7 +392,7 @@ func (h *MomentHandler) SyncTags(c echo.Context) error {
 		if err := h.db.Model(&models.Tag{}).
 			Where("id IN ? AND library_id = ?", tagIDs, moment.LibraryID).
 			Count(&count).Error; err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to validate tags")
+			return internalError("Failed to validate tags", err)
 		}
 		if int(count) != len(tagIDs) {
 			return echo.NewHTTPError(http.StatusBadRequest, "One or more tags do not belong to this library")
@@ -405,17 +403,17 @@ func (h *MomentHandler) SyncTags(c echo.Context) error {
 	tx := h.db.Begin()
 	if err := tx.Where("moment_id = ?", moment.ID).Delete(&models.MomentTag{}).Error; err != nil {
 		tx.Rollback()
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to clear existing tags")
+		return internalError("Failed to clear existing tags", err)
 	}
 	for _, id := range tagIDs {
 		mt := models.MomentTag{MomentID: moment.ID, TagID: id}
 		if err := tx.Create(&mt).Error; err != nil {
 			tx.Rollback()
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to attach tag")
+			return internalError("Failed to attach tag", err)
 		}
 	}
 	if err := tx.Commit().Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to commit tag changes")
+		return internalError("Failed to commit tag changes", err)
 	}
 
 	tagsByMoment, _ := h.loadTagsByMoment([]uuid.UUID{moment.ID})
@@ -445,7 +443,7 @@ func (h *MomentHandler) Export(c echo.Context) error {
 		"export_progress": &zero,
 		"updated_at":      now,
 	}).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update export status")
+		return internalError("Failed to update export status", err)
 	}
 
 	if h.momentExport != nil {
@@ -454,7 +452,7 @@ func (h *MomentHandler) Export(c echo.Context) error {
 			moment.FileID.String(),
 			moment.ID.String(),
 		); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to enqueue export")
+			return internalError("Failed to enqueue export", err)
 		}
 	}
 
@@ -491,7 +489,7 @@ func (h *MomentHandler) Download(c echo.Context) error {
 		c.Response().Header().Set("Content-Length", strconv.FormatInt(size, 10))
 		reader, err := h.storage.OpenCacheReadStream(cacheKey)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read export")
+			return internalError("Failed to read export", err)
 		}
 		defer reader.Close()
 		c.Response().WriteHeader(http.StatusOK)
@@ -520,7 +518,7 @@ func (h *MomentHandler) Download(c echo.Context) error {
 	length := end - start + 1
 	reader, err := h.storage.OpenCacheReadStreamRange(cacheKey, &storage.ByteRange{Start: start, End: end})
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read range")
+		return internalError("Failed to read range", err)
 	}
 	defer reader.Close()
 	c.Response().Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, size))
@@ -572,7 +570,7 @@ func (h *MomentHandler) loadMoment(c echo.Context) (*models.Moment, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "Moment not found")
 		}
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to load moment")
+		return nil, internalError("Failed to load moment", err)
 	}
 	return &moment, nil
 }

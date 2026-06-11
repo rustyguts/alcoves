@@ -10,6 +10,10 @@ jobs:
   backend-test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
     defaults:
       run:
         working-directory: backend
@@ -45,6 +49,7 @@ jobs:
           - 6389:6379
 
     env:
+      WHISPER_VERSION: v1.8.4
       ALCOVES_DATABASE_URL: postgres://postgres:postgres@localhost:5455/alcoves_test
       ALCOVES_SESSION_SECRET: alcoves-ci-secret-key-for-go-tests!!
       ALCOVES_STORAGE_DRIVER: local
@@ -62,12 +67,27 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
+      # Cache the downloaded .debs (the slow part of the apt install ~50s) so
+      # warm runs skip the download and only unpack/configure. Versions are in
+      # the key implicitly via the monthly-ish runner image; a package bump just
+      # misses for that one deb and re-downloads it (self-healing).
+      - name: Cache apt archives (libvips + ffmpeg)
+        uses: actions/cache@v4
+        with:
+          path: ~/.apt-archives
+          key: apt-${{ runner.os }}-libvips-ffmpeg-v1
+
       - name: Install libvips + ffmpeg
         run: |
+          mkdir -p ~/.apt-archives
           sudo apt-get update
           # ffmpeg powers the audio extraction in the waveform, audio-event
-          # detection, and transcription real-data tests.
-          sudo apt-get install -y libvips-dev libheif-plugin-aomenc libheif-plugin-x265 ffmpeg
+          # detection, and transcription real-data tests. -o Dir::Cache::Archives
+          # points apt at the cached .deb dir so unchanged packages aren't re-downloaded.
+          sudo apt-get -o Dir::Cache::Archives="$HOME/.apt-archives" install -y \
+            libvips-dev libheif-plugin-aomenc libheif-plugin-x265 ffmpeg
+          # make root-written debs readable so actions/cache can save them
+          sudo chmod -R a+rX ~/.apt-archives
 
       - name: Install ONNX Runtime
         run: |
@@ -86,20 +106,49 @@ jobs:
           sudo ldconfig
           rm -rf "onnxruntime-linux-${ONNX_ARCH}-${ONNX_VERSION}"*
 
+      # whisper.cpp is a fixed release, so cache the built artifacts (keyed on
+      # WHISPER_VERSION) instead of rebuilding from source (~72s) on every run.
+      - name: Cache whisper.cpp build
+        id: whisper-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/whisper-dist
+          # The -x86-64-v3 suffix invalidates the earlier cache that was built
+          # with native CPU detection (it baked in the builder runner's AVX-512
+          # and SIGILL'd — "illegal instruction" — when restored onto a runner
+          # without it). Bump this suffix if the build flags below change again.
+          key: whisper-${{ runner.os }}-${{ env.WHISPER_VERSION }}-x86-64-v3
+
       - name: Build whisper.cpp (whisper-cli)
+        if: steps.whisper-cache.outputs.cache-hit != 'true'
         run: |
           # Build the same whisper.cpp release the Docker image ships so the
           # transcription real-data test runs against the real binary. Models are
-          # downloaded at test time.
-          WHISPER_VERSION=v1.8.4
+          # downloaded at test time. Outputs go to the cached /tmp/whisper-dist.
           git clone --depth 1 --branch "${WHISPER_VERSION}" https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp
-          cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
+          # Portable x86-64-v3 baseline (AVX/AVX2/FMA/F16C on, AVX-512 OFF, no
+          # -march=native) — mirrors the prod Dockerfile. The artifact is cached
+          # and restored onto arbitrary GitHub runners, so it must NOT bake in
+          # the builder's CPU features or whisper-cli SIGILLs on narrower runners.
+          cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+            -DWHISPER_NATIVE=OFF -DGGML_NATIVE=OFF \
+            -DWHISPER_AVX=ON -DWHISPER_AVX2=ON -DWHISPER_FMA=ON -DWHISPER_F16C=ON \
+            -DWHISPER_AVX512=OFF -DWHISPER_AVX512_VBMI=OFF -DWHISPER_AVX512_VNNI=OFF \
+            -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON \
+            -DGGML_AVX512=OFF -DGGML_AVX512_VBMI=OFF -DGGML_AVX512_VNNI=OFF \
+            -DCMAKE_C_FLAGS=-march=x86-64-v3 -DCMAKE_CXX_FLAGS=-march=x86-64-v3
           cmake --build /tmp/whisper.cpp/build -j --config Release
-          sudo install -m 0755 /tmp/whisper.cpp/build/bin/whisper-cli /usr/local/bin/whisper-cli
-          sudo find /tmp/whisper.cpp/build -name 'libwhisper.so*' -exec cp -a {} /usr/local/lib/ \;
-          sudo find /tmp/whisper.cpp/build -name 'libggml*.so*' -exec cp -a {} /usr/local/lib/ \;
-          sudo ldconfig
+          mkdir -p /tmp/whisper-dist/bin /tmp/whisper-dist/lib
+          cp /tmp/whisper.cpp/build/bin/whisper-cli /tmp/whisper-dist/bin/
+          find /tmp/whisper.cpp/build -name 'libwhisper.so*' -exec cp -a {} /tmp/whisper-dist/lib/ \;
+          find /tmp/whisper.cpp/build -name 'libggml*.so*' -exec cp -a {} /tmp/whisper-dist/lib/ \;
           rm -rf /tmp/whisper.cpp
+
+      - name: Install whisper.cpp
+        run: |
+          sudo install -m 0755 /tmp/whisper-dist/bin/whisper-cli /usr/local/bin/whisper-cli
+          sudo cp -a /tmp/whisper-dist/lib/. /usr/local/lib/
+          sudo ldconfig
 
       - name: Download Go modules
         run: go mod download
@@ -110,19 +159,40 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Test
-        # -p 1 forces sequential package execution. Multiple packages
-        # (internal/handlers, internal/services/files) share the single test
-        # postgres and TRUNCATE/DELETE the same tables; running them in parallel
-        # causes FK violations and deadlocks between concurrent test runs.
-        run: go test ./... -race -count=1 -p 1
+      - name: Test (shard ${{ matrix.shard }}/5)
+        # The suite is sharded across 5 matrix jobs to parallelise it. Each shard
+        # gets its OWN postgres + dragonfly service containers, so the shared test
+        # DB and the shared Asynq queue cannot be contended ACROSS shards.
+        #
+        # -p 1 is kept WITHIN a shard: several packages (internal/handlers and the
+        # service packages) share that shard's single postgres + queue and would
+        # otherwise race — TRUNCATE/FK on the DB and inspect/purge on the queue.
+        # (The shared queue, not just the DB, is why -p 1 is still load-bearing:
+        # only filehash isolates onto its own Redis DB; the rest use DB 0.)
+        #
+        # internal/handlers (~494 tests, ~130s — by far the heaviest package) is
+        # split BY TEST NAME across shards via -run so it no longer bottlenecks one
+        # shard; every other package is round-robined by `go list` order. -list
+        # reuses the same -race build cache as the run (handlers compiles once),
+        # and `bash -eo pipefail` makes a broken split fail loudly, never silently
+        # drop tests. Together the shards cover every package and every handlers test.
+        run: |
+          HANDLERS=github.com/alcoves/alcoves-backend/internal/handlers
+          PKGS=$(go list ./... | grep -vx "$HANDLERS" | awk -v s=${{ matrix.shard }} 'NR % 5 == (s - 1)')
+          echo "shard ${{ matrix.shard }}/5 packages:"; echo "$PKGS"
+          go test $PKGS -race -count=1 -p 1
+
+          HTESTS=$(go test "$HANDLERS" -race -list '.*' | grep -E '^(Test|Fuzz|Example)' \
+            | awk -v s=${{ matrix.shard }} 'NR % 5 == (s - 1)' | paste -sd'|' -)
+          echo "shard ${{ matrix.shard }}/5 handlers tests: $(printf '%s' "$HTESTS" | tr '|' '\n' | grep -c .)"
+          go test "$HANDLERS" -race -count=1 -p 1 -run "^(${HTESTS})$"
 
   unit-and-coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: frontend
+        working-directory: client
 
     steps:
       - name: Checkout repository
@@ -135,6 +205,19 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('client/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      # The "client" vitest project runs component tests in real chromium
+      # (vitest-browser-svelte), so the browser must be installed for unit tests.
+      - name: Install Playwright browser
+        run: bunx playwright install --with-deps chromium
 
       - name: Lint
         run: bun run lint
@@ -145,55 +228,23 @@ jobs:
       - name: Run unit tests with coverage
         run: bun run test:unit:coverage
 
-      - name: Print coverage summary
-        run: bun run coverage:summary
+      - name: Enforce per-file coverage floor
+        run: bun run coverage:floor
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
-          path: frontend/coverage/
+          path: client/coverage/
           if-no-files-found: error
 
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
-    defaults:
-      run:
-        working-directory: frontend
 
-    services:
-      postgres:
-        image: pgvector/pgvector:pg18
-        env:
-          POSTGRES_DB: alcoves
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5455:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 15
-
-      dragonfly:
-        image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
-        ports:
-          - 6389:6379
-
-    env:
-      ALCOVES_DATABASE_URL: postgres://postgres:postgres@localhost:5455/alcoves
-      ALCOVES_SESSION_SECRET: alcoves-ci-secret-key-for-e2e-testing!!
-      ALCOVES_STORAGE_DRIVER: local
-      ALCOVES_STORAGE_PATH: ./data
-      ALCOVES_QUEUE_HOST: localhost
-      ALCOVES_QUEUE_PORT: 6389
-
+    # Full-stack e2e: brings up the REAL stack (Postgres + Dragonfly + Go
+    # API/worker, seeded, behind the SvelteKit server) via docker compose and
+    # runs Playwright against it. No mock backend.
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -203,19 +254,129 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install dependencies
+      - name: Install client dependencies
+        working-directory: client
         run: bun install --frozen-lockfile
 
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('client/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install Playwright browser
+        working-directory: client
         run: bunx playwright install --with-deps chromium
 
-      - name: Run E2E tests
-        run: bunx playwright test --shard=${{ matrix.shard }}/4
+      # The backend requires ALCOVES_SESSION_SECRET; ALCOVES_ENV=development keeps
+      # the dev seed enabled (the e2e relies on the seeded data).
+      - name: Provide stack env (session secret + dev mode for seeding)
+        run: |
+          {
+            echo "ALCOVES_SESSION_SECRET=$(openssl rand -base64 32)"
+            echo "ALCOVES_ENV=development"
+          } > .env
+
+      - name: Bring up the backend stack (Postgres + Dragonfly + Go API/worker, seeded)
+        run: docker compose up -d --build postgres dragonfly backend
+
+      - name: Wait for the Go API to be healthy + seeded
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:3001/api/health >/dev/null; then echo "API up"; exit 0; fi
+            sleep 2
+          done
+          echo "API did not become healthy" >&2; exit 1
+
+      # Playwright's webServer builds + runs the production SvelteKit server on
+      # :4173 (INTERNAL_API_URL → the dockerized Go API) and runs the suite.
+      - name: Run full-stack E2E
+        working-directory: client
+        env:
+          INTERNAL_API_URL: http://localhost:3001
+        run: bun run test:e2e
+
+      - name: Dump stack logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail 300
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-shard-${{ matrix.shard }}
-          path: playwright-report/
+          name: playwright-report
+          path: client/playwright-report/
           if-no-files-found: ignore
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose down -v
+
+  e2e-screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Visual-regression: brings up the same seeded stack, builds + serves the
+    # production SvelteKit server, and compares the committed baselines using the
+    # pinned Playwright container (deterministic fonts/rasterization, matching how
+    # the baselines were generated). See client/scripts/screenshots.sh.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install client dependencies
+        working-directory: client
+        run: bun install --frozen-lockfile
+
+      - name: Provide stack env (session secret + dev mode for seeding)
+        run: |
+          {
+            echo "ALCOVES_SESSION_SECRET=$(openssl rand -base64 32)"
+            echo "ALCOVES_ENV=development"
+          } > .env
+
+      - name: Bring up the backend stack (Postgres + Dragonfly + Go API/worker, seeded)
+        run: docker compose up -d --build postgres dragonfly backend
+
+      - name: Wait for the Go API to be healthy + seeded
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:3001/api/health >/dev/null; then echo "API up"; exit 0; fi
+            sleep 2
+          done
+          echo "API did not become healthy" >&2; exit 1
+
+      - name: Compare visual baselines (Playwright in the pinned container)
+        working-directory: client
+        # Advisory for now: the comparison runs and uploads diffs as an artifact,
+        # but doesn't block merges. ~86/92 shots are deterministic across envs; a
+        # couple flake on CI (admin-jobs dynamic queue content; the timeline's
+        # image tiles racing the thumbnail proxy under load). Re-enable as a hard
+        # gate once those are masked / the image-settle is hardened.
+        continue-on-error: true
+        run: ./scripts/screenshots.sh
+
+      - name: Dump stack logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail 300
+
+      - name: Upload visual diff report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-regression-report
+          path: |
+            client/playwright-report/
+            client/test-results/
+          if-no-files-found: ignore
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose down -v

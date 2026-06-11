@@ -10,6 +10,156 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.28.0](https://github.com/rustyguts/alcoves/compare/v0.27.2...v0.28.0) (2026-06-07)
+
+
+### Added
+
+* **client:** app-wide upload queue with virtualized progress panel ([#614](https://github.com/rustyguts/alcoves/issues/614)) ([5cdea95](https://github.com/rustyguts/alcoves/commit/5cdea95804170ed0cc15560ac92ab0b88f58f239))
+
+
+### Fixed
+
+* **client:** make the library settings page full width ([#615](https://github.com/rustyguts/alcoves/issues/615)) ([ac7bdcb](https://github.com/rustyguts/alcoves/commit/ac7bdcb294d01cc11c6a8abe487b2b84a38abe12))
+
+
+### Changed
+
+* **client:** UI consistency & polish pass (top-10 improvements) ([#618](https://github.com/rustyguts/alcoves/issues/618)) ([5786c14](https://github.com/rustyguts/alcoves/commit/5786c1472c62514d9262265a80507394f74ef5da))
+
+
+### Documentation
+
+* condense CLAUDE.md (45k → 39k chars) ([#616](https://github.com/rustyguts/alcoves/issues/616)) ([7ef61d1](https://github.com/rustyguts/alcoves/commit/7ef61d1bd37d68896b8e774580b86b59f79e9a41))
+* **website:** rewrite landing copy — simpler, less buzzwordy ([#617](https://github.com/rustyguts/alcoves/issues/617)) ([d0ffc88](https://github.com/rustyguts/alcoves/commit/d0ffc8820a6283a46423a5ae33b3e6ce5c702d3b))
+
+## [0.27.2](https://github.com/rustyguts/alcoves/compare/v0.27.1...v0.27.2) (2026-06-06)
+
+
+### Fixed
+
+* **client:** align the files-toolbar view-toggle and Folder/Upload buttons ([#612](https://github.com/rustyguts/alcoves/issues/612)) ([0cb60ee](https://github.com/rustyguts/alcoves/commit/0cb60ee479d84ec3a20aaa6af47a99e255cae2ad))
+* **client:** de-duplicate the emoji in the library switcher rows ([#611](https://github.com/rustyguts/alcoves/issues/611)) ([5d5846c](https://github.com/rustyguts/alcoves/commit/5d5846ca05bfd248685552a2f6b3d9038828bc56))
+
+## [0.27.1](https://github.com/rustyguts/alcoves/compare/v0.27.0...v0.27.1) (2026-06-06)
+
+
+### Fixed
+
+* **client:** stop the settings-page effect loop that broke the mobile sidebar ([#609](https://github.com/rustyguts/alcoves/issues/609)) ([a561dad](https://github.com/rustyguts/alcoves/commit/a561dad7e98ee52c2e1b1cba1189390d531ef63a))
+
+## [0.27.0](https://github.com/rustyguts/alcoves/compare/v0.26.0...v0.27.0) (2026-06-06)
+
+
+### Added
+
+* **client:** UI quality pass + visual-regression screenshot harness ([#607](https://github.com/rustyguts/alcoves/issues/607)) ([2d5078e](https://github.com/rustyguts/alcoves/commit/2d5078e723420b246b67c2bfd309cdb5c58c5fe4))
+
+## [0.26.0](https://github.com/rustyguts/alcoves/compare/v0.25.2...v0.26.0) (2026-06-06)
+
+
+### Added
+
+* **client:** rewrite the frontend in SvelteKit + Skeleton UI ([#605](https://github.com/rustyguts/alcoves/issues/605)) ([cb2e13d](https://github.com/rustyguts/alcoves/commit/cb2e13d4a4de550ec8b04648a8bb6cc6d6b967ec))
+
+## [0.25.2](https://github.com/rustyguts/alcoves/compare/v0.25.1...v0.25.2) (2026-06-06)
+
+
+### Reverted
+
+* **frontend:** remove One Dark Pro theme, restore default light/dark ([#603](https://github.com/rustyguts/alcoves/issues/603)) ([89e48c2](https://github.com/rustyguts/alcoves/commit/89e48c273393d558ce9592ca2ab37b8ccc5b7df5))
+
+## [0.25.1](https://github.com/rustyguts/alcoves/compare/v0.25.0...v0.25.1) (2026-06-06)
+
+
+### Fixed
+
+* **ci:** build cached whisper.cpp with portable x86-64-v3 baseline ([#599](https://github.com/rustyguts/alcoves/issues/599)) ([9a23f93](https://github.com/rustyguts/alcoves/commit/9a23f93b5c8778f283b6a475077f841b073231b3))
+
+
+### CI
+
+* **backend:** cache the libvips/ffmpeg apt download ([#602](https://github.com/rustyguts/alcoves/issues/602)) ([71f339e](https://github.com/rustyguts/alcoves/commit/71f339e4f44b9112e92af19c4515469b66e36393))
+* **backend:** shard tests 3 ways + cache whisper.cpp build ([#597](https://github.com/rustyguts/alcoves/issues/597)) ([28d61d4](https://github.com/rustyguts/alcoves/commit/28d61d4d88228501ce67ea831f6cf53be8f6c0e8))
+* **backend:** split the heavy handlers package's tests across shards ([#600](https://github.com/rustyguts/alcoves/issues/600)) ([5235424](https://github.com/rustyguts/alcoves/commit/52354248ed4bfdd006da547bc2423ef0b2abb29e))
+* **backend:** widen backend-test to 5 shards ([#601](https://github.com/rustyguts/alcoves/issues/601)) ([c9535b6](https://github.com/rustyguts/alcoves/commit/c9535b67cdc488fec458cf3e034bec7dd98753b9))
+* **e2e:** split into 8 shards, drop unused services, cache browser ([#595](https://github.com/rustyguts/alcoves/issues/595)) ([443e2c4](https://github.com/rustyguts/alcoves/commit/443e2c4dabab0536fe00d4cc84d76dc37fff2dea))
+
+## [0.25.0](https://github.com/rustyguts/alcoves/compare/v0.24.0...v0.25.0) (2026-06-06)
+
+
+### Added
+
+* **frontend:** One Dark Pro inspired theme ([#592](https://github.com/rustyguts/alcoves/issues/592)) ([b7a5217](https://github.com/rustyguts/alcoves/commit/b7a5217b3e81a9b192535cbf34316c32a850da69))
+* **mcp:** full Alcoves feature parity v1 (22-tool MCP server) ([#593](https://github.com/rustyguts/alcoves/issues/593)) ([af61e48](https://github.com/rustyguts/alcoves/commit/af61e48b6fe9147f8ed20d8b679a1fcde8d30c11))
+* **timeline:** day-grouped gallery, duration-only videos, date scrubber ([#591](https://github.com/rustyguts/alcoves/issues/591)) ([27f1aa6](https://github.com/rustyguts/alcoves/commit/27f1aa6ce245ce2162fb7640b8d2bf111c0fdce7))
+
+
+### Fixed
+
+* **frontend:** re-pick best-fit icons and add a central icon registry ([#588](https://github.com/rustyguts/alcoves/issues/588)) ([6eccd6f](https://github.com/rustyguts/alcoves/commit/6eccd6f04d875e6a7f7b00ec19cc79c118c30747))
+
+
+### Changed
+
+* **ui:** flatten library settings page into card-free sections ([#589](https://github.com/rustyguts/alcoves/issues/589)) ([56d03c9](https://github.com/rustyguts/alcoves/commit/56d03c971fbb265fc8a8a67f073c1d8ea78fe384))
+* **ui:** redesign profile page into a flat, less card-centric layout ([#587](https://github.com/rustyguts/alcoves/issues/587)) ([cc47834](https://github.com/rustyguts/alcoves/commit/cc47834443690d38badf4ae0ebae8eb209e8b807))
+* **ui:** redesign the library tags page as a flat tonal list ([#590](https://github.com/rustyguts/alcoves/issues/590)) ([9614474](https://github.com/rustyguts/alcoves/commit/961447461671b7c3ea300595328500fb02e194a2))
+
+## [0.24.0](https://github.com/rustyguts/alcoves/compare/v0.23.0...v0.24.0) (2026-06-05)
+
+
+### Added
+
+* **frontend:** enlarge and space out sidebar nav items ([#579](https://github.com/rustyguts/alcoves/issues/579)) ([abfc68a](https://github.com/rustyguts/alcoves/commit/abfc68ad4907b0e612594b9f3b0a96b8fb1cf5fb))
+* **frontend:** replace Lucide icons with Lineicons app-wide ([#583](https://github.com/rustyguts/alcoves/issues/583)) ([5ec2c12](https://github.com/rustyguts/alcoves/commit/5ec2c12ab6ce3398d0dd0ca875e77df0d3d6f681))
+* **search:** fuzzy-match object tags and simplify search page ([#578](https://github.com/rustyguts/alcoves/issues/578)) ([01f74e9](https://github.com/rustyguts/alcoves/commit/01f74e9f1013cc9bd9341cb6bc0731a319a1cdc8))
+* **timeline:** full-bleed Google-Photos gallery with year scrubber ([#581](https://github.com/rustyguts/alcoves/issues/581)) ([45f9a5a](https://github.com/rustyguts/alcoves/commit/45f9a5a86ddba8e7b66983a03a4760607f1333bb))
+
+
+### Fixed
+
+* **frontend:** close library switcher after selecting a library ([#577](https://github.com/rustyguts/alcoves/issues/577)) ([9a65fec](https://github.com/rustyguts/alcoves/commit/9a65fec9f0b17b5007766a81bbc555a3f61ce010))
+
+
+### Changed
+
+* **frontend:** move Objects link from sidebar to library Settings ([#580](https://github.com/rustyguts/alcoves/issues/580)) ([2cc77d1](https://github.com/rustyguts/alcoves/commit/2cc77d11864dad258b4062619c8a480acb94a6c4))
+* **ui:** replace card-centric design with flat tonal panels ([#582](https://github.com/rustyguts/alcoves/issues/582)) ([5857894](https://github.com/rustyguts/alcoves/commit/5857894fadb5917cfce0065a9ae857539d6966d4))
+
+
+### Documentation
+
+* **vision:** rewrite vision.md as a non-technical, vettable product vision ([#584](https://github.com/rustyguts/alcoves/issues/584)) ([7170aee](https://github.com/rustyguts/alcoves/commit/7170aee889a31982dfe07a3a36cef3d8edbd40b8))
+
+## [0.23.0](https://github.com/rustyguts/alcoves/compare/v0.22.0...v0.23.0) (2026-06-05)
+
+
+### Added
+
+* **frontend:** justified Google-Photos gallery for timeline and global search ([#573](https://github.com/rustyguts/alcoves/issues/573)) ([d2e81d5](https://github.com/rustyguts/alcoves/commit/d2e81d5528cfc9f78655e6bd8a552359044fc1c4))
+* **frontend:** move library tabs into the sidebar ([#572](https://github.com/rustyguts/alcoves/issues/572)) ([50d9464](https://github.com/rustyguts/alcoves/commit/50d94640f399dabacc150246907150453a81d486))
+* **frontend:** video duration badges and full-width grid view ([#571](https://github.com/rustyguts/alcoves/issues/571)) ([9002afe](https://github.com/rustyguts/alcoves/commit/9002afee6922c81d670e7bfda3847698f325f2b7))
+* **queue:** dedicated per-job-type queues ranked by importance and complexity ([#566](https://github.com/rustyguts/alcoves/issues/566)) ([64c065b](https://github.com/rustyguts/alcoves/commit/64c065be67edfe2e00dff7259f7a921d315e73ce))
+* **queue:** reap async jobs stuck in a non-terminal state ([#574](https://github.com/rustyguts/alcoves/issues/574)) ([8a3d774](https://github.com/rustyguts/alcoves/commit/8a3d7748331449e2f84ee5a2aba5e16d2e353a6b))
+
+
+### Fixed
+
+* **facedetection:** verify model SHA-256 to replace stale cached models ([#570](https://github.com/rustyguts/alcoves/issues/570)) ([a70a715](https://github.com/rustyguts/alcoves/commit/a70a715c48491b658b52aad92dd733d5d8a99e56))
+* **jobreaper:** set User/Library ID via embedded BaseModel in tests ([#576](https://github.com/rustyguts/alcoves/issues/576)) ([4a7d196](https://github.com/rustyguts/alcoves/commit/4a7d196a605767f21a3beb496d20f333ffc41171))
+* **security:** zip-slip, share-link host spoofing, hardcoded dev PAT ([#569](https://github.com/rustyguts/alcoves/issues/569)) ([0d18474](https://github.com/rustyguts/alcoves/commit/0d18474050777ce74fd82b73a9dccb1ecbdb7cb9))
+
+
+### Changed
+
+* **backend:** detangle media-job duplication across layers (10-step audit) ([#575](https://github.com/rustyguts/alcoves/issues/575)) ([1e019e1](https://github.com/rustyguts/alcoves/commit/1e019e1ccef674568d07696570d52da3f9c98331))
+
+
+### Documentation
+
+* **claude:** full CLAUDE.md rewrite from multi-agent codebase scan ([#568](https://github.com/rustyguts/alcoves/issues/568)) ([27eed72](https://github.com/rustyguts/alcoves/commit/27eed72cce73ed6a3ac9754c1b5b3215ce52a064))
+
 ## [0.22.0](https://github.com/rustyguts/alcoves/compare/v0.21.0...v0.22.0) (2026-06-04)
 
 

@@ -16,6 +16,7 @@ import (
 	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/alcoves/alcoves-backend/internal/config"
@@ -37,8 +38,10 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/imageproxy"
+	"github.com/alcoves/alcoves-backend/internal/services/jobreaper"
 	"github.com/alcoves/alcoves-backend/internal/services/metadata"
 	"github.com/alcoves/alcoves-backend/internal/services/momentexport"
+	oauthservice "github.com/alcoves/alcoves-backend/internal/services/oauth"
 	"github.com/alcoves/alcoves-backend/internal/services/objectdetection"
 	"github.com/alcoves/alcoves-backend/internal/services/settings"
 	"github.com/alcoves/alcoves-backend/internal/services/signing"
@@ -92,8 +95,21 @@ func main() {
 		log.Fatalf("Failed to initialize auth service: %v", err)
 	}
 
+	// MCP OAuth 2.1 authorization + resource server (gated by MCPOAuthEnabled).
+	// Issuer + endpoint URLs derive from BaseURL; consent tokens are HMAC'd with
+	// the session secret.
+	oauthSvc := oauthservice.New(db, oauthservice.Config{
+		Enabled:              cfg.MCPOAuthEnabled,
+		Issuer:               cfg.BaseURL,
+		AccessTTL:            cfg.MCPOAuthAccessTTL,
+		RefreshTTL:           cfg.MCPOAuthRefreshTTL,
+		CodeTTL:              cfg.MCPOAuthCodeTTL,
+		DCREnabled:           cfg.MCPOAuthDCREnabled,
+		AllowedRedirectHosts: cfg.MCPOAuthAllowedRedirectHosts,
+		Secret:               cfg.SessionSecret,
+	})
+
 	accessSvc := access.NewService(db)
-	fileSvc := files.NewService(db)
 
 	settingsSvc, err := settings.NewService(db)
 	if err != nil {
@@ -147,11 +163,6 @@ func main() {
 		cfg.ModelsPath,
 	)
 	faceSvc := facedetection.NewService(db, storageSvc, asynqClient, faceConfig)
-	if cfg.Mode == "all" || cfg.Mode == "worker" {
-		if err := faceSvc.EnsureModels(); err != nil {
-			log.Printf("Face model download failed (face jobs may fail until models exist): %v", err)
-		}
-	}
 
 	// Object detection service
 	objConfig := objectdetection.NewObjectConfig(
@@ -217,7 +228,15 @@ func main() {
 	var asynqServer *asynq.Server
 	if cfg.Mode == "all" || cfg.Mode == "worker" {
 		asynqServer = asynq.NewServer(asynqRedisOpt, asynq.Config{
-			Concurrency: 8,
+			// Keep per-pod concurrency low. The heavy jobs (whisper, ffmpeg
+			// transcode, ONNX inference) are each RAM- and CPU-hungry, so packing
+			// many into one pod multiplies its peak memory and is what OOM-killed
+			// the pool. To process more in parallel, scale OUT (raise the worker
+			// Deployment's replicaCount) rather than raising this number — more
+			// pods spread the memory across nodes and fail independently, whereas
+			// a higher concurrency concentrates risk in a single pod. Only raise
+			// this if a single worker pod is provisioned with plenty of headroom.
+			Concurrency: 2,
 			// Per-job-type queue weights come from the single source of truth in
 			// the queues package, ranked by importance ÷ complexity: interactive
 			// image transforms ≫ fast post-upload derivations (metadata,
@@ -264,6 +283,13 @@ func main() {
 		} else {
 			log.Println("image:prewarm — disabled via ALCOVES_IMAGE_PROXY_PREWARM_ENABLED=false")
 		}
+
+		// Job reaper: periodically reconcile every async job's status column
+		// against the queue and mark genuinely orphaned jobs (worker died
+		// mid-flight, no task left in Redis) as "failed", clearing rows stuck
+		// forever on "queued"/"processing". Safe for long-runners: a job still
+		// active in the queue is never touched, so there is no wall-clock timeout.
+		jobreaper.Start(context.Background(), db, asynqInspector)
 	}
 
 	// Echo setup
@@ -379,8 +405,24 @@ func main() {
 		libraryHandler := handlers.NewLibraryHandler(db, accessSvc, faceSvc, objSvc)
 		libraryHandler.RegisterRoutes(api.Group("/libraries"))
 
+		// Ingest-configured files service shared by the direct-upload handler,
+		// signed uploads, and MCP. A single instance owns the file-ingest
+		// pipeline (stream/hash/store, File record, activity, dedup, post-upload
+		// jobs) so all upload paths behave identically.
+		ingestSvc := files.NewServiceWithIngest(db, files.IngestDeps{
+			Storage:     storageSvc,
+			Face:        faceSvc,
+			Object:      objSvc,
+			Video:       videoSvc,
+			Waveform:    waveformSvc,
+			Transcribe:  transcribeSvc,
+			AudioDetect: audioDetectSvc,
+			Metadata:    metadataSvc,
+			Activity:    activitySvc,
+		})
+
 		// File routes (under /api/libraries)
-		fileHandler := handlers.NewFileHandler(db, fileSvc, storageSvc, faceSvc, objSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, metadataSvc, activitySvc)
+		fileHandler := handlers.NewFileHandler(db, ingestSvc, storageSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, metadataSvc, activitySvc)
 		fileHandler.RegisterRoutes(api.Group("/libraries"))
 
 		// Folder routes (under /api/libraries)
@@ -473,40 +515,64 @@ func main() {
 		fileProxyHandler := handlers.NewFileProxyHandler(db, storageSvc, imgSvc)
 		fileProxyHandler.RegisterRoutes(api.Group("/files"))
 
-		// Ingest-configured files service shared by signed uploads + MCP.
-		ingestSvc := files.NewServiceWithIngest(db, files.IngestDeps{
-			Storage:     storageSvc,
-			Face:        faceSvc,
-			Object:      objSvc,
-			Video:       videoSvc,
-			Waveform:    waveformSvc,
-			Transcribe:  transcribeSvc,
-			AudioDetect: audioDetectSvc,
-			Metadata:    metadataSvc,
-			Activity:    activitySvc,
-		})
-
 		// Signed curl upload/download endpoints (skipped by auth middleware;
 		// authenticated by a signed token). Used by remote MCP clients.
 		signer := signing.New(cfg.MCPSigningSecret)
 		signedHandler := handlers.NewSignedHandler(db, storageSvc, ingestSvc, signer)
 		signedHandler.RegisterRoutes(api.Group("/files"))
 
-		// MCP HTTP transport (streamable). Gated by config; authenticated by the
-		// global auth middleware (Bearer PAT or session). A per-request identity
-		// bridge carries the authenticated user into the MCP tool handlers.
+		// MCP OAuth 2.1 Authorization Server: consent + token + DCR + revocation
+		// under /api/oauth, plus the RFC 9728/8414 discovery documents at the
+		// domain root. Lets Claude's custom connector authenticate via browser
+		// consent instead of a pasted PAT. Gated by config.
+		if cfg.MCPOAuthEnabled {
+			oauthServerHandler := handlers.NewOAuthServerHandler(oauthSvc)
+			oauthServerHandler.RegisterRoutes(api.Group("/oauth"))
+			oauthServerHandler.RegisterWellKnown(e)
+			log.Println("MCP OAuth authorization server enabled at /api/oauth + /.well-known")
+		}
+
+		// MCP HTTP transport (streamable). Authenticated by a bearer token —
+		// either a PAT (always) or, when OAuth is enabled, an OAuth 2.1 access
+		// token audience-bound to this resource. The SDK's RequireBearerToken
+		// emits the RFC 9728 WWW-Authenticate header on 401 so spec-compliant
+		// clients discover the authorization server. /api/mcp is excluded from
+		// the global auth middleware (see middleware.needsAuth) and authenticated
+		// here; a per-request identity bridge carries the user into the tools.
 		if cfg.MCPHTTPEnabled {
 			mcpSrv := mcpserver.NewServer(mcpserver.Deps{
-				DB:      db,
-				Access:  accessSvc,
-				Files:   ingestSvc,
-				Storage: storageSvc,
-				Signer:  signer,
-				BaseURL: cfg.BaseURL,
-				// Identity is resolved per request from the bearer token.
+				DB:       db,
+				Access:   accessSvc,
+				Files:    ingestSvc,
+				Storage:  storageSvc,
+				Signer:   signer,
+				Activity: activitySvc,
+				BaseURL:  cfg.BaseURL,
 			})
 			streamable := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return mcpSrv }, nil)
-			mcpRoute := mcpEchoHandler(streamable)
+
+			bridge := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if ti := auth.TokenInfoFromContext(r.Context()); ti != nil {
+					if u, ok := ti.Extra["user"].(*models.User); ok && u != nil {
+						r = r.WithContext(mcpserver.WithIdentity(r.Context(), mcpserver.NewStaticIdentity(u)))
+					}
+				}
+				streamable.ServeHTTP(w, r)
+			})
+
+			// opts.Scopes is intentionally left unset: v1 has a single coarse
+			// "mcp" scope and the real authorization gate is the per-tool,
+			// per-library RBAC inside the MCP tools. (Setting it would also need
+			// the PAT path to advertise the scope, or PAT auth would 403.)
+			opts := &auth.RequireBearerTokenOptions{}
+			if cfg.MCPOAuthEnabled {
+				opts.ResourceMetadataURL = strings.TrimRight(cfg.BaseURL, "/") + "/.well-known/oauth-protected-resource"
+			}
+			mcpHTTP := auth.RequireBearerToken(mcpBearerVerifier(authSvc, oauthSvc), opts)(bridge)
+			mcpRoute := func(c echo.Context) error {
+				mcpHTTP.ServeHTTP(c.Response(), c.Request())
+				return nil
+			}
 			api.POST("/mcp", mcpRoute)
 			api.GET("/mcp", mcpRoute)
 			api.DELETE("/mcp", mcpRoute)
@@ -547,19 +613,45 @@ func main() {
 	log.Println("Server stopped")
 }
 
-// mcpEchoHandler bridges Echo → the MCP streamable HTTP handler. The global
-// auth middleware has already validated the bearer PAT / session and stored the
-// user on the Echo context; this copies it onto the request context as an
-// mcpserver.Identity so the (transport-agnostic) tool handlers can read it.
-func mcpEchoHandler(streamable *mcp.StreamableHTTPHandler) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		req := c.Request()
-		if user, ok := c.Get(middleware.ContextKeyUser).(*models.User); ok && user != nil {
-			ctx := mcpserver.WithIdentity(req.Context(), mcpserver.NewStaticIdentity(user))
-			req = req.WithContext(ctx)
+// mcpBearerVerifier builds the TokenVerifier for the MCP resource. It accepts a
+// personal access token (always) or, when OAuth is enabled, an OAuth 2.1 access
+// token (audience-bound to /api/mcp — OAuth tokens are not honored on any other
+// API route). The resolved user rides in TokenInfo.Extra for the identity
+// bridge. PATs have no usable expiry here (ValidateMCPToken already rejects
+// expired ones), so a far-future Expiration satisfies the SDK's required check.
+//
+// Both validators follow the (nil-user, nil-err) "not this credential" / (nil,
+// err) "operational failure" convention. A real DB/operational error is
+// propagated so the SDK answers 500 — not collapsed into a 401, which would
+// mask an outage as a revoked credential and re-trigger the OAuth/consent dance.
+func mcpBearerVerifier(authSvc *authservice.Service, oauthSvc *oauthservice.Service) auth.TokenVerifier {
+	return func(ctx context.Context, token string, _ *http.Request) (*auth.TokenInfo, error) {
+		u, err := authSvc.ValidateMCPToken(ctx, token)
+		if err != nil {
+			return nil, err
 		}
-		streamable.ServeHTTP(c.Response(), req)
-		return nil
+		if u != nil {
+			return &auth.TokenInfo{
+				UserID:     u.ID.String(),
+				Expiration: time.Now().Add(365 * 24 * time.Hour),
+				Extra:      map[string]any{"user": u},
+			}, nil
+		}
+		if oauthSvc != nil && oauthSvc.Enabled() {
+			u, at, err := oauthSvc.ValidateAccessToken(ctx, token)
+			if err != nil {
+				return nil, err
+			}
+			if u != nil {
+				return &auth.TokenInfo{
+					UserID:     u.ID.String(),
+					Expiration: at.ExpiresAt,
+					Scopes:     strings.Fields(at.Scope),
+					Extra:      map[string]any{"user": u},
+				}, nil
+			}
+		}
+		return nil, auth.ErrInvalidToken
 	}
 }
 

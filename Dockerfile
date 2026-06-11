@@ -4,17 +4,17 @@
 # Alcoves unified production image
 #
 # A single image that runs the ENTIRE stack — the Go API, the async worker, and
-# the Nuxt (Nitro) frontend including SSR share pages. The container entrypoint
-# (docker/entrypoint.sh) supervises both runtimes. The entrypoint role argument
-# (default "all") lets the SAME image run the whole stack or a single role
-# (web | api | worker) for split Kubernetes deployments.
+# the SvelteKit (adapter-node) frontend including SSR share pages. The container
+# entrypoint (docker/entrypoint.sh) supervises both runtimes. The entrypoint role
+# argument (default "all") lets the SAME image run the whole stack or a single
+# role (web | api | worker) for split Kubernetes deployments.
 #
 #   docker run -p 3000:3000 ghcr.io/rustyguts/alcoves      # whole stack, one port
 #
-# Nitro (:3000) serves the UI, SSRs /s/**, and proxies /api/** to the co-located
-# Go API (:3001). In production, also publish :3001 and set NUXT_PUBLIC_API_ORIGIN
-# so browsers stream video/large files directly from the API (Nitro's proxy can
-# mangle HTTP Range responses).
+# The SvelteKit server (:3000) serves the UI, SSRs /s/**, and proxies /api/** to
+# the co-located Go API (:3001). In production, also publish :3001 and set
+# PUBLIC_API_ORIGIN so browsers stream video/large files (and the activity
+# WebSocket) directly from the API, bypassing the in-process proxy.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -113,16 +113,21 @@ RUN ARCH=$(dpkg --print-architecture) && \
     cmake --build build -j --config Release
 
 # -----------------------------------------------------------------------------
-# Stage 3 — Nuxt frontend (Nitro bun preset → .output).
+# Stage 3 — SvelteKit client (adapter-node → build/) + pruned prod node_modules.
 # -----------------------------------------------------------------------------
 FROM oven/bun:1 AS frontend-build
 
 WORKDIR /app
-COPY frontend/package.json frontend/bun.lock* ./
+COPY client/package.json client/bun.lock* ./
 RUN bun install --frozen-lockfile
 
-COPY frontend/ .
+COPY client/ .
 RUN bun run build
+
+# adapter-node externalizes runtime deps (svelte, @sveltejs/kit, skeleton, …)
+# from build/, so they must ship — but vite/eslint/playwright/etc. must not.
+# Prune to production deps, leaving a lean (~150MB) node_modules.
+RUN bun install --frozen-lockfile --production
 
 # -----------------------------------------------------------------------------
 # Stage 4 — final runtime: Debian slim + native libs + Bun + both apps.
@@ -161,27 +166,37 @@ COPY --from=frontend-build /usr/local/bin/bun /usr/local/bin/bun
 # either, so LD_LIBRARY_PATH is how dlopen resolves the symlink.
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
-# Runtime defaults shared by both processes. ALCOVES_API_URL points the Nitro
-# /api proxy at the co-located Go API; PORT is the Go listen port.
+# Runtime defaults. The SvelteKit server (adapter-node) reads FRONTEND_* (svelte
+# config envPrefix) so its PORT doesn't collide with the Go API's PORT in `all`
+# mode. INTERNAL_API_URL points the SvelteKit /api proxy + SSR load at the
+# co-located Go API. FRONTEND_PROTOCOL_HEADER/HOST_HEADER let adapter-node derive
+# the request origin from the reverse proxy (no fixed ORIGIN needed).
+# FRONTEND_BODY_SIZE_LIMIT must be unbounded or TUS chunk PATCHes are rejected.
 ENV NODE_ENV=production \
-    NITRO_HOST=0.0.0.0 \
-    NITRO_PORT=3000 \
+    FRONTEND_HOST=0.0.0.0 \
+    FRONTEND_PORT=3000 \
+    FRONTEND_PROTOCOL_HEADER=x-forwarded-proto \
+    FRONTEND_HOST_HEADER=x-forwarded-host \
+    FRONTEND_BODY_SIZE_LIMIT=Infinity \
     PORT=3001 \
     ALCOVES_MODE=all \
-    ALCOVES_API_URL=http://127.0.0.1:3001
+    INTERNAL_API_URL=http://127.0.0.1:3001
 
 WORKDIR /app
 COPY --from=backend-build /alcoves ./alcoves
 COPY --from=backend-build /alcoves-mcp ./alcoves-mcp
-COPY --from=frontend-build /app/.output ./.output
+# SvelteKit adapter-node output + its pruned production node_modules + manifest.
+COPY --from=frontend-build /app/build ./build
+COPY --from=frontend-build /app/node_modules ./node_modules
+COPY --from=frontend-build /app/package.json ./package.json
 COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# 3000 = Nitro (UI + SSR + /api proxy); 3001 = Go API (direct binary streaming).
+# 3000 = SvelteKit (UI + SSR + /api proxy); 3001 = Go API (direct binary streaming).
 EXPOSE 3000 3001
 
 # No image-level HEALTHCHECK: the right probe depends on the role this container
-# runs (Nitro on :3000 for all/web, the Go API on :3001 for api/worker), and a
+# runs (SvelteKit on :3000 for all/web, the Go API on :3001 for api/worker), and a
 # fixed :3000 check would wrongly mark api/worker-only containers unhealthy.
 # Kubernetes uses its own per-workload probes; docker-compose.prod.yml defines a
 # role-appropriate healthcheck for the default `all` service.

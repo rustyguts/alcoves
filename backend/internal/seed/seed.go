@@ -36,9 +36,6 @@ const (
 	BobEmail   = "bob@alcoves.io"
 	// DefaultPassword is the plaintext password shared by every seeded account.
 	DefaultPassword = "password123"
-	// DevAccessToken is a fixed personal access token plaintext for the admin
-	// account, handy for poking the MCP server / API from the CLI in local dev.
-	DevAccessToken = "alc_pat_localdev0000000000000000000000000000"
 )
 
 // seedNS namespaces deterministic (v5) UUIDs so re-seeding a wiped DB reuses the
@@ -66,6 +63,10 @@ type Result struct {
 	Objects    int
 	Moments    int
 	Activities int
+	// AccessToken is the freshly-generated plaintext dev PAT for the admin
+	// account. It is only returned here (and logged once by MaybeRun) — there is
+	// no compiled-in constant — so callers/tests read the value from the run.
+	AccessToken string
 }
 
 // MaybeRun seeds dev/test data when enabled and the database is empty.
@@ -122,6 +123,7 @@ func MaybeRun(db *gorm.DB, st *storage.Service, enabled bool, mode, environment 
 	log.Printf("seed: done — %d users, %d libraries, %d folders, %d files, %d tags, %d people, %d faces, %d objects, %d moments, %d activities",
 		res.Users, res.Libraries, res.Folders, res.Files, res.Tags, res.People, res.Faces, res.Objects, res.Moments, res.Activities)
 	log.Printf("seed: log in with %s / %s (owner/admin)", AdminEmail, DefaultPassword)
+	log.Printf("seed: dev personal access token (admin): %s", res.AccessToken)
 	return nil
 }
 
@@ -200,9 +202,15 @@ func (s *seeder) run() error {
 	s.seedTravel(travel, admin, alice)
 	s.seedPodcast(podcast, admin, bob)
 
-	// A fixed personal access token for the admin account, for poking the MCP
-	// server / API from the CLI in local dev.
-	s.addPAT("pat/admin", admin.ID, "Local Dev Token", DevAccessToken, s.ago(10*24*time.Hour))
+	// A freshly-generated personal access token for the admin account, for poking
+	// the MCP server / API from the CLI in local dev. Random per seed (never a
+	// compiled-in constant) and surfaced via Result.AccessToken + the seed log.
+	token, err := generateDevToken()
+	if err != nil {
+		return s.fail(fmt.Errorf("generate dev token: %w", err))
+	}
+	s.res.AccessToken = token
+	s.addPAT("pat/admin", admin.ID, "Local Dev Token", token, s.ago(10*24*time.Hour))
 
 	return s.err
 }

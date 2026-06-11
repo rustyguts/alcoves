@@ -1,122 +1,86 @@
 ---
-title: "Frontend architecture (Nuxt 4)"
-description: "How the Alcoves Nuxt 4 frontend is structured: SSR topology, isomorphic API transport, typed client, layouts, auth middleware, and SSR-safety conventions."
+title: "Frontend architecture (SvelteKit)"
+description: "How the Alcoves SvelteKit frontend is structured: SSR topology, route groups, auth via hooks, the createApi client and in-process /api proxy, Svelte 5 rune stores, Skeleton UI, testing, and adapter-node deployment."
 ---
 
-The Alcoves frontend is a **Nuxt 4** (Vue 3) application running on its own Nitro server. The Go backend is a pure API — it does not embed or serve frontend assets. In development, Nitro proxies `/api/**` and `/s/**` to the Go API on port 3001. In production, both processes sit behind one reverse proxy.
+The Alcoves frontend is a **SvelteKit** (Svelte 5) application living in `client/`, built on **Skeleton UI v4** + **Tailwind 4** and run under **Bun**. The Go backend is a pure API — it does not embed or serve frontend assets. The SvelteKit server reaches the co-located Go API through an in-process proxy and server-side `load` functions; it never touches the database directly.
 
 | Process | Default port |
 |---|---|
-| Nuxt Nitro (frontend) | 3000 |
+| SvelteKit (adapter-node, run under Bun) | 3000 |
 | Go API (backend) | 3001 |
 
-This document is aimed at contributors. Read it before working in `frontend/app/`.
+This document is aimed at contributors. Read it before working in `client/src/`.
 
 ---
 
 ## SSR topology
 
-Alcoves uses a deliberate "client-render everywhere except share pages" strategy. The only route that requires server-side rendering is the public moment share page (`/s/:token`), which must emit Open Graph and Twitter player meta tags for social embeds. Every other page is client-rendered to avoid coupling page loads to backend latency and to eliminate a native-form-submit race during hydration (see [Form-guard plugins](#form-guard-plugins) below).
+Unlike the previous client-render-everything Nuxt app, this frontend uses **SvelteKit's default: server-render + hydrate**. Every page renders on the server first, then hydrates in the browser. Server `load` functions and `hooks.server.ts` fetch the Go API (never the DB), so the initial HTML is populated with real data and the public share page (`/s/:token`) emits correct Open Graph / Twitter meta for social crawlers.
 
-The `nuxt.config.ts` encodes this with a broad `routeRules` override:
+There is no global `ssr: false` override and no per-route opt-out — SSR is the topology, not the exception. The unit that historically required SSR (the share page) is just a normal SSR page among many.
 
-```ts
-ssr: true,                       // global default
-routeRules: {
-  "/**":   { ssr: false },       // client-render everything ...
-  "/s/**": { ssr: true },        // ... except public share pages
-},
-```
+### Route structure
 
-`ssr: true` is set globally, then immediately narrowed: the `/**` rule disables server rendering, and the more-specific `/s/**` rule re-enables it only for share pages.
+Routes follow the standard SvelteKit `src/routes` filesystem layout. The app is organised with **route groups** — parenthesised directories that share a layout without adding a URL segment:
 
-### Dev proxy
-
-During `bun run dev`, Nitro proxies backend traffic automatically:
-
-- `/api/**` → `${ALCOVES_API_URL}/api/**`
-- `/s/**` → `${ALCOVES_API_URL}/s/**`
-- WebSocket upgrades are enabled (`ws: true`) so the real-time activity socket (`/api/ws`) tunnels through the dev proxy without extra configuration.
-
-### Runtime configuration
-
-```ts
-runtimeConfig: {
-  apiUrl: process.env.ALCOVES_API_URL || "http://localhost:3001",  // server-only
-  public: {
-    apiOrigin: process.env.NUXT_PUBLIC_API_ORIGIN || "",
-  },
-},
-```
-
-| Variable | Side | Purpose |
+| Path | Group / kind | Purpose |
 |---|---|---|
-| `ALCOVES_API_URL` | Server (SSR) | Backend URL used when `apiFetch` runs on the server. Defaults to `http://localhost:3001`. |
-| `NUXT_PUBLIC_API_ORIGIN` | Client | When set, the client hits the backend directly cross-origin with `credentials: include`. When empty (default), the client uses relative URLs proxied by Nitro. |
+| `(app)/` | Authed group | Everything behind login: dashboard, libraries, search, notifications, profile, admin |
+| `(app)/libraries/[id]/…` | Authed | Library browser + per-tab pages (`feed`, `map`, `objects`, `people`, `tags`, `timeline`, `settings`, `trash`, `edit/[fileId]`) |
+| `(app)/admin`, `(app)/admin/jobs` | Authed, owner-gated | Admin stats/settings + the Asynq job dashboard |
+| `login/`, `register/` | Public | Auth entry points |
+| `invites/[token]/` | Public | Invite-link landing/acceptance |
+| `s/[token]/` | Public, SSR-for-OG | Moment share landing — server `load` fetches share metadata for crawlers |
+| `api/[...path]/` | Server endpoint | In-process catch-all proxy to the Go API (below) |
 
-Setting `NUXT_PUBLIC_API_ORIGIN` in production lets browsers stream video and image blobs directly from the API, bypassing Nitro's range-request buffering.
+The `(app)` group exists so a single `+layout.server.ts` can guard the entire authenticated surface in one place (see [Auth](#auth-via-hooksserverts)), and a single `+layout.svelte` can render the dashboard shell (sidebar, header, search, notification bell, user menu). Public pages sit outside the group so they render without that guard or shell.
 
-### Modules and theme
+`(app)/libraries/[id]/+layout.svelte` nests inside the dashboard shell automatically and adds the library header + tabs. Child tab pages read `data.library` from the subtree's server load and `page.params.id` directly — there is no Vue-style `provide`/`inject` for `libraryId`. The video editor (`edit/[fileId]`) breaks out of the library layout with a `+page@(app).svelte` layout reset so it gets full viewport width.
 
-- **Nuxt UI v4** is the only Nuxt module. The Nitro preset is `"bun"` to align with the Bun runtime.
-- **Theme** (`app.config.ts`): `primary = "emerald"`, `neutral = "zinc"`. Color mode defaults to the system preference and is stored under the `alcoves.theme` key.
-- **Vidstack** is registered as a Vite plugin for the media player. `media-*` custom elements are exempted from Vue's unknown-element warning so `<media-player>` and `<media-video-layout>` render without console noise.
-- **Icon routes** are served at `/_nuxt_icon` rather than `/api/*` so the Go backend proxy does not intercept them.
-- **TypeScript** is configured with `strict: true`.
-- Anything under `composables/**` and `utils/**` is **auto-imported** — no explicit imports are needed in pages or components for those trees.
-
-:::caution[Bun hoisted linker is required]
-`bunfig.toml` pins `linker = "hoisted"`. Bun's default symlinked `node_modules` layout triggers an `ELOOP` error in Nitro's dependency trace step at build time. Always install with `bun install` and do not switch package managers.
+:::note[Library page toolbars use a portal action]
+Library tab pages render their toolbar with `use:portal={'#library-header-actions'}` (`src/lib/actions/portal.ts`) to move it up into the shared library-header breadcrumb row — the SvelteKit equivalent of the old `<Teleport>`.
 :::
 
 ---
 
-## Isomorphic transport
+## Auth via `hooks.server.ts`
 
-`app/utils/api-fetch.ts` is the single HTTP transport layer. It is auto-imported and exports three things used across the codebase: `apiFetch`, `apiUrl`, and `ApiError`.
+Authentication is resolved server-side, once per request, in `src/hooks.server.ts`.
 
-### URL resolution (`apiUrl`)
+### `handle` — session resolution
 
-`apiUrl(path)` resolves a relative API path to an absolute URL, branching on render context:
+The `handle` hook populates `event.locals.user`:
 
-- **On the server (SSR):** prepends `runtimeConfig.apiUrl` (`ALCOVES_API_URL`).
-- **On the client:** prepends `NUXT_PUBLIC_API_ORIGIN` when set; otherwise returns the path unchanged so the browser's request is handled by Nitro's proxy.
-- Already-absolute URLs pass through unchanged.
+- For app navigations it calls `resolveUser()`, which forwards the request's `cookie` header to the Go API's `GET /api/_auth/session` (an endpoint that never `401`s — it returns `{ user: … | null }`). The result is set on `locals.user`.
+- If there is no cookie, the round trip is skipped (anonymous).
+- A backend hiccup is swallowed and treated as anonymous — **a flaky API must not turn every page into a 500**.
+- For `/api/*` requests `locals.user` is left `null`; the proxy forwards the raw cookie itself, so resolving the session there would be wasted work.
 
-### The fetch wrapper (`apiFetch`)
+The root `+layout.server.ts` exposes `locals.user` to every page as `data.user`. The **authed-area guard** lives in `(app)/+layout.server.ts`: it throws `redirect(302, '/login?redirect=…')` when `locals.user` is null, then loads the libraries list the sidebar renders (degrading to an empty list on failure rather than failing the shell). `(app)/admin/+layout.server.ts` adds the **owner-only** guard (`locals.user?.role !== 'owner'` → redirect to `/`).
 
-`apiFetch<T>(url, options)` wraps `fetch` with consistent behavior:
+### `handleFetch` — cookie + host rewrite for server `load`
 
-- **Query params:** appends query params, dropping any whose value is `undefined`.
-- **SSR cookie forwarding:** on the server, grabs the incoming request's `Cookie` header via `useRequestHeaders(["cookie"])` and forwards it to the backend. This is the auth mechanism for SSR-rendered `/s/**` share pages.
-- **Credentials mode:** uses `credentials: "include"` when `NUXT_PUBLIC_API_ORIGIN` is set (cross-origin); otherwise `"same-origin"`.
-- **FormData handling:** a `FormData` body skips `Content-Type` so the browser can set the multipart boundary automatically; all other bodies are JSON-serialized.
-- **Response types:** `"blob"` returns a `Blob`, `"text"` returns a raw string, and the default `"json"` parses the response body with null-safety (an empty body yields `null`).
-- **Errors:** on a non-OK response, attempts a JSON parse and throws `ApiError(status, data)`.
+The `handleFetch` hook intercepts `fetch` calls made inside server `load`/actions. When a same-origin `/api/*` URL is requested:
 
-### `ApiError`
+- it rewrites the target to `INTERNAL_API_URL` (the co-located Go API);
+- it forwards the session `cookie`;
+- it forwards `X-Forwarded-Host` and `X-Forwarded-Proto`. The proto/host are **load-bearing for share pages** — the backend's `share.go` builds absolute OG/share URLs from the forwarded host, so they must match the public origin.
 
-`ApiError` extends `Error` and carries `status: number` and `data: Record<string, unknown> | null`. The message is resolved from `data.message`, then `data.statusMessage`, then a generic fallback.
-
-:::note[Testing note]
-When mocking `~/utils/api-fetch` in unit tests, always re-export `apiUrl` and `ApiError` alongside `apiFetch`. Multiple components import them directly, and omitting either causes opaque Vitest module errors.
-:::
-
-### `useApiFetch` composable
-
-`app/composables/useApiFetch.ts` wraps Nuxt's `useAsyncData` and calls `apiFetch` internally. It bridges SSR payloads into client hydration. Key options beyond the standard `useAsyncData` surface:
-
-- `query` — reactive query params resolved via `toValue()` at fetch time.
-- `key` — dedup key for `useAsyncData` (defaults to `api:<url>`).
-- `watch` — defaults to watching the resolved URL ref; pass `false` to disable.
-
-**Rule of thumb:** use `useApiFetch` for page-level data that should hydrate from SSR; use `apiFetch` directly for imperative mutations and fire-and-forget calls.
+This is why a server `load` can write `await fetch('/api/share/…')` with a relative path and have it transparently reach the backend with auth attached.
 
 ---
 
-## Typed API client
+## API client and transport
 
-`app/api/index.ts` exports a single `api` object composed of **14 namespaced sub-objects**. Every method wraps `apiFetch` or `apiUrl`. This is the only place route paths are written — components and composables call `api.files.list(...)` rather than hand-writing URLs. Adding or changing a backend route means editing this file and the shared types.
+### `createApi(fetch)`
+
+`src/lib/api/client.ts` exports a `createApi(fetchImpl)` **factory** that returns a typed `api` object composed of **15 namespaced sub-objects**. Every method wraps the underlying `apiFetch`/`apiUrl`. This is the only place route paths are written — code calls `api.files.list(...)` rather than hand-writing URLs.
+
+The factory pattern is what makes the client isomorphic:
+
+- **Server `load`/actions** call `createApi(event.fetch)` so SvelteKit's `event.fetch` + `handleFetch` rewrite the relative `/api/*` path to the Go API and forward the cookie.
+- **Browser code** (components, rune stores) imports the `api` singleton from `$lib/api`, which is `createApi((i, init) => fetch(i, init))` bound to the global `fetch`.
 
 | Namespace | Covers |
 |---|---|
@@ -127,8 +91,8 @@ When mocking `~/utils/api-fetch` in unit tests, always re-export `apiUrl` and `A
 | `api.tags` | Tag CRUD, bulk sync |
 | `api.highlightFilters` | Highlight filter CRUD |
 | `api.members` | Library members and invite links |
-| `api.people` | Face recognition people, merge, thumbnail URL builder |
-| `api.objects` | Object detection labels, reprocess |
+| `api.people` | Face-recognition people, merge, thumbnail URL builder |
+| `api.objects` | Object-detection labels, reprocess |
 | `api.downloads` | ZIP download size estimate |
 | `api.search` | Cross-library search |
 | `api.invites` | Invite lookup and acceptance |
@@ -136,117 +100,113 @@ When mocking `~/utils/api-fetch` in unit tests, always re-export `apiUrl` and `A
 | `api.moments` | Moment CRUD, sharing, export, download URL builder |
 | `api.meta` | Public metadata (registration mode) |
 
-A few endpoints are intentionally not wrapped because they don't fit the `apiFetch` model: the admin SSE job stream (used via `EventSource`), moment downloads (browser navigation to a signed URL), and ZIP downloads (raw `fetch` for blob streaming).
+### `apiFetch` and `ApiError`
+
+`src/lib/api/fetch.ts` builds the `apiFetch` bound to a `fetch` implementation. It appends query params (dropping `undefined`/`null`), sends JSON bodies (skipping `Content-Type` for `FormData` so the multipart boundary is browser-set), supports `json` / `blob` / `text` response types (an empty body parses to `null`), and throws `ApiError(status, data)` on any non-OK response. `ApiError` carries `status: number` and `data`, with the message resolved from `data.message` → `data.statusMessage` → a generic fallback.
+
+Cookie forwarding is **intentionally not** in `apiFetch`: on the server it lives in `handleFetch`; in the browser the cookie rides along automatically (same-origin) or via `credentials: 'include'` (cross-origin, when `PUBLIC_API_ORIGIN` is set).
+
+### The in-process `/api` proxy
+
+`src/routes/api/[...path]/+server.ts` is a catch-all SvelteKit endpoint exporting every HTTP verb. It streams the request to `INTERNAL_API_URL/api/<path>` and streams the response back, preserving the unified single-origin topology so a same-origin `/api/*` call (cookie auto-sent) reaches the Go API. It is deliberately byte-faithful:
+
+- **Streams bodies both ways** — `duplex: 'half'` is set for request bodies so undici/Bun can stream TUS `PATCH` chunks.
+- **Passes status/headers through verbatim**, so **Range/`206`, ETag, TUS, and `Set-Cookie`** all work.
+- Strips hop-by-hop headers, and drops `content-encoding`/`content-length` on the way back because `fetch` transparently decodes the upstream body.
+
+### `PUBLIC_API_ORIGIN` bypass
+
+`src/lib/api/url.ts` decides per-request whether the browser talks to the proxy or directly to the Go API:
+
+- `apiUrl(path)` builds **browser-facing asset/stream URLs** (`<img>`/`<video>` `src`, downloads, thumbnails). When `PUBLIC_API_ORIGIN` is set it returns a direct-to-Go absolute URL (avoiding Range mangling through the proxy); otherwise a same-origin relative path through the `/api` proxy.
+- `dataRequestUrl(path)` resolves **JSON data fetches**: relative on the server (so `handleFetch` rewrites it), and on the browser the same proxy-vs-direct choice.
+- `clientUsesCrossOrigin()` flips `credentials` to `'include'` when the browser is crossing the API origin.
+
+So **binary streaming and the activity WebSocket bypass the proxy** when `PUBLIC_API_ORIGIN` is set, hitting the Go API directly. In the single-port unified (`all`-role) deployment where no separate API origin is exposed, the activity WebSocket can't upgrade through the single SvelteKit port; the notifications socket **degrades to its poll-fallback**. Real-time WS works when reaching the API directly — via a Kubernetes ingress that routes `/api/ws` to the API service, or by setting `PUBLIC_API_ORIGIN`.
 
 ---
 
-## Layouts
+## Svelte 5 rune stores (`$lib/state`)
 
-### Dashboard layout
+The Vue composables (`useLibraryExplorer`, `useUploadQueue`, `useNotifications`, …) are replaced by **Svelte 5 rune stores** under `src/lib/state/`. Stateful stores are `.svelte.ts` files (so the compiler enables runes), exporting a single module-level instance whose reactive fields use `$state`/`$derived` and are exposed through getters so reactivity survives the module boundary. Consumers import the singleton and drive it from `onMount`/`onDestroy`; the stores themselves avoid `$effect`/lifecycle hooks.
 
-`app/layouts/dashboard.vue` is the primary authenticated shell used by most pages. It provides:
+Representative stores: `auth`, `theme`, `toast`, `libraries-list`, `library-explorer`, `library-timeline`/`-map`/`-feed`/`-members`/`-people`/`-tags`/`-moments`/`-folder-path`/`-folder-actions`, `upload-queue` (TUS), `notifications` + `notifications-socket`, `transcript`/`transcribe-job`, `audio-detections`/`audio-detect-job`, `waveform`/`waveform-job`/`waveform-renderer`, `highlight-filters`, `editor-highlights`/`editor-shortcuts`, `download-zip`, `moment-downloads`, `async-job-status`, `file-drop`. Pure non-reactive helpers (e.g. `async-job-status.ts`, `editor-shortcuts.ts`, `toast.ts`) keep a plain `.ts` extension.
 
-- A **sidebar** (fixed on desktop; a slide-over on mobile) with the brand link, the default library, a list of all libraries with a create button, and an **Admin** link that appears only for users with the `owner` role.
-- A **header** with a global search form (submits to `/search?q=…`), a notification bell, and a user avatar dropdown with profile and sign-out links.
-- A `useApiFetch` call for `GET /api/libraries` and a `refreshLibraries` function registered into the `useLibrariesList()` singleton, so child pages can trigger a sidebar refresh without prop drilling.
-
-### Library layout
-
-`app/layouts/library.vue` wraps all `/libraries/[id]/*` pages. It renders inside the dashboard layout and adds a library header, navigation tabs, and the page slot. It fetches `GET /api/libraries/:id` and **provides** three values to child pages via Vue's `inject`:
-
-| Provided key | Type | Value |
-|---|---|---|
-| `libraryId` | `Ref<string>` | Current route param |
-| `library` | `Ref<Library \| null>` | Fetched library object |
-| `canManageLibrary` | `ComputedRef<boolean>` | True when the current user is the library owner or has the `owner`/`admin` role |
-
-:::note
-The video editor (`/libraries/[id]/edit/[fileId]`) uses the `dashboard` layout directly rather than the library layout because it needs the full viewport width.
+:::note[Reactive collections]
+Rune stores reassign a fresh `Set`/`Map` to a `$state` field on each change (which *is* reactive) rather than mutating in place. The `svelte/prefer-svelte-reactivity` lint rule can't distinguish that from a real bug, so it's disabled in `eslint.config.js`; reactivity correctness is covered by tests instead.
 :::
 
 ---
 
-## Auth middleware
+## Styling, theme, and icons
 
-`app/middleware/auth.global.ts` is a global Nuxt route middleware that runs on every navigation.
+- **Tailwind 4 + Skeleton UI v4**, configured **CSS-first** in `src/app.css` (`@import 'tailwindcss'`, `@import '@skeletonlabs/skeleton'` + the `cerberus` theme + `skeleton-svelte`). There is **no `tailwind.config`** — Tailwind is wired through `@tailwindcss/vite`.
+- **Class-based dark mode.** `app.css` redefines the dark variant with `@custom-variant dark (&:where(.dark, .dark *))`, so light/dark is driven by a `.dark` class on `<html>` toggled by a persisted preference (`theme.svelte.ts`, key `alcoves.theme`), not by `prefers-color-scheme` alone. `app.html` applies the persisted scheme **before first paint** to avoid a flash of the wrong theme.
+- **Offline icons.** Icons use `@iconify/svelte` rendered via `AppIcon.svelte`, which calls `addCollection(@iconify-json/lineicons)` in a `module` block so the Lineicons set is **bundled and rendered fully offline** — no requests to the Iconify API (privacy-first, per the project vision). `src/lib/utils/icons.ts` is the single registry: keys are *semantic UI roles*, values are `lineicons:<glyph>` strings, all validated against the installed set by `icons.test.ts`.
 
-**Flow:**
+### Pre-hydration form guard
 
-1. **Public allowlist** — `/login`, `/register`, `/s/**`, and `/invites/**` bypass the auth check entirely.
-2. **Session gate** — if the user is not logged in, calls `fetchSession()` to validate the session cookie via `GET /api/_auth/session`. If still unauthenticated, redirects to `/login?redirect=<original path>`.
-3. **Owner gate** — `/admin` and `/admin/jobs` redirect non-owner users to `/`.
+`app.html` installs an inline capturing `submit` listener that calls `e.preventDefault()` while `window.__alcovesReady` is falsy. The root `+layout.svelte` sets `__alcovesReady = true` and releases the guard in `onMount`. This closes the SSR→hydration window in which a native `<form>` POST could fire before the app is interactive. E2E tests read `window.__alcovesReady` to know the app is interactive before asserting.
 
-:::note[Testing note]
-The middleware destructures `{ loggedIn, user, fetchSession }` from `useAuth()` on every navigation. A `useAuth` mock that omits any of these fields will crash the middleware during app initialization. Always return the full shape in tests.
+:::caution[Tooling deviates from the repo OX stack]
+OXlint/OXfmt can't parse `.svelte`, so the client uses **svelte-check** (typecheck), **Prettier + `prettier-plugin-svelte` + `-tailwindcss`** (format), and **ESLint flat config + `eslint-plugin-svelte` + `typescript-eslint`** (lint). Bun remains the package manager and runtime. Scripts: `dev`, `build`, `preview`, `typecheck`, `lint`, `fmt`, `test:unit`, `test:unit:coverage`, `coverage:floor`, `test:e2e`.
 :::
 
 ---
 
-## App root
+## Testing strategy
 
-`app.vue` wraps everything in the Nuxt UI provider (`<UApp>`) and renders `<NuxtLayout>` → `<NuxtPage>`. Two app-level behaviors live here:
+### Unit tests — Vitest dual projects
 
-- **Upload navigation guard:** a `beforeunload` listener that blocks tab close or unload when there are active TUS uploads in flight (`useUploadQueue().hasInFlightUploads`).
-- **Floating upload widget:** a `<UploadProgress>` component wrapped in `<ClientOnly>` that renders the global bottom-right upload status panel only on the client.
+`vite.config.ts` defines two Vitest **projects** so each test runs in the right environment:
 
----
+| Project | Environment | Files | Covers |
+|---|---|---|---|
+| `server` | `node` | `src/**/*.{test,spec}.ts` | Pure logic, hooks, `load` functions, the `/api` proxy, the API client |
+| `client` | browser (`vitest-browser-svelte` + Playwright chromium, headless) | `src/**/*.svelte.{test,spec}.ts` | Components and DOM-touching rune stores |
 
-## Form-guard plugins
+There are ~1,591 unit tests. Coverage is v8 with global thresholds of **90%** lines/functions/statements and **80%** branches; `scripts/coverage-floor.mjs` enforces the complementary per-file rule that **no file is below 60%**. A short coverage-exclude list covers files the unit harness can't meaningfully exercise — `LibraryMap.svelte` and `VideoEditorPlayer.svelte` (thin wrappers around browser-only libs whose `onMount` dynamic imports can't run in unit tests) and the two trivial `libraries/[id]` `+page.svelte` passthroughs — all of which are exercised by the full-stack e2e instead.
 
-Because login and register pages can render HTML on the server but SSR is disabled for `/**` routes, there is a window between server HTML delivery and client hydration where a user could trigger a native form submit (a full-page POST or GET), losing the form's intent. Two paired plugins close this gap:
-
-- **`frontend/server/plugins/form-guard.ts`** (Nitro server plugin): injects an inline `<script>` at the top of `<body>` that installs a capturing `submit` listener. While `window.__nuxtReady` is falsy, every form submit is cancelled with `e.preventDefault()`.
-- **`frontend/app/plugins/form-guard.client.ts`** (client plugin): on the `app:mounted` hook, sets `window.__nuxtReady = true`, releasing the guard once Vue has fully hydrated.
-
-End-to-end tests read `window.__nuxtReady` to know the app is interactive before asserting on page content.
-
----
-
-## Backend contract types
-
-`shared/types/api.ts` (imported as `~~/shared/types/api`) is the single source of truth for TypeScript types that mirror Go backend response shapes. All IDs are string UUIDs.
-
-Key types include `Library`, `LibraryFile` (carries async job status fields for proxy, transcription, audio detection, and waveform pipelines), `LibraryFolder`, `LibraryEntry` (a discriminated union of `LibraryFile | LibraryFolder`), `Moment`, `MomentShare`, `HighlightFilter`, `AuthUser`, `AdminStats`, and the people, search, invites, and members families.
-
-`ActivityAction` is a closed union literal of 13 values (`file.created`, `folder.renamed`, `moment.shared`, `system.waveform_ready`, and others) that exactly mirrors the backend enum. Adding a new activity type requires updating both files in lockstep.
-
----
-
-## SSR-safety conventions
-
-Because `/s/**` pages render on the server in production, browser-only globals must be guarded. When adding `window`, `document`, `localStorage`, `sessionStorage`, `navigator.clipboard`, `history`, `ResizeObserver`, or Vidstack imports to a component or composable, wrap the access in `import.meta.client` or defer it to `onMounted`.
-
-Established patterns in the codebase:
-
-- **Vidstack lazy-import:** `FilePreview.vue` and `VideoEditorPlayer.vue` dynamically import `vidstack/player` in `onMounted`, set a `playerReady` flag, and render `<media-player v-if="playerReady">`.
-- **`crossorigin="use-credentials"`** on every `<img>`, `<media-player>`, and canvas image load — all media endpoints require the session cookie.
-- Composables `useFileDrop`, `useEditorShortcuts`, and `useWaveformRenderer` guard all DOM/`window` access with `import.meta.client`. The notifications socket returns early on the server.
-
-:::note[Testing note]
-`localStorage`, `sessionStorage`, `navigator.clipboard`, and `<NuxtLayout>` are already stubbed in `test/setup.ts`. Do not re-stub them per file.
+:::note[Route tests must not use `+`-prefixed filenames]
+SvelteKit treats `+page`/`+layout`/`+server` files as routes, so test files alongside them are named `page.svelte.test.ts`, `layout.server.test.ts`, etc. — never `+page.test.ts`.
 :::
 
-### `useRoute` and `useRouter` in tests
+### E2E — real-stack Playwright
 
-`useRoute` and `useRouter` auto-import from `#app/composables/router`, not from `vue-router`. Mocking `vue-router` alone does not intercept Nuxt's auto-imports. Tests that need to control route state should avoid `useRoute`-dependent code paths, or mock at the `#app/composables/router` level.
+`client/playwright.config.ts` runs `client/test/e2e/*.e2e.ts` against a **real, running, full stack** — Postgres + Dragonfly + the Go API/worker (seeded) behind the SvelteKit server. There is **no mock backend**.
 
----
-
-## Data flow
-
-```
-Page / Component
-  └─ api.<namespace>.<method>()      typed client — route paths live here
-       └─ apiFetch<T>()              transport layer
-            ├─ apiUrl()              SSR → runtimeConfig.apiUrl
-            │                        client → apiOrigin or relative path
-            ├─ SSR: forward Cookie   via useRequestHeaders
-            └─ throws ApiError       on any non-OK response
-
-  └─ useApiFetch()                   useAsyncData wrapper for hydrating reads
+```bash
+docker compose up        # brings up postgres + dragonfly + Go API/worker (seeded) + SvelteKit
+bun run test:e2e         # Playwright against http://localhost:3000 (or E2E_BASE_URL)
 ```
 
-For real-time data, `useNotificationsSocket` opens a WebSocket to `/api/ws` (Nitro proxies with `ws: true`). The notification bell and activity feed pages subscribe to `user:<id>` and `library:<id>` rooms.
+Seed login: **`test@alcoves.io` / `password123`** (see `backend/internal/seed`). Tests run sequentially (`workers: 1`).
+
+---
+
+## Deployment (adapter-node)
+
+The client builds with **`@sveltejs/adapter-node`** (`svelte.config.js`) to `build/` and is run under Bun (`bun /app/build/index.js`).
+
+### `envPrefix` — avoiding a PORT collision
+
+The adapter is configured with `envPrefix: 'FRONTEND_'`. In the unified single-image `all` role the SvelteKit server and the Go API run side by side, and the Go API owns the unprefixed `PORT`. Prefixing means the SvelteKit server reads `FRONTEND_HOST` / `FRONTEND_PORT` / `FRONTEND_ORIGIN` / `FRONTEND_BODY_SIZE_LIMIT` (and `FRONTEND_PROTOCOL_HEADER` / `FRONTEND_HOST_HEADER`) without colliding with the Go process.
+
+| Variable | Purpose |
+|---|---|
+| `INTERNAL_API_URL` | Co-located Go API base for server `load` + the `/api` proxy target (default `http://localhost:3001`; `http://127.0.0.1:3001` in the unified image) |
+| `PUBLIC_API_ORIGIN` | Public API origin for direct browser binary streaming + the activity WS; empty → everything same-origin through the proxy |
+| `FRONTEND_HOST` / `FRONTEND_PORT` | adapter-node bind address (`0.0.0.0` / `3000`) |
+| `FRONTEND_PROTOCOL_HEADER` / `FRONTEND_HOST_HEADER` | `x-forwarded-proto` / `x-forwarded-host` — let adapter-node derive the request origin from the ingress |
+| `FRONTEND_BODY_SIZE_LIMIT` | Must be `Infinity` or TUS chunk `PATCH` bodies streamed through the `/api` proxy are rejected |
+
+### Build pipeline
+
+The root `Dockerfile` builds the client in stage 3 (`oven/bun:1`): `bun run build` emits `build/`, then prod deps are **pruned** to a lean `node_modules` (vite/eslint/playwright dropped, but adapter-node's runtime deps kept since the server imports from `build/`). Stage 4 copies `build/` + the pruned `node_modules` + `package.json` into the runtime image. `docker/entrypoint.sh` runs `bun /app/build/index.js` for the `web` and `all` roles; in `all` it supervises that alongside the Go binary and exits non-zero if either child dies.
+
+Dev uses the docker-compose `frontend` service built from `client/Dockerfile.dev` (Vite dev server on :3000 with HMR, `INTERNAL_API_URL=http://backend:3001`).
+
+The Helm chart's `frontend` Deployment runs the one image with `args: ["web"]` and sets `FRONTEND_HOST`/`FRONTEND_PORT`/`FRONTEND_PROTOCOL_HEADER`/`FRONTEND_HOST_HEADER`/`FRONTEND_BODY_SIZE_LIMIT`, `INTERNAL_API_URL` (the in-cluster API service), and `PUBLIC_API_ORIGIN` (so browsers reach the API directly for streaming and the activity WebSocket).
 
 ---
 
@@ -254,17 +214,20 @@ For real-time data, `useNotificationsSocket` opens a WebSocket to `/api/ws` (Nit
 
 | Concern | File |
 |---|---|
-| SSR topology, proxy, runtime config, modules | `frontend/nuxt.config.ts` |
-| Isomorphic transport (`apiFetch`, `apiUrl`, `ApiError`) | `frontend/app/utils/api-fetch.ts` |
-| `useAsyncData` wrapper | `frontend/app/composables/useApiFetch.ts` |
-| Typed API client (14 namespaces) | `frontend/app/api/index.ts` |
-| Primary shell layout | `frontend/app/layouts/dashboard.vue` |
-| Nested library layout | `frontend/app/layouts/library.vue` |
-| Auth and owner-route middleware | `frontend/app/middleware/auth.global.ts` |
-| Root shell (upload guard, floating progress) | `frontend/app/app.vue` |
-| Form-guard (server) | `frontend/server/plugins/form-guard.ts` |
-| Form-guard (client) | `frontend/app/plugins/form-guard.client.ts` |
-| Backend contract types | `frontend/shared/types/api.ts` |
-| Nuxt UI theme | `frontend/app/app.config.ts` |
-| Bun linker pin | `frontend/bunfig.toml` |
-| Only SSR-rendered route | `frontend/app/pages/s/[token].vue` |
+| Session resolution + cookie/host rewrite | `client/src/hooks.server.ts` |
+| Authed-area guard + sidebar data | `client/src/routes/(app)/+layout.server.ts` |
+| Owner-only admin guard | `client/src/routes/(app)/admin/+layout.server.ts` |
+| Dashboard shell | `client/src/routes/(app)/+layout.svelte` |
+| In-process `/api` proxy | `client/src/routes/api/[...path]/+server.ts` |
+| Typed API client factory (16 namespaces) | `client/src/lib/api/client.ts` |
+| Isomorphic `apiFetch` + `ApiError` | `client/src/lib/api/fetch.ts` |
+| URL resolution + `PUBLIC_API_ORIGIN` bypass | `client/src/lib/api/url.ts` |
+| Backend contract types | `client/src/lib/types/api.ts` |
+| Rune stores | `client/src/lib/state/*.svelte.ts` |
+| Icon registry + offline bundling | `client/src/lib/utils/icons.ts`, `client/src/lib/components/ui/AppIcon.svelte` |
+| Theme bootstrap + form guard | `client/src/app.html`, `client/src/lib/state/theme.svelte.ts` |
+| Tailwind 4 + Skeleton CSS-first config | `client/src/app.css` |
+| Public share page (SSR for OG) | `client/src/routes/s/[token]/+page.server.ts` |
+| adapter-node + `envPrefix` | `client/svelte.config.js` |
+| Vitest dual projects + coverage | `client/vite.config.ts`, `client/scripts/coverage-floor.mjs` |
+| Real-stack e2e | `client/playwright.config.ts`, `client/test/e2e/*.e2e.ts` |

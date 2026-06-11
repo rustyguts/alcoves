@@ -57,15 +57,36 @@ type timelineRow struct {
 	UpdatedAt           time.Time
 }
 
-// ListLibraryTimeline returns library files (no folders) flattened and sorted
-// newest-first by effective capture date — COALESCE(captured_at,
-// original_created_at, created_at). type=media (default) limits to images +
-// videos; type=all includes every file. Cursor-paginated via keyset.
-func (s *Service) ListLibraryTimeline(libraryID string, c echo.Context) (*PaginatedFiles, error) {
-	limit := parseLimit(c.QueryParam("limit"))
-	mediaOnly := c.QueryParam("type") != "all"
+// TimelineParams holds the typed timeline inputs. The HTTP handler builds it
+// from query params (via ListLibraryTimeline); the MCP tool builds it from
+// typed arguments and calls ListLibraryTimelineParams directly. Both share the
+// identical query/pagination semantics below.
+type TimelineParams struct {
+	Limit  string // raw; empty/invalid → DefaultLimit, clamped to [1, MaxLimit]
+	Type   string // "all" includes every file; anything else (default) = media only
+	Cursor string // raw base64 keyset cursor; "" → first page
+}
 
-	cursor, err := parseTimelineCursor(c.QueryParam("cursor"))
+// ListLibraryTimeline is the echo.Context-driven entry point used by the HTTP
+// handler. It extracts the query params and delegates to the typed
+// ListLibraryTimelineParams so the listing logic has a single source of truth.
+func (s *Service) ListLibraryTimeline(libraryID string, c echo.Context) (*PaginatedFiles, error) {
+	return s.ListLibraryTimelineParams(libraryID, TimelineParams{
+		Limit:  c.QueryParam("limit"),
+		Type:   c.QueryParam("type"),
+		Cursor: c.QueryParam("cursor"),
+	})
+}
+
+// ListLibraryTimelineParams returns library files (no folders) flattened and
+// sorted newest-first by effective capture date — COALESCE(captured_at,
+// original_created_at, created_at). Type=="all" includes every file; otherwise
+// (default) it limits to images + videos. Cursor-paginated via keyset.
+func (s *Service) ListLibraryTimelineParams(libraryID string, p TimelineParams) (*PaginatedFiles, error) {
+	limit := parseLimit(p.Limit)
+	mediaOnly := p.Type != "all"
+
+	cursor, err := parseTimelineCursor(p.Cursor)
 	if err != nil {
 		return nil, err
 	}
@@ -208,6 +229,57 @@ func (s *Service) ListLibraryTimeline(libraryID string, c echo.Context) (*Pagina
 		Breadcrumbs:     []FolderBreadcrumb{},
 		CurrentFolderID: nil,
 	}, nil
+}
+
+// TimelineHistogramBucket is one per-month density bucket for the date scrubber.
+type TimelineHistogramBucket struct {
+	Year  int `json:"year"`
+	Month int `json:"month"` // 1-12
+	Count int `json:"count"`
+}
+
+// TimelineHistogramResponse is the scrubber payload: per-month file counts
+// across the whole library, newest-first.
+type TimelineHistogramResponse struct {
+	Buckets    []TimelineHistogramBucket `json:"buckets"`
+	TotalCount int                       `json:"totalCount"`
+}
+
+// ListLibraryTimelineHistogram returns per-month file counts across the WHOLE
+// library, newest-first, using the SAME effective-date COALESCE + filters as the
+// timeline so the scrubber's density buckets line up with the grouped tiles.
+// Counts bucket on the UTC wall-clock month (AT TIME ZONE 'UTC') to match the
+// client's UTC day grouping. type=media (default) limits to images + videos.
+func (s *Service) ListLibraryTimelineHistogram(libraryID string, c echo.Context) (*TimelineHistogramResponse, error) {
+	mediaOnly := c.QueryParam("type") != "all"
+
+	where := "library_id = ? AND trashed_at IS NULL AND source_file_id IS NULL"
+	args := []interface{}{libraryID}
+	if mediaOnly {
+		where += " AND (mime_type LIKE 'image/%' OR mime_type LIKE 'video/%')"
+	}
+
+	// EXTRACT(...) yields numeric/double in Postgres — cast to int so the JSON
+	// contract stays integer (year/month/count must not come back as floats).
+	query := `SELECT EXTRACT(YEAR FROM d)::int AS year,
+		EXTRACT(MONTH FROM d)::int AS month,
+		COUNT(*)::int AS count
+		FROM (
+			SELECT (COALESCE(captured_at, original_created_at, created_at) AT TIME ZONE 'UTC') AS d
+			FROM files WHERE ` + where + `
+		) t
+		GROUP BY year, month
+		ORDER BY year DESC, month DESC`
+
+	buckets := []TimelineHistogramBucket{}
+	if err := s.db.Raw(query, args...).Scan(&buckets).Error; err != nil {
+		return nil, err
+	}
+	total := 0
+	for _, b := range buckets {
+		total += b.Count
+	}
+	return &TimelineHistogramResponse{Buckets: buckets, TotalCount: total}, nil
 }
 
 func parseTimelineCursor(s string) (*timelineCursor, error) {

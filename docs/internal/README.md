@@ -19,6 +19,7 @@ document every change is measured against.
 | [`models.md`](models.md) | ML model evaluation, upgrade history, and rollback rationale | Documents maintainer decisions, incident history, and private model-mirror (`s3.rustyguts.net`) details |
 | [`publishing-models.md`](publishing-models.md) | Process for mirroring ML model weights to the project's model bucket | A maintainer-only workflow that requires private push credentials |
 | [`todos.md`](todos.md) | Engineering backlog: testing gaps, open bugs, polish items | Internal task tracking, not a product or contributor reference |
+| [`mcp-oauth21-plan.md`](mcp-oauth21-plan.md) | Design record: OAuth 2.1 authorization-server for MCP connections | Maintainer-facing design/sequencing for the shipped, config-gated MCP OAuth feature |
 
 ## Guidelines
 

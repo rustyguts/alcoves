@@ -78,50 +78,10 @@ func (h *LibraryHandler) List(c echo.Context) error {
 		return err
 	}
 
-	// Get libraries the user owns
-	var ownedLibs []models.Library
-	h.db.Where("owner_id = ?", userID).Order("created_at").Find(&ownedLibs)
-
-	// Get libraries the user is a member of
-	var memberEntries []models.LibraryMember
-	h.db.Where("user_id = ?", userID).Find(&memberEntries)
-
-	memberLibIDs := make([]uuid.UUID, len(memberEntries))
-	memberRoles := make(map[uuid.UUID]string)
-	for i, m := range memberEntries {
-		memberLibIDs[i] = m.LibraryID
-		memberRoles[m.LibraryID] = m.Role
-	}
-
-	var memberLibs []models.Library
-	if len(memberLibIDs) > 0 {
-		h.db.Where("id IN ?", memberLibIDs).Order("created_at").Find(&memberLibs)
-	}
-
-	// Build response
-	results := make([]libraryResponse, 0, len(ownedLibs)+len(memberLibs))
-	for i := range ownedLibs {
-		lib := &ownedLibs[i]
-		la := &access.LibraryAccess{
-			LibraryID: lib.ID,
-			Role:      access.RoleOwner,
-			IsOwner:   true,
-			IsAdmin:   true,
-			IsDefault: lib.IsDefault,
-		}
-		results = append(results, toLibraryResponse(lib, la))
-	}
-	for i := range memberLibs {
-		lib := &memberLibs[i]
-		role := access.LibraryAccessRole(memberRoles[lib.ID])
-		la := &access.LibraryAccess{
-			LibraryID: lib.ID,
-			Role:      role,
-			IsOwner:   false,
-			IsAdmin:   role == access.RoleAdmin,
-			IsDefault: lib.IsDefault,
-		}
-		results = append(results, toLibraryResponse(lib, la))
+	libs, _ := h.accessSvc.ListAccessibleLibraries(userID)
+	results := make([]libraryResponse, 0, len(libs))
+	for i := range libs {
+		results = append(results, toLibraryResponse(&libs[i].Library, &libs[i].Access))
 	}
 
 	return c.JSON(http.StatusOK, results)
@@ -152,7 +112,7 @@ func (h *LibraryHandler) Create(c echo.Context) error {
 	}
 
 	if err := h.db.Create(&library).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create library")
+		return internalError("Failed to create library", err)
 	}
 
 	la := &access.LibraryAccess{
@@ -232,7 +192,7 @@ func (h *LibraryHandler) Update(c echo.Context) error {
 	}
 
 	if err := h.db.Model(&models.Library{}).Where("id = ?", libraryID).Updates(updates).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update library")
+		return internalError("Failed to update library", err)
 	}
 
 	// When a detection feature is enabled, enqueue all existing images
@@ -260,7 +220,7 @@ func (h *LibraryHandler) Update(c echo.Context) error {
 
 	var library models.Library
 	if err := h.db.Where("id = ?", libraryID).First(&library).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to reload library")
+		return internalError("Failed to reload library", err)
 	}
 
 	return c.JSON(http.StatusOK, toLibraryResponse(&library, la))
@@ -289,7 +249,7 @@ func (h *LibraryHandler) Delete(c echo.Context) error {
 	}
 
 	if err := h.db.Where("id = ?", libraryID).Delete(&models.Library{}).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete library")
+		return internalError("Failed to delete library", err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})

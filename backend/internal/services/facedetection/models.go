@@ -1,16 +1,14 @@
 package facedetection
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
-	"sync"
-	"time"
 
+	"github.com/alcoves/alcoves-backend/internal/services/modelfetch"
+	"github.com/alcoves/alcoves-backend/internal/services/onnxinit"
 	ort "github.com/yalue/onnxruntime_go"
 )
 
@@ -25,21 +23,17 @@ const (
 	minModelSize = 1 * 1024 * 1024 // 1MB — anything smaller is likely an LFS pointer or error page
 )
 
+// Expected SHA-256 of each canonical model. A cached file must match its hash
+// or it is re-downloaded. Size alone is NOT enough: a stale file of the wrong
+// model can pass a size check yet expose ONNX input/output names that no loader
+// combination matches, which silently breaks recognition (faces are detected but
+// no embedding is computed, so nobody is ever clustered into the People view).
+// If you change a model URL, update its hash here too. These are vars (not consts)
+// only so tests can point them at fixture content; treat them as constants.
 var (
-	ortInitOnce sync.Once
-	ortInitErr  error
+	detectionModelSHA256   = "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
+	recognitionModelSHA256 = "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43"
 )
-
-// initONNXRuntime initializes the ONNX Runtime library once.
-func initONNXRuntime() error {
-	ortInitOnce.Do(func() {
-		ortInitErr = ort.InitializeEnvironment()
-		if ortInitErr != nil {
-			log.Printf("Failed to initialize ONNX Runtime: %v", ortInitErr)
-		}
-	})
-	return ortInitErr
-}
 
 // EnsureModelsDownloaded downloads ONNX models to modelsPath if they don't already exist.
 func EnsureModelsDownloaded(modelsPath string) error {
@@ -50,117 +44,24 @@ func EnsureModelsDownloaded(modelsPath string) error {
 	models := []struct {
 		filename string
 		url      string
+		sha256   string
 	}{
-		{detectionModelFile, detectionModelURL},
-		{recognitionModelFile, recognitionModelURL},
+		{detectionModelFile, detectionModelURL, detectionModelSHA256},
+		{recognitionModelFile, recognitionModelURL, recognitionModelSHA256},
 	}
 
 	for _, m := range models {
 		dest := filepath.Join(modelsPath, m.filename)
-		if err := downloadIfNeeded(dest, m.url); err != nil {
+		if err := modelfetch.FetchToFile(context.Background(), m.url, dest, modelfetch.Options{
+			MinSize:     minModelSize,
+			RejectHTML:  true,
+			LogProgress: true,
+			SHA256:      m.sha256,
+		}); err != nil {
 			return fmt.Errorf("failed to download %s: %w", m.filename, err)
 		}
 	}
 	return nil
-}
-
-// downloadIfNeeded downloads a file from url to dest if the file doesn't exist or is invalid.
-// Retries up to 6 times on transient (5xx / network) errors with exponential backoff.
-func downloadIfNeeded(dest, url string) error {
-	if info, err := os.Stat(dest); err == nil {
-		if info.Size() > minModelSize {
-			return nil
-		}
-		log.Printf("Model file %s is too small (%d bytes), re-downloading", dest, info.Size())
-	}
-
-	const maxAttempts = 6
-	var lastErr error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Printf("Downloading model to %s (attempt %d/%d)...", dest, attempt, maxAttempts)
-		err := doDownload(dest, url)
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		s := err.Error()
-		if !(strings.Contains(s, "HTTP 5") || strings.Contains(s, "connection reset") || strings.Contains(s, "unexpected EOF") || strings.Contains(s, "EOF")) {
-			return err
-		}
-		backoff := time.Duration(1<<uint(attempt-1)) * time.Second
-		if backoff > 30*time.Second {
-			backoff = 30 * time.Second
-		}
-		log.Printf("Transient download error (%v), retrying in %s", err, backoff)
-		time.Sleep(backoff)
-	}
-	return fmt.Errorf("download failed after %d attempts: %w", maxAttempts, lastErr)
-}
-
-func doDownload(dest, url string) error {
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
-	if err != nil {
-		return fmt.Errorf("HTTP request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP %d downloading %s", resp.StatusCode, url)
-	}
-
-	ct := resp.Header.Get("Content-Type")
-	if strings.Contains(ct, "text/html") {
-		return fmt.Errorf("got HTML response (LFS pointer?) for %s", url)
-	}
-
-	totalSize := resp.ContentLength
-
-	tmpFile := dest + ".tmp"
-	f, err := os.Create(tmpFile)
-	if err != nil {
-		return err
-	}
-
-	written, err := io.Copy(f, &progressReader{r: resp.Body, total: totalSize, label: filepath.Base(dest)})
-	f.Close()
-	if err != nil {
-		os.Remove(tmpFile)
-		return err
-	}
-
-	log.Printf("Download complete: %s (%d bytes)", filepath.Base(dest), written)
-
-	if written < minModelSize {
-		os.Remove(tmpFile)
-		return fmt.Errorf("downloaded file too small (%d bytes), likely invalid", written)
-	}
-
-	return os.Rename(tmpFile, dest)
-}
-
-// progressReader wraps an io.Reader and logs download progress periodically.
-type progressReader struct {
-	r          io.Reader
-	total      int64
-	read       int64
-	label      string
-	lastReport time.Time
-}
-
-func (pr *progressReader) Read(p []byte) (int, error) {
-	n, err := pr.r.Read(p)
-	pr.read += int64(n)
-	if time.Since(pr.lastReport) > 5*time.Second {
-		pr.lastReport = time.Now()
-		if pr.total > 0 {
-			pct := float64(pr.read) / float64(pr.total) * 100
-			log.Printf("Downloading %s: %.1f%% (%d / %d bytes)", pr.label, pct, pr.read, pr.total)
-		} else {
-			log.Printf("Downloading %s: %d bytes", pr.label, pr.read)
-		}
-	}
-	return n, err
 }
 
 // LoadDetectionSession creates an ONNX Runtime session for the SCRFD detection model.
@@ -170,7 +71,7 @@ func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error
 		return nil, fmt.Errorf("failed to ensure face detection models: %w", err)
 	}
 
-	if err := initONNXRuntime(); err != nil {
+	if err := onnxinit.Ensure(); err != nil {
 		return nil, err
 	}
 
@@ -208,7 +109,7 @@ func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error
 // LoadRecognitionSession creates an ONNX Runtime session for the ArcFace recognition model.
 // It tries different input/output name combinations until one works with actual inference.
 func LoadRecognitionSession(modelsPath string) (*ort.DynamicAdvancedSession, error) {
-	if err := initONNXRuntime(); err != nil {
+	if err := onnxinit.Ensure(); err != nil {
 		return nil, err
 	}
 

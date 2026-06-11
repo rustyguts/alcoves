@@ -31,11 +31,11 @@ func setupDedupDB(t *testing.T) *gorm.DB {
 
 func mkLibrary(t *testing.T, db *gorm.DB) (uuid.UUID, uuid.UUID) {
 	t.Helper()
-	user := models.User{ID: uuid.New(), Email: "u-" + uuid.New().String() + "@example.com", DisplayName: "u"}
+	user := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: "u-" + uuid.New().String() + "@example.com", DisplayName: "u"}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	lib := models.Library{ID: uuid.New(), Name: "lib", OwnerID: user.ID}
+	lib := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "lib", OwnerID: user.ID}
 	if err := db.Create(&lib).Error; err != nil {
 		t.Fatalf("create library: %v", err)
 	}
@@ -45,7 +45,7 @@ func mkLibrary(t *testing.T, db *gorm.DB) (uuid.UUID, uuid.UUID) {
 func mkFile(t *testing.T, db *gorm.DB, libraryID, ownerID uuid.UUID, hash *string, sourceFileID *uuid.UUID, trashed bool) uuid.UUID {
 	t.Helper()
 	f := models.File{
-		ID:           uuid.New(),
+		BaseModel:    models.BaseModel{ID: uuid.New()},
 		LibraryID:    libraryID,
 		Name:         "f-" + uuid.New().String(),
 		MimeType:     "application/octet-stream",

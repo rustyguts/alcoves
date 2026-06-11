@@ -17,7 +17,7 @@ import (
 func TestGetWaveform_NotReady(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fileID := createVideoFile(t, db, fix.LibraryID, fix.UserID, "queued")
@@ -38,7 +38,7 @@ func TestGetWaveform_NotReady(t *testing.T) {
 func TestGetWaveform_Ready(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fileID := createVideoFile(t, db, fix.LibraryID, fix.UserID, "ready")
@@ -73,7 +73,7 @@ func TestGetWaveform_Ready(t *testing.T) {
 func TestGetWaveform_FileNotFound(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	missing := uuid.New()
@@ -89,7 +89,7 @@ func TestGenerateWaveform_NilService(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
 	// waveformSvc is nil — service unavailable
-	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	fileID := createVideoFile(t, db, fix.LibraryID, fix.UserID, "ready")
@@ -104,7 +104,7 @@ func TestGenerateWaveform_NilService(t *testing.T) {
 func TestGenerateWaveform_NotAudioVideo(t *testing.T) {
 	db := setupPurgeTestDB(t)
 	svc := setupPurgeStorage(t)
-	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewFileHandler(db, nil, svc, nil, nil, nil, nil, nil, nil)
 
 	fix := seedLibrary(t, db)
 	// createFile defaults to image/jpeg
@@ -130,7 +130,7 @@ func createVideoFile(t *testing.T, db *gorm.DB, libraryID, ownerID uuid.UUID, st
 	fileID := uuid.New()
 	s := status
 	file := models.File{
-		ID:             fileID,
+		BaseModel:      models.BaseModel{ID: fileID},
 		LibraryID:      libraryID,
 		Name:           "clip.mp4",
 		MimeType:       "video/mp4",

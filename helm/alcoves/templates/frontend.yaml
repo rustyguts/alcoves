@@ -35,7 +35,7 @@ spec:
         - name: frontend
           image: {{ include "alcoves.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          # Unified image, frontend role: run only the Nuxt (Nitro) server.
+          # Unified image, frontend role: run only the SvelteKit server.
           args: ["web"]
           {{- with .Values.securityContext }}
           securityContext:
@@ -46,17 +46,26 @@ spec:
               containerPort: {{ .Values.frontend.port }}
               protocol: TCP
           env:
-            - name: NITRO_HOST
+            # adapter-node server (FRONTEND_* envPrefix — see svelte.config.js).
+            - name: FRONTEND_HOST
               value: 0.0.0.0
-            - name: NITRO_PORT
+            - name: FRONTEND_PORT
               value: "{{ .Values.frontend.port }}"
-            # SSR-side: hits the in-cluster API service.
-            - name: ALCOVES_API_URL
+            # Derive the request origin from the ingress (no fixed ORIGIN needed).
+            - name: FRONTEND_PROTOCOL_HEADER
+              value: x-forwarded-proto
+            - name: FRONTEND_HOST_HEADER
+              value: x-forwarded-host
+            # Unbounded so TUS chunk PATCHes streamed through the /api proxy aren't rejected.
+            - name: FRONTEND_BODY_SIZE_LIMIT
+              value: "Infinity"
+            # SSR-side + /api proxy: hits the in-cluster API service.
+            - name: INTERNAL_API_URL
               value: http://{{ include "alcoves.api.fullname" . }}:{{ .Values.backend.api.port }}
-            # Client-side: browsers must reach the API directly so video, image
-            # proxy + downloads bypass Nuxt's Nitro server (avoids range-buffer
-            # mangling and offloads streaming).
-            - name: NUXT_PUBLIC_API_ORIGIN
+            # Client-side: browsers reach the API directly so video, image proxy,
+            # downloads + the activity WebSocket bypass the SvelteKit /api proxy
+            # (avoids range-buffer mangling and offloads streaming).
+            - name: PUBLIC_API_ORIGIN
               value: {{ include "alcoves.publicApiOrigin" . | quote }}
           livenessProbe:
             httpGet: { path: /, port: http }

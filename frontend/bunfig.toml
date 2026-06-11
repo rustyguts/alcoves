@@ -1,5 +1,0 @@
-[install]
-# Use hoisted linker to avoid symlink loops that break Nuxt's Nitro output
-# bundling (https://github.com/nuxt/nuxt/issues/... — vue/@vue/server-renderer
-# self-referencing symlinks cause ELOOP during Nitro's dependency trace step).
-linker = "hoisted"

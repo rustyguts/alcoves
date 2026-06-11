@@ -83,7 +83,7 @@ func (h *ShareHandler) Metadata(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "Share not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+		return internalError("Failed to load share", err)
 	}
 
 	base := h.resolveBase(c)
@@ -116,7 +116,7 @@ func (h *ShareHandler) Video(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "Not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+		return internalError("Failed to load share", err)
 	}
 	if rs.moment.ExportedVersion == nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Export not ready")
@@ -143,7 +143,7 @@ func (h *ShareHandler) Video(c echo.Context) error {
 		c.Response().Header().Set("Content-Length", strconv.FormatInt(size, 10))
 		reader, err := h.storage.OpenCacheReadStream(cacheKey)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read export")
+			return internalError("Failed to read export", err)
 		}
 		defer reader.Close()
 		c.Response().WriteHeader(http.StatusOK)
@@ -171,7 +171,7 @@ func (h *ShareHandler) Video(c echo.Context) error {
 	}
 	reader, err := h.storage.OpenCacheReadStreamRange(cacheKey, &storage.ByteRange{Start: start, End: end})
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read range")
+		return internalError("Failed to read range", err)
 	}
 	defer reader.Close()
 	length := end - start + 1
@@ -194,7 +194,7 @@ func (h *ShareHandler) Thumbnail(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "Not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+		return internalError("Failed to load share", err)
 	}
 
 	libraryID := rs.file.LibraryID
@@ -221,7 +221,7 @@ func (h *ShareHandler) Thumbnail(c echo.Context) error {
 	}
 	reader, err := h.storage.OpenFileReadStream(libraryID.String(), thumbID.String(), nil)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read thumbnail")
+		return internalError("Failed to read thumbnail", err)
 	}
 	defer reader.Close()
 
@@ -232,9 +232,20 @@ func (h *ShareHandler) Thumbnail(c echo.Context) error {
 }
 
 // resolveBase picks the user-facing origin used when building share URLs.
+//
+// The operator-configured ALCOVES_BASE_URL is trusted first. X-Forwarded-Host is
+// attacker-controllable (any client can send it) and this value is reflected into
+// the public share endpoint's OG/Twitter meta tags, so preferring the header over
+// config would let an attacker mint legitimate-looking share links whose previews
+// and click targets resolve to an attacker host. The header is therefore only a
+// fallback for deployments that have not set a base URL, and is validated to be a
+// bare host[:port] with no scheme/path/control characters.
 func (h *ShareHandler) resolveBase(c echo.Context) string {
 	req := c.Request()
-	if fwdHost := strings.TrimSpace(req.Header.Get("X-Forwarded-Host")); fwdHost != "" {
+	if h.baseURL != "" {
+		return strings.TrimRight(h.baseURL, "/")
+	}
+	if fwdHost := safeForwardedHost(req.Header.Get("X-Forwarded-Host")); fwdHost != "" {
 		proto := strings.TrimSpace(req.Header.Get("X-Forwarded-Proto"))
 		if proto == "" {
 			proto = c.Scheme()
@@ -244,14 +255,29 @@ func (h *ShareHandler) resolveBase(c echo.Context) string {
 		}
 		return proto + "://" + fwdHost
 	}
-	if h.baseURL != "" {
-		return strings.TrimRight(h.baseURL, "/")
-	}
 	scheme := c.Scheme()
 	if scheme == "" {
 		scheme = "http"
 	}
 	return scheme + "://" + req.Host
+}
+
+// safeForwardedHost validates an X-Forwarded-Host value, returning it only if it
+// is a bare host[:port]. It rejects empty values, comma lists (takes the first),
+// any scheme/path ("/"), and whitespace/control characters so the result cannot
+// carry an arbitrary URL into a constructed origin.
+func safeForwardedHost(raw string) string {
+	host := strings.TrimSpace(raw)
+	if i := strings.IndexByte(host, ','); i >= 0 {
+		host = strings.TrimSpace(host[:i])
+	}
+	if host == "" {
+		return ""
+	}
+	if strings.ContainsAny(host, "/\\ \t\r\n") {
+		return ""
+	}
+	return host
 }
 
 func firstNonEmpty(vals ...string) string {

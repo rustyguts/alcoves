@@ -32,7 +32,7 @@ func seedShare(t *testing.T, db *gorm.DB, fix purgeTestFixture, exported bool) (
 	t.Helper()
 	fileID := mkVideo(t, db, fix)
 	momentID := uuid.New()
-	m := models.Moment{ID: momentID, FileID: fileID, LibraryID: fix.LibraryID, CreatedByID: fix.UserID, Name: "Clip", StartSeconds: 1, EndSeconds: 5, ExportVersion: 1}
+	m := models.Moment{BaseModel: models.BaseModel{ID: momentID}, FileID: fileID, LibraryID: fix.LibraryID, CreatedByID: fix.UserID, Name: "Clip", StartSeconds: 1, EndSeconds: 5, ExportVersion: 1}
 	if exported {
 		v := 1
 		ready := "ready"
@@ -155,7 +155,7 @@ func TestShare_Thumbnail_SeparateThumbnailFile(t *testing.T) {
 	h, db, st, fix := fullShareHandler(t)
 	token, _, fileID := seedShare(t, db, fix, true)
 	thumbID := uuid.New()
-	thumb := models.File{ID: thumbID, LibraryID: fix.LibraryID, Name: "t.webp", MimeType: "image/webp", Size: 5, OwnerID: &fix.UserID}
+	thumb := models.File{BaseModel: models.BaseModel{ID: thumbID}, LibraryID: fix.LibraryID, Name: "t.webp", MimeType: "image/webp", Size: 5, OwnerID: &fix.UserID}
 	db.Create(&thumb)
 	db.Model(&models.File{}).Where("id = ?", fileID).Update("thumbnail_file_id", thumbID)
 	st.StoreFile(fix.LibraryID.String(), thumbID.String(), []byte("webpdata"))
@@ -189,7 +189,10 @@ func TestShare_Thumbnail_UnknownToken(t *testing.T) {
 	}
 }
 
-func TestShare_ResolveBase_ForwardedHost(t *testing.T) {
+func TestShare_ResolveBase_ConfigBeatsForwardedHost(t *testing.T) {
+	// fullShareHandler is configured with baseURL http://share.example.com. A
+	// spoofed X-Forwarded-Host must NOT override it (open-redirect / share-link
+	// spoofing), so the configured base URL wins.
 	h, _, _, _ := fullShareHandler(t)
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -197,8 +200,8 @@ func TestShare_ResolveBase_ForwardedHost(t *testing.T) {
 	req.Header.Set("X-Forwarded-Proto", "https")
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	if base := h.resolveBase(c); base != "https://proxy.example.com" {
-		t.Fatalf("got %q", base)
+	if base := h.resolveBase(c); base != "http://share.example.com" {
+		t.Fatalf("got %q, want configured base URL to win", base)
 	}
 }
 

@@ -36,6 +36,8 @@ type searchResult struct {
 	MimeType        *string  `gorm:"column:mime_type" json:"mimeType,omitempty"`
 	Size            *int64   `gorm:"column:size" json:"size,omitempty"`
 	ThumbnailFileID *string  `gorm:"column:thumbnail_file_id" json:"thumbnailFileId,omitempty"`
+	Width           *int     `gorm:"column:width" json:"width,omitempty"`
+	Height          *int     `gorm:"column:height" json:"height,omitempty"`
 	UpdatedAt       string   `gorm:"column:updated_at" json:"updatedAt"`
 	MatchReason    string   `gorm:"-" json:"matchReason,omitempty"`
 	MatchedLabels  []string `gorm:"-" json:"matchedLabels,omitempty"`
@@ -58,11 +60,20 @@ func (h *SearchHandler) Search(c echo.Context) error {
 
 	searchPattern := fmt.Sprintf("%%%s%%", query)
 
+	// Object-label matching is fuzzy: searching "birds" should match the
+	// "bird" label and "planes" should match "airplane". We expand the query
+	// into singular/plural variants, match each as a substring of the label,
+	// AND match the label as a substring of the query (so "airplanes" finds
+	// "airplane"). Conditions are OR'd into one clause reused by both object
+	// queries below.
+	labelClause, labelArgs := buildLabelMatchClause(query)
+
 	// Search files across accessible libraries (by filename)
 	var fileResults []searchResult
 	if err := h.db.Raw(`
 		SELECT f.id, f.library_id, l.name as library_name, f.parent_folder_id,
 		       f.name, 'file' as kind, f.mime_type, f.size, f.thumbnail_file_id,
+		       f.width, f.height,
 		       to_char(f.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
 		FROM files f
 		INNER JOIN libraries l ON l.id = f.library_id
@@ -74,14 +85,15 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		ORDER BY f.name ASC
 		LIMIT 50
 	`, userID, userID, searchPattern).Scan(&fileResults).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Search failed")
+		return internalError("Search failed", err)
 	}
 
 	// Search folders across accessible libraries
 	var folderResults []searchResult
 	if err := h.db.Raw(`
 		SELECT fo.id, fo.library_id, l.name as library_name, fo.parent_folder_id,
-		       fo.name, 'folder' as kind, NULL as mime_type, NULL as size,
+		       fo.name, 'folder' as kind, NULL as mime_type, NULL as size, NULL as thumbnail_file_id,
+		       NULL as width, NULL as height,
 		       to_char(fo.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
 		FROM folders fo
 		INNER JOIN libraries l ON l.id = fo.library_id
@@ -92,7 +104,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		ORDER BY fo.name ASC
 		LIMIT 50
 	`, userID, userID, searchPattern).Scan(&folderResults).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Search failed")
+		return internalError("Search failed", err)
 	}
 
 	// Search files by detected object labels
@@ -106,14 +118,18 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		MimeType        *string `gorm:"column:mime_type"`
 		Size            *int64  `gorm:"column:size"`
 		ThumbnailFileID *string `gorm:"column:thumbnail_file_id"`
+		Width           *int    `gorm:"column:width"`
+		Height          *int    `gorm:"column:height"`
 		UpdatedAt       string  `gorm:"column:updated_at"`
 		MatchedLabel    string  `gorm:"column:matched_label"`
 	}
 	var objectResults []objectMatch
-	if err := h.db.Raw(`
+	objectArgs := append([]interface{}{userID, userID}, labelArgs...)
+	if err := h.db.Raw(fmt.Sprintf(`
 		SELECT DISTINCT ON (f.id)
 		       f.id, f.library_id, l.name as library_name, f.parent_folder_id,
 		       f.name, 'file' as kind, f.mime_type, f.size, f.thumbnail_file_id,
+		       f.width, f.height,
 		       to_char(f.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
 		       od.label as matched_label
 		FROM files f
@@ -122,11 +138,11 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		LEFT JOIN library_members lm ON lm.library_id = l.id AND lm.user_id = ?
 		WHERE f.trashed_at IS NULL
 		  AND (l.owner_id = ? OR lm.user_id IS NOT NULL)
-		  AND od.label ILIKE ?
+		  AND %s
 		ORDER BY f.id, od.confidence DESC
 		LIMIT 50
-	`, userID, userID, searchPattern).Scan(&objectResults).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Search failed")
+	`, labelClause), objectArgs...).Scan(&objectResults).Error; err != nil {
+		return internalError("Search failed", err)
 	}
 
 	// Collect all matched labels per file (a file may match multiple labels)
@@ -142,12 +158,13 @@ func (h *SearchHandler) Search(c echo.Context) error {
 			Label  string `gorm:"column:label"`
 		}
 		var allLabels []labelRow
-		if err := h.db.Raw(`
+		allLabelArgs := append([]interface{}{fileIDs}, labelArgs...)
+		if err := h.db.Raw(fmt.Sprintf(`
 			SELECT DISTINCT file_id, label
 			FROM object_detections
 			WHERE file_id IN ?
-			  AND label ILIKE ?
-		`, fileIDs, searchPattern).Scan(&allLabels).Error; err != nil {
+			  AND %s
+		`, labelClause), allLabelArgs...).Scan(&allLabels).Error; err != nil {
 			log.Printf("search: failed to fetch matched labels: %v", err)
 		} else {
 			for _, row := range allLabels {
@@ -196,6 +213,8 @@ func (h *SearchHandler) Search(c echo.Context) error {
 			MimeType:        r.MimeType,
 			Size:            r.Size,
 			ThumbnailFileID: r.ThumbnailFileID,
+			Width:           r.Width,
+			Height:          r.Height,
 			UpdatedAt:       r.UpdatedAt,
 			LocationPath:    r.LibraryName,
 			MatchReason:     "object",
@@ -212,6 +231,54 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		"totalCount": len(allResults),
 		"results":    allResults,
 	})
+}
+
+// buildLabelMatchClause builds a parameterized SQL OR clause (and its args)
+// for fuzzy-matching object-detection labels against a search query. Each
+// expanded query term is matched as a substring of the label, and the label
+// is also matched as a substring of the raw query so longer plurals like
+// "airplanes" still find the "airplane" label.
+func buildLabelMatchClause(query string) (string, []interface{}) {
+	terms := expandSearchTerms(query)
+	conds := make([]string, 0, len(terms)+1)
+	args := make([]interface{}, 0, len(terms)+1)
+	for _, t := range terms {
+		conds = append(conds, "od.label ILIKE ?")
+		args = append(args, "%"+t+"%")
+	}
+	// Label is a substring of the query (e.g. query "airplanes" → label "airplane").
+	conds = append(conds, "? ILIKE '%' || od.label || '%'")
+	args = append(args, query)
+	return "(" + strings.Join(conds, " OR ") + ")", args
+}
+
+// expandSearchTerms returns the lowercased query plus singular/plural variants
+// so that e.g. "birds" also matches "bird" and "berries" also matches "berry".
+// Variants must be at least 2 characters to avoid runaway substring matches.
+func expandSearchTerms(query string) []string {
+	q := strings.ToLower(strings.TrimSpace(query))
+	seen := map[string]bool{}
+	var terms []string
+	add := func(t string) {
+		if len(t) >= 2 && !seen[t] {
+			seen[t] = true
+			terms = append(terms, t)
+		}
+	}
+	add(q)
+	switch {
+	case strings.HasSuffix(q, "ies") && len(q) > 3:
+		add(q[:len(q)-3] + "y") // berries → berry
+		add(q[:len(q)-2])       // ...ies → ...ie fallback
+	case strings.HasSuffix(q, "es") && len(q) > 2:
+		add(q[:len(q)-2]) // boxes → box
+		add(q[:len(q)-1]) // planes → plane
+	case strings.HasSuffix(q, "s") && len(q) > 1:
+		add(q[:len(q)-1]) // birds → bird
+	default:
+		add(q + "s") // bird → birds (label stored plural)
+	}
+	return terms
 }
 
 // dedup returns unique strings from a slice, preserving order.

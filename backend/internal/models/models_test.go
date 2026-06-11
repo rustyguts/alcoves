@@ -221,7 +221,7 @@ func TestBeforeCreateHooks_GenerateUUIDs(t *testing.T) {
 // TestBeforeCreateHooks_PreservePresetID asserts each hook keeps a caller-set ID.
 func TestBeforeCreateHooks_PreservePresetID(t *testing.T) {
 	preset := uuid.New()
-	u := &User{ID: preset}
+	u := &User{BaseModel: BaseModel{ID: preset}}
 	if err := u.BeforeCreate(nil); err != nil {
 		t.Fatal(err)
 	}
@@ -230,9 +230,9 @@ func TestBeforeCreateHooks_PreservePresetID(t *testing.T) {
 	}
 
 	for _, h := range []interface{ BeforeCreate(*gorm.DB) error }{
-		&Library{ID: preset}, &Folder{ID: preset}, &File{ID: preset},
-		&Tag{ID: preset}, &Session{ID: preset}, &ObjectDetection{ID: preset},
-		&Moment{ID: preset}, &AudioDetection{ID: preset}, &HighlightFilter{ID: preset},
+		&Library{BaseModel: BaseModel{ID: preset}}, &Folder{BaseModel: BaseModel{ID: preset}}, &File{BaseModel: BaseModel{ID: preset}},
+		&Tag{BaseModel: BaseModel{ID: preset}}, &Session{ID: preset}, &ObjectDetection{ID: preset},
+		&Moment{BaseModel: BaseModel{ID: preset}}, &AudioDetection{ID: preset}, &HighlightFilter{BaseModel: BaseModel{ID: preset}},
 		&LibraryActivity{ID: preset},
 	} {
 		if err := h.BeforeCreate(nil); err != nil {
@@ -240,7 +240,7 @@ func TestBeforeCreateHooks_PreservePresetID(t *testing.T) {
 		}
 	}
 	// Spot-check a couple kept their preset.
-	lib := &Library{ID: preset}
+	lib := &Library{BaseModel: BaseModel{ID: preset}}
 	_ = lib.BeforeCreate(nil)
 	if lib.ID != preset {
 		t.Error("Library.BeforeCreate overwrote preset ID")

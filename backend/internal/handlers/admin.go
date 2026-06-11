@@ -192,7 +192,7 @@ func (h *AdminHandler) UpdateUser(c echo.Context) error {
 func (h *AdminHandler) BackfillHashes(c echo.Context) error {
 	count, err := h.hashSvc.EnqueueUnhashedFiles()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to enqueue hash backfill")
+		return internalError("Failed to enqueue hash backfill", err)
 	}
 	return c.JSON(http.StatusOK, map[string]int{"queuedCount": count})
 }

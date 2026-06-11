@@ -49,7 +49,7 @@ func TestTus_Create_NonMember(t *testing.T) {
 	h, db, _ := setupTusTestHandler(t)
 	_, libraryID := createTestUserAndLibrary(t, db)
 	stranger := uuid.New()
-	db.Create(&models.User{ID: stranger, Email: "tus-stranger@example.com", DisplayName: "S", Role: "member"})
+	db.Create(&models.User{BaseModel: models.BaseModel{ID: stranger}, Email: "tus-stranger@example.com", DisplayName: "S", Role: "member"})
 	_, err := tusCreate(t, h, stranger, map[string]string{"libraryId": libraryID.String(), "filename": "f.txt"}, []byte("x"))
 	if httpCode(t, err) != http.StatusNotFound {
 		t.Fatalf("want 404 (non-member)")
@@ -60,7 +60,7 @@ func TestTus_Create_ViewerForbidden(t *testing.T) {
 	h, db, _ := setupTusTestHandler(t)
 	_, libraryID := createTestUserAndLibrary(t, db)
 	viewer := uuid.New()
-	db.Create(&models.User{ID: viewer, Email: "tus-viewer@example.com", DisplayName: "V", Role: "member"})
+	db.Create(&models.User{BaseModel: models.BaseModel{ID: viewer}, Email: "tus-viewer@example.com", DisplayName: "V", Role: "member"})
 	db.Create(&models.LibraryMember{ID: uuid.New(), LibraryID: libraryID, UserID: viewer, Role: "viewer"})
 	_, err := tusCreate(t, h, viewer, map[string]string{"libraryId": libraryID.String(), "filename": "f.txt"}, []byte("x"))
 	if httpCode(t, err) != http.StatusForbidden {
@@ -72,7 +72,7 @@ func TestTus_Create_AdminMember(t *testing.T) {
 	h, db, _ := setupTusTestHandler(t)
 	_, libraryID := createTestUserAndLibrary(t, db)
 	admin := uuid.New()
-	db.Create(&models.User{ID: admin, Email: "tus-admin@example.com", DisplayName: "A", Role: "member"})
+	db.Create(&models.User{BaseModel: models.BaseModel{ID: admin}, Email: "tus-admin@example.com", DisplayName: "A", Role: "member"})
 	db.Create(&models.LibraryMember{ID: uuid.New(), LibraryID: libraryID, UserID: admin, Role: "admin"})
 	rec, err := tusCreate(t, h, admin, map[string]string{"libraryId": libraryID.String(), "filename": "f.txt"}, []byte("admin-bytes"))
 	if err != nil {

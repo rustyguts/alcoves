@@ -34,6 +34,16 @@ Use the view-toggle in the toolbar to switch between:
 
 Your preference is saved in the browser and restored the next time you open the library.
 
+### Timeline view
+
+The **Timeline** tab presents a library's photos and videos as a Google-Photos-style gallery, newest first:
+
+- **Grouped by day.** Each day is its own section with a date heading (for example, *Wed, Jan 14*) and a count. Photos are laid out in justified rows that fill the full width of the window — including the last row of each day — so there are no ragged gaps.
+- **Video duration.** Video tiles show their length (for example, *1:35*) in the bottom-right corner.
+- **Date scrubber.** A slim rail down the right edge maps the library's whole date range to the scroll position. It shows year labels, per-month density marks (longer marks mean more photos that month), and a draggable handle. Drag the handle — or click a year — to jump to that period; a floating bubble shows the date under the handle. The rail appears only when a library spans more than one month, and it can be operated with the keyboard (arrow keys, Page Up/Down, Home/End).
+
+Timeline groups files by their capture date (from photo/video metadata), falling back to the upload date when no capture date is available.
+
 ---
 
 ## Uploading files
@@ -43,15 +53,27 @@ Alcoves uses the **TUS resumable upload protocol**, which means uploads survive 
 ### How to start an upload
 
 1. Drag one or more files onto the library browser, or click the **Upload** button and use the file picker.
-2. Alcoves begins uploading up to three files at a time. A floating panel in the bottom-right corner shows per-file progress and the aggregate upload speed.
+2. Alcoves begins uploading up to four files at a time. A floating panel in the bottom-right corner shows per-file progress, completed/total counts, and the aggregate upload speed.
 3. If a file was already uploaded before (identical content), you see a warning toast — the duplicate is still stored but flagged.
+
+### The upload panel
+
+The progress panel is **app-wide**: it stays pinned to the bottom-right and keeps uploading even as you move between libraries, the timeline, settings, or any other page — it only disappears once the queue is fully drained. You can collapse it to a compact header while it works.
+
+Each file in the queue has its own row:
+
+- **Cancel** a queued or in-progress upload to abort it and free its slot for the next file.
+- **Retry** a failed upload (or **Retry all**) to re-queue it; **Clear** removes all failed entries.
+- A **Failed** filter lets you jump straight to errored files when a large batch has a few failures.
+
+The list is built to stay smooth with very large batches — queuing thousands of files at once will not freeze the panel, because only the rows currently on screen are rendered.
 
 ### Resumable uploads
 
 Uploads run in 50 MB chunks. If your connection drops, the upload pauses automatically. It retries up to three times with increasing back-off delays before marking the file as failed. You can retry a failed upload manually from the progress panel.
 
 :::note
-Closing the browser tab while an upload is in progress shows a confirmation prompt so you do not accidentally lose an in-flight transfer.
+Reloading or closing the browser tab while an upload is in progress shows a confirmation prompt so you do not accidentally abort an in-flight transfer.
 :::
 
 ### Who can upload

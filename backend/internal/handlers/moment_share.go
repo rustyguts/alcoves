@@ -59,7 +59,7 @@ func (h *MomentHandler) ListShares(c echo.Context) error {
 		Where("moment_id = ? AND revoked_at IS NULL", moment.ID).
 		Order("created_at DESC").
 		Find(&shares).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to list shares")
+		return internalError("Failed to list shares", err)
 	}
 
 	baseURL := h.baseURLFor(c)
@@ -80,7 +80,7 @@ func (h *MomentHandler) CreateShare(c echo.Context) error {
 
 	var lib models.Library
 	if err := h.db.Where("id = ?", moment.LibraryID).First(&lib).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load library")
+		return internalError("Failed to load library", err)
 	}
 	if !lib.SharingEnabled {
 		return echo.NewHTTPError(http.StatusForbidden, "Sharing is disabled for this library")
@@ -93,7 +93,7 @@ func (h *MomentHandler) CreateShare(c echo.Context) error {
 
 	token, err := generateShareToken()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate token")
+		return internalError("Failed to generate token", err)
 	}
 
 	share := models.MomentShare{
@@ -103,24 +103,22 @@ func (h *MomentHandler) CreateShare(c echo.Context) error {
 		Token:       token,
 	}
 	if err := h.db.Create(&share).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create share")
+		return internalError("Failed to create share", err)
 	}
 
-	if h.activitySvc != nil {
-		aid := userID
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   moment.LibraryID,
-			ActorID:     &aid,
-			Action:      activity.ActionMomentShared,
-			SubjectType: activity.SubjectShare,
-			SubjectID:   &share.ID,
-			Metadata: map[string]any{
-				"momentId":   moment.ID.String(),
-				"momentName": moment.Name,
-				"token":      share.Token,
-			},
-		})
-	}
+	aid := userID
+	emitActivity(h.activitySvc, activity.EmitParams{
+		LibraryID:   moment.LibraryID,
+		ActorID:     &aid,
+		Action:      activity.ActionMomentShared,
+		SubjectType: activity.SubjectShare,
+		SubjectID:   &share.ID,
+		Metadata: map[string]any{
+			"momentId":   moment.ID.String(),
+			"momentName": moment.Name,
+			"token":      share.Token,
+		},
+	})
 
 	return c.JSON(http.StatusCreated, toMomentShareResponse(&share, h.baseURLFor(c)))
 }
@@ -141,13 +139,13 @@ func (h *MomentHandler) RevokeShare(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "Share not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+		return internalError("Failed to load share", err)
 	}
 
 	now := time.Now()
 	if err := h.db.Model(&models.MomentShare{}).Where("id = ?", share.ID).
 		Update("revoked_at", &now).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to revoke share")
+		return internalError("Failed to revoke share", err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -162,19 +160,30 @@ func generateShareToken() (string, error) {
 }
 
 // baseURLFor resolves the public-facing base URL for the current request.
+//
+// The persisted/returned share link and its OG tags must not be controllable by
+// request headers: both Origin and X-Forwarded-Host are client/proxy-supplied and
+// would otherwise let an attacker mint share URLs pointing at an attacker host.
+// The operator-configured ALCOVES_BASE_URL is therefore trusted first; the headers
+// are only a fallback for deployments that have not configured a base URL.
+//
 // Order:
-//   1. Origin header  — browsers set this on fetch(). Most reliable for our SPA.
-//   2. X-Forwarded-Proto + X-Forwarded-Host — reverse proxies / tunnels.
-//   3. cfg.BaseURL (ALCOVES_BASE_URL).
-//   4. request scheme + Host — last resort, may be internal docker hostname.
+//  1. cfg.BaseURL (ALCOVES_BASE_URL) — trusted operator config.
+//  2. Origin header — fallback for SPA dev with no configured base URL.
+//  3. X-Forwarded-Proto + X-Forwarded-Host — reverse proxies / tunnels.
+//  4. request scheme + Host — last resort, may be internal docker hostname.
 func (h *MomentHandler) baseURLFor(c echo.Context) string {
 	req := c.Request()
+
+	if h.baseURL != "" {
+		return strings.TrimRight(h.baseURL, "/")
+	}
 
 	if origin := strings.TrimSpace(req.Header.Get("Origin")); origin != "" && origin != "null" {
 		return strings.TrimRight(origin, "/")
 	}
 
-	if fwdHost := strings.TrimSpace(req.Header.Get("X-Forwarded-Host")); fwdHost != "" {
+	if fwdHost := safeForwardedHost(req.Header.Get("X-Forwarded-Host")); fwdHost != "" {
 		proto := strings.TrimSpace(req.Header.Get("X-Forwarded-Proto"))
 		if proto == "" {
 			proto = c.Scheme()
@@ -183,10 +192,6 @@ func (h *MomentHandler) baseURLFor(c echo.Context) string {
 			proto = "http"
 		}
 		return proto + "://" + fwdHost
-	}
-
-	if h.baseURL != "" {
-		return strings.TrimRight(h.baseURL, "/")
 	}
 
 	scheme := c.Scheme()

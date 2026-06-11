@@ -187,6 +187,65 @@ func TestMemberAdminAccess(t *testing.T) {
 	}
 }
 
+func TestListAccessibleLibraries(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+
+	user := createTestUser(t, db, "lister@test.com")
+	otherOwner := createTestUser(t, db, "otherowner@test.com")
+
+	// User owns two libraries; created_at ordering follows insert order.
+	owned1 := createTestLibrary(t, db, user.ID, false)
+	owned2 := createTestLibrary(t, db, user.ID, false)
+
+	// User is an admin member of one library and a viewer of another, both
+	// owned by someone else. Created in this order to assert member ordering.
+	adminLib := createTestLibrary(t, db, otherOwner.ID, false)
+	viewerLib := createTestLibrary(t, db, otherOwner.ID, false)
+	db.Create(&models.LibraryMember{LibraryID: adminLib.ID, UserID: user.ID, Role: "admin"})
+	db.Create(&models.LibraryMember{LibraryID: viewerLib.ID, UserID: user.ID, Role: "viewer"})
+
+	libs, err := svc.ListAccessibleLibraries(user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(libs) != 4 {
+		t.Fatalf("Expected 4 libraries, got %d", len(libs))
+	}
+
+	// Owned first (by created_at), then members (by created_at).
+	expected := []struct {
+		id      uuid.UUID
+		role    LibraryAccessRole
+		isOwner bool
+		isAdmin bool
+	}{
+		{owned1.ID, RoleOwner, true, true},
+		{owned2.ID, RoleOwner, true, true},
+		{adminLib.ID, RoleAdmin, false, true},
+		{viewerLib.ID, RoleViewer, false, false},
+	}
+
+	for i, exp := range expected {
+		got := libs[i]
+		if got.Library.ID != exp.id {
+			t.Errorf("entry %d: expected library %s, got %s", i, exp.id, got.Library.ID)
+		}
+		if got.Access.LibraryID != exp.id {
+			t.Errorf("entry %d: expected access LibraryID %s, got %s", i, exp.id, got.Access.LibraryID)
+		}
+		if got.Access.Role != exp.role {
+			t.Errorf("entry %d: expected role %s, got %s", i, exp.role, got.Access.Role)
+		}
+		if got.Access.IsOwner != exp.isOwner {
+			t.Errorf("entry %d: expected IsOwner %v, got %v", i, exp.isOwner, got.Access.IsOwner)
+		}
+		if got.Access.IsAdmin != exp.isAdmin {
+			t.Errorf("entry %d: expected IsAdmin %v, got %v", i, exp.isAdmin, got.Access.IsAdmin)
+		}
+	}
+}
+
 func TestNonExistentLibrary(t *testing.T) {
 	db := testDB(t)
 	svc := NewService(db)

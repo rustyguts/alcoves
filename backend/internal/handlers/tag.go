@@ -92,20 +92,18 @@ func (h *TagHandler) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusConflict, "Tag name already in use")
 	}
 
-	if h.activitySvc != nil {
-		actorID := middleware.GetUserID(c)
-		h.activitySvc.EmitAsync(activity.EmitParams{
-			LibraryID:   libraryID,
-			ActorID:     &actorID,
-			Action:      activity.ActionTagCreated,
-			SubjectType: activity.SubjectTag,
-			SubjectID:   &tag.ID,
-			Metadata: map[string]any{
-				"name":  tag.Name,
-				"color": tag.Color,
-			},
-		})
-	}
+	actorID := middleware.GetUserID(c)
+	emitActivity(h.activitySvc, activity.EmitParams{
+		LibraryID:   libraryID,
+		ActorID:     &actorID,
+		Action:      activity.ActionTagCreated,
+		SubjectType: activity.SubjectTag,
+		SubjectID:   &tag.ID,
+		Metadata: map[string]any{
+			"name":  tag.Name,
+			"color": tag.Color,
+		},
+	})
 
 	return c.JSON(http.StatusOK, tagToJSON(&tag))
 }
@@ -209,7 +207,7 @@ func (h *TagHandler) SyncFileTags(c echo.Context) error {
 		}
 		return nil
 	}); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to sync tags")
+		return internalError("Failed to sync tags", err)
 	}
 
 	// Return updated tags
@@ -271,7 +269,7 @@ func (h *TagHandler) SyncFolderTags(c echo.Context) error {
 		}
 		return nil
 	}); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to sync tags")
+		return internalError("Failed to sync tags", err)
 	}
 
 	var tags []models.Tag

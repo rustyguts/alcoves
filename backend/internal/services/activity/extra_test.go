@@ -102,8 +102,8 @@ func TestEmitAsync_WritesRow(t *testing.T) {
 	lib := mustLibrary(t, db, owner.ID, "AsyncLib")
 
 	s.EmitAsync(EmitParams{
-		LibraryID: lib.ID,
-		Action:    ActionTagCreated,
+		LibraryID:   lib.ID,
+		Action:      ActionTagCreated,
 		SubjectType: SubjectTag,
 	})
 
@@ -173,7 +173,7 @@ func TestToResponse_PopulatesActorAndSubject(t *testing.T) {
 		Metadata:    []byte(`{"k":"v"}`),
 		CreatedAt:   now,
 	}
-	actor := &models.User{ID: actorID, DisplayName: "Actor", AvatarUrl: &avatar}
+	actor := &models.User{BaseModel: models.BaseModel{ID: actorID}, DisplayName: "Actor", AvatarUrl: &avatar}
 	resp := ToResponse(row, actor, "MyLib", true)
 
 	if resp.SubjectID == nil || *resp.SubjectID != subID.String() {

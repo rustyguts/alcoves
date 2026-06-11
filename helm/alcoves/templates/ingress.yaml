@@ -29,7 +29,7 @@ spec:
                 name: {{ include "alcoves.api.fullname" . }}
                 port:
                   number: {{ .Values.backend.api.port }}
-          # Everything else hits the Nuxt frontend (including /s/** which is
+          # Everything else hits the SvelteKit frontend (including /s/** which is
           # SSR'd by Nuxt for share-page OG tags).
           - path: /
             pathType: Prefix

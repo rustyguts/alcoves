@@ -2,8 +2,6 @@ package audiodetection
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -150,213 +148,6 @@ func TestNewTaskHandler_Wired(t *testing.T) {
 	}
 }
 
-// --- models.go: transientErr / isTransient / errorAs ---
-
-func TestTransientErr_ErrorAndUnwrap(t *testing.T) {
-	inner := errors.New("boom")
-	te := &transientErr{err: inner}
-	if te.Error() != "boom" {
-		t.Errorf("Error() = %q, want boom", te.Error())
-	}
-	if !errors.Is(te, inner) {
-		t.Error("expected Unwrap to expose inner error")
-	}
-}
-
-func TestIsTransient(t *testing.T) {
-	cases := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{"nil", nil, false},
-		{"explicit transientErr", &transientErr{err: errors.New("x")}, true},
-		{"wrapped transientErr", fmt.Errorf("ctx: %w", &transientErr{err: errors.New("x")}), true},
-		{"connection reset string", errors.New("read: connection reset by peer"), true},
-		{"EOF string", errors.New("unexpected EOF"), true},
-		{"plain other error", errors.New("404 not found"), false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := isTransient(c.err); got != c.want {
-				t.Errorf("isTransient(%v) = %v, want %v", c.err, got, c.want)
-			}
-		})
-	}
-}
-
-func TestErrorAs(t *testing.T) {
-	var target *transientErr
-	te := &transientErr{err: errors.New("inner")}
-	if !errorAs(fmt.Errorf("wrap: %w", te), &target) {
-		t.Error("errorAs should find the wrapped transientErr")
-	}
-	target = nil
-	if errorAs(errors.New("plain"), &target) {
-		t.Error("errorAs should not match a plain error")
-	}
-}
-
-// --- models.go: doDownload ---
-
-func TestDoDownload_Success(t *testing.T) {
-	body := []byte("model-bytes-here")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/octet-stream")
-		_, _ = w.Write(body)
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	if err := doDownload(dest, srv.URL); err != nil {
-		t.Fatalf("doDownload: %v", err)
-	}
-	got, err := os.ReadFile(dest)
-	if err != nil {
-		t.Fatalf("read dest: %v", err)
-	}
-	if string(got) != string(body) {
-		t.Errorf("dest contents = %q, want %q", got, body)
-	}
-}
-
-func TestDoDownload_4xxNonTransient(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	err := doDownload(filepath.Join(dir, "m.onnx"), srv.URL)
-	if err == nil || !strings.Contains(err.Error(), "http 404") {
-		t.Fatalf("expected http 404 error, got %v", err)
-	}
-	if isTransient(err) {
-		t.Error("4xx must not be classified transient")
-	}
-}
-
-func TestDoDownload_5xxTransient(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadGateway)
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	err := doDownload(filepath.Join(dir, "m.onnx"), srv.URL)
-	if err == nil {
-		t.Fatal("expected error for 502")
-	}
-	if !isTransient(err) {
-		t.Errorf("5xx must be transient, got %v", err)
-	}
-}
-
-func TestDoDownload_HTMLForNonCSVRejected(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write([]byte("<html></html>"))
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	err := doDownload(filepath.Join(dir, "model.onnx"), srv.URL)
-	if err == nil || !strings.Contains(err.Error(), "HTML") {
-		t.Fatalf("expected HTML rejection, got %v", err)
-	}
-}
-
-func TestDoDownload_HTMLAllowedForCSV(t *testing.T) {
-	// A .csv dest with text/html content-type is allowed (some buckets serve
-	// CSVs as text/html); the body is written verbatim.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		_, _ = w.Write([]byte("index,mid,display_name\n0,/m/1,Speech\n"))
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "labels.csv")
-	if err := doDownload(dest, srv.URL); err != nil {
-		t.Fatalf("csv with html content-type should be allowed: %v", err)
-	}
-	if _, err := os.Stat(dest); err != nil {
-		t.Errorf("csv not written: %v", err)
-	}
-}
-
-func TestDoDownload_RequestErrorIsTransient(t *testing.T) {
-	dir := t.TempDir()
-	err := doDownload(filepath.Join(dir, "m.onnx"), "http://127.0.0.1:0/x")
-	if err == nil {
-		t.Fatal("expected request error")
-	}
-	if !isTransient(err) {
-		t.Errorf("dial failure should be transient, got %v", err)
-	}
-}
-
-// --- models.go: downloadIfMissing ---
-
-func TestDownloadIfMissing_SkipsWhenLargeEnough(t *testing.T) {
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	if err := os.WriteFile(dest, make([]byte, 2048), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// minSize 1024 -> existing 2048 file is kept; bogus URL never hit.
-	if err := downloadIfMissing(dest, "http://127.0.0.1:0/never", 1024); err != nil {
-		t.Fatalf("expected skip, got %v", err)
-	}
-}
-
-func TestDownloadIfMissing_DownloadsWhenMissing(t *testing.T) {
-	body := make([]byte, 4096)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(body)
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	if err := downloadIfMissing(dest, srv.URL, 1024); err != nil {
-		t.Fatalf("downloadIfMissing: %v", err)
-	}
-	info, err := os.Stat(dest)
-	if err != nil || info.Size() != int64(len(body)) {
-		t.Fatalf("dest not downloaded correctly: %v size=%d", err, info.Size())
-	}
-}
-
-func TestDownloadIfMissing_NonTransientStops(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	err := downloadIfMissing(dest, srv.URL, 1024)
-	if err == nil || !strings.Contains(err.Error(), "403") {
-		t.Fatalf("expected 403 to stop retries immediately, got %v", err)
-	}
-}
-
-func TestDownloadIfMissing_ReDownloadsTooSmallFile(t *testing.T) {
-	body := make([]byte, 4096)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(body)
-	}))
-	defer srv.Close()
-	dir := t.TempDir()
-	dest := filepath.Join(dir, "model.onnx")
-	// Pre-existing tiny file (below minSize) triggers a re-download.
-	if err := os.WriteFile(dest, []byte("tiny"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := downloadIfMissing(dest, srv.URL, 1024); err != nil {
-		t.Fatalf("downloadIfMissing re-download: %v", err)
-	}
-	info, _ := os.Stat(dest)
-	if info.Size() != int64(len(body)) {
-		t.Errorf("expected re-download to size %d, got %d", len(body), info.Size())
-	}
-}
-
 // --- models.go: EnsureAssets ---
 
 func TestEnsureAssets_DownloadsBoth(t *testing.T) {
@@ -375,7 +166,7 @@ func TestEnsureAssets_DownloadsBoth(t *testing.T) {
 	defer labelsSrv.Close()
 
 	dir := t.TempDir()
-	modelPath, labelsPath, err := EnsureAssets(dir, "efficientat_mn10_as.onnx", modelSrv.URL, labelsSrv.URL)
+	modelPath, labelsPath, err := EnsureAssets(context.Background(), dir, "efficientat_mn10_as.onnx", modelSrv.URL, labelsSrv.URL)
 	if err != nil {
 		t.Fatalf("EnsureAssets: %v", err)
 	}
@@ -398,7 +189,7 @@ func TestEnsureAssets_ModelDownloadError(t *testing.T) {
 	}))
 	defer srv.Close()
 	dir := t.TempDir()
-	_, _, err := EnsureAssets(dir, "m.onnx", srv.URL, srv.URL)
+	_, _, err := EnsureAssets(context.Background(), dir, "m.onnx", srv.URL, srv.URL)
 	if err == nil || !strings.Contains(err.Error(), "download model") {
 		t.Fatalf("expected model download error, got %v", err)
 	}

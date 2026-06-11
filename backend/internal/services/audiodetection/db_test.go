@@ -33,17 +33,17 @@ func audioTestDB(t *testing.T) *gorm.DB {
 
 func seedAudioFile(t *testing.T, db *gorm.DB, mimeType string) (libID, fileID uuid.UUID) {
 	t.Helper()
-	owner := models.User{ID: uuid.New(), Email: uuid.NewString() + "@t.local", DisplayName: "owner"}
+	owner := models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: uuid.NewString() + "@t.local", DisplayName: "owner"}
 	if err := db.Create(&owner).Error; err != nil {
 		t.Skipf("could not seed user: %v", err)
 	}
 	libID = uuid.New()
-	lib := models.Library{ID: libID, Name: "lib-" + libID.String()[:8], OwnerID: owner.ID}
+	lib := models.Library{BaseModel: models.BaseModel{ID: libID}, Name: "lib-" + libID.String()[:8], OwnerID: owner.ID}
 	if err := db.Create(&lib).Error; err != nil {
 		t.Skipf("could not seed library: %v", err)
 	}
 	fileID = uuid.New()
-	f := models.File{ID: fileID, LibraryID: libID, Name: "clip", MimeType: mimeType}
+	f := models.File{BaseModel: models.BaseModel{ID: fileID}, LibraryID: libID, Name: "clip", MimeType: mimeType}
 	if err := db.Create(&f).Error; err != nil {
 		t.Skipf("could not seed file: %v", err)
 	}

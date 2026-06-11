@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -105,7 +106,7 @@ func createProxyTestData(t *testing.T, db *gorm.DB, storageSvc *storage.Service,
 
 	userID := uuid.New()
 	user := models.User{
-		ID:          userID,
+		BaseModel:   models.BaseModel{ID: userID},
 		Email:       fmt.Sprintf("%s@test.com", userID.String()[:8]),
 		DisplayName: "Test User",
 		Role:        "owner",
@@ -116,9 +117,9 @@ func createProxyTestData(t *testing.T, db *gorm.DB, storageSvc *storage.Service,
 
 	libraryID := uuid.New()
 	library := models.Library{
-		ID:      libraryID,
-		OwnerID: userID,
-		Name:    "Test Library",
+		BaseModel: models.BaseModel{ID: libraryID},
+		OwnerID:   userID,
+		Name:      "Test Library",
 	}
 	if err := db.Create(&library).Error; err != nil {
 		t.Fatalf("Failed to create test library: %v", err)
@@ -126,7 +127,7 @@ func createProxyTestData(t *testing.T, db *gorm.DB, storageSvc *storage.Service,
 
 	fileID := uuid.New()
 	file := models.File{
-		ID:        fileID,
+		BaseModel: models.BaseModel{ID: fileID},
 		LibraryID: libraryID,
 		Name:      "test-image.jpg",
 		MimeType:  mimeType,
@@ -786,7 +787,7 @@ func TestServe_NonMember_Returns404(t *testing.T) {
 	// Create a second, unrelated user who has no membership in the library.
 	otherUserID := uuid.New()
 	otherUser := models.User{
-		ID:          otherUserID,
+		BaseModel:   models.BaseModel{ID: otherUserID},
 		Email:       fmt.Sprintf("%s@other.com", otherUserID.String()[:8]),
 		DisplayName: "Other User",
 		Role:        "user",
@@ -838,5 +839,30 @@ func TestParseTransformOptions_DimensionClamped(t *testing.T) {
 				t.Errorf("height: expected %d, got %d", tt.expectedHeight, opts.Height)
 			}
 		})
+	}
+}
+
+func TestSafeZipName(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"photo.jpg", "photo.jpg"},
+		{"a/b/c.txt", "c.txt"},
+		{"../../../../etc/passwd", "passwd"},
+		{"..\\..\\windows\\system32\\cmd.exe", "cmd.exe"},
+		{"/.ssh/authorized_keys", "authorized_keys"},
+		{"..", "file"},
+		{"", "file"},
+		{"/", "file"},
+		{"....//evil", "evil"},
+	}
+	for _, tc := range cases {
+		if got := safeZipName(tc.in); got != tc.want {
+			t.Errorf("safeZipName(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+		if strings.Contains(safeZipName(tc.in), "..") || strings.ContainsAny(safeZipName(tc.in), "/\\") {
+			t.Errorf("safeZipName(%q) = %q still contains traversal", tc.in, safeZipName(tc.in))
+		}
 	}
 }

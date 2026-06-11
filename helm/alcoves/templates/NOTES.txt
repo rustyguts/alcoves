@@ -4,7 +4,7 @@ Public URL:
   {{ .Values.baseUrl }}
 
 Components deployed:
-  frontend (Nuxt SSR): {{ .Values.frontend.replicaCount }} replica(s)
+  frontend (SvelteKit SSR): {{ .Values.frontend.replicaCount }} replica(s)
 {{- if .Values.backend.api.enabled }}
   api:                 {{ .Values.backend.api.replicaCount }} replica(s)
 {{- end }}

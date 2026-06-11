@@ -77,7 +77,7 @@ func seedFile(t *testing.T, db *gorm.DB, mime string) (libID, fileID uuid.UUID) 
 	t.Helper()
 	userID := uuid.New()
 	if err := db.Create(&models.User{
-		ID:          userID,
+		BaseModel:   models.BaseModel{ID: userID},
 		Email:       userID.String()[:12] + "@test.com",
 		DisplayName: "Transcribe Test User",
 		Role:        "owner",
@@ -85,7 +85,7 @@ func seedFile(t *testing.T, db *gorm.DB, mime string) (libID, fileID uuid.UUID) 
 		t.Fatalf("create user: %v", err)
 	}
 	libID = uuid.New()
-	if err := db.Create(&models.Library{ID: libID, Name: "Transcribe Lib", OwnerID: userID}).Error; err != nil {
+	if err := db.Create(&models.Library{BaseModel: models.BaseModel{ID: libID}, Name: "Transcribe Lib", OwnerID: userID}).Error; err != nil {
 		t.Fatalf("create library: %v", err)
 	}
 	f := models.File{
@@ -789,57 +789,6 @@ func TestEnsureModel_MkdirAllError(t *testing.T) {
 	_, err := ensureModel(context.Background(), filepath.Join(parent, "models"), "tiny", "http://x")
 	if err == nil {
 		t.Fatal("expected MkdirAll error")
-	}
-}
-
-func TestWhisperFetch_HTTPErrorStatus(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	dst := filepath.Join(t.TempDir(), "m.bin")
-	err := whisperFetch(context.Background(), srv.URL, dst)
-	if err == nil {
-		t.Fatal("expected error for 500 status")
-	}
-	if !strings.Contains(err.Error(), "http 500") {
-		t.Errorf("expected http 500 in error, got %v", err)
-	}
-}
-
-func TestWhisperFetch_Success(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("the-bytes"))
-	}))
-	defer srv.Close()
-
-	dst := filepath.Join(t.TempDir(), "m.bin")
-	if err := whisperFetch(context.Background(), srv.URL, dst); err != nil {
-		t.Fatalf("whisperFetch: %v", err)
-	}
-	got, _ := os.ReadFile(dst)
-	if string(got) != "the-bytes" {
-		t.Errorf("content = %q", got)
-	}
-	// The .part temp must have been renamed away.
-	if _, err := os.Stat(dst + ".part"); !os.IsNotExist(err) {
-		t.Errorf("expected .part to be renamed/removed")
-	}
-}
-
-func TestWhisperFetch_BadURL(t *testing.T) {
-	// Malformed URL → http.NewRequestWithContext error.
-	err := whisperFetch(context.Background(), "://not a url", filepath.Join(t.TempDir(), "x"))
-	if err == nil {
-		t.Fatal("expected error for malformed URL")
-	}
-}
-
-func TestWhisperFetch_UnreachableHost(t *testing.T) {
-	err := whisperFetch(context.Background(), "http://127.0.0.1:1/ggml-tiny.bin", filepath.Join(t.TempDir(), "x"))
-	if err == nil {
-		t.Fatal("expected connection error")
 	}
 }
 

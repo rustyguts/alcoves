@@ -9,15 +9,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/access"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/signing"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
+	"github.com/alcoves/alcoves-backend/internal/testsupport"
 )
 
 type fixture struct {
@@ -28,17 +26,18 @@ type fixture struct {
 
 func setup(t *testing.T) fixture {
 	t.Helper()
-	dsn := "postgres://postgres:postgres@localhost:5455/alcoves_test"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
-	if err != nil {
-		t.Skipf("Skipping test: database not available: %v", err)
-	}
+	// Use a dedicated PostgreSQL schema so this package's TRUNCATE never wipes
+	// rows other DB-backed packages (e.g. services/auth's token tests) created
+	// concurrently under `go test ./...` without -p 1. Skips if the DB is down.
+	db := testsupport.OpenSchema(t, "mcpserver")
 	if err := db.AutoMigrate(
 		&models.User{}, &models.Library{}, &models.LibraryMember{}, &models.File{}, &models.Folder{},
+		&models.Tag{}, &models.FileTag{}, &models.Person{}, &models.ObjectDetection{},
+		&models.AudioDetection{}, &models.Moment{}, &models.MomentTag{}, &models.LibraryActivity{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	// CASCADE also clears rows other test packages left in the shared DB.
+	// Schema-local clean slate per test (safe: this schema is private to the package).
 	db.Exec("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
 
 	root := t.TempDir()
@@ -49,7 +48,7 @@ func setup(t *testing.T) fixture {
 	}
 
 	mk := func(email string) *models.User {
-		u := &models.User{ID: uuid.New(), Email: email, DisplayName: email, Role: "member"}
+		u := &models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Email: email, DisplayName: email, Role: "member"}
 		if err := db.Create(u).Error; err != nil {
 			t.Fatalf("create user: %v", err)
 		}
@@ -57,8 +56,8 @@ func setup(t *testing.T) fixture {
 	}
 	userA, userB, userC := mk("a@test.com"), mk("b@test.com"), mk("c@test.com")
 
-	libA := models.Library{ID: uuid.New(), Name: "Library A", OwnerID: userA.ID}
-	libShared := models.Library{ID: uuid.New(), Name: "Shared", OwnerID: userA.ID}
+	libA := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "Library A", OwnerID: userA.ID}
+	libShared := models.Library{BaseModel: models.BaseModel{ID: uuid.New()}, Name: "Shared", OwnerID: userA.ID}
 	db.Create(&libA)
 	db.Create(&libShared)
 	db.Create(&models.LibraryMember{ID: uuid.New(), LibraryID: libShared.ID, UserID: userB.ID, Role: "admin"})
@@ -167,10 +166,10 @@ func TestListFiles_AccessControl(t *testing.T) {
 func TestListFiles_RootAndFolderScope(t *testing.T) {
 	fx := setup(t)
 	db := fx.deps.DB
-	folder := models.Folder{ID: uuid.New(), LibraryID: fx.libA, Name: "sub", OwnerID: &fx.userA.ID}
+	folder := models.Folder{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: fx.libA, Name: "sub", OwnerID: &fx.userA.ID}
 	db.Create(&folder)
-	db.Create(&models.File{ID: uuid.New(), LibraryID: fx.libA, Name: "root.txt", MimeType: "text/plain", OwnerID: &fx.userA.ID})
-	db.Create(&models.File{ID: uuid.New(), LibraryID: fx.libA, Name: "inside.txt", MimeType: "text/plain", ParentFolderID: &folder.ID, OwnerID: &fx.userA.ID})
+	db.Create(&models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: fx.libA, Name: "root.txt", MimeType: "text/plain", OwnerID: &fx.userA.ID})
+	db.Create(&models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: fx.libA, Name: "inside.txt", MimeType: "text/plain", ParentFolderID: &folder.ID, OwnerID: &fx.userA.ID})
 
 	root := decode[listFilesOutput](t, call(t, fx.deps, fx.userA, "list_files", map[string]any{"libraryId": fx.libA.String()}))
 	names := map[string]string{}

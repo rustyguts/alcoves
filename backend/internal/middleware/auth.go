@@ -121,6 +121,18 @@ func needsAuth(path string) bool {
 	if strings.HasPrefix(path, "/api/files/signed") || strings.HasPrefix(path, "/api/files/upload-signed") {
 		return false
 	}
+	// MCP HTTP transport authenticates on the route itself via the SDK bearer
+	// middleware (PAT or OAuth access token), so the global middleware skips it.
+	if path == "/api/mcp" || strings.HasPrefix(path, "/api/mcp/") {
+		return false
+	}
+	// OAuth 2.1 token / registration / revocation endpoints are called by the
+	// client's backend and authenticate via the grant itself (PKCE, refresh
+	// token), not a session. Note: /api/oauth/authorize and /api/oauth/connections
+	// are deliberately NOT here — they require the user's session.
+	if path == "/api/oauth/token" || path == "/api/oauth/register" || path == "/api/oauth/revoke" {
+		return false
+	}
 	return true
 }
 

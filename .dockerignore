@@ -7,8 +7,10 @@
 .vscode
 .claude
 
-# Node / Nuxt build artifacts at any depth (the frontend lives under frontend/).
+# Node / SvelteKit build artifacts at any depth (the frontend lives under client/).
 **/node_modules
+**/.svelte-kit
+client/build
 **/.nuxt
 **/.output
 **/dist

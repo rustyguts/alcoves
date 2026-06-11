@@ -129,7 +129,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 
 	passwordHash, err := authservice.HashPassword(req.Password)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to hash password")
+		return internalError("Failed to hash password", err)
 	}
 
 	user := models.User{
@@ -169,7 +169,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 
 		return nil
 	}); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create user account")
+		return internalError("Failed to create user account", err)
 	}
 
 	// Redeem invite (if any) — best-effort: a redeem failure here does not
@@ -177,7 +177,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	if pendingInvite != nil {
 		result, err := invites.Redeem(h.db, pendingInvite, user.ID)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Account created but invite redemption failed: "+err.Error())
+			return internalError("Account created but invite redemption failed: "+err.Error(), err)
 		}
 		if result.AddedMember && h.activitySvc != nil {
 			actor := user.ID
@@ -199,14 +199,14 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	// Create session
 	sessionToken, err := h.authSvc.CreateSession(user.ID, c)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create session")
+		return internalError("Failed to create session", err)
 	}
 
 	if err := h.authSvc.SetSessionCookie(c, authservice.SessionPayload{
 		SessionToken: sessionToken,
 		UserID:       user.ID.String(),
 	}); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to set session cookie")
+		return internalError("Failed to set session cookie", err)
 	}
 
 	return c.JSON(http.StatusOK, toUserResponse(&user))
@@ -239,14 +239,14 @@ func (h *AuthHandler) Login(c echo.Context) error {
 
 	sessionToken, err := h.authSvc.CreateSession(user.ID, c)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create session")
+		return internalError("Failed to create session", err)
 	}
 
 	if err := h.authSvc.SetSessionCookie(c, authservice.SessionPayload{
 		SessionToken: sessionToken,
 		UserID:       user.ID.String(),
 	}); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to set session cookie")
+		return internalError("Failed to set session cookie", err)
 	}
 
 	return c.JSON(http.StatusOK, toUserResponse(&user))
@@ -305,12 +305,12 @@ func (h *AuthHandler) UpdateMe(c echo.Context) error {
 	}
 
 	if err := h.db.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update user")
+		return internalError("Failed to update user", err)
 	}
 
 	var user models.User
 	if err := h.db.Where("id = ?", userID).First(&user).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to reload user")
+		return internalError("Failed to reload user", err)
 	}
 
 	return c.JSON(http.StatusOK, toUserResponse(&user))
@@ -375,7 +375,7 @@ func (h *AuthHandler) RevokeSession(c echo.Context) error {
 	}
 
 	if err := h.authSvc.DeleteSessionByID(sessionID, userID); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to revoke session")
+		return internalError("Failed to revoke session", err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
