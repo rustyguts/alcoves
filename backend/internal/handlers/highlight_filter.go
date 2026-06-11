@@ -32,7 +32,7 @@ func (h *HighlightFilterHandler) List(c echo.Context) error {
 	libraryID := c.Param("id")
 	var filters []models.HighlightFilter
 	if err := h.db.Where("library_id = ?", libraryID).Order("created_at ASC").Find(&filters).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to list highlight filters")
+		return internalError("Failed to list highlight filters", err)
 	}
 	out := make([]map[string]interface{}, len(filters))
 	for i, f := range filters {
@@ -86,7 +86,7 @@ func (h *HighlightFilterHandler) Create(c echo.Context) error {
 	}
 
 	if err := h.db.Create(&filter).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create highlight filter")
+		return internalError("Failed to create highlight filter", err)
 	}
 	return c.JSON(http.StatusOK, highlightFilterToJSON(&filter))
 }
@@ -135,7 +135,7 @@ func (h *HighlightFilterHandler) Update(c echo.Context) error {
 		Where("id = ? AND library_id = ?", filterID, libraryID).
 		Updates(updates)
 	if result.Error != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update highlight filter")
+		return internalError("Failed to update highlight filter", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return echo.NewHTTPError(http.StatusNotFound, "Highlight filter not found")
@@ -143,7 +143,7 @@ func (h *HighlightFilterHandler) Update(c echo.Context) error {
 
 	var filter models.HighlightFilter
 	if err := h.db.Where("id = ?", filterID).First(&filter).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load updated filter")
+		return internalError("Failed to load updated filter", err)
 	}
 	return c.JSON(http.StatusOK, highlightFilterToJSON(&filter))
 }
@@ -154,7 +154,7 @@ func (h *HighlightFilterHandler) Delete(c echo.Context) error {
 
 	result := h.db.Where("id = ? AND library_id = ?", filterID, libraryID).Delete(&models.HighlightFilter{})
 	if result.Error != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete highlight filter")
+		return internalError("Failed to delete highlight filter", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return echo.NewHTTPError(http.StatusNotFound, "Highlight filter not found")

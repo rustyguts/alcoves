@@ -83,7 +83,7 @@ func (h *SignedHandler) Download(c echo.Context) error {
 			}
 			reader, err := h.storageSvc.OpenFileReadStream(libStr, fileStr, &storage.ByteRange{Start: start, End: end})
 			if err != nil {
-				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read file")
+				return internalError("Failed to read file", err)
 			}
 			defer reader.Close()
 			c.Response().Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, size))
@@ -94,7 +94,7 @@ func (h *SignedHandler) Download(c echo.Context) error {
 
 	reader, err := h.storageSvc.OpenFileReadStream(libStr, fileStr, nil)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read file")
+		return internalError("Failed to read file", err)
 	}
 	defer reader.Close()
 	c.Response().Header().Set("Content-Length", strconv.FormatInt(size, 10))
@@ -144,7 +144,7 @@ func (h *SignedHandler) Upload(c echo.Context) error {
 		if errors.As(err, &mbe) {
 			return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "Upload exceeds maximum size")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to store upload")
+		return internalError("Failed to store upload", err)
 	}
 
 	f := res.File

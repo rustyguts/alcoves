@@ -649,35 +649,108 @@ func TestTusCreationWithUpload(t *testing.T) {
 	}
 }
 
-func TestTusCleanOrphanedStagingFiles(t *testing.T) {
-	handler, _, tempDir := setupTusTestHandler(t)
+func TestTusCleanAgedStagingFiles(t *testing.T) {
+	handler, _, _ := setupTusTestHandler(t)
 	defer handler.Stop()
 
+	oldTime := time.Now().Add(-(tusUploadMaxAge + time.Hour))
+
+	// makeStaging writes a staging file, optionally backdates its mtime, and
+	// optionally registers a matching in-memory upload entry.
+	makeStaging := func(id string, aged, tracked bool) string {
+		t.Helper()
+		path := handler.stagingPath(id)
+		if err := os.WriteFile(path, []byte("data"), 0644); err != nil {
+			t.Fatalf("Failed to create staging file %s: %v", id, err)
+		}
+		if aged {
+			if err := os.Chtimes(path, oldTime, oldTime); err != nil {
+				t.Fatalf("Failed to backdate staging file %s: %v", id, err)
+			}
+		}
+		if tracked {
+			handler.mu.Lock()
+			handler.uploads[id] = &tusUpload{ID: id, CreatedAt: time.Now(), Size: 100}
+			handler.mu.Unlock()
+		}
+		return path
+	}
+
+	// {aged, fresh} × {tracked, untracked}: deletion must depend on mtime
+	// only — never on map membership (an untracked fresh file may be another
+	// replica's in-flight upload sharing the same staging volume).
+	agedUntracked := makeStaging("aged-untracked", true, false)
+	agedTracked := makeStaging("aged-tracked", true, true)
+	freshUntracked := makeStaging("fresh-untracked", false, false)
+	freshTracked := makeStaging("fresh-tracked", false, true)
+
+	handler.cleanAgedStagingFiles()
+
+	if _, err := os.Stat(agedUntracked); !os.IsNotExist(err) {
+		t.Error("Expected aged untracked staging file to be removed")
+	}
+	if _, err := os.Stat(agedTracked); !os.IsNotExist(err) {
+		t.Error("Expected aged tracked staging file to be removed")
+	}
+	if _, err := os.Stat(freshUntracked); err != nil {
+		t.Errorf("Expected fresh untracked staging file to survive (another replica may own it): %v", err)
+	}
+	if _, err := os.Stat(freshTracked); err != nil {
+		t.Errorf("Expected fresh tracked staging file to survive: %v", err)
+	}
+
+	// Map entries must stay coherent with disk: pruned for deleted files,
+	// kept for surviving ones.
+	handler.mu.RLock()
+	_, agedTrackedInMap := handler.uploads["aged-tracked"]
+	_, freshTrackedInMap := handler.uploads["fresh-tracked"]
+	handler.mu.RUnlock()
+
+	if agedTrackedInMap {
+		t.Error("Expected map entry for deleted aged staging file to be pruned")
+	}
+	if !freshTrackedInMap {
+		t.Error("Expected map entry for surviving fresh staging file to remain")
+	}
+}
+
+// TestTusBootSweepKeepsFreshStagingFiles guards the restart path: the sweep in
+// NewTusHandler runs with an empty upload map, so it must only delete staging
+// files that are old by mtime — never fresh in-flight uploads from a previous
+// process or a sibling replica.
+func TestTusBootSweepKeepsFreshStagingFiles(t *testing.T) {
+	db := setupTusTestDB(t)
+	tempDir := t.TempDir()
+	storageDir := filepath.Join(tempDir, "storage")
+	os.MkdirAll(storageDir, 0755)
+
 	tusDir := filepath.Join(tempDir, ".tus-uploads")
-
-	// Create orphaned staging files (no corresponding in-memory upload)
-	orphan1 := filepath.Join(tusDir, "orphan-1")
-	orphan2 := filepath.Join(tusDir, "orphan-2")
-	if err := os.WriteFile(orphan1, []byte("data"), 0644); err != nil {
-		t.Fatalf("Failed to create orphan1: %v", err)
+	if err := os.MkdirAll(tusDir, 0o755); err != nil {
+		t.Fatalf("Failed to create tus dir: %v", err)
 	}
-	if err := os.WriteFile(orphan2, []byte("data"), 0644); err != nil {
-		t.Fatalf("Failed to create orphan2: %v", err)
+	fresh := filepath.Join(tusDir, "fresh-in-flight")
+	if err := os.WriteFile(fresh, []byte("data"), 0644); err != nil {
+		t.Fatalf("Failed to create fresh staging file: %v", err)
+	}
+	aged := filepath.Join(tusDir, "aged-abandoned")
+	if err := os.WriteFile(aged, []byte("data"), 0644); err != nil {
+		t.Fatalf("Failed to create aged staging file: %v", err)
+	}
+	oldTime := time.Now().Add(-(tusUploadMaxAge + time.Hour))
+	if err := os.Chtimes(aged, oldTime, oldTime); err != nil {
+		t.Fatalf("Failed to backdate aged staging file: %v", err)
 	}
 
-	// Verify files exist
-	if _, err := os.Stat(orphan1); err != nil {
-		t.Fatalf("Expected orphan1 to exist: %v", err)
-	}
+	driver := storage.NewLocalDriver(storageDir, storageDir, storageDir)
+	storageSvc := storage.NewService(driver)
+	handler := NewTusHandler(db, storageSvc, tempDir, nil, nil, nil, nil, nil, nil, nil, nil)
+	defer handler.Stop()
 
-	handler.cleanOrphanedStagingFiles()
-
-	// Verify orphaned files are removed
-	if _, err := os.Stat(orphan1); !os.IsNotExist(err) {
-		t.Error("Expected orphan1 to be removed")
+	if _, err := os.Stat(fresh); err != nil {
+		t.Errorf("Expected fresh staging file to survive boot sweep: %v", err)
 	}
-	if _, err := os.Stat(orphan2); !os.IsNotExist(err) {
-		t.Error("Expected orphan2 to be removed")
+	if _, err := os.Stat(aged); !os.IsNotExist(err) {
+		t.Error("Expected aged staging file to be removed by boot sweep")
 	}
 }
 

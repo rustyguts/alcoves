@@ -207,7 +207,7 @@ func (h *TagHandler) SyncFileTags(c echo.Context) error {
 		}
 		return nil
 	}); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to sync tags")
+		return internalError("Failed to sync tags", err)
 	}
 
 	// Return updated tags
@@ -269,7 +269,7 @@ func (h *TagHandler) SyncFolderTags(c echo.Context) error {
 		}
 		return nil
 	}); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to sync tags")
+		return internalError("Failed to sync tags", err)
 	}
 
 	var tags []models.Tag

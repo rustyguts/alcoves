@@ -59,7 +59,7 @@ func (h *MomentHandler) ListShares(c echo.Context) error {
 		Where("moment_id = ? AND revoked_at IS NULL", moment.ID).
 		Order("created_at DESC").
 		Find(&shares).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to list shares")
+		return internalError("Failed to list shares", err)
 	}
 
 	baseURL := h.baseURLFor(c)
@@ -80,7 +80,7 @@ func (h *MomentHandler) CreateShare(c echo.Context) error {
 
 	var lib models.Library
 	if err := h.db.Where("id = ?", moment.LibraryID).First(&lib).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load library")
+		return internalError("Failed to load library", err)
 	}
 	if !lib.SharingEnabled {
 		return echo.NewHTTPError(http.StatusForbidden, "Sharing is disabled for this library")
@@ -93,7 +93,7 @@ func (h *MomentHandler) CreateShare(c echo.Context) error {
 
 	token, err := generateShareToken()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to generate token")
+		return internalError("Failed to generate token", err)
 	}
 
 	share := models.MomentShare{
@@ -103,7 +103,7 @@ func (h *MomentHandler) CreateShare(c echo.Context) error {
 		Token:       token,
 	}
 	if err := h.db.Create(&share).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create share")
+		return internalError("Failed to create share", err)
 	}
 
 	aid := userID
@@ -139,13 +139,13 @@ func (h *MomentHandler) RevokeShare(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "Share not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+		return internalError("Failed to load share", err)
 	}
 
 	now := time.Now()
 	if err := h.db.Model(&models.MomentShare{}).Where("id = ?", share.ID).
 		Update("revoked_at", &now).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to revoke share")
+		return internalError("Failed to revoke share", err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

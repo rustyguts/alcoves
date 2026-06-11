@@ -128,10 +128,10 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		MimeType:  mimeType,
 	}, c.Request().Body)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to upload file")
+		return internalError("Failed to upload file", err)
 	}
 
-	return c.JSON(http.StatusOK, fileToJSON(result.File, result.DuplicateIDs))
+	return c.JSON(http.StatusOK, h.fileJSON(result.File, result.DuplicateIDs))
 }
 
 func (h *FileHandler) Get(c echo.Context) error {
@@ -154,7 +154,7 @@ func (h *FileHandler) Get(c echo.Context) error {
 	if file.Hash != nil && file.SourceFileID == nil {
 		dupes, _ = filehash.FindDuplicates(h.db, file.LibraryID, file.ID, *file.Hash)
 	}
-	return c.JSON(http.StatusOK, fileToJSON(file, dupes))
+	return c.JSON(http.StatusOK, h.fileJSON(file, dupes))
 }
 
 type updateFileRequest struct {
@@ -190,12 +190,12 @@ func (h *FileHandler) Update(c echo.Context) error {
 	updates["updated_at"] = time.Now()
 
 	if err := h.db.Model(&models.File{}).Where("id = ? AND library_id = ?", fileID, libraryID).Updates(updates).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update file")
+		return internalError("Failed to update file", err)
 	}
 
 	var file models.File
 	if err := h.db.Where("id = ? AND library_id = ?", fileID, libraryID).First(&file).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated file")
+		return internalError("Failed to fetch updated file", err)
 	}
 
 	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(&file))
@@ -285,7 +285,7 @@ func (h *FileHandler) Purge(c echo.Context) error {
 
 	purged, err := h.fileSvc.Purge(libraryID, files.PurgeParams{FileIDs: req.FileIDs, FolderIDs: req.FolderIDs})
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to purge items")
+		return internalError("Failed to purge items", err)
 	}
 	return c.JSON(http.StatusOK, map[string]int{"purged": purged})
 }
@@ -372,7 +372,19 @@ func (h *FileHandler) fileToJSONWithLookup(f *models.File) map[string]interface{
 	if f.Hash != nil && f.SourceFileID == nil {
 		dupes, _ = filehash.FindDuplicates(h.db, f.LibraryID, f.ID, *f.Hash)
 	}
-	return fileToJSON(f, dupes)
+	return h.fileJSON(f, dupes)
+}
+
+// fileJSON serializes a File with precomputed duplicate IDs and attaches the
+// owner + tags relations — loaded via the same services/files loaders the list
+// endpoint uses — so single-file responses match list rows (FileResponse) and
+// the client's LibraryFile type, which declares owner and tags as required.
+func (h *FileHandler) fileJSON(f *models.File, duplicateOfFileIds []uuid.UUID) map[string]interface{} {
+	result := fileToJSON(f, duplicateOfFileIds)
+	owner, tags := files.LoadFileOwnerAndTags(h.db, f)
+	result["owner"] = owner
+	result["tags"] = tags
+	return result
 }
 
 // fileToJSON serializes a File for single-resource responses.
@@ -415,6 +427,9 @@ func fileToJSON(f *models.File, duplicateOfFileIds []uuid.UUID) map[string]inter
 		"waveformPeaksPerSecond": f.WaveformPeaksPerSecond,
 		"thumbnailFileId":        uuidPtr(f.ThumbnailFileID),
 		"sourceFileId":           uuidPtr(f.SourceFileID),
+		"capturedAt":             timeStr(f.CapturedAt),
+		"gpsLat":                 f.GpsLat,
+		"gpsLon":                 f.GpsLon,
 		"trashedAt":              timeStr(f.TrashedAt),
 		"createdAt":              f.CreatedAt.Format(time.RFC3339Nano),
 		"updatedAt":              f.UpdatedAt.Format(time.RFC3339Nano),

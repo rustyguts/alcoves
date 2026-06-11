@@ -344,15 +344,5 @@ func TestEnsureModelsDownloaded_AlreadyPresent(t *testing.T) {
 	}
 }
 
-// --- onnx.go: initONNXRuntime ---
-
-func TestInitONNXRuntime_Idempotent(t *testing.T) {
-	// We can't guarantee a working ORT shared lib in CI, so we only assert
-	// the call is stable across invocations (same result each time) and does
-	// not panic. The sync.Once means the second call returns the cached error.
-	err1 := initONNXRuntime()
-	err2 := initONNXRuntime()
-	if (err1 == nil) != (err2 == nil) {
-		t.Errorf("initONNXRuntime not idempotent: %v then %v", err1, err2)
-	}
-}
+// The once-guarded ONNX runtime initializer moved to
+// internal/services/onnxinit; its idempotence/concurrency tests live there.

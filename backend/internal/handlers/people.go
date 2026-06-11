@@ -101,7 +101,7 @@ func (h *PeopleHandler) Update(c echo.Context) error {
 
 	var person models.Person
 	if err := h.db.Where("id = ?", personID).First(&person).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated person")
+		return internalError("Failed to fetch updated person", err)
 	}
 
 	return c.JSON(http.StatusOK, toPersonResponse(&person))
@@ -259,7 +259,7 @@ func (h *PeopleHandler) SplitFace(c echo.Context) error {
 
 		return nil
 	}); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to split face")
+		return internalError("Failed to split face", err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -337,11 +337,11 @@ func (h *PeopleHandler) Merge(c echo.Context) error {
 
 		return nil
 	}); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to merge persons")
+		return internalError("Failed to merge persons", err)
 	}
 
 	if err := h.db.Where("id = ?", targetID).First(&target).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch merged person")
+		return internalError("Failed to fetch merged person", err)
 	}
 	return c.JSON(http.StatusOK, toPersonResponse(&target))
 }
@@ -355,7 +355,7 @@ func (h *PeopleHandler) Reprocess(c echo.Context) error {
 
 	enqueued, err := h.faceSvc.ReprocessLibrary(libraryID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Reprocess failed: %v", err))
+		return internalError(fmt.Sprintf("Reprocess failed: %v", err), err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]int{"queuedCount": enqueued})

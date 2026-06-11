@@ -85,7 +85,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		ORDER BY f.name ASC
 		LIMIT 50
 	`, userID, userID, searchPattern).Scan(&fileResults).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Search failed")
+		return internalError("Search failed", err)
 	}
 
 	// Search folders across accessible libraries
@@ -104,7 +104,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		ORDER BY fo.name ASC
 		LIMIT 50
 	`, userID, userID, searchPattern).Scan(&folderResults).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Search failed")
+		return internalError("Search failed", err)
 	}
 
 	// Search files by detected object labels
@@ -142,7 +142,7 @@ func (h *SearchHandler) Search(c echo.Context) error {
 		ORDER BY f.id, od.confidence DESC
 		LIMIT 50
 	`, labelClause), objectArgs...).Scan(&objectResults).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Search failed")
+		return internalError("Search failed", err)
 	}
 
 	// Collect all matched labels per file (a file may match multiple labels)

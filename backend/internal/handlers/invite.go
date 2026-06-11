@@ -118,7 +118,7 @@ func (h *InviteHandler) Accept(c echo.Context) error {
 		case errors.Is(err, invites.ErrExhausted):
 			return echo.NewHTTPError(http.StatusGone, "Invite has no remaining uses")
 		default:
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to look up invite")
+			return internalError("Failed to look up invite", err)
 		}
 	}
 
@@ -138,7 +138,7 @@ func (h *InviteHandler) Accept(c echo.Context) error {
 		if errors.Is(err, invites.ErrExhausted) {
 			return echo.NewHTTPError(http.StatusGone, "Invite has no remaining uses")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to redeem invite")
+		return internalError("Failed to redeem invite", err)
 	}
 
 	if result.AddedMember && h.activitySvc != nil {
