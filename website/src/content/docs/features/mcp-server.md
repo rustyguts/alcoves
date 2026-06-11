@@ -143,6 +143,38 @@ The HTTP transport is disabled by default. Enable it on the server:
 ALCOVES_MCP_HTTP_ENABLED=true
 ```
 
+## Connecting Claude's custom connector (OAuth)
+
+The simplest way to connect a remote client like **Claude's "Add custom connector"** is OAuth. When enabled, Alcoves acts as an **OAuth 2.1 authorization server** for its MCP endpoint, so you paste your instance URL and approve a browser consent screen — no token to copy, no bridge tool.
+
+Enable it on the server (both flags are required — OAuth secures the HTTP transport rather than turning it on for you):
+
+```bash
+ALCOVES_MCP_HTTP_ENABLED=true
+ALCOVES_MCP_OAUTH_ENABLED=true
+ALCOVES_BASE_URL=https://your-alcoves-instance.example.com   # required — the OAuth issuer
+```
+
+Then, in Claude, choose **Add custom connector**, name it (e.g. "Alcoves"), and enter your instance URL as the **Remote MCP server URL**. Claude discovers the authorization server automatically (RFC 9728 / RFC 8414), registers itself (RFC 7591 Dynamic Client Registration), and opens an Alcoves consent screen in your browser. Approve it and the connector is ready.
+
+How it works:
+
+- Alcoves implements the OAuth 2.1 **authorization code flow with PKCE (S256)** — the flow Claude's connector requires.
+- The **consent screen** authenticates you with your existing Alcoves session (you'll be asked to log in first if you aren't). Approving grants the client an access token that **acts as you** — every tool call is still scoped by your per-library roles.
+- Access tokens are **short-lived** and refreshed automatically; they are **audience-bound to the MCP endpoint** (they don't work against the rest of the API).
+- You can **revoke** a connected app any time from **Profile → Connected apps**.
+
+By default any redirect URI registered by the client is accepted (exact-matched). To restrict registrations to specific hosts, set `ALCOVES_MCP_OAUTH_ALLOWED_REDIRECT_HOSTS=claude.ai,claude.com`.
+
+:::note
+The well-known discovery documents are served at your instance root
+(`/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`).
+The bundled SvelteKit front end forwards them to the API automatically, so a
+standard single-origin deployment needs no extra reverse-proxy rules.
+:::
+
+PATs and the `mcp-remote` bridge still work for clients that prefer a static token; OAuth is purely additive.
+
 ## How large file transfers work
 
 The MCP protocol is not designed to carry raw file bytes — embedding gigabytes of binary data in JSON-RPC is not practical. `upload_file` and `download_file` handle this transparently depending on how the client is connected.
@@ -176,8 +208,12 @@ Signed URLs are short-lived and scoped to a single file operation. They expire a
 |---|---|
 | `ALCOVES_MCP_TOKEN` | Personal access token used by the stdio server at startup. |
 | `ALCOVES_MCP_HTTP_ENABLED` | Set to `true` to enable the HTTP transport at `/api/mcp`. Defaults to `false`. |
+| `ALCOVES_MCP_OAUTH_ENABLED` | Set to `true` to enable the OAuth 2.1 authorization server (custom-connector one-click auth). Requires `ALCOVES_MCP_HTTP_ENABLED` and `ALCOVES_BASE_URL`. Defaults to `false`. |
+| `ALCOVES_MCP_OAUTH_ACCESS_TTL` / `_REFRESH_TTL` / `_CODE_TTL` | OAuth access-token, refresh-token, and authorization-code lifetimes (Go durations). Default `1h` / `720h` / `5m`. |
+| `ALCOVES_MCP_OAUTH_DCR_ENABLED` | Allow Dynamic Client Registration (RFC 7591). Defaults to `true`. |
+| `ALCOVES_MCP_OAUTH_ALLOWED_REDIRECT_HOSTS` | Optional comma-separated allowlist of redirect-URI hosts (e.g. `claude.ai,claude.com`). Empty = allow any exact-matched URI. |
 | `ALCOVES_MCP_SIGNING_SECRET` | HMAC key used to sign temporary file URLs. Falls back to `ALCOVES_SESSION_SECRET` if not set. |
-| `ALCOVES_BASE_URL` | Public URL of your Alcoves instance. Required for the signed and TUS URLs returned to remote clients. |
+| `ALCOVES_BASE_URL` | Public URL of your Alcoves instance. The OAuth issuer, and required for the signed and TUS URLs returned to remote clients. |
 
 :::note
 `ALCOVES_BASE_URL` must be set correctly for remote file transfers to work. Without it, signed URLs cannot be constructed.
