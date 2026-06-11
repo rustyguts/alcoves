@@ -215,7 +215,7 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	// Require library membership.
 	acc, err := access.NewService(h.db).GetLibraryAccess(userID, libraryID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to check library access")
+		return internalError("Failed to check library access", err)
 	}
 	if acc == nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Library not found")
@@ -236,7 +236,7 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 	if imageproxy.NeedsTransform(opts) && isImageMime(file.MimeType) && h.imgSvc.HasProcessor() {
 		outBytes, mime, err := h.imgSvc.ServeTransform(c.Request().Context(), libraryID.String(), fileID.String(), opts)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to transform image")
+			return internalError("Failed to transform image", err)
 		}
 
 		c.Response().Header().Set("Content-Type", mime)
@@ -254,7 +254,7 @@ func (h *FileProxyHandler) Serve(c echo.Context) error {
 
 	reader, err := h.storageSvc.OpenFileReadStream(libraryID.String(), fileID.String(), nil)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read file")
+		return internalError("Failed to read file", err)
 	}
 	defer reader.Close()
 

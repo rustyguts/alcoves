@@ -34,7 +34,7 @@ func (h *ObjectsHandler) Reprocess(c echo.Context) error {
 
 	enqueued, err := h.objSvc.ReprocessLibrary(libraryID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Reprocess failed: %v", err))
+		return internalError(fmt.Sprintf("Reprocess failed: %v", err), err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]int{"queuedCount": enqueued})
@@ -57,7 +57,7 @@ func (h *ObjectsHandler) Labels(c echo.Context) error {
 		GROUP BY label
 		ORDER BY file_count DESC, label ASC
 	`, libraryID).Scan(&labels).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to query object labels")
+		return internalError("Failed to query object labels", err)
 	}
 
 	if labels == nil {

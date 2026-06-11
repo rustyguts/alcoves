@@ -25,7 +25,7 @@ func (h *FileHandler) ReprocessVideoThumbnails(c echo.Context) error {
 	libraryID := c.Param("id")
 	queuedCount, err := h.videoSvc.EnqueueExistingVideoThumbnails(libraryID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue video thumbnails")
+		return internalError("Failed to queue video thumbnails", err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]int{"queuedCount": queuedCount})
@@ -47,7 +47,7 @@ func (h *FileHandler) MetadataReprocess(c echo.Context) error {
 
 	queuedCount, err := h.metadataSvc.ReprocessLibrary(libraryID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Reprocess failed: %v", err))
+		return internalError(fmt.Sprintf("Reprocess failed: %v", err), err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]int{"queuedCount": queuedCount})
@@ -74,7 +74,7 @@ func (h *FileHandler) GenerateProxy(c echo.Context) error {
 	}
 
 	if err := h.mediaJobs.TriggerProxy(libraryID, file); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue video proxy generation")
+		return internalError("Failed to queue video proxy generation", err)
 	}
 
 	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(file))
@@ -101,7 +101,7 @@ func (h *FileHandler) GenerateWaveform(c echo.Context) error {
 	}
 
 	if err := h.mediaJobs.TriggerWaveform(libraryID, file); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue waveform generation")
+		return internalError("Failed to queue waveform generation", err)
 	}
 
 	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(file))
@@ -128,7 +128,7 @@ func (h *FileHandler) GenerateTranscript(c echo.Context) error {
 	}
 
 	if err := h.mediaJobs.TriggerTranscribe(libraryID, file); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue transcription")
+		return internalError("Failed to queue transcription", err)
 	}
 
 	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(file))
@@ -157,7 +157,7 @@ func (h *FileHandler) GenerateAudioDetections(c echo.Context) error {
 	}
 
 	if err := h.mediaJobs.TriggerAudioDetect(libraryID, file); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to queue audio detection")
+		return internalError("Failed to queue audio detection", err)
 	}
 
 	return c.JSON(http.StatusAccepted, h.fileToJSONWithLookup(file))
@@ -267,7 +267,7 @@ func (h *FileHandler) bulkResolveFiles(c echo.Context, libraryID string) ([]mode
 
 	var files []models.File
 	if err := q.Find(&files).Error; err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to load files")
+		return nil, internalError("Failed to load files", err)
 	}
 	return files, nil
 }

@@ -75,12 +75,12 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 		case errors.Is(err, avatarproc.ErrInvalidImage):
 			return echo.NewHTTPError(http.StatusBadRequest, "Avatar must be a valid image")
 		default:
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to process avatar")
+			return internalError("Failed to process avatar", err)
 		}
 	}
 
 	if err := h.storageSvc.StoreAvatar(userID.String(), webp); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to store avatar")
+		return internalError("Failed to store avatar", err)
 	}
 
 	// Update user's avatarUrl to reference their avatar
@@ -115,14 +115,14 @@ func (h *AvatarHandler) ServeByUserID(c echo.Context) error {
 func (h *AvatarHandler) serveByID(c echo.Context, userID string) error {
 	exists, err := h.storageSvc.AvatarExists(userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to check avatar")
+		return internalError("Failed to check avatar", err)
 	}
 	if !exists {
 		return echo.NewHTTPError(http.StatusNotFound, "Avatar not found")
 	}
 	data, err := h.storageSvc.ReadAvatarBuffer(userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read avatar")
+		return internalError("Failed to read avatar", err)
 	}
 	// Avatars are immutable per upload — short cache lets the browser skip a
 	// roundtrip without pinning a stale image after a re-upload.

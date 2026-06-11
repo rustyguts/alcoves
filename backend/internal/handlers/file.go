@@ -128,7 +128,7 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		MimeType:  mimeType,
 	}, c.Request().Body)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to upload file")
+		return internalError("Failed to upload file", err)
 	}
 
 	return c.JSON(http.StatusOK, h.fileJSON(result.File, result.DuplicateIDs))
@@ -190,12 +190,12 @@ func (h *FileHandler) Update(c echo.Context) error {
 	updates["updated_at"] = time.Now()
 
 	if err := h.db.Model(&models.File{}).Where("id = ? AND library_id = ?", fileID, libraryID).Updates(updates).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update file")
+		return internalError("Failed to update file", err)
 	}
 
 	var file models.File
 	if err := h.db.Where("id = ? AND library_id = ?", fileID, libraryID).First(&file).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch updated file")
+		return internalError("Failed to fetch updated file", err)
 	}
 
 	return c.JSON(http.StatusOK, h.fileToJSONWithLookup(&file))
@@ -285,7 +285,7 @@ func (h *FileHandler) Purge(c echo.Context) error {
 
 	purged, err := h.fileSvc.Purge(libraryID, files.PurgeParams{FileIDs: req.FileIDs, FolderIDs: req.FolderIDs})
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to purge items")
+		return internalError("Failed to purge items", err)
 	}
 	return c.JSON(http.StatusOK, map[string]int{"purged": purged})
 }

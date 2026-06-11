@@ -230,12 +230,12 @@ func (h *TusHandler) Create(c echo.Context) error {
 	stagingPath := h.stagingPath(uploadID)
 	if err := os.MkdirAll(h.dataDir, 0o755); err != nil {
 		log.Printf("Failed to ensure tus staging directory %s: %v", h.dataDir, err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to prepare upload directory")
+		return internalError("Failed to prepare upload directory", err)
 	}
 	f, err := os.Create(stagingPath)
 	if err != nil {
 		log.Printf("Failed to create tus upload file %s: %v", stagingPath, err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create upload file")
+		return internalError("Failed to create upload file", err)
 	}
 
 	// If creation-with-upload: the POST body may contain initial data
@@ -245,7 +245,7 @@ func (h *TusHandler) Create(c echo.Context) error {
 		if err != nil {
 			f.Close()
 			os.Remove(stagingPath)
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to write upload data")
+			return internalError("Failed to write upload data", err)
 		}
 		upload.Offset = bytesReceived
 	}
@@ -259,7 +259,7 @@ func (h *TusHandler) Create(c echo.Context) error {
 	if upload.Offset >= upload.Size {
 		dupCount, err := h.finishUpload(upload)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to finalize upload")
+			return internalError("Failed to finalize upload", err)
 		}
 		setDuplicateHeader(c, dupCount)
 	}
@@ -340,17 +340,17 @@ func (h *TusHandler) Patch(c echo.Context) error {
 	stagingPath := h.stagingPath(upload.ID)
 	f, err := os.OpenFile(stagingPath, os.O_WRONLY, 0o644)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to open upload file")
+		return internalError("Failed to open upload file", err)
 	}
 	defer f.Close()
 
 	if _, err := f.Seek(upload.Offset, io.SeekStart); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to seek in upload file")
+		return internalError("Failed to seek in upload file", err)
 	}
 
 	bytesWritten, err := io.Copy(f, c.Request().Body)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to write upload data")
+		return internalError("Failed to write upload data", err)
 	}
 
 	upload.Offset += bytesWritten
@@ -364,7 +364,7 @@ func (h *TusHandler) Patch(c echo.Context) error {
 		dupCount, err := h.finishUpload(upload)
 		if err != nil {
 			upload.mu.Lock() // re-lock for deferred unlock
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to finalize upload")
+			return internalError("Failed to finalize upload", err)
 		}
 		setDuplicateHeader(c, dupCount)
 		upload.mu.Lock() // re-lock for deferred unlock

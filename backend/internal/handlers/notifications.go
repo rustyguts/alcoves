@@ -231,7 +231,7 @@ func (h *NotificationsHandler) ListLibrary(c echo.Context) error {
 	}
 	var rows []models.LibraryActivity
 	if err := q.Find(&rows).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	var nextCursor *string
 	if len(rows) > limit {
@@ -242,7 +242,7 @@ func (h *NotificationsHandler) ListLibrary(c echo.Context) error {
 	}
 	hydrated, err := h.hydrate(rows, userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"entries":    hydrated,
@@ -266,7 +266,7 @@ func (h *NotificationsHandler) ListGlobal(c echo.Context) error {
 
 	libIDs, err := h.accessibleLibraryIDs(userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 
 	// Empty result early-out: avoid generating IN () which Postgres rejects.
@@ -280,20 +280,20 @@ func (h *NotificationsHandler) ListGlobal(c echo.Context) error {
 
 	watermark, err := h.userWatermark(userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 
 	rows, nextCursor, err := h.queryGlobalFeed(userID, libIDs, watermark, cur, limit)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	hydrated, err := h.hydrate(rows, userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	unread, err := h.unreadCountFor(userID, libIDs, watermark)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"entries":     hydrated,
@@ -310,18 +310,18 @@ func (h *NotificationsHandler) UnreadCount(c echo.Context) error {
 	}
 	libIDs, err := h.accessibleLibraryIDs(userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	if len(libIDs) == 0 {
 		return c.JSON(http.StatusOK, map[string]any{"unreadCount": 0})
 	}
 	watermark, err := h.userWatermark(userID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	n, err := h.unreadCountFor(userID, libIDs, watermark)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"unreadCount": n})
 }
@@ -342,7 +342,7 @@ func (h *NotificationsHandler) Dismiss(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	acc, err := h.accessSvc.GetLibraryAccess(userID, row.LibraryID)
 	if err != nil || acc == nil {
@@ -355,7 +355,7 @@ func (h *NotificationsHandler) Dismiss(c echo.Context) error {
 		d.UserID, d.ActivityID, d.DismissedAt,
 	)
 	if res.Error != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, res.Error.Error())
+		return internalError(res.Error.Error(), res.Error)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -369,7 +369,7 @@ func (h *NotificationsHandler) DismissAll(c echo.Context) error {
 	now := time.Now()
 	if err := h.db.Model(&models.User{}).Where("id = ?", userID).
 		Update("notifications_cleared_before", now).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return internalError(err.Error(), err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

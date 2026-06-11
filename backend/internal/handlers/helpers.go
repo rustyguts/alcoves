@@ -35,3 +35,13 @@ func emitActivity(svc *activity.Service, p activity.EmitParams) {
 		svc.EmitAsync(p)
 	}
 }
+
+// internalError builds a 500 echo.HTTPError that renders msg to the client
+// while preserving the underlying cause via SetInternal, so the Sentry
+// HTTPErrorHandler and Echo's request logs see the root cause instead of
+// only the generic message. The wire response is identical to
+// echo.NewHTTPError(http.StatusInternalServerError, msg): Echo renders
+// Message, never Internal (for non-HTTPError causes).
+func internalError(msg string, err error) *echo.HTTPError {
+	return echo.NewHTTPError(http.StatusInternalServerError, msg).SetInternal(err)
+}
