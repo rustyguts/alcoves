@@ -419,6 +419,49 @@ func TestComplete(t *testing.T) {
 	}
 }
 
+// TestComplete_StaleVersionDiscarded is the regression test for the
+// supersession race: a regeneration that bumps waveform_version while a job is
+// in flight must make the stale job's complete() a no-op, while a job running
+// at the current version persists normally.
+func TestComplete_StaleVersionDiscarded(t *testing.T) {
+	db := setupTestDB(t)
+	libID, ownerID := seedLibrary(t, db)
+	f := models.File{BaseModel: models.BaseModel{ID: uuid.New()}, LibraryID: libID, Name: "a.wav", MimeType: "audio/wav", OwnerID: &ownerID, WaveformVersion: 3}
+	if err := db.Create(&f).Error; err != nil {
+		t.Fatal(err)
+	}
+	h := NewTaskHandler(db, nil, testConfig(), nil)
+
+	// Simulate TriggerWaveform landing mid-run: bump the version to 4 while a
+	// job captured at version 3 is still in flight.
+	if err := db.Model(&models.File{}).Where("id = ?", f.ID).Update("waveform_version", 4).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if h.complete(f.ID.String(), 3, defaultPeaksPerSecond) {
+		t.Fatalf("expected complete to discard stale work for version 3")
+	}
+	var updated models.File
+	db.Where("id = ?", f.ID).First(&updated)
+	if updated.WaveformStatus != nil {
+		t.Fatalf("stale job set waveform_status: %v", *updated.WaveformStatus)
+	}
+	if updated.WaveformedVersion != nil {
+		t.Fatalf("stale job set waveformed_version: %v", *updated.WaveformedVersion)
+	}
+
+	if !h.complete(f.ID.String(), 4, defaultPeaksPerSecond) {
+		t.Fatalf("expected complete to persist for matching version 4")
+	}
+	db.Where("id = ?", f.ID).First(&updated)
+	if updated.WaveformStatus == nil || *updated.WaveformStatus != "ready" {
+		t.Fatalf("status not ready: %v", updated.WaveformStatus)
+	}
+	if updated.WaveformedVersion == nil || *updated.WaveformedVersion != 4 {
+		t.Fatalf("waveformed_version not set: %v", updated.WaveformedVersion)
+	}
+}
+
 func TestStoreEmptyWaveform(t *testing.T) {
 	store := setupTestStorage(t)
 	h := NewTaskHandler(nil, store, testConfig(), nil)
