@@ -83,7 +83,7 @@ func (h *ShareHandler) Metadata(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "Share not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+		return internalError("Failed to load share", err)
 	}
 
 	base := h.resolveBase(c)
@@ -116,7 +116,7 @@ func (h *ShareHandler) Video(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "Not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+		return internalError("Failed to load share", err)
 	}
 	if rs.moment.ExportedVersion == nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Export not ready")
@@ -143,7 +143,7 @@ func (h *ShareHandler) Video(c echo.Context) error {
 		c.Response().Header().Set("Content-Length", strconv.FormatInt(size, 10))
 		reader, err := h.storage.OpenCacheReadStream(cacheKey)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read export")
+			return internalError("Failed to read export", err)
 		}
 		defer reader.Close()
 		c.Response().WriteHeader(http.StatusOK)
@@ -171,7 +171,7 @@ func (h *ShareHandler) Video(c echo.Context) error {
 	}
 	reader, err := h.storage.OpenCacheReadStreamRange(cacheKey, &storage.ByteRange{Start: start, End: end})
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read range")
+		return internalError("Failed to read range", err)
 	}
 	defer reader.Close()
 	length := end - start + 1
@@ -194,7 +194,7 @@ func (h *ShareHandler) Thumbnail(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "Not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load share")
+		return internalError("Failed to load share", err)
 	}
 
 	libraryID := rs.file.LibraryID
@@ -221,7 +221,7 @@ func (h *ShareHandler) Thumbnail(c echo.Context) error {
 	}
 	reader, err := h.storage.OpenFileReadStream(libraryID.String(), thumbID.String(), nil)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read thumbnail")
+		return internalError("Failed to read thumbnail", err)
 	}
 	defer reader.Close()
 

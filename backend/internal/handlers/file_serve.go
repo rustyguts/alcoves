@@ -35,7 +35,7 @@ func (h *FileHandler) serveFileData(c echo.Context, file *models.File) error {
 
 	reader, err := h.storageSvc.OpenFileReadStream(libraryID, fileID, nil)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read file")
+		return internalError("Failed to read file", err)
 	}
 	defer reader.Close()
 
@@ -71,7 +71,7 @@ func (h *FileHandler) serveRangeRequest(c echo.Context, libraryID, fileID string
 	length := end - start + 1
 	reader, err := h.storageSvc.OpenFileReadStream(libraryID, fileID, &storage.ByteRange{Start: start, End: end})
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read file")
+		return internalError("Failed to read file", err)
 	}
 	defer reader.Close()
 
@@ -124,7 +124,7 @@ func (h *FileHandler) PlaybackSources(c echo.Context) error {
 		Where("source_file_id = ? AND library_id = ? AND trashed_at IS NULL AND mime_type LIKE ?", sourceID, libraryID, "video/%").
 		Order("created_at DESC").
 		Find(&proxies).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load playback sources")
+		return internalError("Failed to load playback sources", err)
 	}
 
 	defaultSourceID := source.ID.String()
@@ -226,7 +226,7 @@ func (h *FileHandler) ListAudioDetections(c echo.Context) error {
 	}
 	dets, err := h.audioDetectSvc.ListByFile(libraryID, fileID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to list detections")
+		return internalError("Failed to list detections", err)
 	}
 	return c.JSON(http.StatusOK, dets)
 }
@@ -275,7 +275,7 @@ func (h *FileHandler) Proxy(c echo.Context) error {
 	// Get total size without loading the file into memory.
 	totalSize, err := h.storageSvc.CacheStat(cacheKey)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to stat proxy")
+		return internalError("Failed to stat proxy", err)
 	}
 
 	c.Response().Header().Set("Content-Type", "video/mp4")
@@ -304,7 +304,7 @@ func (h *FileHandler) Proxy(c echo.Context) error {
 
 			rc, err := h.storageSvc.OpenCacheReadStreamRange(cacheKey, &storage.ByteRange{Start: start, End: end})
 			if err != nil {
-				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read proxy")
+				return internalError("Failed to read proxy", err)
 			}
 			defer rc.Close()
 
@@ -317,7 +317,7 @@ func (h *FileHandler) Proxy(c echo.Context) error {
 	// Full (non-range) response — stream without buffering.
 	rc, err := h.storageSvc.OpenCacheReadStream(cacheKey)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read proxy")
+		return internalError("Failed to read proxy", err)
 	}
 	defer rc.Close()
 
@@ -348,7 +348,7 @@ func (h *FileHandler) Thumbnail(c echo.Context) error {
 	// Stream the thumbnail without loading it fully into RAM.
 	rc, err := h.storageSvc.OpenCacheReadStream(cacheKey)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read thumbnail")
+		return internalError("Failed to read thumbnail", err)
 	}
 	defer rc.Close()
 

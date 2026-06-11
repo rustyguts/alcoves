@@ -41,7 +41,7 @@ func (h *FolderHandler) List(c echo.Context) error {
 		Where("library_id = ? AND trashed_at IS NULL", libraryID).
 		Order("created_at ASC").
 		Find(&folders).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch folders")
+		return internalError("Failed to fetch folders", err)
 	}
 
 	response := make([]map[string]interface{}, 0, len(folders))
@@ -98,10 +98,10 @@ func (h *FolderHandler) Create(c echo.Context) error {
 	}
 
 	if err := h.db.Create(&folder).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create folder")
+		return internalError("Failed to create folder", err)
 	}
 	if err := h.db.Preload("Owner").Where("id = ?", folder.ID).First(&folder).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load folder")
+		return internalError("Failed to load folder", err)
 	}
 
 	aid := userID

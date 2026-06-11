@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/alcoves/alcoves-backend/internal/services/modelfetch"
+	"github.com/alcoves/alcoves-backend/internal/services/onnxinit"
 	ort "github.com/yalue/onnxruntime_go"
 )
 
@@ -123,7 +124,7 @@ var probeOutputs = []string{
 // + EfficientAT, 16 kHz for CED) — otherwise the probe shape mismatches
 // any single-rate model that bakes its rate into the graph.
 func LoadSession(modelPath string, sampleRate int) (*sessionInfo, error) {
-	if err := initONNXRuntime(); err != nil {
+	if err := onnxinit.Ensure(); err != nil {
 		return nil, err
 	}
 	if sampleRate <= 0 {

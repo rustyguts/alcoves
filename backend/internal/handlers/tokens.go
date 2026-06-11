@@ -101,7 +101,7 @@ func (h *TokenHandler) Create(c echo.Context) error {
 
 	plaintext, pat, err := h.authSvc.CreatePersonalAccessToken(userID, req.Name, expiresAt)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create token")
+		return internalError("Failed to create token", err)
 	}
 
 	resp := toTokenResponse(pat)
@@ -125,7 +125,7 @@ func (h *TokenHandler) Delete(c echo.Context) error {
 
 	result := h.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.PersonalAccessToken{})
 	if result.Error != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to revoke token")
+		return internalError("Failed to revoke token", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return echo.NewHTTPError(http.StatusNotFound, "Token not found")

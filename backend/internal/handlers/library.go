@@ -112,7 +112,7 @@ func (h *LibraryHandler) Create(c echo.Context) error {
 	}
 
 	if err := h.db.Create(&library).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create library")
+		return internalError("Failed to create library", err)
 	}
 
 	la := &access.LibraryAccess{
@@ -192,7 +192,7 @@ func (h *LibraryHandler) Update(c echo.Context) error {
 	}
 
 	if err := h.db.Model(&models.Library{}).Where("id = ?", libraryID).Updates(updates).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to update library")
+		return internalError("Failed to update library", err)
 	}
 
 	// When a detection feature is enabled, enqueue all existing images
@@ -220,7 +220,7 @@ func (h *LibraryHandler) Update(c echo.Context) error {
 
 	var library models.Library
 	if err := h.db.Where("id = ?", libraryID).First(&library).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to reload library")
+		return internalError("Failed to reload library", err)
 	}
 
 	return c.JSON(http.StatusOK, toLibraryResponse(&library, la))
@@ -249,7 +249,7 @@ func (h *LibraryHandler) Delete(c echo.Context) error {
 	}
 
 	if err := h.db.Where("id = ?", libraryID).Delete(&models.Library{}).Error; err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to delete library")
+		return internalError("Failed to delete library", err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})

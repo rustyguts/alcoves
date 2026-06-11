@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/alcoves/alcoves-backend/internal/services/modelfetch"
+	"github.com/alcoves/alcoves-backend/internal/services/onnxinit"
 	ort "github.com/yalue/onnxruntime_go"
 )
 
@@ -34,22 +34,6 @@ var (
 	detectionModelSHA256   = "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
 	recognitionModelSHA256 = "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43"
 )
-
-var (
-	ortInitOnce sync.Once
-	ortInitErr  error
-)
-
-// initONNXRuntime initializes the ONNX Runtime library once.
-func initONNXRuntime() error {
-	ortInitOnce.Do(func() {
-		ortInitErr = ort.InitializeEnvironment()
-		if ortInitErr != nil {
-			log.Printf("Failed to initialize ONNX Runtime: %v", ortInitErr)
-		}
-	})
-	return ortInitErr
-}
 
 // EnsureModelsDownloaded downloads ONNX models to modelsPath if they don't already exist.
 func EnsureModelsDownloaded(modelsPath string) error {
@@ -87,7 +71,7 @@ func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error
 		return nil, fmt.Errorf("failed to ensure face detection models: %w", err)
 	}
 
-	if err := initONNXRuntime(); err != nil {
+	if err := onnxinit.Ensure(); err != nil {
 		return nil, err
 	}
 
@@ -125,7 +109,7 @@ func LoadDetectionSession(modelsPath string) (*ort.DynamicAdvancedSession, error
 // LoadRecognitionSession creates an ONNX Runtime session for the ArcFace recognition model.
 // It tries different input/output name combinations until one works with actual inference.
 func LoadRecognitionSession(modelsPath string) (*ort.DynamicAdvancedSession, error) {
-	if err := initONNXRuntime(); err != nil {
+	if err := onnxinit.Ensure(); err != nil {
 		return nil, err
 	}
 

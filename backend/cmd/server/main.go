@@ -163,11 +163,6 @@ func main() {
 		cfg.ModelsPath,
 	)
 	faceSvc := facedetection.NewService(db, storageSvc, asynqClient, faceConfig)
-	if cfg.Mode == "all" || cfg.Mode == "worker" {
-		if err := faceSvc.EnsureModels(); err != nil {
-			log.Printf("Face model download failed (face jobs may fail until models exist): %v", err)
-		}
-	}
 
 	// Object detection service
 	objConfig := objectdetection.NewObjectConfig(

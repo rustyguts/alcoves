@@ -36,7 +36,14 @@ const tusResumableVersion = "1.0.0"
 
 const (
 	tusCleanupInterval = 1 * time.Hour
-	tusUploadMaxAge    = 24 * time.Hour
+	// tusUploadMaxAge bounds how long an idle upload survives: in-memory
+	// entries by CreatedAt, staging files by mtime. It must comfortably
+	// exceed any plausible pause in a resumable upload — multiple API
+	// replicas can share one staging volume and the in-memory map is
+	// per-process, so a staging file this process doesn't know about may be
+	// another replica's (or a pre-restart) in-flight upload and must never
+	// be deleted while younger than this.
+	tusUploadMaxAge = 24 * time.Hour
 )
 
 // tusUpload tracks an in-progress tus upload.
@@ -97,8 +104,9 @@ func NewTusHandler(db *gorm.DB, storageSvc *storage.Service, dataDir string, fac
 		stopCleanup: make(chan struct{}),
 	}
 
-	// Clean orphaned staging files from previous runs
-	h.cleanOrphanedStagingFiles()
+	// Clean staging files abandoned long enough to be considered dead
+	// (age-based, so other replicas' in-flight uploads are untouched)
+	h.cleanAgedStagingFiles()
 
 	// Start periodic cleanup
 	go h.cleanupLoop()
@@ -222,12 +230,12 @@ func (h *TusHandler) Create(c echo.Context) error {
 	stagingPath := h.stagingPath(uploadID)
 	if err := os.MkdirAll(h.dataDir, 0o755); err != nil {
 		log.Printf("Failed to ensure tus staging directory %s: %v", h.dataDir, err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to prepare upload directory")
+		return internalError("Failed to prepare upload directory", err)
 	}
 	f, err := os.Create(stagingPath)
 	if err != nil {
 		log.Printf("Failed to create tus upload file %s: %v", stagingPath, err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create upload file")
+		return internalError("Failed to create upload file", err)
 	}
 
 	// If creation-with-upload: the POST body may contain initial data
@@ -237,7 +245,7 @@ func (h *TusHandler) Create(c echo.Context) error {
 		if err != nil {
 			f.Close()
 			os.Remove(stagingPath)
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to write upload data")
+			return internalError("Failed to write upload data", err)
 		}
 		upload.Offset = bytesReceived
 	}
@@ -251,7 +259,7 @@ func (h *TusHandler) Create(c echo.Context) error {
 	if upload.Offset >= upload.Size {
 		dupCount, err := h.finishUpload(upload)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to finalize upload")
+			return internalError("Failed to finalize upload", err)
 		}
 		setDuplicateHeader(c, dupCount)
 	}
@@ -332,17 +340,17 @@ func (h *TusHandler) Patch(c echo.Context) error {
 	stagingPath := h.stagingPath(upload.ID)
 	f, err := os.OpenFile(stagingPath, os.O_WRONLY, 0o644)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to open upload file")
+		return internalError("Failed to open upload file", err)
 	}
 	defer f.Close()
 
 	if _, err := f.Seek(upload.Offset, io.SeekStart); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to seek in upload file")
+		return internalError("Failed to seek in upload file", err)
 	}
 
 	bytesWritten, err := io.Copy(f, c.Request().Body)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to write upload data")
+		return internalError("Failed to write upload data", err)
 	}
 
 	upload.Offset += bytesWritten
@@ -356,7 +364,7 @@ func (h *TusHandler) Patch(c echo.Context) error {
 		dupCount, err := h.finishUpload(upload)
 		if err != nil {
 			upload.mu.Lock() // re-lock for deferred unlock
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to finalize upload")
+			return internalError("Failed to finalize upload", err)
 		}
 		setDuplicateHeader(c, dupCount)
 		upload.mu.Lock() // re-lock for deferred unlock
@@ -506,39 +514,49 @@ func (h *TusHandler) cleanStaleUploads() {
 		log.Printf("Cleaned up %d stale tus uploads", len(staleIDs))
 	}
 
-	h.cleanOrphanedStagingFiles()
+	h.cleanAgedStagingFiles()
 }
 
-// cleanOrphanedStagingFiles removes staging files that have no corresponding
-// in-memory upload entry (e.g. left behind after server restart).
-func (h *TusHandler) cleanOrphanedStagingFiles() {
+// cleanAgedStagingFiles removes staging files whose mtime is older than
+// tusUploadMaxAge. Deletion is age-based — NOT map-membership-based — because
+// the staging directory can be shared by multiple API replicas (one RWX
+// volume) while the upload map is per-process, and a restart empties the map
+// entirely. A file absent from this process's map may be another replica's
+// (or a pre-restart) in-flight upload and must not be deleted while young.
+// Any in-memory entry for a deleted file is pruned so the map stays coherent.
+func (h *TusHandler) cleanAgedStagingFiles() {
 	entries, err := os.ReadDir(h.dataDir)
 	if err != nil {
 		log.Printf("Failed to read tus staging directory %s: %v", h.dataDir, err)
 		return
 	}
 
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
 	removed := 0
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		id := entry.Name()
-		if _, exists := h.uploads[id]; !exists {
-			stagingPath := filepath.Join(h.dataDir, id)
-			if err := os.Remove(stagingPath); err != nil && !os.IsNotExist(err) {
-				log.Printf("Failed to remove orphaned tus staging file %s: %v", stagingPath, err)
-			} else {
-				removed++
-			}
+		info, err := entry.Info()
+		if err != nil {
+			continue
 		}
+		if time.Since(info.ModTime()) <= tusUploadMaxAge {
+			continue
+		}
+		id := entry.Name()
+		stagingPath := filepath.Join(h.dataDir, id)
+		if err := os.Remove(stagingPath); err != nil && !os.IsNotExist(err) {
+			log.Printf("Failed to remove aged tus staging file %s: %v", stagingPath, err)
+			continue
+		}
+		removed++
+		h.mu.Lock()
+		delete(h.uploads, id)
+		h.mu.Unlock()
 	}
 
 	if removed > 0 {
-		log.Printf("Cleaned up %d orphaned tus staging files", removed)
+		log.Printf("Cleaned up %d aged tus staging files", removed)
 	}
 }
 

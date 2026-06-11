@@ -10,6 +10,29 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.28.0](https://github.com/rustyguts/alcoves/compare/v0.27.2...v0.28.0) (2026-06-07)
+
+
+### Added
+
+* **client:** app-wide upload queue with virtualized progress panel ([#614](https://github.com/rustyguts/alcoves/issues/614)) ([5cdea95](https://github.com/rustyguts/alcoves/commit/5cdea95804170ed0cc15560ac92ab0b88f58f239))
+
+
+### Fixed
+
+* **client:** make the library settings page full width ([#615](https://github.com/rustyguts/alcoves/issues/615)) ([ac7bdcb](https://github.com/rustyguts/alcoves/commit/ac7bdcb294d01cc11c6a8abe487b2b84a38abe12))
+
+
+### Changed
+
+* **client:** UI consistency & polish pass (top-10 improvements) ([#618](https://github.com/rustyguts/alcoves/issues/618)) ([5786c14](https://github.com/rustyguts/alcoves/commit/5786c1472c62514d9262265a80507394f74ef5da))
+
+
+### Documentation
+
+* condense CLAUDE.md (45k → 39k chars) ([#616](https://github.com/rustyguts/alcoves/issues/616)) ([7ef61d1](https://github.com/rustyguts/alcoves/commit/7ef61d1bd37d68896b8e774580b86b59f79e9a41))
+* **website:** rewrite landing copy — simpler, less buzzwordy ([#617](https://github.com/rustyguts/alcoves/issues/617)) ([d0ffc88](https://github.com/rustyguts/alcoves/commit/d0ffc8820a6283a46423a5ae33b3e6ce5c702d3b))
+
 ## [0.27.2](https://github.com/rustyguts/alcoves/compare/v0.27.1...v0.27.2) (2026-06-06)
 
 
