@@ -4,9 +4,16 @@ description: >-
   Alcoves — self-hosted collaborative file library (SvelteKit frontend + Go API
   + async workers)
 type: application
+# `version` is bumped automatically by release-please — do not edit by hand.
 version: 0.28.0
-appVersion: 0.18.3
-home: https://github.com/yourorg/alcoves
+# `appVersion` is the default image tag. Pin `image.tag` in your values for
+# production installs; this field can lag the latest release between chart
+# updates.
+appVersion: 0.28.0
+kubeVersion: ">=1.27.0-0"
+home: https://github.com/rustyguts/alcoves
+sources:
+  - https://github.com/rustyguts/alcoves
 keywords:
   - media
   - library
@@ -15,3 +22,4 @@ keywords:
   - selfhosted
 maintainers:
   - name: Alcoves Maintainers
+    url: https://github.com/rustyguts/alcoves

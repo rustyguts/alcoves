@@ -1,0 +1,51 @@
+# Standalone: the whole stack (SvelteKit + Go API + worker) in ONE pod.
+# The simplest way to run Alcoves on a single-node cluster (k3s, microk8s,
+# a homelab box): no ReadWriteMany storage needed, one PVC, one pod to watch.
+#
+#   helm install alcoves helm/alcoves -n alcoves -f examples/standalone.yaml \
+#     --set sessionSecret="$(openssl rand -base64 48)"
+
+deploymentMode: standalone
+
+baseUrl: https://alcoves.example.com
+
+# Generate: openssl rand -base64 48 (or pass --set sessionSecret=… at install)
+sessionSecret: ""
+
+database:
+  url: postgres://alcoves:CHANGE_ME@postgres.databases.svc:5432/alcoves?sslmode=require
+
+queue:
+  host: dragonfly.cache.svc
+  port: 6379
+
+standalone:
+  resources:
+    requests: { cpu: 1, memory: 3Gi }
+    limits: { memory: 8Gi }
+  # With a ReadWriteOnce PVC, Recreate lets the old pod release the volume
+  # before the new one starts during upgrades.
+  updateStrategy:
+    type: Recreate
+
+storage:
+  driver: local
+  persistentVolume:
+    storageClass: "" # cluster default; RWO is fine in standalone mode
+    accessModes: [ReadWriteOnce]
+    size: 500Gi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: alcoves.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+  tls:
+    enabled: true
+    secretName: alcoves-tls

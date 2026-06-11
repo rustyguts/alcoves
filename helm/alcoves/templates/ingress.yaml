@@ -1,16 +1,29 @@
 {{- if .Values.ingress.enabled }}
+{{- /* Both deployment modes route the same way; only the backing services differ. */}}
+{{- $standalone := eq .Values.deploymentMode "standalone" }}
+{{- $webService := ternary (include "alcoves.fullname" .) (include "alcoves.frontend.fullname" .) $standalone }}
+{{- $apiService := ternary (include "alcoves.fullname" .) (include "alcoves.api.fullname" .) $standalone }}
+{{- $webPort := int .Values.frontend.port }}
+{{- $apiPort := int .Values.backend.api.port }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "alcoves.fullname" . }}
   labels:
     {{- include "alcoves.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- if or .Values.ingress.annotations .Values.commonAnnotations }}
   annotations:
+    {{- with .Values.commonAnnotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
-  ingressClassName: {{ .Values.ingress.className }}
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
   {{- if .Values.ingress.tls.enabled }}
   tls:
     - hosts:
@@ -21,21 +34,42 @@ spec:
     - host: {{ .Values.ingress.host }}
       http:
         paths:
-          # API (auth, libraries, files, transcripts, etc.) goes to the api pod.
+          # API (auth, libraries, files, TUS uploads, MCP, streaming) goes
+          # straight to the Go API — bypassing the SvelteKit proxy keeps Range
+          # responses and TUS chunking intact.
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: {{ include "alcoves.api.fullname" . }}
+                name: {{ $apiService }}
                 port:
-                  number: {{ .Values.backend.api.port }}
-          # Everything else hits the SvelteKit frontend (including /s/** which is
-          # SSR'd by Nuxt for share-page OG tags).
+                  number: {{ $apiPort }}
+          {{- if .Values.mcp.oauth.enabled }}
+          # OAuth 2.1 discovery documents (RFC 8414 / RFC 9728) are served by
+          # the API at the site root — without these rules they would fall
+          # through to the frontend and 404.
+          - path: /.well-known/oauth-authorization-server
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $apiService }}
+                port:
+                  number: {{ $apiPort }}
+          - path: /.well-known/oauth-protected-resource
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $apiService }}
+                port:
+                  number: {{ $apiPort }}
+          {{- end }}
+          # Everything else hits the SvelteKit server (including /s/** share
+          # pages, which it SSRs for OG/SEO tags).
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "alcoves.frontend.fullname" . }}
+                name: {{ $webService }}
                 port:
-                  number: {{ .Values.frontend.port }}
+                  number: {{ $webPort }}
 {{- end }}

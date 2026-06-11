@@ -1,0 +1,77 @@
+# Production-style distributed install: independently scaled workloads, RWX
+# storage, credentials from pre-created secrets (external-secrets/SOPS/etc.),
+# zero-downtime rollouts, disruption budgets.
+#
+#   kubectl -n alcoves create secret generic alcoves-session \
+#     --from-literal=sessionSecret="$(openssl rand -base64 48)"
+#   kubectl -n alcoves create secret generic alcoves-database \
+#     --from-literal=url='postgres://alcoves:…@postgres:5432/alcoves?sslmode=require'
+#
+#   helm install alcoves helm/alcoves -n alcoves -f examples/production.yaml
+
+baseUrl: https://alcoves.example.com
+
+image:
+  tag: "" # pin to an exact release, e.g. "0.28.0"
+
+existingSessionSecret: alcoves-session # key: sessionSecret
+database:
+  existingSecret: alcoves-database # key: url
+
+queue:
+  host: dragonfly.cache.svc
+  port: 6379
+
+oauth:
+  google:
+    existingSecret: alcoves-google-oauth # keys: clientId, clientSecret
+
+frontend:
+  replicaCount: 3
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+backend:
+  api:
+    replicaCount: 3
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+  worker:
+    replicaCount: 3
+    resources:
+      requests: { cpu: 2, memory: 4Gi }
+      limits: { memory: 12Gi }
+
+storage:
+  driver: local
+  persistentVolume:
+    storageClass: nfs-csi # any RWX-capable class (NFS, CephFS, Longhorn RWX…)
+    accessModes: [ReadWriteMany]
+    size: 2Ti
+
+ingress:
+  enabled: true
+  className: nginx
+  host: alcoves.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+  tls:
+    enabled: true
+    secretName: alcoves-tls
+
+sentry:
+  backendDsn: "" # optional
+  frontendDsn: ""
