@@ -123,9 +123,7 @@ const folderActionsMock = vi.hoisted(() => ({
 	deleteFolder: vi.fn()
 }));
 vi.mock('$lib/state/library-folder-actions.svelte', () => ({
-	ROOT_MOVE_VALUE: '__root__',
-	createLibraryFolderActions: () => folderActionsMock,
-	collectDescendantIds: () => new Set<string>()
+	createLibraryFolderActions: () => folderActionsMock
 }));
 
 const uploadQueueMock = vi.hoisted(() => ({
