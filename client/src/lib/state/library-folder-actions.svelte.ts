@@ -1,59 +1,15 @@
 import { api } from '$lib/api';
 import { toast } from '$lib/state/toast';
+import {
+	ROOT_MOVE_VALUE,
+	buildMoveDestinationOptions,
+	collectDescendantIds,
+	type MoveDestinationOption
+} from '$lib/utils/folder-tree';
 import type { LibraryFolder } from '$lib/types/api';
 
 type RefreshFoldersFn = () => Promise<LibraryFolder[]>;
 type AsyncVoidFn = () => Promise<void>;
-
-export interface MoveDestinationOption {
-	label: string;
-	value: string;
-}
-
-export const ROOT_MOVE_VALUE = '__root__';
-
-export function collectDescendantIds(rootId: string, folders: LibraryFolder[]): Set<string> {
-	// Transient local collections used only for traversal (not reactive state).
-
-	const children = new Map<string | null, LibraryFolder[]>();
-	for (const folder of folders) {
-		const key = folder.parentFolderId;
-		const list = children.get(key) ?? [];
-		list.push(folder);
-		children.set(key, list);
-	}
-
-	const descendants = new Set<string>();
-	const stack = [rootId];
-
-	while (stack.length) {
-		const current = stack.pop()!;
-		const directChildren = children.get(current) ?? [];
-		for (const child of directChildren) {
-			if (descendants.has(child.id)) continue;
-			descendants.add(child.id);
-			stack.push(child.id);
-		}
-	}
-
-	return descendants;
-}
-
-function buildFolderLabel(folder: LibraryFolder, folderMap: Map<string, LibraryFolder>): string {
-	const parts: string[] = [folder.name];
-	let current = folder.parentFolderId;
-	let guard = 0;
-
-	while (current && guard < 100) {
-		const parent = folderMap.get(current);
-		if (!parent) break;
-		parts.unshift(parent.name);
-		current = parent.parentFolderId;
-		guard++;
-	}
-
-	return parts.join(' / ');
-}
 
 /**
  * Folder create / move / delete actions for a single library, ported from the
@@ -87,24 +43,14 @@ export function createLibraryFolderActions(
 	let allFolders = $state<LibraryFolder[]>([]);
 
 	const moveDestinationOptions = $derived.by<MoveDestinationOption[]>(() => {
-		const base: MoveDestinationOption[] = [{ label: 'Root', value: ROOT_MOVE_VALUE }];
 		const targetFolder = movingFolder;
-		if (!targetFolder) return base;
+		if (!targetFolder) return buildMoveDestinationOptions([]);
 
+		// A folder cannot be moved into itself or one of its own descendants.
 		const excluded = collectDescendantIds(targetFolder.id, allFolders);
 		excluded.add(targetFolder.id);
 
-		const folderMap = new Map(allFolders.map((folder) => [folder.id, folder]));
-
-		const options = allFolders
-			.filter((folder) => !excluded.has(folder.id))
-			.map((folder) => ({
-				label: buildFolderLabel(folder, folderMap),
-				value: folder.id
-			}))
-			.sort((a, b) => a.label.localeCompare(b.label));
-
-		return [...base, ...options];
+		return buildMoveDestinationOptions(allFolders, excluded);
 	});
 
 	function openCreateFolderModal() {

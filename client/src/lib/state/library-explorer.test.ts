@@ -1,12 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type {
-	AuthUser,
 	LibraryEntry,
 	LibraryFile,
 	LibraryFolder,
 	LibraryTag,
-	LibraryUsersResponse,
-	Library,
 	PaginatedFiles
 } from '$lib/types/api';
 
@@ -24,14 +21,6 @@ vi.mock('$lib/state/toast', () => ({
 }));
 
 import { createLibraryExplorer } from './library-explorer.svelte';
-
-const USER: AuthUser = {
-	id: 'user-1',
-	email: 'u@example.com',
-	displayName: 'User',
-	avatarUrl: null,
-	role: 'owner'
-};
 
 function makeFile(over: Partial<LibraryFile>): LibraryFile {
 	return {
@@ -74,22 +63,6 @@ function makeFolder(over: Partial<LibraryFolder>): LibraryFolder {
 	};
 }
 
-function makeLibrary(over: Partial<Library>): Library {
-	return {
-		id: 'lib-1',
-		name: 'Lib',
-		emoji: null,
-		isDefault: false,
-		faceRecognitionEnabled: false,
-		objectDetectionEnabled: false,
-		sharingEnabled: false,
-		ownerId: 'user-1',
-		createdAt: '',
-		updatedAt: '',
-		...over
-	};
-}
-
 function emptyPage(over: Partial<PaginatedFiles> = {}): PaginatedFiles {
 	return {
 		entries: [],
@@ -97,16 +70,6 @@ function emptyPage(over: Partial<PaginatedFiles> = {}): PaginatedFiles {
 		totalCount: 0,
 		breadcrumbs: [],
 		currentFolderId: null,
-		...over
-	};
-}
-
-function makeUsers(over: Partial<LibraryUsersResponse>): LibraryUsersResponse {
-	return {
-		libraryId: 'lib-1',
-		canManageUsers: false,
-		members: [],
-		inviteLinks: [],
 		...over
 	};
 }
@@ -123,8 +86,6 @@ describe('createLibraryExplorer — view modes', () => {
 		const store = createLibraryExplorer(() => 'lib-1');
 		expect(store.viewMode).toBe('files');
 		expect(store.showTrashed).toBe(false);
-		expect(store.showTags).toBe(false);
-		expect(store.showUsers).toBe(false);
 	});
 
 	it('viewMode initializes to trash when the route is /trash', () => {
@@ -137,21 +98,14 @@ describe('createLibraryExplorer — view modes', () => {
 		expect(store.showTrashed).toBe(true);
 	});
 
-	it('showTrashed/showTags/showUsers reflect viewMode', () => {
+	it('showTrashed reflects viewMode', () => {
 		const store = createLibraryExplorer(() => 'lib-1');
 
 		store.viewMode = 'trash';
 		expect(store.showTrashed).toBe(true);
-		expect(store.showTags).toBe(false);
-		expect(store.showUsers).toBe(false);
 
-		store.viewMode = 'tags';
-		expect(store.showTags).toBe(true);
+		store.viewMode = 'files';
 		expect(store.showTrashed).toBe(false);
-
-		store.viewMode = 'users';
-		expect(store.showUsers).toBe(true);
-		expect(store.showTags).toBe(false);
 	});
 
 	it('entryViewMode defaults to file and is settable', () => {
@@ -159,109 +113,6 @@ describe('createLibraryExplorer — view modes', () => {
 		expect(store.entryViewMode).toBe('file');
 		store.entryViewMode = 'card';
 		expect(store.entryViewMode).toBe('card');
-	});
-});
-
-describe('createLibraryExplorer — permissions', () => {
-	it('canManageUsers depends on library users and the default flag', async () => {
-		apiMock.libraries.get.mockResolvedValue(makeLibrary({ isDefault: false }));
-		apiMock.members.list.mockResolvedValue(makeUsers({ canManageUsers: true }));
-
-		const store = createLibraryExplorer(() => 'lib-1');
-		await store.refreshLibrary();
-		await store.refreshLibraryUsers();
-
-		expect(store.canManageUsers).toBe(true);
-	});
-
-	it('canManageUsers is false for a default library', async () => {
-		apiMock.libraries.get.mockResolvedValue(makeLibrary({ isDefault: true }));
-		apiMock.members.list.mockResolvedValue(makeUsers({ canManageUsers: true }));
-
-		const store = createLibraryExplorer(() => 'lib-1');
-		await store.refreshLibrary();
-		await store.refreshLibraryUsers();
-
-		expect(store.canManageUsers).toBe(false);
-	});
-
-	it('canManageLibrary is true for the library owner', async () => {
-		apiMock.libraries.get.mockResolvedValue(makeLibrary({ ownerId: 'user-1' }));
-		apiMock.members.list.mockResolvedValue(makeUsers({}));
-
-		const store = createLibraryExplorer(
-			() => 'lib-1',
-			() => null,
-			() => false,
-			() => USER
-		);
-		await store.refreshLibrary();
-		await store.refreshLibraryUsers();
-
-		expect(store.canManageLibrary).toBe(true);
-	});
-
-	it('canManageLibrary is true for an admin member', async () => {
-		apiMock.libraries.get.mockResolvedValue(makeLibrary({ ownerId: 'other-user' }));
-		apiMock.members.list.mockResolvedValue(
-			makeUsers({
-				members: [
-					{
-						id: 'm1',
-						userId: 'user-1',
-						role: 'admin',
-						isOwner: false,
-						createdAt: '',
-						user: { id: 'user-1', email: '', displayName: '', avatarUrl: null }
-					}
-				]
-			})
-		);
-
-		const store = createLibraryExplorer(
-			() => 'lib-1',
-			() => null,
-			() => false,
-			() => USER
-		);
-		await store.refreshLibrary();
-		await store.refreshLibraryUsers();
-
-		expect(store.canManageLibrary).toBe(true);
-	});
-
-	it('canManageLibrary is false for viewers', async () => {
-		apiMock.libraries.get.mockResolvedValue(makeLibrary({ ownerId: 'other-user' }));
-		apiMock.members.list.mockResolvedValue(
-			makeUsers({
-				members: [
-					{
-						id: 'm1',
-						userId: 'user-1',
-						role: 'viewer',
-						isOwner: false,
-						createdAt: '',
-						user: { id: 'user-1', email: '', displayName: '', avatarUrl: null }
-					}
-				]
-			})
-		);
-
-		const store = createLibraryExplorer(
-			() => 'lib-1',
-			() => null,
-			() => false,
-			() => USER
-		);
-		await store.refreshLibrary();
-		await store.refreshLibraryUsers();
-
-		expect(store.canManageLibrary).toBe(false);
-	});
-
-	it('canManageLibrary is false when there is no user', () => {
-		const store = createLibraryExplorer(() => 'lib-1');
-		expect(store.canManageLibrary).toBe(false);
 	});
 });
 
@@ -475,22 +326,6 @@ describe('createLibraryExplorer — resetAndFetch', () => {
 		expect(apiMock.files.list).toHaveBeenCalledWith('lib-1', { trashed: 'true' });
 	});
 
-	it('restores cached entries when preserveEntries is set', async () => {
-		const store = createLibraryExplorer(() => 'lib-1');
-		const cached = makeFile({ id: 'cached' });
-		const fresh = makeFile({ id: 'fresh' });
-
-		// First load primes the cache for the root view.
-		apiMock.files.list.mockResolvedValueOnce(emptyPage({ entries: [cached], totalCount: 1 }));
-		await store.resetAndFetch();
-		expect(store.entries.map((e) => e.id)).toEqual(['cached']);
-
-		// preserveEntries restores cache synchronously before the network resolves.
-		apiMock.files.list.mockResolvedValueOnce(emptyPage({ entries: [fresh], totalCount: 1 }));
-		await store.resetAndFetch({ preserveEntries: true });
-		expect(store.entries.map((e) => e.id)).toEqual(['fresh']);
-	});
-
 	it('keeps existing entries and skips pending state when silent', async () => {
 		const store = createLibraryExplorer(() => 'lib-1');
 		store.entries = [makeFile({ id: 'keep' })];
@@ -518,35 +353,6 @@ describe('createLibraryExplorer — resetAndFetch', () => {
 });
 
 describe('createLibraryExplorer — refreshers', () => {
-	it('refreshLibrary loads the library', async () => {
-		const lib = makeLibrary({ name: 'Loaded' });
-		apiMock.libraries.get.mockResolvedValue(lib);
-		const store = createLibraryExplorer(() => 'lib-1');
-		await store.refreshLibrary();
-		expect(apiMock.libraries.get).toHaveBeenCalledWith('lib-1');
-		expect(store.library).toEqual(lib);
-	});
-
-	it('refreshLibraryUsers loads the member list', async () => {
-		const users = makeUsers({ canManageUsers: true });
-		apiMock.members.list.mockResolvedValue(users);
-		const store = createLibraryExplorer(() => 'lib-1');
-		await store.refreshLibraryUsers();
-		expect(apiMock.members.list).toHaveBeenCalledWith('lib-1');
-		expect(store.libraryUsers).toEqual(users);
-	});
-
-	it('refreshTags fetches the tag list', async () => {
-		const tags: LibraryTag[] = [
-			{ id: 't1', name: 'Tag', libraryId: 'lib-1', color: '#E11D48', createdAt: '', updatedAt: '' }
-		];
-		apiMock.tags.list.mockResolvedValueOnce(tags);
-		const store = createLibraryExplorer(() => 'lib-1');
-		await store.refreshTags();
-		expect(apiMock.tags.list).toHaveBeenCalledWith('lib-1');
-		expect(store.libraryTags).toEqual(tags);
-	});
-
 	it('refreshTrashedCount fetches the trashed total', async () => {
 		apiMock.files.list.mockResolvedValueOnce(emptyPage({ totalCount: 7 }));
 		const store = createLibraryExplorer(() => 'lib-1');
@@ -565,13 +371,13 @@ describe('createLibraryExplorer — refreshers', () => {
 
 	it('reads the libraryId getter lazily', async () => {
 		let id = 'lib-a';
-		apiMock.tags.list.mockResolvedValue([]);
+		apiMock.folders.list.mockResolvedValue([]);
 		const store = createLibraryExplorer(() => id);
-		await store.refreshTags();
-		expect(apiMock.tags.list).toHaveBeenLastCalledWith('lib-a');
+		await store.refreshFolders();
+		expect(apiMock.folders.list).toHaveBeenLastCalledWith('lib-a');
 		id = 'lib-b';
-		await store.refreshTags();
-		expect(apiMock.tags.list).toHaveBeenLastCalledWith('lib-b');
+		await store.refreshFolders();
+		expect(apiMock.folders.list).toHaveBeenLastCalledWith('lib-b');
 	});
 });
 

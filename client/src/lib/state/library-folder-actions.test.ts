@@ -20,7 +20,8 @@ const toastMock = vi.hoisted(() => ({
 vi.mock('$lib/api', () => ({ api: apiMock }));
 vi.mock('$lib/state/toast', () => ({ toast: toastMock }));
 
-import { createLibraryFolderActions, ROOT_MOVE_VALUE } from './library-folder-actions.svelte';
+import { createLibraryFolderActions } from './library-folder-actions.svelte';
+import { ROOT_MOVE_VALUE } from '$lib/utils/folder-tree';
 
 function makeFolder(
 	overrides: Partial<LibraryFolder> & { id: string; name: string }

@@ -11,11 +11,12 @@
 	import { createLibraryExplorer } from '$lib/state/library-explorer.svelte';
 	import { createLibraryTags } from '$lib/state/library-tags.svelte';
 	import { createDownloadZip } from '$lib/state/download-zip.svelte';
+	import { createLibraryFolderActions } from '$lib/state/library-folder-actions.svelte';
 	import {
-		createLibraryFolderActions,
-		collectDescendantIds,
-		ROOT_MOVE_VALUE
-	} from '$lib/state/library-folder-actions.svelte';
+		ROOT_MOVE_VALUE,
+		buildMoveDestinationOptions,
+		collectDescendantIds
+	} from '$lib/utils/folder-tree';
 	import { uploadQueue } from '$lib/state/upload-queue.svelte';
 	import { createFileDrop } from '$lib/state/file-drop.svelte';
 	import type { AuthUser, Library, LibraryEntry, LibraryFile, LibraryFolder } from '$lib/types/api';
@@ -56,8 +57,7 @@
 	const explorer = createLibraryExplorer(
 		() => libraryId,
 		() => currentFolderId,
-		() => trashed,
-		() => user ?? null
+		() => trashed
 	);
 
 	// Keep the explorer's internal view mode in sync with the `trashed` prop.
@@ -269,28 +269,9 @@
 	}
 
 	// ── Move files ────────────────────────────────────────────────────────────────
-	function buildFolderLabel(folder: LibraryFolder, folderMap: Map<string, LibraryFolder>) {
-		const parts: string[] = [folder.name];
-		let current = folder.parentFolderId;
-		let guard = 0;
-		while (current && guard < 100) {
-			const parent = folderMap.get(current);
-			if (!parent) break;
-			parts.unshift(parent.name);
-			current = parent.parentFolderId;
-			guard++;
-		}
-		return parts.join(' / ');
-	}
-
-	const moveFileDestinationOptions = $derived.by(() => {
-		const base = [{ label: 'Root', value: ROOT_MOVE_VALUE }];
-		const folderMap = new Map(moveFileFolders.map((folder) => [folder.id, folder]));
-		const options = moveFileFolders
-			.map((folder) => ({ label: buildFolderLabel(folder, folderMap), value: folder.id }))
-			.sort((a, b) => a.label.localeCompare(b.label));
-		return [...base, ...options];
-	});
+	// Files can move anywhere, so no destinations are excluded (unlike moving a
+	// folder, which must exclude itself and its descendants).
+	const moveFileDestinationOptions = $derived(buildMoveDestinationOptions(moveFileFolders));
 
 	const moveFileCount = $derived(moveFileIds.length);
 
