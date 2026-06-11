@@ -131,7 +131,7 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to upload file")
 	}
 
-	return c.JSON(http.StatusOK, fileToJSON(result.File, result.DuplicateIDs))
+	return c.JSON(http.StatusOK, h.fileJSON(result.File, result.DuplicateIDs))
 }
 
 func (h *FileHandler) Get(c echo.Context) error {
@@ -154,7 +154,7 @@ func (h *FileHandler) Get(c echo.Context) error {
 	if file.Hash != nil && file.SourceFileID == nil {
 		dupes, _ = filehash.FindDuplicates(h.db, file.LibraryID, file.ID, *file.Hash)
 	}
-	return c.JSON(http.StatusOK, fileToJSON(file, dupes))
+	return c.JSON(http.StatusOK, h.fileJSON(file, dupes))
 }
 
 type updateFileRequest struct {
@@ -372,7 +372,19 @@ func (h *FileHandler) fileToJSONWithLookup(f *models.File) map[string]interface{
 	if f.Hash != nil && f.SourceFileID == nil {
 		dupes, _ = filehash.FindDuplicates(h.db, f.LibraryID, f.ID, *f.Hash)
 	}
-	return fileToJSON(f, dupes)
+	return h.fileJSON(f, dupes)
+}
+
+// fileJSON serializes a File with precomputed duplicate IDs and attaches the
+// owner + tags relations — loaded via the same services/files loaders the list
+// endpoint uses — so single-file responses match list rows (FileResponse) and
+// the client's LibraryFile type, which declares owner and tags as required.
+func (h *FileHandler) fileJSON(f *models.File, duplicateOfFileIds []uuid.UUID) map[string]interface{} {
+	result := fileToJSON(f, duplicateOfFileIds)
+	owner, tags := files.LoadFileOwnerAndTags(h.db, f)
+	result["owner"] = owner
+	result["tags"] = tags
+	return result
 }
 
 // fileToJSON serializes a File for single-resource responses.
@@ -415,6 +427,9 @@ func fileToJSON(f *models.File, duplicateOfFileIds []uuid.UUID) map[string]inter
 		"waveformPeaksPerSecond": f.WaveformPeaksPerSecond,
 		"thumbnailFileId":        uuidPtr(f.ThumbnailFileID),
 		"sourceFileId":           uuidPtr(f.SourceFileID),
+		"capturedAt":             timeStr(f.CapturedAt),
+		"gpsLat":                 f.GpsLat,
+		"gpsLon":                 f.GpsLon,
 		"trashedAt":              timeStr(f.TrashedAt),
 		"createdAt":              f.CreatedAt.Format(time.RFC3339Nano),
 		"updatedAt":              f.UpdatedAt.Format(time.RFC3339Nano),
