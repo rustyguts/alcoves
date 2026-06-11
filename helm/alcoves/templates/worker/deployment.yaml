@@ -1,0 +1,99 @@
+{{- if and (eq .Values.deploymentMode "distributed") .Values.backend.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "alcoves.worker.fullname" . }}
+  labels:
+    {{- include "alcoves.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend-worker
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.backend.worker.autoscaling.enabled }}
+  replicas: {{ .Values.backend.worker.replicaCount }}
+  {{- end }}
+  {{- with .Values.backend.worker.updateStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "alcoves.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend-worker
+  template:
+    metadata:
+      labels:
+        {{- include "alcoves.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend-worker
+        {{- with .Values.backend.worker.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if include "alcoves.appSecretNeeded" . }}
+        checksum/app-secret: {{ include "alcoves.appSecretChecksum" . }}
+        {{- end }}
+        {{- with .Values.backend.worker.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "alcoves.podCommon" (dict "root" $ "comp" .Values.backend.worker) | nindent 6 }}
+      containers:
+        - name: worker
+          image: {{ include "alcoves.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Unified image, worker role: run only the Asynq worker (ALCOVES_MODE=worker).
+          args: ["worker"]
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          # Worker mode still serves /api/health + /api/version for probes.
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.api.port }}
+              protocol: TCP
+          env:
+            - name: ALCOVES_MODE
+              value: worker
+            {{- include "alcoves.backendEnv" . | nindent 12 }}
+            {{- with .Values.backend.worker.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.backend.worker.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.backend.worker.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.backend.worker.resources | nindent 12 }}
+          {{- if or (eq .Values.storage.driver "local") .Values.backend.worker.extraVolumeMounts }}
+          volumeMounts:
+            {{- if eq .Values.storage.driver "local" }}
+            - name: data
+              mountPath: /app/data
+            {{- end }}
+            {{- with .Values.backend.worker.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+      {{- if or (eq .Values.storage.driver "local") .Values.backend.worker.extraVolumes }}
+      volumes:
+        {{- if eq .Values.storage.driver "local" }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-data" (include "alcoves.fullname" .)) .Values.storage.persistentVolume.existingClaim }}
+        {{- end }}
+        {{- with .Values.backend.worker.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+{{- end }}

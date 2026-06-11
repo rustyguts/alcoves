@@ -1,0 +1,30 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- /*
+Allow inbound traffic only on the app's HTTP ports (covers ingress
+controllers, in-cluster callers, and kubelet probes on CNIs that enforce
+policy for them). Egress stays open — the backend needs PostgreSQL, the
+queue, and outbound model downloads.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "alcoves.fullname" . }}
+  labels:
+    {{- include "alcoves.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "alcoves.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: {{ int .Values.frontend.port }}
+          protocol: TCP
+        - port: {{ int .Values.backend.api.port }}
+          protocol: TCP
+{{- end }}

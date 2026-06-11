@@ -380,3 +380,48 @@ jobs:
       - name: Tear down the stack
         if: always()
         run: docker compose down -v
+
+  helm-chart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Lints the chart and renders it across the supported configurations
+    # (default distributed, the examples/, and the all-external-secrets +
+    # s3 + MCP OAuth combination) so template errors fail PRs, not installs.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Lint chart
+        run: |
+          helm lint --strict helm/alcoves \
+            --set sessionSecret=ci-only-0000000000000000000000000000000000 \
+            --set database.url=postgres://u:p@db:5432/alcoves
+
+      - name: Render chart across configurations
+        run: |
+          set -euo pipefail
+          required=(--set sessionSecret=ci-only-0000000000000000000000000000000000
+                    --set database.url=postgres://u:p@db:5432/alcoves)
+
+          echo "--- default (distributed)"
+          helm template alcoves helm/alcoves "${required[@]}" > /dev/null
+
+          for f in helm/alcoves/examples/*.yaml; do
+            echo "--- example: $f"
+            helm template alcoves helm/alcoves -f "$f" "${required[@]}" > /dev/null
+          done
+
+          echo "--- external secrets + s3 + MCP OAuth + HPA + NetworkPolicy"
+          helm template alcoves helm/alcoves \
+            --set existingSessionSecret=sess \
+            --set database.existingSecret=db \
+            --set queue.existingSecret=q \
+            --set oauth.google.existingSecret=g \
+            --set storage.driver=s3 \
+            --set storage.s3.existingSecret=s3creds \
+            --set mcp.httpEnabled=true \
+            --set mcp.oauth.enabled=true \
+            --set networkPolicy.enabled=true \
+            --set frontend.autoscaling.enabled=true \
+            --set backend.api.autoscaling.enabled=true > /dev/null

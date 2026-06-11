@@ -1,4 +1,4 @@
-{{- if .Values.backend.api.enabled }}
+{{- if and (eq .Values.deploymentMode "distributed") .Values.backend.api.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,8 +6,18 @@ metadata:
   labels:
     {{- include "alcoves.labels" . | nindent 4 }}
     app.kubernetes.io/component: backend-api
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
+  {{- if not .Values.backend.api.autoscaling.enabled }}
   replicas: {{ .Values.backend.api.replicaCount }}
+  {{- end }}
+  {{- with .Values.backend.api.updateStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "alcoves.selectorLabels" . | nindent 6 }}
@@ -17,20 +27,18 @@ spec:
       labels:
         {{- include "alcoves.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: backend-api
-      {{- with .Values.backend.api.podAnnotations }}
+        {{- with .Values.backend.api.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
+        {{- if include "alcoves.appSecretNeeded" . }}
+        checksum/app-secret: {{ include "alcoves.appSecretChecksum" . }}
+        {{- end }}
+        {{- with .Values.backend.api.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
-      serviceAccountName: {{ include "alcoves.serviceAccountName" . }}
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.podSecurityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "alcoves.podCommon" (dict "root" $ "comp" .Values.backend.api) | nindent 6 }}
       containers:
         - name: api
           image: {{ include "alcoves.image" . }}
@@ -49,6 +57,13 @@ spec:
             - name: ALCOVES_MODE
               value: api
             {{- include "alcoves.backendEnv" . | nindent 12 }}
+            {{- with .Values.backend.api.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.backend.api.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
@@ -59,49 +74,25 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.backend.api.resources | nindent 12 }}
-          {{- if eq .Values.storage.driver "local" }}
+          {{- if or (eq .Values.storage.driver "local") .Values.backend.api.extraVolumeMounts }}
           volumeMounts:
+            {{- if eq .Values.storage.driver "local" }}
             - name: data
               mountPath: /app/data
+            {{- end }}
+            {{- with .Values.backend.api.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
-      {{- if eq .Values.storage.driver "local" }}
+      {{- if or (eq .Values.storage.driver "local") .Values.backend.api.extraVolumes }}
       volumes:
+        {{- if eq .Values.storage.driver "local" }}
         - name: data
           persistentVolumeClaim:
             claimName: {{ default (printf "%s-data" (include "alcoves.fullname" .)) .Values.storage.persistentVolume.existingClaim }}
-      {{- end }}
-      {{- with .Values.backend.api.nodeSelector }}
-      nodeSelector:
+        {{- end }}
+        {{- with .Values.backend.api.extraVolumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
-      {{- with .Values.backend.api.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.backend.api.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "alcoves.api.fullname" . }}
-  labels:
-    {{- include "alcoves.labels" . | nindent 4 }}
-    app.kubernetes.io/component: backend-api
-  {{- with .Values.service.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-spec:
-  type: {{ .Values.service.type }}
-  ports:
-    - name: http
-      port: {{ .Values.backend.api.port }}
-      targetPort: http
-      protocol: TCP
-  selector:
-    {{- include "alcoves.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: backend-api
 {{- end }}

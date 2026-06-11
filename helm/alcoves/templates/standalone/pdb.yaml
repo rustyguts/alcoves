@@ -1,0 +1,19 @@
+{{- if and (eq .Values.deploymentMode "standalone") .Values.standalone.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "alcoves.fullname" . }}
+  labels:
+    {{- include "alcoves.labels" . | nindent 4 }}
+    app.kubernetes.io/component: standalone
+spec:
+  {{- if .Values.standalone.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.standalone.podDisruptionBudget.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ .Values.standalone.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "alcoves.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: standalone
+{{- end }}

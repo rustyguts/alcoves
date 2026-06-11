@@ -1,0 +1,28 @@
+{{- if and (eq .Values.deploymentMode "distributed") .Values.backend.api.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "alcoves.api.fullname" . }}
+  labels:
+    {{- include "alcoves.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend-api
+  {{- if or .Values.service.annotations .Values.commonAnnotations }}
+  annotations:
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.backend.api.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "alcoves.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: backend-api
+{{- end }}
