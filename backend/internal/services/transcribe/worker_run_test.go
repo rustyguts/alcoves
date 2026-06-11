@@ -623,6 +623,68 @@ func TestFail_SetsFailedStatusAndMessage(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// complete — version guard
+// ---------------------------------------------------------------------------
+
+// TestComplete_VersionGuard ensures a reprocess landing mid-whisper-run can't
+// be clobbered: complete() with a superseded version must discard the stale
+// transcript, and with the matching version must persist it.
+func TestComplete_VersionGuard(t *testing.T) {
+	db := workerDB(t)
+	_, fileID := seedFile(t, db, "audio/wav")
+	// Simulate a reprocess landing mid-run: the row's version moved to 1 while
+	// this worker captured targetVersion 0 at start.
+	if err := db.Model(&models.File{}).Where("id = ?", fileID).Update("transcribe_version", 1).Error; err != nil {
+		t.Fatalf("bump version: %v", err)
+	}
+	h := &TaskHandler{db: db}
+
+	// Stale version → no-op.
+	updated, err := h.complete(fileID.String(), 0, "stale text", "stale vtt", "tiny")
+	if err != nil {
+		t.Fatalf("complete() stale: %v", err)
+	}
+	if updated {
+		t.Fatal("complete() with a stale version should return false")
+	}
+	var afterStale models.File
+	db.Where("id = ?", fileID).First(&afterStale)
+	if afterStale.TranscribeStatus != nil || afterStale.TranscriptText != nil || afterStale.TranscribedVersion != nil {
+		t.Fatalf("stale complete() wrote data: status=%v text=%v transcribed=%v",
+			afterStale.TranscribeStatus, afterStale.TranscriptText, afterStale.TranscribedVersion)
+	}
+
+	// Matching version → applied.
+	updated, err = h.complete(fileID.String(), 1, "fresh text", "WEBVTT fresh", "tiny")
+	if err != nil {
+		t.Fatalf("complete() matching: %v", err)
+	}
+	if !updated {
+		t.Fatal("complete() with the matching version should return true")
+	}
+	var afterMatch models.File
+	db.Where("id = ?", fileID).First(&afterMatch)
+	if afterMatch.TranscribeStatus == nil || *afterMatch.TranscribeStatus != "ready" {
+		t.Errorf("status = %v, want ready", afterMatch.TranscribeStatus)
+	}
+	if afterMatch.TranscribeProgress == nil || *afterMatch.TranscribeProgress != 100 {
+		t.Errorf("progress = %v, want 100", afterMatch.TranscribeProgress)
+	}
+	if afterMatch.TranscribedVersion == nil || *afterMatch.TranscribedVersion != 1 {
+		t.Errorf("transcribed_version = %v, want 1", afterMatch.TranscribedVersion)
+	}
+	if afterMatch.TranscriptText == nil || *afterMatch.TranscriptText != "fresh text" {
+		t.Errorf("transcript text = %v", afterMatch.TranscriptText)
+	}
+	if afterMatch.TranscriptVTT == nil || *afterMatch.TranscriptVTT != "WEBVTT fresh" {
+		t.Errorf("transcript vtt = %v", afterMatch.TranscriptVTT)
+	}
+	if afterMatch.TranscriptModel == nil || *afterMatch.TranscriptModel != "tiny" {
+		t.Errorf("transcript model = %v", afterMatch.TranscriptModel)
+	}
+}
+
 func TestStringPtrIntPtr(t *testing.T) {
 	if *stringPtr("z") != "z" {
 		t.Error("stringPtr")

@@ -100,7 +100,9 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 	}
 	if !hasAudio {
 		h.storeEmptyWaveform(libraryID, fileID)
-		h.complete(fileID, targetVersion, defaultPeaksPerSecond)
+		if !h.complete(fileID, targetVersion, defaultPeaksPerSecond) {
+			log.Printf("waveform: version moved on, discarding stale work for file %s", fileID)
+		}
 		return nil
 	}
 
@@ -130,24 +132,22 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		h.fail(fileID, fmt.Errorf("marshal waveform: %w", err))
 		return err
 	}
+	// The cache blob is not version-guarded: a stale job may overwrite it, but
+	// the newer in-flight job rewrites it on its own completion.
 	cacheKey := storage.WaveformKey(libraryID, fileID)
 	if err := h.storage.StoreCacheBuffer(cacheKey, jsonBytes); err != nil {
 		h.fail(fileID, fmt.Errorf("store waveform cache: %w", err))
 		return err
 	}
 
-	// Verify we haven't been superseded
-	var current models.File
-	if err := h.db.Where("id = ?", fileID).First(&current).Error; err != nil {
-		return err
+	// Apply the result only if a concurrent regeneration hasn't bumped the
+	// version out from under us. The guarded UPDATE makes the check-and-write
+	// atomic, so a regeneration landing mid-run can never leave stale data behind.
+	if h.complete(fileID, targetVersion, defaultPeaksPerSecond) {
+		log.Printf("waveform: complete for file %s (%d peaks)", fileID, len(peaks))
+	} else {
+		log.Printf("waveform: version moved on, discarding stale work for file %s", fileID)
 	}
-	if current.WaveformVersion != targetVersion {
-		log.Printf("waveform: version changed (%d → %d), discarding work for file %s", targetVersion, current.WaveformVersion, fileID)
-		return nil
-	}
-
-	h.complete(fileID, targetVersion, defaultPeaksPerSecond)
-	log.Printf("waveform: complete for file %s (%d peaks)", fileID, len(peaks))
 	return nil
 }
 
@@ -308,16 +308,25 @@ func (h *TaskHandler) fail(fileID string, err error) {
 	h.setState(fileID, stringPtr("failed"), nil, &msg)
 }
 
-func (h *TaskHandler) complete(fileID string, version int, peaksPerSec int) {
+// complete marks the waveform ready, but only if waveform_version still equals
+// the version this run started from. A regeneration bumps the version, so the
+// guard turns stale work into a no-op atomically (no read-then-write race).
+// Returns true when the row was updated.
+func (h *TaskHandler) complete(fileID string, version int, peaksPerSec int) bool {
 	ready := "ready"
 	full := 100
-	h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
-		"waveform_status":           ready,
-		"waveform_progress":         full,
-		"waveform_error":            nil,
-		"waveformed_version":        version,
-		"waveform_peaks_per_second": peaksPerSec,
-	})
+	res := h.db.Model(&models.File{}).
+		Where("id = ? AND waveform_version = ?", fileID, version).
+		Updates(map[string]interface{}{
+			"waveform_status":           ready,
+			"waveform_progress":         full,
+			"waveform_error":            nil,
+			"waveformed_version":        version,
+			"waveform_peaks_per_second": peaksPerSec,
+		})
+	if res.Error != nil || res.RowsAffected == 0 {
+		return false
+	}
 
 	if h.activitySvc != nil {
 		var f models.File
@@ -336,6 +345,7 @@ func (h *TaskHandler) complete(fileID string, version int, peaksPerSec int) {
 			})
 		}
 	}
+	return true
 }
 
 func stringPtr(s string) *string { return &s }

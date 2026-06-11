@@ -55,7 +55,7 @@ func TestProcessTask_RejectsInvalidPayload(t *testing.T) {
 
 func TestTimestampRegex_ParsesSegmentEnd(t *testing.T) {
 	cases := []struct {
-		line   string
+		line    string
 		wantSec float64
 	}{
 		{"[00:00:00.000 --> 00:00:02.140]   we don't use the hardware", 2.14},

@@ -299,6 +299,47 @@ func TestProcessMoment_AlreadyExported(t *testing.T) {
 	}
 }
 
+func TestComplete_VersionGuard(t *testing.T) {
+	db := setupTestDB(t)
+	_, _, momentID := seedMoment(t, db, 0, 1, 2)
+	h := &TaskHandler{db: db}
+
+	// An edit bumped export_version to 3 while the version-2 run was in flight.
+	if err := db.Model(&models.Moment{}).Where("id = ?", momentID).Update("export_version", 3).Error; err != nil {
+		t.Fatalf("bump version: %v", err)
+	}
+	if h.complete(momentID.String(), 2) {
+		t.Fatal("complete should refuse a stale version")
+	}
+	var m models.Moment
+	if err := db.First(&m, "id = ?", momentID).Error; err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if m.ExportStatus != nil && *m.ExportStatus == "ready" {
+		t.Fatal("stale complete must not mark ready")
+	}
+	if m.ExportedVersion != nil {
+		t.Fatalf("stale complete must not stamp exported_version, got %d", *m.ExportedVersion)
+	}
+
+	// Matching version persists.
+	if !h.complete(momentID.String(), 3) {
+		t.Fatal("complete should persist for the current version")
+	}
+	if err := db.First(&m, "id = ?", momentID).Error; err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if m.ExportStatus == nil || *m.ExportStatus != "ready" {
+		t.Fatal("expected export_status ready")
+	}
+	if m.ExportProgress == nil || *m.ExportProgress != 100 {
+		t.Fatal("expected export_progress 100")
+	}
+	if m.ExportedVersion == nil || *m.ExportedVersion != 3 {
+		t.Fatal("expected exported_version 3")
+	}
+}
+
 func TestProcessMoment_InvalidRange(t *testing.T) {
 	db := setupTestDB(t)
 	store := setupTestStorage(t)

@@ -2,6 +2,7 @@ package audiodetection
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -86,6 +87,115 @@ func TestSetStateAndFail_DB(t *testing.T) {
 	}
 	if f.AudioDetectError == nil || *f.AudioDetectError == "" {
 		t.Errorf("error message not recorded: %v", f.AudioDetectError)
+	}
+}
+
+func TestComplete_MatchingVersionReplacesDetections(t *testing.T) {
+	db := audioTestDB(t)
+	libID, fileID := seedAudioFile(t, db, "audio/wav")
+	h := NewTaskHandler(db, nil, &config.Config{}, nil)
+
+	// Simulate a reprocess: a version-1 run already completed (one persisted
+	// detection), then the trigger bumped audio_detect_version to 2 and the
+	// version-2 run is now finishing.
+	if err := db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+		"audio_detect_version":   2,
+		"audio_detected_version": 1,
+	}).Error; err != nil {
+		t.Fatalf("seed versions: %v", err)
+	}
+	old := models.AudioDetection{FileID: fileID, LibraryID: libID, Label: "Music", ClassIndex: 137, Score: 0.5, StartSeconds: 0, EndSeconds: 1, Version: 1}
+	if err := db.Create(&old).Error; err != nil {
+		t.Fatalf("seed old detection: %v", err)
+	}
+
+	dets := []models.AudioDetection{{FileID: fileID, LibraryID: libID, Label: "Speech", ClassIndex: 0, Score: 0.9, StartSeconds: 0, EndSeconds: 2, Version: 2}}
+	if err := h.complete(fileID, 2, dets, DefaultModelID); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	var f models.File
+	if err := db.Where("id = ?", fileID).First(&f).Error; err != nil {
+		t.Fatalf("reload file: %v", err)
+	}
+	if f.AudioDetectStatus == nil || *f.AudioDetectStatus != "ready" {
+		t.Errorf("audio_detect_status = %v, want ready", f.AudioDetectStatus)
+	}
+	// The worker must never bump audio_detect_version — the trigger side owns it.
+	if f.AudioDetectVersion != 2 {
+		t.Errorf("audio_detect_version = %d, want 2 (unchanged)", f.AudioDetectVersion)
+	}
+	if f.AudioDetectedVersion == nil || *f.AudioDetectedVersion != 2 {
+		t.Errorf("audio_detected_version = %v, want 2", f.AudioDetectedVersion)
+	}
+	if f.AudioDetectModel == nil || *f.AudioDetectModel != DefaultModelID {
+		t.Errorf("audio_detect_model = %v, want %s", f.AudioDetectModel, DefaultModelID)
+	}
+
+	var got []models.AudioDetection
+	if err := db.Where("file_id = ?", fileID).Find(&got).Error; err != nil {
+		t.Fatalf("query detections: %v", err)
+	}
+	if len(got) != 1 || got[0].Label != "Speech" || got[0].Version != 2 {
+		t.Errorf("detections = %+v, want one Speech row at version 2", got)
+	}
+}
+
+func TestComplete_SupersededRollsBackStaleWork(t *testing.T) {
+	db := audioTestDB(t)
+	libID, fileID := seedAudioFile(t, db, "audio/wav")
+	h := NewTaskHandler(db, nil, &config.Config{}, nil)
+
+	// A version-1 run is in flight when a reprocess lands: the trigger bumps
+	// audio_detect_version to 2 and resets the status to queued. The stale
+	// run's completion (targeting version 1) must roll back wholesale.
+	if err := db.Model(&models.File{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+		"audio_detect_status":    "queued",
+		"audio_detect_progress":  0,
+		"audio_detect_version":   2,
+		"audio_detected_version": 1,
+	}).Error; err != nil {
+		t.Fatalf("seed versions: %v", err)
+	}
+	keep := models.AudioDetection{FileID: fileID, LibraryID: libID, Label: "Music", ClassIndex: 137, Score: 0.5, StartSeconds: 0, EndSeconds: 1, Version: 1}
+	if err := db.Create(&keep).Error; err != nil {
+		t.Fatalf("seed existing detection: %v", err)
+	}
+
+	stale := []models.AudioDetection{{FileID: fileID, LibraryID: libID, Label: "Speech", ClassIndex: 0, Score: 0.9, StartSeconds: 0, EndSeconds: 2, Version: 1}}
+	err := h.complete(fileID, 1, stale, DefaultModelID)
+	// run() maps errSuperseded to a clean nil return (no fail()): the discard
+	// is logged, never surfaced as a job failure.
+	if !errors.Is(err, errSuperseded) {
+		t.Fatalf("complete = %v, want errSuperseded", err)
+	}
+
+	// The fresh job's queued state and versions must be untouched.
+	var f models.File
+	if err := db.Where("id = ?", fileID).First(&f).Error; err != nil {
+		t.Fatalf("reload file: %v", err)
+	}
+	if f.AudioDetectStatus == nil || *f.AudioDetectStatus != "queued" {
+		t.Errorf("audio_detect_status = %v, want queued (untouched)", f.AudioDetectStatus)
+	}
+	if f.AudioDetectVersion != 2 {
+		t.Errorf("audio_detect_version = %d, want 2 (untouched)", f.AudioDetectVersion)
+	}
+	if f.AudioDetectedVersion == nil || *f.AudioDetectedVersion != 1 {
+		t.Errorf("audio_detected_version = %v, want 1 (untouched)", f.AudioDetectedVersion)
+	}
+	if f.AudioDetectModel != nil {
+		t.Errorf("audio_detect_model = %v, want nil (untouched)", f.AudioDetectModel)
+	}
+
+	// The delete+insert must have rolled back with the guard miss: the
+	// existing detection survives, the stale rows never land.
+	var got []models.AudioDetection
+	if err := db.Where("file_id = ?", fileID).Find(&got).Error; err != nil {
+		t.Fatalf("query detections: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != keep.ID || got[0].Label != "Music" || got[0].Version != 1 {
+		t.Errorf("detections = %+v, want the original Music row at version 1", got)
 	}
 }
 

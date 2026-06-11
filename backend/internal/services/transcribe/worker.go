@@ -176,19 +176,16 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 	txtBytes, _ := os.ReadFile(outBase + ".txt")
 	vttBytes, _ := os.ReadFile(outBase + ".vtt")
 
-	// 6. Persist.
-	updates := map[string]interface{}{
-		"transcribe_status":      "ready",
-		"transcribe_progress":    100,
-		"transcribe_eta_seconds": nil,
-		"transcribe_error":       nil,
-		"transcribed_version":    targetVersion,
-		"transcript_text":        strings.TrimSpace(string(txtBytes)),
-		"transcript_vtt":         string(vttBytes),
-		"transcript_model":       modelName,
-	}
-	if err := h.db.Model(&models.File{}).Where("id = ?", fileID).Updates(updates).Error; err != nil {
+	// 6. Persist — but only if a concurrent reprocess hasn't bumped the version
+	// out from under us. The guarded UPDATE makes the check-and-write atomic, so
+	// a reprocess landing mid-whisper-run can never be clobbered by stale results.
+	updated, err := h.complete(fileID, targetVersion, strings.TrimSpace(string(txtBytes)), string(vttBytes), modelName)
+	if err != nil {
 		return fmt.Errorf("persist transcript: %w", err)
+	}
+	if !updated {
+		log.Printf("transcribe: version moved on, discarding stale work for file %s", fileID)
+		return nil
 	}
 	log.Printf("transcribe: done for file %s (%d chars)", fileID, len(txtBytes))
 
@@ -245,6 +242,30 @@ func (h *TaskHandler) setState(fileID string, status *string, progress *int, eta
 func (h *TaskHandler) fail(fileID string, err error) {
 	msg := err.Error()
 	h.setState(fileID, stringPtr("failed"), nil, nil, &msg)
+}
+
+// complete writes the finished transcript, but only if transcribe_version still
+// equals the version this run started from. A reprocess bumps the version, so
+// the guard turns stale work into a no-op atomically (no read-then-write race).
+// Returns whether the row was updated; a DB error is surfaced separately so the
+// caller can let asynq retry rather than discarding the finished transcript.
+func (h *TaskHandler) complete(fileID string, version int, text, vtt, modelName string) (bool, error) {
+	res := h.db.Model(&models.File{}).
+		Where("id = ? AND transcribe_version = ?", fileID, version).
+		Updates(map[string]interface{}{
+			"transcribe_status":      "ready",
+			"transcribe_progress":    100,
+			"transcribe_eta_seconds": nil,
+			"transcribe_error":       nil,
+			"transcribed_version":    version,
+			"transcript_text":        text,
+			"transcript_vtt":         vtt,
+			"transcript_model":       modelName,
+		})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }
 
 func stringPtr(s string) *string { return &s }

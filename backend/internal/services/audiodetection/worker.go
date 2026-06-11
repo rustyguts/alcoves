@@ -283,7 +283,7 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 				Score:        probs[idx],
 				StartSeconds: windowStart,
 				EndSeconds:   windowEnd,
-				Version:      targetVersion + 1,
+				Version:      targetVersion,
 			})
 		}
 
@@ -291,38 +291,62 @@ func (h *TaskHandler) run(ctx context.Context, libraryID, fileID string) error {
 		h.setState(fileID, ptr("processing"), &progress, nil, nil)
 	}
 
-	// Persist in a transaction: bump version, delete old detections, insert new.
-	newVersion := targetVersion + 1
-	err = h.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("file_id = ?", file.ID).Delete(&models.AudioDetection{}).Error; err != nil {
-			return err
+	// Apply the results only if a concurrent reprocess hasn't bumped the
+	// version out from under us — complete's guarded transaction makes the
+	// check-and-write atomic, so a stale run can never clobber a fresh job's
+	// detections or freshly-queued status.
+	if err := h.complete(file.ID, targetVersion, detections, spec.ID); err != nil {
+		if errors.Is(err, errSuperseded) {
+			log.Printf("audio-detect: version moved on, discarding stale work for file %s", fileID)
+			return nil
 		}
-		if len(detections) > 0 {
-			for i := range detections {
-				detections[i].Version = newVersion
-				detections[i].ID = uuid.Nil
-			}
-			if err := tx.Create(&detections).Error; err != nil {
-				return err
-			}
-		}
-		return tx.Model(&models.File{}).Where("id = ?", file.ID).Updates(map[string]interface{}{
-			"audio_detect_status":      "ready",
-			"audio_detect_progress":    100,
-			"audio_detect_eta_seconds": nil,
-			"audio_detect_error":       nil,
-			"audio_detect_version":     newVersion,
-			"audio_detected_version":   newVersion,
-			"audio_detect_model":       spec.ID,
-		}).Error
-	})
-	if err != nil {
 		h.fail(fileID, fmt.Errorf("persist detections: %w", err))
 		return err
 	}
 
 	log.Printf("audio-detect: file %s complete (%d detections)", fileID, len(detections))
 	return nil
+}
+
+// errSuperseded signals that audio_detect_version moved on while a run was in
+// flight (a reprocess was queued mid-run); returning it from inside complete's
+// transaction rolls the detections delete+insert back along with the file
+// update, so the stale results vanish without a trace.
+var errSuperseded = errors.New("audio detect version superseded")
+
+// complete replaces the file's detections and marks the job ready in a single
+// transaction, but only if audio_detect_version still equals the version this
+// run started from. The trigger side owns bumping audio_detect_version (the
+// worker never touches it); a reprocess bumps the version, so the guard turns
+// stale work into a no-op atomically (no read-then-write race).
+func (h *TaskHandler) complete(fileID uuid.UUID, targetVersion int, detections []models.AudioDetection, modelID string) error {
+	return h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("file_id = ?", fileID).Delete(&models.AudioDetection{}).Error; err != nil {
+			return err
+		}
+		if len(detections) > 0 {
+			if err := tx.Create(&detections).Error; err != nil {
+				return err
+			}
+		}
+		res := tx.Model(&models.File{}).
+			Where("id = ? AND audio_detect_version = ?", fileID, targetVersion).
+			Updates(map[string]interface{}{
+				"audio_detect_status":      "ready",
+				"audio_detect_progress":    100,
+				"audio_detect_eta_seconds": nil,
+				"audio_detect_error":       nil,
+				"audio_detected_version":   targetVersion,
+				"audio_detect_model":       modelID,
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return errSuperseded
+		}
+		return nil
+	})
 }
 
 func (h *TaskHandler) copySourceToTemp(libraryID, fileID, dst string) error {

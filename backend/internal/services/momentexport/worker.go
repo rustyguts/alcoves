@@ -113,8 +113,9 @@ func (h *TaskHandler) processMoment(ctx context.Context, libraryID, fileID, mome
 		return err
 	}
 
-	// 5. Re-check export_version. If the user edited the range during transcode,
-	// this encode is stale — discard and bail.
+	// 5. Cheap early-out before the cache upload: if the user edited the range
+	// during transcode this encode is already stale. The authoritative check is
+	// the guarded complete() below — this read is only an optimization.
 	var fresh models.Moment
 	if err := h.db.Where("id = ?", momentID).First(&fresh).Error; err != nil {
 		h.fail(momentID, "reload: %v", err)
@@ -139,12 +140,31 @@ func (h *TaskHandler) processMoment(ctx context.Context, libraryID, fileID, mome
 		return err
 	}
 
-	// 7. Mark ready.
-	complete := 100
-	exported := runVersion
-	h.setExportState(momentID, stringPtr("ready"), &complete, nil, &exported)
-	log.Printf("moment:export — completed moment=%s version=%d", momentID, runVersion)
+	// 7. Mark ready — guarded, so an edit landing after the step-5 check still
+	// can't be clobbered with stale state.
+	if h.complete(momentID, runVersion) {
+		log.Printf("moment:export — completed moment=%s version=%d", momentID, runVersion)
+	} else {
+		log.Printf("moment:export — stale version (ran=%d); discarding", runVersion)
+	}
 	return nil
+}
+
+// complete marks the export ready, but only if export_version still equals the
+// version this run satisfied. An edit bumps the version, so the guard turns
+// stale work into a no-op atomically (no read-then-write race). Returns true
+// when the row was updated.
+func (h *TaskHandler) complete(momentID string, version int) bool {
+	res := h.db.Model(&models.Moment{}).
+		Where("id = ? AND export_version = ?", momentID, version).
+		Updates(map[string]interface{}{
+			"export_status":      "ready",
+			"export_progress":    100,
+			"export_eta_seconds": nil,
+			"exported_version":   version,
+			"updated_at":         time.Now(),
+		})
+	return res.Error == nil && res.RowsAffected > 0
 }
 
 func (h *TaskHandler) setExportState(momentID string, status *string, progress *int, eta *int, exportedVersion *int) {
