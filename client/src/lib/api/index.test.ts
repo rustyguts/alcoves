@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { api, createApi, apiUrl, ApiError } from './index';
 
 describe('api barrel', () => {
-	it('exposes the browser singleton with all 16 resource namespaces', () => {
+	it('exposes the browser singleton with all 17 resource namespaces', () => {
 		expect(Object.keys(api).sort()).toEqual([
 			'admin',
 			'auth',
+			'documents',
 			'downloads',
 			'files',
 			'folders',

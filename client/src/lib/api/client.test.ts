@@ -282,3 +282,70 @@ describe('createApi — moments', () => {
 		});
 	});
 });
+
+describe('createApi — documents', () => {
+	it('maps document methods to method + path + body', async () => {
+		await api.documents.get('L1', 'F1');
+		expect(last()).toMatchObject({ url: '/api/libraries/L1/files/F1/doc', method: 'GET' });
+		await api.documents.init('L1', 'F1', { update: 'AQID' });
+		expect(last()).toMatchObject({
+			url: '/api/libraries/L1/files/F1/doc/init',
+			method: 'POST',
+			body: '{"update":"AQID"}'
+		});
+		await api.documents.postUpdate('L1', 'F1', { data: 'BBBB' });
+		expect(last()).toMatchObject({
+			url: '/api/libraries/L1/files/F1/doc/updates',
+			method: 'POST',
+			body: '{"data":"BBBB"}'
+		});
+		await api.documents.updatesSince('L1', 'F1', 42);
+		expect(last()).toMatchObject({
+			url: '/api/libraries/L1/files/F1/doc/updates?since=42',
+			method: 'GET'
+		});
+		await api.documents.snapshot('L1', 'F1', { snapshot: 'AQ==', upTo: 7, text: '# T' });
+		expect(last()).toMatchObject({
+			url: '/api/libraries/L1/files/F1/doc/snapshot',
+			method: 'PUT',
+			body: '{"snapshot":"AQ==","upTo":7,"text":"# T"}'
+		});
+	});
+
+	it('creates documents via the upload endpoint with encoded-name headers', async () => {
+		const inits: RequestInit[] = [];
+		const stub = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+			inits.push(init ?? {});
+			return new Response('{}', { headers: { 'content-type': 'application/json' } });
+		}) as unknown as typeof globalThis.fetch;
+		const localApi = createApi(stub);
+
+		await localApi.documents.create('L1', { name: 'résumé notes', folderId: 'D1' });
+		const headers = inits[0].headers as Record<string, string>;
+		expect(headers['X-Upload-Name']).toBe(encodeURIComponent('résumé notes.md'));
+		expect(headers['X-Upload-Name-Encoded']).toBe('1');
+		expect(headers['X-Upload-Mime-Type']).toBe('text/markdown');
+		expect(headers['X-Upload-Folder-Id']).toBe('D1');
+		expect(inits[0].body).toBeUndefined();
+
+		// An explicit .md/.markdown extension is not doubled; no folder header at root.
+		await localApi.documents.create('L1', { name: 'Notes.MD' });
+		const h2 = inits[1].headers as Record<string, string>;
+		expect(h2['X-Upload-Name']).toBe(encodeURIComponent('Notes.MD'));
+		expect(h2['X-Upload-Folder-Id']).toBeUndefined();
+
+		// keepalive passes through for unload-time compaction.
+		await localApi.documents.snapshot(
+			'L1',
+			'F1',
+			{ snapshot: 'AQ==', upTo: 1, text: 'x' },
+			{ keepalive: true }
+		);
+		expect(inits[2].keepalive).toBe(true);
+	});
+
+	it('builds a ws:// URL for the doc socket', () => {
+		const url = api.documents.wsUrl('L1', 'F1');
+		expect(url).toContain('/api/libraries/L1/files/F1/doc/ws');
+	});
+});

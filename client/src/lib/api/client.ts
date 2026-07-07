@@ -37,7 +37,9 @@ import type {
 	HighlightFilterPatch,
 	OAuthConsentInfo,
 	OAuthAuthorizeRequest,
-	OAuthConnection
+	OAuthConnection,
+	DocState,
+	DocUpdatesPage
 } from '$lib/types/api';
 
 /**
@@ -523,6 +525,78 @@ export function createApi(fetchImpl: typeof globalThis.fetch) {
 		}
 	} as const;
 
+	// ─── Documents (live collaborative markdown) ───────────
+	const documents = {
+		/**
+		 * Create an empty markdown file via the direct-upload endpoint — the
+		 * same ingest pipeline as uploads (text/* runs no post-ingest jobs).
+		 * The name is URI-encoded because browsers reject non-ISO-8859-1
+		 * header values; X-Upload-Name-Encoded tells the server to decode.
+		 */
+		create(libraryId: string, body: { name: string; folderId?: string | null }) {
+			const name = /\.(md|markdown)$/i.test(body.name) ? body.name : `${body.name}.md`;
+			const headers: Record<string, string> = {
+				'X-Upload-Name': encodeURIComponent(name),
+				'X-Upload-Name-Encoded': '1',
+				'X-Upload-Mime-Type': 'text/markdown'
+			};
+			if (body.folderId) headers['X-Upload-Folder-Id'] = body.folderId;
+			return f<LibraryFile>(`/api/libraries/${libraryId}/files`, { method: 'POST', headers });
+		},
+		/** GET .../doc — full sync state, or {exists:false, text} for an unseeded .md. */
+		get(libraryId: string, fileId: string) {
+			return f<DocState>(`/api/libraries/${libraryId}/files/${fileId}/doc`);
+		},
+		/** POST .../doc/init — exactly-once seed; 409 carries the winner's state. */
+		init(libraryId: string, fileId: string, body: { update: string }) {
+			return f<{ seq: number }>(`/api/libraries/${libraryId}/files/${fileId}/doc/init`, {
+				method: 'POST',
+				body
+			});
+		},
+		/** POST .../doc/updates — append one opaque Yjs update (base64). */
+		postUpdate(
+			libraryId: string,
+			fileId: string,
+			body: { data: string },
+			opts?: { keepalive?: boolean }
+		) {
+			return f<{ seq: number }>(`/api/libraries/${libraryId}/files/${fileId}/doc/updates`, {
+				method: 'POST',
+				body,
+				keepalive: opts?.keepalive
+			});
+		},
+		/** GET .../doc/updates?since= — gap replay / polling fallback. */
+		updatesSince(libraryId: string, fileId: string, since: number) {
+			return f<DocUpdatesPage>(`/api/libraries/${libraryId}/files/${fileId}/doc/updates`, {
+				query: { since }
+			});
+		},
+		/** PUT .../doc/snapshot — client-computed compaction; 409 = stale (benign). */
+		snapshot(
+			libraryId: string,
+			fileId: string,
+			body: { snapshot: string; upTo: number; text: string },
+			opts?: { keepalive?: boolean }
+		) {
+			return f<{ snapshotSeq: number }>(
+				`/api/libraries/${libraryId}/files/${fileId}/doc/snapshot`,
+				{ method: 'PUT', body, keepalive: opts?.keepalive }
+			);
+		},
+		/** Absolute URL for the per-document WebSocket (ws:// or wss://). */
+		wsUrl(libraryId: string, fileId: string): string {
+			const http = apiUrl(`/api/libraries/${libraryId}/files/${fileId}/doc/ws`);
+			const abs = http.startsWith('http')
+				? http
+				: typeof window !== 'undefined'
+					? window.location.origin + http
+					: http;
+			return abs.replace(/^http/, 'ws');
+		}
+	} as const;
+
 	// ─── Meta (public) ─────────────────────────────────────
 	const meta = {
 		registrationMode() {
@@ -567,6 +641,7 @@ export function createApi(fetchImpl: typeof globalThis.fetch) {
 		invites,
 		admin,
 		moments,
+		documents,
 		meta,
 		oauth
 	} as const;

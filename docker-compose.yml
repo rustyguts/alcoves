@@ -74,6 +74,11 @@ services:
     environment:
       # SSR load + the /api proxy route reach the co-located Go API here.
       - INTERNAL_API_URL=http://backend:3001
+      # Browsers talk to the Go API directly (binary streaming + the activity
+      # and live-document WebSockets — the in-process /api proxy can't upgrade
+      # WS). Same-site localhost, and the backend's CORS allows :3000 via
+      # ALCOVES_BASE_URL. Matches the documented production topology.
+      - PUBLIC_API_ORIGIN=http://localhost:3001
       - HOME=/tmp
     volumes:
       - ./client:/app

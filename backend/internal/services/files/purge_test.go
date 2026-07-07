@@ -225,3 +225,52 @@ func TestPurge_FolderCascadesDescendants(t *testing.T) {
 		}
 	}
 }
+
+func TestPurge_RemovesDocumentState(t *testing.T) {
+	svc, db, st := newPurgeService(t)
+	if err := db.AutoMigrate(&models.Document{}, &models.DocumentUpdate{}); err != nil {
+		t.Fatalf("migrate doc tables: %v", err)
+	}
+	// The doc tables FK into files within this shared schema — leftover rows
+	// would break other tests' `DELETE FROM files` cleanup, so clear them on
+	// the way in and out.
+	clearDocs := func() {
+		db.Exec("DELETE FROM document_updates")
+		db.Exec("DELETE FROM documents")
+	}
+	clearDocs()
+	t.Cleanup(clearDocs)
+	fx := seedListingLibrary(t, db)
+
+	// A trashed live document with CRDT state + a materialized blob.
+	fileID := createTestFile(t, db, fx.LibraryID, fx.UserID, "notes.md", true, nil)
+	if err := st.StoreFile(fx.LibraryID.String(), fileID.String(), []byte("# Doc")); err != nil {
+		t.Fatalf("StoreFile: %v", err)
+	}
+	if err := db.Create(&models.Document{FileID: fileID, LibraryID: fx.LibraryID, LastSeq: 2}).Error; err != nil {
+		t.Fatalf("create document: %v", err)
+	}
+	for seq := int64(1); seq <= 2; seq++ {
+		if err := db.Create(&models.DocumentUpdate{FileID: fileID, Seq: seq, Data: []byte{byte(seq)}}).Error; err != nil {
+			t.Fatalf("create update %d: %v", seq, err)
+		}
+	}
+
+	purged, err := svc.Purge(fx.LibraryID.String(), PurgeParams{FileIDs: []string{fileID.String()}})
+	if err != nil {
+		t.Fatalf("Purge: %v", err)
+	}
+	if purged != 1 {
+		t.Fatalf("purged = %d, want 1", purged)
+	}
+
+	var docCount, updateCount int64
+	db.Model(&models.Document{}).Where("file_id = ?", fileID).Count(&docCount)
+	db.Model(&models.DocumentUpdate{}).Where("file_id = ?", fileID).Count(&updateCount)
+	if docCount != 0 || updateCount != 0 {
+		t.Fatalf("doc rows = %d, update rows = %d, want 0/0", docCount, updateCount)
+	}
+	if exists, _ := st.FileExists(fx.LibraryID.String(), fileID.String()); exists {
+		t.Fatal("expected materialized blob deleted")
+	}
+}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/services/access"
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
+	"github.com/alcoves/alcoves-backend/internal/services/docs"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/signing"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
@@ -26,6 +27,11 @@ type Deps struct {
 	Storage *storage.Service
 	Signer  *signing.Signer
 	BaseURL string
+
+	// Docs powers the live-document tools (update_document's CRDT-safe
+	// replacement). Optional: nil disables update_document with a clear error
+	// while create/read (blob-level) keep working.
+	Docs *docs.Service
 
 	// Activity emits library activity / notifications for the write tools
 	// (folder + tag creation, file trashing). Optional: a nil service makes
@@ -93,6 +99,9 @@ func NewServer(d Deps) *mcp.Server {
 
 	// Moments.
 	registerMomentTools(srv, d) // list_moments
+
+	// Live documents (markdown in/out, Notion-MCP-shaped).
+	registerDocumentTools(srv, d) // create_document, read_document, update_document
 
 	return srv
 }

@@ -1,9 +1,9 @@
 ---
 title: "MCP Server"
-description: "Connect Claude Desktop and AI agents to your Alcoves library using the Model Context Protocol — browse, search, organize, read AI insights, upload, and download, all under your own access control."
+description: "Connect Claude Desktop and AI agents to your Alcoves library using the Model Context Protocol — browse, search, organize, read AI insights, edit collaborative documents, upload, and download, all under your own access control."
 ---
 
-Alcoves includes a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server, so AI clients like Claude Desktop can explore your libraries, search across them, read the AI metadata Alcoves generates (transcripts, detected objects, people, sound events), organize content, and move files in and out — all authenticated as you, against your own self-hosted instance.
+Alcoves includes a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server, so AI clients like Claude Desktop can explore your libraries, search across them, read the AI metadata Alcoves generates (transcripts, detected objects, people, sound events), organize content, create and edit collaborative documents, and move files in and out — all authenticated as you, against your own self-hosted instance.
 
 Every MCP action respects the **same role-based access control as the web app**. An agent can only see and do what your account is permitted to do, scoped per library. No data leaves your server.
 
@@ -16,6 +16,7 @@ Once connected, an MCP-capable client can, on your behalf:
 - **Browse & inspect** files and folders (cursor-paginated), get full file details, walk the date-ordered media timeline, and list geotagged files.
 - **Read AI insights** Alcoves has generated: speech transcripts, detected sound events, recognized people (face clusters), and detected objects.
 - **Organize**: create folders, create and apply tags, rename and move files, and trash / restore files (a reversible soft-delete).
+- **Author documents**: create, read, and update collaborative markdown documents ([Live documents](/features/live-documents/)) — the same files your teammates edit live in the web app.
 - **Transfer**: upload files into a library and download files out of it (local path or signed URL — see [How large file transfers work](#how-large-file-transfers-work)).
 
 ## Tool catalog (v1)
@@ -45,6 +46,16 @@ All tools enforce access per library. **viewer+** means any member (viewer, admi
 | `update_file` | admin+ | Rename a file and/or move it to another folder (or the library root). |
 | `trash_file` | admin+ | Move one or more files to the trash (reversible soft-delete). |
 | `restore_file` | admin+ | Restore trashed files (back to the library root, matching the web app). |
+
+### Documents
+
+[Live documents](/features/live-documents/) are collaborative markdown files. Because a document _is_ a `text/markdown` file, the file tools above (`list_files`, `search`, `update_file`, `trash_file`, …) apply to it too — these three add content-level create / read / update.
+
+| Tool | Role | Description |
+|---|---|---|
+| `create_document` | admin+ | Create a markdown document in a library, optionally inside a folder and with initial content. It opens in the collaborative editor like any other document. `.md` is appended to the name if you leave it off. |
+| `read_document` | viewer+ | Read a document's markdown. For a document being edited live, the content reflects the last autosave checkpoint (at most ~a minute behind active typing). |
+| `update_document` | admin+ | Replace a document's contents wholesale. Anyone editing it live is resynced to the new version — their in-flight keystrokes are superseded, like overwriting a file while someone is typing. |
 
 ### Tags
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -98,6 +99,14 @@ func (h *FileHandler) Upload(c echo.Context) error {
 
 	// Original uses streaming body with X-Upload-* headers
 	fileName := c.Request().Header.Get("X-Upload-Name")
+	// Browsers reject non-ISO-8859-1 header values, so browser callers (e.g.
+	// "New Document") URI-encode the name and flag it. Opt-in keeps raw names
+	// from other callers intact (PathUnescape would corrupt literal % or +).
+	if c.Request().Header.Get("X-Upload-Name-Encoded") == "1" {
+		if decoded, err := url.PathUnescape(fileName); err == nil {
+			fileName = decoded
+		}
+	}
 	if fileName == "" {
 		fileName = "unnamed"
 	}
