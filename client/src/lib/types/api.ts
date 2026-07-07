@@ -558,3 +558,34 @@ export interface OAuthConnection {
 	lastUsedAt: string | null;
 	createdAt: string;
 }
+
+/** Role the current user has on a live document (owner/admin edit, viewer reads). */
+export type DocRole = 'editor' | 'viewer';
+
+/** One opaque Yjs update (base64) in a document's replay log. */
+export interface DocUpdate {
+	seq: number;
+	data: string;
+}
+
+/**
+ * Full sync state of a live document (GET .../doc). `exists: false` means no
+ * CRDT state yet — `text` carries the current blob content for client seeding.
+ */
+export interface DocState {
+	exists: boolean;
+	role: DocRole;
+	seq: number;
+	snapshotSeq: number;
+	snapshot: string | null;
+	updates: DocUpdate[];
+	hasMore: boolean;
+	text?: string;
+}
+
+/** A replay page (GET .../doc/updates?since=). */
+export interface DocUpdatesPage {
+	seq: number;
+	updates: DocUpdate[];
+	hasMore: boolean;
+}

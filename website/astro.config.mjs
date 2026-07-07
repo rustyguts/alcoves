@@ -53,6 +53,7 @@ export default defineConfig({
 						{ label: 'Authentication & sessions', slug: 'features/authentication-and-sessions' },
 						{ label: 'Libraries, roles & access', slug: 'features/libraries-and-access-control' },
 						{ label: 'Files, folders & uploads', slug: 'features/files-folders-and-uploads' },
+						{ label: 'Live documents', slug: 'features/live-documents' },
 						{ label: 'Faces & objects', slug: 'features/face-and-object-detection' },
 						{ label: 'Audio & transcription', slug: 'features/audio-detection-and-transcription' },
 						{ label: 'Video editor & moments', slug: 'features/video-editor-and-moments' },

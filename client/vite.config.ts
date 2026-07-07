@@ -27,6 +27,7 @@ export default defineConfig({
 				// imports can't run in unit tests; exercised by the full-stack e2e.
 				'src/lib/components/LibraryMap.svelte',
 				'src/lib/components/editor/VideoEditorPlayer.svelte',
+				'src/lib/components/doc/MarkdownEditor.svelte',
 				// Pure 2-line passthroughs that render the (92%-covered) LibraryBrowser;
 				// the v8/Svelte artifact on such tiny files isn't a real coverage gap.
 				// (`*` segments avoid the glob metachars in the (app)/[id] dir names.)

@@ -23,6 +23,8 @@ export interface ApiFetchOptions {
 	query?: Record<string, string | number | boolean | undefined | null>;
 	responseType?: 'json' | 'blob' | 'text';
 	headers?: Record<string, string>;
+	/** Let the request outlive the page (best-effort unload writes; ~64KB body cap). */
+	keepalive?: boolean;
 }
 
 export type ApiFetch = <T = unknown>(path: string, options?: ApiFetchOptions) => Promise<T>;
@@ -44,7 +46,7 @@ export function makeApiFetch(fetchImpl: typeof globalThis.fetch): ApiFetch {
 		path: string,
 		options: ApiFetchOptions = {}
 	): Promise<T> {
-		const { method = 'GET', body, query, responseType = 'json', headers = {} } = options;
+		const { method = 'GET', body, query, responseType = 'json', headers = {}, keepalive } = options;
 
 		let url = dataRequestUrl(path);
 		if (query) {
@@ -62,6 +64,7 @@ export function makeApiFetch(fetchImpl: typeof globalThis.fetch): ApiFetch {
 			headers: finalHeaders,
 			credentials: clientUsesCrossOrigin() ? 'include' : 'same-origin'
 		};
+		if (keepalive) init.keepalive = true;
 
 		if (body !== undefined) {
 			if (body instanceof FormData) {

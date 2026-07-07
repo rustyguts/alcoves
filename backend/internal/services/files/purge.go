@@ -110,6 +110,16 @@ func (s *Service) Purge(libraryID string, p PurgeParams) (int, error) {
 				return fmt.Errorf("failed to delete file tags: %w", err)
 			}
 
+			// Remove live-document CRDT state (update log first, then the doc
+			// row). The migration's FK CASCADEs cover other delete paths;
+			// explicit deletes keep AutoMigrate-based test schemas honest.
+			if err := tx.Where("file_id IN ?", fileIDs).Delete(&models.DocumentUpdate{}).Error; err != nil {
+				return fmt.Errorf("failed to delete document updates: %w", err)
+			}
+			if err := tx.Where("file_id IN ?", fileIDs).Delete(&models.Document{}).Error; err != nil {
+				return fmt.Errorf("failed to delete documents: %w", err)
+			}
+
 			// Delete derived file rows (proxies and thumbnails) that reference the source files.
 			// These are never user-visible but must be cleaned up when the source is purged.
 			if len(derivedFileIDs) > 0 {
