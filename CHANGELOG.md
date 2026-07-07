@@ -10,6 +10,32 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.29.0](https://github.com/rustyguts/alcoves/compare/v0.28.0...v0.29.0) (2026-07-07)
+
+
+### Added
+
+* **client:** rewrite the video editor as an NLE-style moment workspace ([#627](https://github.com/rustyguts/alcoves/issues/627)) ([1e626bb](https://github.com/rustyguts/alcoves/commit/1e626bb17b0bdfd42146ff85920a4094c5755795))
+* **documents:** realtime collaborative markdown documents (Yjs CRDT) ([#628](https://github.com/rustyguts/alcoves/issues/628)) ([86b630f](https://github.com/rustyguts/alcoves/commit/86b630f2f1a25ee969f6c2d9c62cc8ab8d715959))
+* **helm:** rewrite chart with standalone mode, schema validation, and data-safe defaults ([#625](https://github.com/rustyguts/alcoves/issues/625)) ([a2088ba](https://github.com/rustyguts/alcoves/commit/a2088bacb6653468e7fb26c941f096ab4f561f29))
+* OAuth 2.1 authorization for MCP connections (custom-connector auth) ([#620](https://github.com/rustyguts/alcoves/issues/620)) ([c5ed555](https://github.com/rustyguts/alcoves/commit/c5ed555b7df479a50d21ca188cb7fec006d5d85a))
+
+
+### Fixed
+
+* **backend:** five audit-verified bugs — ONNX init, boot stall, TUS sweep, file contract, error causes ([#622](https://github.com/rustyguts/alcoves/issues/622)) ([2f63b3e](https://github.com/rustyguts/alcoves/commit/2f63b3e1da11c173b7455f69c8d7b5b5df547d68))
+* **backend:** guard media-job completion against mid-run version bumps ([#624](https://github.com/rustyguts/alcoves/issues/624)) ([bfdc59b](https://github.com/rustyguts/alcoves/commit/bfdc59b2ec2ee2c9055cfd81d9ffe9f156eccd8b))
+
+
+### Changed
+
+* **client:** extract shared folder-tree helpers and prune dead explorer-store code ([#621](https://github.com/rustyguts/alcoves/issues/621)) ([4058258](https://github.com/rustyguts/alcoves/commit/4058258fcf024b4c56dcd00ed28c3e09a39f1798))
+
+
+### Documentation
+
+* **website:** rewrite docs for accuracy and plain, honest copy ([#626](https://github.com/rustyguts/alcoves/issues/626)) ([85afb1c](https://github.com/rustyguts/alcoves/commit/85afb1c8b93965dc79b76d3af60493e0556f5165))
+
 ## [0.28.0](https://github.com/rustyguts/alcoves/compare/v0.27.2...v0.28.0) (2026-06-07)
 
 
