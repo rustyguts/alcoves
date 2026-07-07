@@ -1,0 +1,33 @@
+{{- if and (eq .Values.deploymentMode "distributed") .Values.backend.worker.enabled .Values.backend.worker.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "alcoves.worker.fullname" . }}
+  labels:
+    {{- include "alcoves.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend-worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "alcoves.worker.fullname" . }}
+  minReplicas: {{ .Values.backend.worker.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.backend.worker.autoscaling.maxReplicas }}
+  metrics:
+    {{- with .Values.backend.worker.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
+    {{- with .Values.backend.worker.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
+{{- end }}

@@ -1,29 +1,58 @@
-Alcoves {{ .Chart.AppVersion }} installed as {{ .Release.Name }}.
+{{- include "alcoves.validateValues" . -}}
+Alcoves {{ default .Chart.AppVersion .Values.image.tag }} installed as {{ .Release.Name }} ({{ .Values.deploymentMode }} mode).
 
 Public URL:
   {{ .Values.baseUrl }}
 
-Components deployed:
-  frontend (SvelteKit SSR): {{ .Values.frontend.replicaCount }} replica(s)
+{{- if eq .Values.deploymentMode "standalone" }}
+
+Workload:
+  standalone (web + api + worker in one pod): {{ .Values.standalone.replicaCount }} replica(s)
+{{- else }}
+
+Workloads:
+{{- if .Values.frontend.enabled }}
+  frontend (SvelteKit SSR): {{ if .Values.frontend.autoscaling.enabled }}autoscaled {{ .Values.frontend.autoscaling.minReplicas }}-{{ .Values.frontend.autoscaling.maxReplicas }}{{ else }}{{ .Values.frontend.replicaCount }} replica(s){{ end }}
+{{- end }}
 {{- if .Values.backend.api.enabled }}
-  api:                 {{ .Values.backend.api.replicaCount }} replica(s)
+  api:                      {{ if .Values.backend.api.autoscaling.enabled }}autoscaled {{ .Values.backend.api.autoscaling.minReplicas }}-{{ .Values.backend.api.autoscaling.maxReplicas }}{{ else }}{{ .Values.backend.api.replicaCount }} replica(s){{ end }}
 {{- end }}
 {{- if .Values.backend.worker.enabled }}
-  worker:              {{ .Values.backend.worker.replicaCount }} replica(s)
+  worker:                   {{ if .Values.backend.worker.autoscaling.enabled }}autoscaled {{ .Values.backend.worker.autoscaling.minReplicas }}-{{ .Values.backend.worker.autoscaling.maxReplicas }}{{ else }}{{ .Values.backend.worker.replicaCount }} replica(s){{ end }}
+{{- end }}
 {{- end }}
 
-Storage driver: {{ .Values.storage.driver }}
-Database URL:   set via secret
-Queue:          {{ .Values.queue.host }}:{{ .Values.queue.port }}
+Storage: {{ .Values.storage.driver }}{{ if eq .Values.storage.driver "local" }} (PVC: {{ default (printf "%s-data" (include "alcoves.fullname" .)) .Values.storage.persistentVolume.existingClaim }}){{ end }}
+Queue:   {{ .Values.queue.host }}:{{ .Values.queue.port }}
+
+{{- if and (eq .Values.deploymentMode "distributed") (eq .Values.storage.driver "local") (not (has "ReadWriteMany" .Values.storage.persistentVolume.accessModes)) }}
+
+WARNING: the api and worker deployments share the data volume, but no
+ReadWriteMany access mode is configured. Without RWX the pods can only run if
+the scheduler co-locates them on one node. Use a ReadWriteMany storage class,
+switch to deploymentMode=standalone, or use storage.driver=s3.
+{{- end }}
+{{- if .Values.ingress.enabled }}
+{{- $baseHost := (urlParse .Values.baseUrl).host }}
+{{- if and $baseHost (ne $baseHost .Values.ingress.host) }}
+
+WARNING: baseUrl ({{ .Values.baseUrl }}) does not match ingress.host
+({{ .Values.ingress.host }}). OAuth callbacks, share links, and CORS are all
+derived from baseUrl — make sure browsers actually reach the app there.
+{{- end }}
+{{- end }}
 
 Verify:
   kubectl --namespace {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}
 
 Tail logs:
+{{- if eq .Values.deploymentMode "standalone" }}
+  kubectl --namespace {{ .Release.Namespace }} logs -l app.kubernetes.io/component=standalone -f
+{{- else }}
   kubectl --namespace {{ .Release.Namespace }} logs -l app.kubernetes.io/component=backend-api -f
-
-Worker (transcribe / audio detect / video proxy) logs:
   kubectl --namespace {{ .Release.Namespace }} logs -l app.kubernetes.io/component=backend-worker -f
+{{- end }}
 
-If using local storage driver, the data PVC is:
-  {{ default (printf "%s-data" (include "alcoves.fullname" .)) .Values.storage.persistentVolume.existingClaim }}
+First jobs after a fresh install run slower while ML models download to the
+data volume. Database migrations apply automatically at API startup.

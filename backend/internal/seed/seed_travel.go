@@ -54,6 +54,20 @@ func (s *seeder) seedTravel(lib *models.Library, admin, alice *models.User) {
 		cameraMake: cam, camera: camModel, createdAt: s.ago(500 * day),
 	})
 
+	// Live documents: plain markdown files that open in the collaborative
+	// editor. Seeded without CRDT rows (Go can't produce Yjs state), which
+	// deliberately exercises the first-open seeding path.
+	tripNotes := s.addFile(fileSpec{
+		idName: "file/travel/trip-notes", lib: lib.ID, owner: admin.ID,
+		name: "trip-notes.md", assetRel: "docs/trip-notes.md", mime: "text/markdown",
+		createdAt: s.ago(40 * day),
+	})
+	s.addFile(fileSpec{
+		idName: "file/travel/packing-list", lib: lib.ID, owner: alice.ID,
+		name: "packing-list.md", assetRel: "docs/packing-list.md", mime: "text/markdown",
+		createdAt: s.ago(38 * day),
+	})
+
 	s.tagFile(banff.ID, tLandscape.ID)
 	s.tagFile(banff.ID, tFav.ID)
 	s.tagFile(tokyo.ID, tCities.ID)
@@ -74,4 +88,5 @@ func (s *seeder) seedTravel(lib *models.Library, admin, alice *models.User) {
 	s.addFileActivity("act/travel/file-banff", lib.ID, admin.ID, banff, s.ago(76*day))
 	s.addFileActivity("act/travel/file-tokyo", lib.ID, admin.ID, tokyo, s.ago(64*day))
 	s.addFileActivity("act/travel/file-sahara", lib.ID, alice.ID, sahara, s.ago(52*day))
+	s.addFileActivity("act/travel/file-trip-notes", lib.ID, admin.ID, tripNotes, s.ago(40*day))
 }

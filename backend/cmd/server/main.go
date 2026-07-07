@@ -34,6 +34,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/activity"
 	"github.com/alcoves/alcoves-backend/internal/services/audiodetection"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
+	"github.com/alcoves/alcoves-backend/internal/services/docs"
 	"github.com/alcoves/alcoves-backend/internal/services/facedetection"
 	"github.com/alcoves/alcoves-backend/internal/services/filehash"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
@@ -352,6 +353,9 @@ func main() {
 			"Range", "If-Range",
 			// tus protocol headers
 			"Tus-Resumable", "Upload-Length", "Upload-Offset", "Upload-Metadata",
+			// direct-upload headers (browser "New Document" creation posts
+			// these cross-origin when PUBLIC_API_ORIGIN is set)
+			"X-Upload-Name", "X-Upload-Name-Encoded", "X-Upload-Mime-Type", "X-Upload-Folder-Id",
 			// Sentry distributed tracing — the browser SDK adds these on API
 			// requests so frontend and backend spans join one trace. Needed
 			// only when the frontend is served from a different origin.
@@ -425,6 +429,16 @@ func main() {
 		fileHandler := handlers.NewFileHandler(db, ingestSvc, storageSvc, videoSvc, transcribeSvc, audioDetectSvc, waveformSvc, metadataSvc, activitySvc)
 		fileHandler.RegisterRoutes(api.Group("/libraries"))
 
+		// Live documents: CRDT sync state + per-document WebSocket. The
+		// realtime path is always publish→Redis→every replica's Run loop→local
+		// hub (started below, next to the activity bus loop); rehash after
+		// compaction keeps dedup fresh.
+		docsHub := docs.NewHub()
+		docsRealtime := docs.NewRealtime(docsHub, notificationsRedis)
+		docsSvc := docs.NewService(db, storageSvc, hashSvc, docsRealtime)
+		documentHandler := handlers.NewDocumentHandler(docsSvc, docsHub, docsRealtime)
+		documentHandler.RegisterRoutes(api.Group("/libraries"))
+
 		// Folder routes (under /api/libraries)
 		folderHandler := handlers.NewFolderHandler(db, activitySvc)
 		folderHandler.RegisterRoutes(api.Group("/libraries"))
@@ -459,6 +473,13 @@ func main() {
 		go func() {
 			if err := activityBus.Run(context.Background(), activityHub); err != nil && err != context.Canceled {
 				log.Printf("activity bus stopped: %v", err)
+			}
+		}()
+
+		// Same fan-out loop for live-document rooms (doc:* channels).
+		go func() {
+			if err := docsRealtime.Run(context.Background()); err != nil && err != context.Canceled {
+				log.Printf("docs realtime stopped: %v", err)
 			}
 		}()
 
@@ -547,6 +568,7 @@ func main() {
 				Storage:  storageSvc,
 				Signer:   signer,
 				Activity: activitySvc,
+				Docs:     docsSvc,
 				BaseURL:  cfg.BaseURL,
 			})
 			streamable := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return mcpSrv }, nil)

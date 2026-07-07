@@ -30,6 +30,7 @@ import (
 	"github.com/alcoves/alcoves-backend/internal/services/access"
 	activityservice "github.com/alcoves/alcoves-backend/internal/services/activity"
 	authservice "github.com/alcoves/alcoves-backend/internal/services/auth"
+	docsservice "github.com/alcoves/alcoves-backend/internal/services/docs"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/signing"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
@@ -80,6 +81,11 @@ func runStdioServer() error {
 		Files:   deps.ingestSvc,
 		Storage: deps.storageSvc,
 		Signer:  deps.signer,
+		// Live-document tools. No realtime publisher and no rehash enqueue on
+		// the stdio process: connected editors discover an update_document
+		// reset on their next append/replay (409 → resync) instead of a pushed
+		// reset frame, and dedup hashes refresh on the next compaction.
+		Docs: docsservice.NewService(deps.db, deps.storageSvc, nil, nil),
 		// DB-only activity service (no realtime hub/bus on the stdio process):
 		// write tools still record library-feed rows, matching the web app.
 		// SyncActivity: this process can exit right after a tool call, so write

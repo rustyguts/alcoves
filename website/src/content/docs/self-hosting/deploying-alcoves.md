@@ -4,7 +4,7 @@ description: "Docker images, Helm chart, environment variables, and operational 
 ---
 
 Alcoves ships as a **single Docker image** that runs the whole stack — the Go
-API, the async worker, and the Nuxt (Nitro) frontend — plus two external data
+API, the async worker, and the SvelteKit frontend — plus two external data
 stores (PostgreSQL and Dragonfly). This page covers everything an operator needs
 to run a production instance: the runtime topology, the Helm chart, environment
 variables, ingress configuration, and the most important operational gotchas.
@@ -18,23 +18,24 @@ guide gets a full local stack running with a single `docker compose up`.
 
 ## Runtime topology
 
-A production Alcoves deployment runs **two processes** (the Nitro frontend and
-the Go API/worker) plus two external data stores. Both processes live inside the
-**same image** — the container's entrypoint supervises them together:
+A production Alcoves deployment runs **two processes** (the SvelteKit SSR
+server and the Go API/worker) plus two external data stores. Both processes
+live inside the **same image** — the container's entrypoint supervises them
+together:
 
 ```
                       ┌──────────────────────────────────────────┐
    browser ──────────▶│        reverse proxy / ingress           │
                       │  /api/**          ──▶  Go API   :3001     │
-                      │  /  (everything else, incl. /s/**) ─▶ Nitro :3000 │
+                      │  /  (everything else, incl. /s/**) ─▶ SvelteKit :3000 │
                       └─────────────┬───────────────┬────────────┘
                                     │               │
               ┌─────────────────────┴───────────────┴─────────────────────┐
               │           one container (ghcr.io/rustyguts/alcoves)        │
               │  ┌────────────────────┐      ┌────────────────────────┐    │
-              │  │  Nuxt 4 (Nitro)    │      │  Go API/worker (Echo)  │    │
+              │  │  SvelteKit (Bun)   │      │  Go API/worker (Echo)  │    │
               │  │  :3000             │      │  :3001                 │    │
-              │  │  UI + SSR /s/**    │ ───▶ │  ALCOVES_MODE=         │    │
+              │  │  UI + SSR          │ ───▶ │  ALCOVES_MODE=         │    │
               │  │  + /api proxy      │      │  all | api | worker    │    │
               │  └────────────────────┘      └──────┬───────┬─────────┘    │
               └─────────────────────────────────────┼───────┼─────────────┘
@@ -48,21 +49,24 @@ the Go API/worker) plus two external data stores. Both processes live inside the
 
 | Process | Default port | Role |
 |---|---|---|
-| Nuxt 4 (Nitro) | 3000 | Serves the UI, SSRs `/s/**` (public share pages), and proxies `/api/**` to the Go API. All other routes are client-rendered. |
+| SvelteKit (adapter-node, run under Bun) | 3000 | Serves and SSRs the whole UI (including `/s/**` public share pages) and proxies same-origin `/api/**` to the Go API. |
 | Go API (Echo) | 3001 | All `/api/**` HTTP endpoints and the async worker pool. |
 | PostgreSQL 18 + pgvector | 5432 | System of record. pgvector is required from the first migration (512-dim face embeddings). |
 | Dragonfly (Redis-compatible) | 6379 prod / 6389 dev | Backs the Asynq job queue and the cross-process activity pub/sub bus. |
 
-**Single-image quick start:** `docker run -p 3000:3000 ghcr.io/rustyguts/alcoves`
-runs the whole stack. Nitro serves the UI on `:3000` and proxies `/api/**` to the
-co-located Go API on `127.0.0.1:3001`, so a single published port is enough to get
-going.
+**Single container:** the image's default `all` role runs both processes in
+one container — it still needs PostgreSQL, the queue, and a session secret to
+boot (the [Quickstart](/getting-started/quickstart/) has a ready-made Compose
+file). SvelteKit serves the UI on `:3000` and proxies `/api/**` to the
+co-located Go API on `127.0.0.1:3001`, so a single published port is enough to
+get going.
 
 **Routing contract (production):** front the container with one reverse proxy.
 Route `/api/**` to the Go API on `:3001` and everything else (including the SSR
-share pages at `/s/**`) to the Nitro server on `:3000`. Routing `/api/**` straight
-to `:3001` — rather than letting Nitro proxy it — is what keeps video `Range`
-streaming intact (see [Direct browser streaming](#direct-browser-streaming-in-production)).
+share pages at `/s/**`) to the SvelteKit server on `:3000`. Routing `/api/**`
+straight to `:3001` — rather than through the SvelteKit proxy — is what keeps
+video `Range` streaming intact (see
+[Direct browser streaming](#direct-browser-streaming-in-production)).
 Publishing `:3001` from the same container makes this possible without a second
 image.
 
@@ -95,9 +99,17 @@ release:
 
 | Image | Source | Purpose |
 |---|---|---|
-| `ghcr.io/rustyguts/alcoves:<version>` | root `Dockerfile` | The whole stack — Go API/worker (libvips, ffmpeg, ONNX Runtime, whisper.cpp) **and** the Nuxt (Nitro) frontend, plus the Bun runtime that serves it |
+| `ghcr.io/rustyguts/alcoves:<version>` | root `Dockerfile` | The whole stack — Go API/worker (libvips, ffmpeg, ONNX Runtime, whisper.cpp) **and** the SvelteKit frontend, plus the Bun runtime that serves it |
 
 Tags follow semver: `0.x.y`, `0.x`, and `latest` (from `main`).
+
+:::caution[Development builds]
+A rolling `dev` tag (`ghcr.io/rustyguts/alcoves:dev`) is rebuilt on **every merge
+to `main`**, alongside a matching `dev` GitHub prerelease. It's handy for testing
+unreleased changes, but it is **not** a stable release — pin a semver tag
+(`0.x.y`) for anything you rely on. Each merge is also pinnable by its short
+commit SHA (`ghcr.io/rustyguts/alcoves:<short-sha>`).
+:::
 
 ### One image, four roles
 
@@ -106,14 +118,15 @@ The container's entrypoint takes a role argument (the image `CMD`, overridable v
 
 | Role | What runs |
 |---|---|
-| `all` (default) | Nitro (`:3000`) **and** the Go API+worker (`:3001`), supervised together. The simplest way to run everything in one container. |
-| `web` | Only the Nitro server (UI + SSR share pages). |
+| `all` (default) | SvelteKit (`:3000`) **and** the Go API+worker (`:3001`), supervised together. The simplest way to run everything in one container. |
+| `web` | Only the SvelteKit server (UI + SSR). |
 | `api` | Only the Go HTTP API (`ALCOVES_MODE=api`). |
 | `worker` | Only the Go Asynq worker (`ALCOVES_MODE=worker`). |
 
 The single-role modes exist so the same image can back split deployments — see the
-[Helm chart](#helm-chart), which runs `web`, `api`, and `worker` as three separate
-workloads from this one image.
+[Helm chart](#helm-chart), whose distributed mode runs `web`, `api`, and `worker`
+as three separate workloads from this one image (and whose standalone mode runs
+the `all` role in a single pod).
 
 ### What is inside the image
 
@@ -124,7 +137,7 @@ frontend:
 - **ffmpeg** — video transcoding, thumbnail extraction, and audio waveform generation
 - **ONNX Runtime v1.26.0** — face detection/recognition and COCO object detection
 - **whisper.cpp** — speech-to-text transcription (AVX/AVX2/FMA baseline; no AVX-512 requirement)
-- **Bun + the Nuxt `.output` bundle** — serves the UI and SSRs the public share pages
+- **Bun + the SvelteKit adapter-node build** — serves and SSRs the UI
 
 :::note
 Whisper and audio-tagger models are **not bundled** in the image. They are
@@ -154,7 +167,7 @@ prefixed `ALCOVES_`.
 
 | Variable | Description |
 |---|---|
-| `ALCOVES_SESSION_SECRET` | AES-GCM key for encrypted session cookies. **Must be ≥ 32 bytes.** The API refuses to start without this. Generate with `openssl rand -base64 32`. |
+| `ALCOVES_SESSION_SECRET` | Key for encrypted session cookies. Required — the API won't start without it. It's hashed into the AES-GCM key, so any non-empty value works; use a long random one, e.g. `openssl rand -base64 48`. |
 | `ALCOVES_DATABASE_URL` | PostgreSQL connection string. Must point to a pgvector-enabled database. |
 
 :::caution
@@ -241,19 +254,25 @@ Fine-tuning thresholds (sensible defaults, adjust if needed):
 
 ### Frontend variables
 
-These are set on the Nuxt server, not the Go API:
+These are set on the SvelteKit server, not the Go API:
 
 | Variable | Default | Description |
 |---|---|---|
-| `ALCOVES_API_URL` | `http://localhost:3001` | Go backend URL for the Nitro dev proxy and SSR fetches. Set to the in-cluster API service address in production. |
-| `NUXT_PUBLIC_API_ORIGIN` | _(empty)_ | **Important in production.** When set, browsers fetch binary content (video, images, downloads) directly from this origin instead of through Nitro. Nitro can corrupt HTTP `Range` responses, so setting this avoids seekable-video and download issues. |
-| `NITRO_HOST` / `NITRO_PORT` | `0.0.0.0:3000` | Override the Nitro server bind address |
+| `INTERNAL_API_URL` | `http://localhost:3001` | Go backend URL for the SvelteKit `/api` proxy and SSR fetches. Set to the in-cluster API service address in production (the unified image defaults it to `http://127.0.0.1:3001` for the `all` role). |
+| `PUBLIC_API_ORIGIN` | _(empty)_ | **Important in production.** When set, browsers fetch binary content (video, images, downloads) and the activity WebSocket directly from this origin instead of through the SvelteKit proxy — avoiding `Range`-response buffering issues and offloading streaming. |
+| `FRONTEND_HOST` / `FRONTEND_PORT` | `0.0.0.0:3000` | adapter-node bind address |
+| `FRONTEND_PROTOCOL_HEADER` / `FRONTEND_HOST_HEADER` | `x-forwarded-proto` / `x-forwarded-host` | Derive the request origin from the reverse proxy (required for form POSTs unless `FRONTEND_ORIGIN` is set) |
+| `FRONTEND_BODY_SIZE_LIMIT` | `Infinity` | Must stay unbounded or TUS upload chunks proxied through SvelteKit are rejected |
+| `PUBLIC_GOOGLE_AUTH_ENABLED` | _(empty)_ | `true` shows the Google sign-in button (set alongside the backend OAuth credentials) |
+| `PUBLIC_MAP_TILE_URL` / `PUBLIC_MAP_TILE_ATTRIBUTION` | OpenStreetMap | Self-host map tiles to keep tile requests off third-party servers |
+| `PUBLIC_SENTRY_DSN` | _(empty)_ | Browser-side error reporting |
 
 :::caution
-Set `NUXT_PUBLIC_API_ORIGIN` in any production deployment where the frontend
-and API are behind the same reverse proxy. Without it, browsers route binary
-requests through Nitro, which can corrupt `Range` responses and break
-video seeking.
+Set `PUBLIC_API_ORIGIN` in any production deployment where the frontend and
+API are behind the same reverse proxy. Without it, browsers route binary
+requests through the SvelteKit proxy, which buffers `Range` responses and
+degrades video seeking — and the activity feed falls back from WebSocket to
+polling.
 :::
 
 ---
@@ -261,50 +280,58 @@ video seeking.
 ## Helm chart
 
 The Helm chart (`helm/alcoves/`) deploys Alcoves to Kubernetes. It does
-**not** deploy PostgreSQL or Dragonfly — operators supply their own.
+**not** deploy PostgreSQL or Dragonfly — operators supply their own. Values
+are validated by a bundled `values.schema.json` plus render-time checks, so
+missing/contradictory configuration fails at `helm install`, not at pod boot.
 
 ### Prerequisites
 
 - Kubernetes 1.27+
-- An nginx ingress controller
-- cert-manager or another TLS source
+- An ingress controller (nginx tested) and cert-manager or another TLS source, if you enable the ingress
 - pgvector-enabled PostgreSQL
 - A Redis-compatible queue (Dragonfly recommended)
-- Either an RWX-capable `PersistentVolumeClaim` or S3-compatible storage
+- Storage: a PVC (`ReadWriteMany` for distributed mode) or S3-compatible storage
 
-### Workloads
+### Deployment modes
 
-The chart deploys three separate workloads, all from the **one unified image**.
-Each selects its role via container `args`:
+`deploymentMode` selects the topology — both run the **one unified image**,
+with each workload picking a role via container `args`:
 
-| Workload | Role (`args`) | Default replicas | Purpose |
-|---|---|---|---|
-| `backend-api` | `api` | 2 | Serves all HTTP requests |
-| `backend-worker` | `worker` | 1 | Runs Asynq jobs (ML inference, ffmpeg, transcription) |
-| `frontend` | `web` | 2 | Nuxt Nitro server |
+| Mode | Workloads | Best for |
+|---|---|---|
+| `distributed` (default) | `frontend` (`web`, 2 replicas), `backend-api` (`api`, 2), `backend-worker` (`worker`, 3) | Multi-node clusters; isolating heavy ML/transcode work from request latency |
+| `standalone` | One pod running the `all` role (SvelteKit + API + worker supervised together) | Single-node clusters (k3s, homelab) — works with a plain `ReadWriteOnce` PVC |
 
-All three pull the **same image** and differ only by role — so rolling out a new
-version is a single `image.tag` bump for the entire app.
+Rolling out a new version is a single `image.tag` bump either way. Start from
+the matching example: `helm/alcoves/examples/standalone.yaml` or
+`helm/alcoves/examples/production.yaml`.
 
 ### Resource allocation
 
-The worker deployment deliberately has **no CPU limit** and a generous memory
-limit (default `10Gi`). This is intentional: whisper large-v3 needs ~3.9 GB of
-RAM, and concurrent ffmpeg + ONNX inference can spike well past 4 GB. CFS CPU
-throttling hurts ML workload latency more than it helps isolation.
+The worker deliberately has **no CPU limit** and a generous memory limit:
+whisper large-v3 needs ~4–5 GB of RAM and each worker pod runs two jobs at
+once, so concurrent ffmpeg + ONNX inference can spike well past 8 GB. CFS CPU
+throttling hurts ML workload latency more than it helps isolation. Scale
+throughput by adding worker replicas, not by raising per-pod concurrency.
 
 | Workload | CPU request | CPU limit | Memory request | Memory limit |
 |---|---|---|---|---|
 | `backend-api` | `200m` | `2` | `512Mi` | `2Gi` |
-| `backend-worker` | `2` | _(none)_ | `4Gi` | `10Gi` |
+| `backend-worker` | `2` | _(none)_ | `4Gi` | `12Gi` |
 | `frontend` | `100m` | `1` | `256Mi` | `512Mi` |
+
+Every workload also exposes `nodeSelector`, `tolerations`, `affinity`,
+`topologySpreadConstraints`, `priorityClassName`, `updateStrategy`,
+`podDisruptionBudget`, and (in distributed mode) `autoscaling` for an HPA.
 
 ### Ingress routing
 
 The chart's ingress routes by path prefix:
 
-- `/api` → backend-api service
-- `/` → frontend service (catch-all, including SSR share pages at `/s/**`)
+- `/api` → the Go API service (TUS uploads, streaming, MCP)
+- `/.well-known/oauth-*` → the Go API (only when `mcp.oauth.enabled` — these
+  OAuth discovery documents live at the site root)
+- `/` → the SvelteKit service (catch-all, including SSR share pages at `/s/**`)
 
 Default ingress annotations enable TUS resumable uploads and seekable video out
 of the box:
@@ -325,51 +352,64 @@ uploads and HTTP `Range` requests used by the video player.
 
 TLS is enabled by default (`ingress.tls.enabled: true`), with a default
 `secretName` of `alcoves-tls`. Wire this to cert-manager or your own
-certificate provider.
+certificate provider. The chart warns at install time if `baseUrl` and
+`ingress.host` disagree.
 
-### Storage: RWX PVC vs S3
+### Storage: PVC vs S3
 
-For the local storage driver, the chart creates a `PersistentVolumeClaim` that
-both the API and worker pods mount at `/app/data`:
+For the local storage driver, the chart creates a `PersistentVolumeClaim`
+mounted at `/app/data` by every backend pod:
 
 ```yaml
-persistentVolume:
-  enabled: true
-  size: 200Gi
-  storageClass: ""      # use cluster default
-  accessModes:
-    - ReadWriteMany     # required when API or worker replicaCount > 1
+storage:
+  persistentVolume:
+    enabled: true
+    retain: true        # keep the PVC (your data!) on helm uninstall
+    size: 200Gi
+    storageClass: ""    # use cluster default
+    accessModes:
+      - ReadWriteMany   # distributed mode; standalone works with ReadWriteOnce
+    existingClaim: ""   # or bring your own
 ```
 
 :::caution
-With `replicaCount > 1` for either the API or worker, the PVC **must** be
-`ReadWriteMany`. Both pods read and write the same uploaded files, ML model
-cache, and derived thumbnails/waveforms through this volume. Using `ReadWriteOnce`
-with multiple replicas will cause failures.
+In distributed mode the api and worker pods share this volume, so it **must**
+be `ReadWriteMany` unless the scheduler can co-locate every pod on one node.
+The chart prints a warning when no RWX access mode is configured — if your
+cluster has no RWX storage class, use `deploymentMode: standalone` instead.
 :::
 
-Switch to S3 by setting `storage.driver: s3` and providing your bucket
-credentials in `values.yaml` or via an existing secret. No PVC is created in S3 mode.
+The PVC is annotated `helm.sh/resource-policy: keep` by default
+(`storage.persistentVolume.retain`), so `helm uninstall` does **not** delete
+your files.
+
+Switch to S3 by setting `storage.driver: s3` and providing bucket credentials
+inline or via an existing secret. No PVC is created in S3 mode. (Check the
+release notes before relying on S3 — server-side support is still being wired
+up.)
 
 ### Secrets and credentials
 
-The chart generates a single Kubernetes Secret (`<release>-app`) for
-credentials. Every secret supports delegation to a pre-existing Secret so you
-can use an external secret manager:
+Inline credentials land in a single chart-managed Secret (`<release>-app`);
+pods carry a checksum annotation so changing a credential rolls them. Every
+credential can instead come from a pre-existing Secret (external-secrets,
+SOPS, …) — when all of them do, the chart creates no Secret at all:
 
-| Credential | `values.yaml` key | Existing secret key |
+| Credential | `values.yaml` key | Existing secret ref (key) |
 |---|---|---|
-| Session secret | `sessionSecret` | `existingSessionSecret` |
-| Database URL | `database.url` | `database.existingSecret` |
-| Queue password | `queue.password` | `queue.existingSecret` |
-| Google OAuth | `oauth.google.clientId` / `clientSecret` | `oauth.google.existingSecret` |
-| S3 credentials | `storage.s3.accessKeyId` / `secretAccessKey` | `storage.s3.existingSecret` |
+| Session secret | `sessionSecret` | `existingSessionSecret` (`sessionSecret`) |
+| Database URL | `database.url` | `database.existingSecret` (`url`) |
+| Queue password | `queue.password` | `queue.existingSecret` (`password`) |
+| Google OAuth | `oauth.google.clientId` / `clientSecret` | `oauth.google.existingSecret` (`clientId`, `clientSecret`) |
+| S3 credentials | `storage.s3.accessKeyId` / `secretAccessKey` | `storage.s3.existingSecret` (`accessKeyId`, `secretAccessKey`) |
+| MCP signing secret (optional) | `mcp.signingSecret` | — |
 
-`sessionSecret` is required — the chart fails if both `sessionSecret` and
-`existingSessionSecret` are empty.
+A session secret and a database URL are required — the chart refuses to render
+without them. Configuring Google OAuth also sets
+`PUBLIC_GOOGLE_AUTH_ENABLED` on the frontend so the sign-in button appears.
 
-Use `extraEnv` in `values.yaml` to pass additional environment variables (such
-as ML tuning thresholds) without forking the chart:
+Use `extraEnv` / `extraEnvFrom` (backend pods) and `frontend.extraEnv` to pass
+additional environment variables without forking the chart:
 
 ```yaml
 extraEnv:
@@ -379,10 +419,24 @@ extraEnv:
     value: "0.25"
 ```
 
+### Optional features
+
+- **MCP over HTTP** — `mcp.httpEnabled: true` exposes the MCP server at
+  `/api/mcp` (PAT bearer auth); `mcp.oauth.enabled: true` adds the OAuth 2.1
+  flow used by remote connectors and wires the discovery endpoints through the
+  ingress.
+- **Sentry** — `sentry.backendDsn` / `sentry.frontendDsn` /
+  `sentry.tracesSampleRate`.
+- **NetworkPolicy** — `networkPolicy.enabled: true` restricts inbound traffic
+  to the app's HTTP ports.
+- **Smoke tests** — `helm test <release>` probes `/api/health`, `/api/version`,
+  and the frontend through the deployed Services.
+
 ### Upgrading
 
-Rolling out a new version restarts both the API and worker deployments. The API
-pod applies pending migrations before serving traffic. A safe upgrade sequence:
+Rolling out a new version restarts the workloads; the API pods apply pending
+migrations before serving traffic. Workload names and selectors are stable
+across chart versions, so upgrades roll in place:
 
 ```sh
 helm upgrade alcoves helm/alcoves/ --set image.tag=0.x.y
@@ -438,10 +492,11 @@ deployment to run slower than steady-state.
 
 ### Direct browser streaming in production
 
-Set `NUXT_PUBLIC_API_ORIGIN` so browsers fetch video and large files directly
-from the API instead of routing through the Nuxt server. Without it, Nitro acts
-as a passthrough for binary responses — and Nitro can corrupt HTTP `Range`
-responses, breaking video seeking and download resumption.
+Set `PUBLIC_API_ORIGIN` so browsers fetch video and large files (and the
+activity WebSocket) directly from the API instead of routing through the
+SvelteKit server. Without it, every binary response is proxied and buffered by
+SvelteKit, which hurts `Range`-request streaming, and the notifications socket
+degrades to polling. The Helm chart defaults it to `baseUrl`.
 
 ### Shared storage is mandatory for multi-replica
 
@@ -451,9 +506,9 @@ use an RWX PVC or S3.
 
 ### Worker memory sizing
 
-The Helm default of `10Gi` memory for the worker reflects real production peaks.
-If you reduce this, expect the worker to OOM-kill during large transcription or
-concurrent ffmpeg + ONNX jobs.
+The Helm default of `12Gi` memory for the worker reflects real production
+peaks with two concurrent jobs per pod. If you reduce this, expect the worker
+to OOM-kill during large transcription or concurrent ffmpeg + ONNX jobs.
 
 ---
 

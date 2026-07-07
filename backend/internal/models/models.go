@@ -568,3 +568,38 @@ type UserNotificationDismissal struct {
 }
 
 func (UserNotificationDismissal) TableName() string { return "user_notification_dismissals" }
+
+// Document is the CRDT sidecar for a live-editable markdown file (1:1 with a
+// files row; PK = file_id). Snapshot is a client-computed merged Yjs update
+// (Y.encodeStateAsUpdate) covering everything up to SnapshotSeq — the server
+// stores it opaquely and never interprets Yjs data. LastSeq is the dense
+// per-document sequence counter for document_updates; seq assignment happens
+// under a row lock on this row.
+type Document struct {
+	FileID      uuid.UUID `gorm:"column:file_id;type:uuid;primaryKey" json:"fileId"`
+	LibraryID   uuid.UUID `gorm:"column:library_id;type:uuid;not null;index:documents_library_idx" json:"libraryId"`
+	LastSeq     int64     `gorm:"column:last_seq;type:bigint;not null;default:0" json:"lastSeq"`
+	Snapshot    []byte    `gorm:"column:snapshot;type:bytea" json:"-"`
+	SnapshotSeq int64     `gorm:"column:snapshot_seq;type:bigint;not null;default:0" json:"snapshotSeq"`
+	CreatedAt   time.Time `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;not null;default:now()" json:"updatedAt"`
+
+	File    *File    `gorm:"foreignKey:FileID" json:"-"`
+	Library *Library `gorm:"foreignKey:LibraryID" json:"-"`
+}
+
+func (Document) TableName() string { return "documents" }
+
+// DocumentUpdate is one opaque Yjs update in a document's append-only log.
+// Seq is dense per document (gap = loss, which clients detect and replay over
+// HTTP). Rows with seq <= documents.snapshot_seq are pruned on compaction.
+// AuthorID is retained as the hook for future version history.
+type DocumentUpdate struct {
+	FileID    uuid.UUID  `gorm:"column:file_id;type:uuid;not null;primaryKey" json:"fileId"`
+	Seq       int64      `gorm:"column:seq;type:bigint;not null;primaryKey;autoIncrement:false" json:"seq"`
+	Data      []byte     `gorm:"column:data;type:bytea;not null" json:"-"`
+	AuthorID  *uuid.UUID `gorm:"column:author_id;type:uuid" json:"authorId"`
+	CreatedAt time.Time  `gorm:"column:created_at;not null;default:now()" json:"createdAt"`
+}
+
+func (DocumentUpdate) TableName() string { return "document_updates" }

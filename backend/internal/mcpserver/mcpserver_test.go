@@ -12,6 +12,7 @@ import (
 
 	"github.com/alcoves/alcoves-backend/internal/models"
 	"github.com/alcoves/alcoves-backend/internal/services/access"
+	"github.com/alcoves/alcoves-backend/internal/services/docs"
 	"github.com/alcoves/alcoves-backend/internal/services/files"
 	"github.com/alcoves/alcoves-backend/internal/services/signing"
 	"github.com/alcoves/alcoves-backend/internal/services/storage"
@@ -34,6 +35,7 @@ func setup(t *testing.T) fixture {
 		&models.User{}, &models.Library{}, &models.LibraryMember{}, &models.File{}, &models.Folder{},
 		&models.Tag{}, &models.FileTag{}, &models.Person{}, &models.ObjectDetection{},
 		&models.AudioDetection{}, &models.Moment{}, &models.MomentTag{}, &models.LibraryActivity{},
+		&models.Document{}, &models.DocumentUpdate{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -69,6 +71,7 @@ func setup(t *testing.T) fixture {
 		Files:   files.NewServiceWithIngest(db, files.IngestDeps{Storage: st}),
 		Storage: st,
 		Signer:  signing.New("mcp-test-secret"),
+		Docs:    docs.NewService(db, st, nil, nil),
 		BaseURL: "https://alcoves.test",
 	}
 	return fixture{deps: deps, userA: userA, userB: userB, userC: userC, libA: libA.ID, libShared: libShared.ID}

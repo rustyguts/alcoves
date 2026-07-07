@@ -12,6 +12,8 @@
 	import { createLibraryTags } from '$lib/state/library-tags.svelte';
 	import { createDownloadZip } from '$lib/state/download-zip.svelte';
 	import { createLibraryFolderActions } from '$lib/state/library-folder-actions.svelte';
+	import { createLibraryDocumentActions } from '$lib/state/library-document-actions.svelte';
+	import { isMarkdownFile } from '$lib/utils/markdown-file';
 	import {
 		ROOT_MOVE_VALUE,
 		buildMoveDestinationOptions,
@@ -80,6 +82,11 @@
 		() => explorer.refreshFolders(),
 		() => explorer.resetAndFetch(),
 		() => explorer.refreshTrashedCount()
+	);
+
+	const documentActions = createLibraryDocumentActions(
+		() => libraryId,
+		() => currentFolderId
 	);
 
 	// ── Local UI state ──────────────────────────────────────────────────────────
@@ -260,9 +267,21 @@
 		void goto(`/libraries/${libraryId}${search ? `?${search}` : ''}`);
 	}
 
+	function openDocument(entryId: string) {
+		const from = currentFolderId ? `?from=${currentFolderId}` : '';
+		void goto(`/libraries/${libraryId}/doc/${entryId}${from}`);
+	}
+
 	function openEntry(entry: LibraryEntry) {
 		if (entry.kind === 'folder') {
 			openFolder(entry.id);
+			return;
+		}
+		// Markdown files ARE live documents — open the collaborative editor
+		// (every role: viewers get the live read-only view). Trash keeps the
+		// plain preview since trashed docs reject edits.
+		if (!trashed && isMarkdownFile(entry.mimeType, entry.name)) {
+			openDocument(entry.id);
 			return;
 		}
 		openPreview(entry);
@@ -908,6 +927,15 @@
 							}
 						]
 					: []),
+				...(isMarkdownFile(entry.mimeType, entry.name)
+					? [
+							{
+								label: 'Open document',
+								icon: ICONS.edit,
+								onSelect: () => openDocument(entry.id)
+							}
+						]
+					: []),
 				...(entry.mimeType.startsWith('video/') || entry.mimeType.startsWith('audio/')
 					? [
 							{
@@ -1104,6 +1132,17 @@
 							<AppIcon name={ICONS.folder} class="size-4" />
 						{/snippet}
 						<span class="hidden sm:inline">Folder</span>
+					</Button>
+					<Button
+						variant="tonal"
+						color="primary"
+						class="h-9"
+						onclick={() => documentActions.openCreateDocumentModal()}
+					>
+						{#snippet icon()}
+							<AppIcon name={ICONS.file} class="size-4" />
+						{/snippet}
+						<span class="hidden sm:inline">Document</span>
 					</Button>
 					<Button variant="tonal" color="primary" class="h-9" onclick={() => (uploadOpen = true)}>
 						{#snippet icon()}
@@ -1330,6 +1369,46 @@
 			>
 				{#snippet icon()}
 					<AppIcon name={ICONS.folder} class="size-4" />
+				{/snippet}
+				Create
+			</Button>
+		</div>
+	</AppModal>
+
+	<!-- Create Document Modal -->
+	<AppModal bind:open={documentActions.createDocumentOpen} title="New Document">
+		<div class="flex flex-col gap-2">
+			<label class="text-sm font-medium" for="create-document-name">Document name</label>
+			<input
+				id="create-document-name"
+				class="input w-full"
+				placeholder="Untitled"
+				bind:value={documentActions.createDocumentName}
+				onkeydown={(e) => {
+					if (e.key === 'Enter') documentActions.createDocument();
+				}}
+			/>
+			<p class="text-xs opacity-60">
+				A markdown file everyone in the library can edit together, live.
+			</p>
+		</div>
+		<div class="flex w-full justify-end gap-2">
+			<button
+				type="button"
+				class="btn preset-tonal"
+				onclick={() => (documentActions.createDocumentOpen = false)}
+			>
+				Cancel
+			</button>
+			<Button
+				variant="tonal"
+				color="primary"
+				loading={documentActions.creatingDocument}
+				disabled={!documentActions.createDocumentName.trim() || documentActions.creatingDocument}
+				onclick={() => documentActions.createDocument()}
+			>
+				{#snippet icon()}
+					<AppIcon name={ICONS.file} class="size-4" />
 				{/snippet}
 				Create
 			</Button>

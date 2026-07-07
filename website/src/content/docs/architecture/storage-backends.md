@@ -49,9 +49,10 @@ identifiers (library ID, file ID, user ID) into the scope-qualified keys the
 driver understands. All handlers and media services call the Service, never the
 Driver directly.
 
-**Concrete drivers** — `LocalDriver` (local filesystem, the default) and the S3
-driver (selected by `ALCOVES_STORAGE_DRIVER=s3`). Both are wired at startup;
-the rest of the system never sees the switch.
+**Concrete drivers** — `LocalDriver` (local filesystem, the default) and an S3
+driver. The rest of the system never sees the switch — but note that today the
+server **always constructs the local driver**; the S3 driver and its
+configuration exist in the codebase without being wired into startup yet.
 
 ---
 
@@ -158,11 +159,17 @@ where data stays entirely on your own hardware.
 
 ## S3 driver
 
-When `ALCOVES_STORAGE_DRIVER=s3`, a separate driver implementation backs the
-same interface against any S3-compatible object store (AWS S3, MinIO, Cloudflare
-R2, Backblaze B2, etc.). Because it satisfies the same Driver contract, the
-Service, all handlers, and all media workers behave identically — only the
-destination of the bytes changes.
+:::caution[Not available yet]
+The S3 driver and its `ALCOVES_S3_*` configuration are present in the codebase,
+but the server currently always uses the local driver — setting
+`ALCOVES_STORAGE_DRIVER=s3` has no effect yet. This section describes the
+design so you know where it's headed; treat S3 as planned, not available.
+:::
+
+The S3 driver backs the same interface against any S3-compatible object store
+(AWS S3, MinIO, Cloudflare R2, Backblaze B2, etc.). Because it satisfies the
+same Driver contract, the Service, all handlers, and all media workers behave
+identically — only the destination of the bytes changes.
 
 Each scope maps to a configurable key prefix in the bucket:
 

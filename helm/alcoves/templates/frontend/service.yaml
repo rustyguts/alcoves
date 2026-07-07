@@ -1,0 +1,28 @@
+{{- if and (eq .Values.deploymentMode "distributed") .Values.frontend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "alcoves.frontend.fullname" . }}
+  labels:
+    {{- include "alcoves.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+  {{- if or .Values.service.annotations .Values.commonAnnotations }}
+  annotations:
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.frontend.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "alcoves.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+{{- end }}

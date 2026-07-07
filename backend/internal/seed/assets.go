@@ -17,7 +17,7 @@ import (
 // assets/generate.sh. Embedding keeps `go test ./internal/seed/...` and the
 // docker image identical (no external paths to mount).
 //
-//go:embed assets/images/*.jpg assets/videos/*.mp4 assets/audio/*.mp3 assets/thumbs/*.webp assets/faces/*.webp
+//go:embed assets/images/*.jpg assets/videos/*.mp4 assets/audio/*.mp3 assets/thumbs/*.webp assets/faces/*.webp assets/docs/*.md
 var assetsFS embed.FS
 
 // asset reads an embedded asset by its path relative to the assets directory,

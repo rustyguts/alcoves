@@ -1,6 +1,6 @@
 ---
 title: "Search, activity feed & notifications"
-description: "Find files across libraries with AI-powered search, track library history in the activity feed, and get real-time notifications from collaborators."
+description: "Search across all your libraries by name, detected content, and transcripts; follow library history in the activity feed; get real-time notifications from collaborators."
 ---
 
 Alcoves gives you three ways to stay on top of your media: a cross-library search that understands what is *in* your files, a per-library activity history, and a real-time notification bell for collaborator actions.

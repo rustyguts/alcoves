@@ -1,48 +1,262 @@
 # Alcoves Helm values. Override anything here via -f my-values.yaml or --set.
+#
+# Quick starts for common setups live in examples/:
+#   examples/standalone.yaml — single all-in-one pod, no RWX storage needed
+#   examples/production.yaml — split workloads, RWX PVC, external secrets
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Labels/annotations added to every resource the chart creates.
+commonLabels: {}
+commonAnnotations: {}
+
+# =============================================================================
+# Deployment mode
+# =============================================================================
+# distributed — three workloads (frontend, api, worker) that scale
+#               independently. The api + worker pods share the data volume, so
+#               local storage needs a ReadWriteMany PVC once either has more
+#               than one replica (or when the scheduler places them on
+#               different nodes).
+# standalone  — ONE pod running the image's `all` role (SvelteKit + Go API +
+#               worker supervised together). The simplest way to run Alcoves on
+#               a single-node cluster: works with a plain ReadWriteOnce PVC and
+#               no cross-pod storage coordination. Scale-up later by switching
+#               to distributed — resource names differ, so install fresh or
+#               expect new Deployments.
+deploymentMode: distributed
 
 # =============================================================================
 # Image
 # =============================================================================
-# One unified image runs every role. The three workloads below (frontend, api,
-# worker) all pull this same image and select their role via container args
-# (web | api | worker) — so a version upgrade is a single image bump.
+# One unified image runs every role. All workloads pull this same image and
+# select their role via container args (web | api | worker | all) — a version
+# upgrade is a single image bump.
 image:
   repository: ghcr.io/rustyguts/alcoves
-  tag: ""                # defaults to .Chart.AppVersion
+  tag: "" # defaults to .Chart.AppVersion — pin to an exact version in production
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 
 # =============================================================================
-# Public-facing URL
+# Public-facing URL + environment
 # =============================================================================
-# Used for OAuth redirect callbacks and outbound share links.
+# baseUrl drives OAuth redirect callbacks, outbound share links, the primary
+# CORS origin, and (when MCP OAuth is enabled) the OAuth issuer. Keep it
+# accurate — it should match the URL users type into their browser.
 baseUrl: https://alcoves.example.com
 
+# ALCOVES_ENV. Use "production" for any real deployment — "development"
+# loosens CORS to allow localhost origins.
+environment: production
+
+# Extra origins allowed by the API's CORS policy (ALCOVES_EXTRA_CORS_ORIGINS).
+# Only needed if browsers reach the API from an origin other than baseUrl /
+# frontend.publicApiOrigin.
+extraCorsOrigins: []
+
 # =============================================================================
-# Frontend (SvelteKit SSR)
+# Sessions (required)
+# =============================================================================
+# AES-GCM key, ≥32 bytes. Generate: `openssl rand -base64 48`.
+# Provide exactly one of these — install fails if both are empty.
+sessionSecret: ""
+existingSessionSecret: "" # secret with key: sessionSecret
+
+# =============================================================================
+# Database (PostgreSQL + pgvector)
+# =============================================================================
+# This chart does NOT deploy Postgres. Point at any cluster you trust
+# (CloudNativePG, Crunchy, RDS, etc.). The server image must include pgvector.
+database:
+  url: "" # postgres://user:pass@host:5432/alcoves?sslmode=require
+  existingSecret: "" # secret with key `url`; overrides .url
+
+# =============================================================================
+# Queue (Dragonfly / Redis-compatible) for asynq jobs + activity pub/sub
+# =============================================================================
+# Not deployed by this chart either.
+queue:
+  host: dragonfly
+  port: 6379
+  password: ""
+  existingSecret: "" # secret with key `password`; overrides .password
+
+# =============================================================================
+# OAuth login (optional)
+# =============================================================================
+# Setting Google credentials also flips PUBLIC_GOOGLE_AUTH_ENABLED on the
+# frontend so the sign-in button appears.
+oauth:
+  google:
+    clientId: ""
+    clientSecret: ""
+    existingSecret: "" # secret with keys: clientId, clientSecret
+
+# =============================================================================
+# MCP (Model Context Protocol) — optional
+# =============================================================================
+# Exposes the MCP server over HTTP at /api/mcp (PAT bearer auth). Enabling
+# oauth additionally turns on the OAuth 2.1 authorization server used by
+# remote connectors (e.g. claude.ai custom connectors); it requires httpEnabled
+# and an https baseUrl, and the chart routes the /.well-known/oauth-* discovery
+# endpoints to the API through the ingress automatically.
+mcp:
+  httpEnabled: false
+  # HMAC secret for signed MCP upload/download URLs. Empty → the app falls
+  # back to the session secret.
+  signingSecret: ""
+  oauth:
+    enabled: false
+    dcrEnabled: true # RFC 7591 dynamic client registration
+    accessTtl: "" # e.g. "1h"; empty → app default
+    refreshTtl: "" # e.g. "720h"; empty → app default
+    codeTtl: "" # e.g. "5m"; empty → app default
+    allowedRedirectHosts: [] # optional allowlist for client redirect URIs
+
+# =============================================================================
+# Error reporting (optional)
+# =============================================================================
+sentry:
+  backendDsn: "" # ALCOVES_SENTRY_DSN
+  tracesSampleRate: "" # e.g. "0.2"; empty → app default
+  frontendDsn: "" # PUBLIC_SENTRY_DSN
+
+# =============================================================================
+# Storage — uploaded files, derived media cache, downloaded ML models
+# =============================================================================
+storage:
+  driver: local # local | s3
+  # When driver=local the chart provisions a PVC mounted at /app/data by every
+  # backend pod.
+  persistentVolume:
+    enabled: true
+    # Keep the PVC (and your data) when the release is uninstalled. The claim
+    # must then be deleted manually if you really want the data gone.
+    retain: true
+    storageClass: "" # "" → cluster default
+    # ReadWriteMany is required in distributed mode whenever the api + worker
+    # pods can land on different nodes. standalone mode works with
+    # ReadWriteOnce.
+    accessModes: [ReadWriteMany]
+    size: 200Gi
+    annotations: {}
+    # Reuse a pre-existing PVC instead of creating one.
+    existingClaim: ""
+  # When driver=s3, fill these. Scopes are separate key prefixes.
+  # NOTE: S3 support is still being wired up server-side — check the release
+  # notes before relying on it.
+  s3:
+    bucket: ""
+    region: ""
+    endpoint: ""
+    forcePathStyle: false
+    accessKeyId: "" # use existingSecret instead for prod
+    secretAccessKey: ""
+    filesPrefix: "files/"
+    avatarsPrefix: "avatars/"
+    cachePrefix: "cache/"
+    existingSecret: "" # secret with keys: accessKeyId, secretAccessKey
+
+# =============================================================================
+# Model assets — Whisper, audio taggers, YOLO, InsightFace
+# Defaults point at the public bucket on s3.rustyguts.net. Override to mirror
+# privately if egress matters or the public bucket is unreachable.
+# =============================================================================
+models:
+  # Boot-time fallback for the transcription model. Admins can override at
+  # runtime from /admin → Inference Models; the worker reads admin settings
+  # first and falls back here when unset (fresh installs, tests).
+  whisperModel: large-v3
+  whisperLanguage: auto
+  # Silero VAD model name. Required to suppress the repetition-loop
+  # hallucination on long non-speech audio (game/music/silence).
+  # Set to "" to disable (not recommended).
+  whisperVadModel: silero-v6.2.0
+  whisperModelBaseUrl: https://s3.rustyguts.net/models
+  audioDetectModelBaseUrl: https://s3.rustyguts.net/models
+  audioDetectLabelsUrl: https://s3.rustyguts.net/models/audioset_class_labels_indices.csv
+
+# =============================================================================
+# Extra environment (advanced)
+# =============================================================================
+# extraEnv / extraEnvFrom are merged into every BACKEND container (api, worker,
+# standalone). Use for tuning face/object detection, model paths, etc. The
+# frontend has its own frontend.extraEnv.
+extraEnv: []
+# - name: ALCOVES_FACE_DETECTION_MIN_SCORE
+#   value: "0.6"
+extraEnvFrom: []
+# - secretRef:
+#     name: my-extra-secret
+
+# =============================================================================
+# Frontend (SvelteKit SSR) — distributed mode only
 # =============================================================================
 frontend:
   enabled: true
   replicaCount: 2
   port: 3000
+
+  # PUBLIC_API_ORIGIN — exposed to the browser so binary content (video,
+  # images, downloads) and the activity WebSocket bypass the SvelteKit /api
+  # proxy and stream directly from the API. Defaults to baseUrl, which is
+  # correct when the frontend and API share one ingress. Set to an explicit
+  # https://api.example.com if you split them across domains.
+  publicApiOrigin: "" # "" → baseUrl
+
+  # Optional self-hosted map tiles for the Map view (privacy: keeps tile
+  # requests off third-party servers).
+  map:
+    tileUrl: "" # PUBLIC_MAP_TILE_URL
+    attribution: "" # PUBLIC_MAP_TILE_ATTRIBUTION
+
   resources:
     requests: { cpu: 100m, memory: 256Mi }
-    limits:   { cpu: 1,    memory: 512Mi }
+    limits: { cpu: 1, memory: 512Mi }
+
+  # Container-level env for the SvelteKit server only.
+  extraEnv: []
+
+  updateStrategy: {}
+  # type: RollingUpdate
+  # rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  terminationGracePeriodSeconds: 30
+  livenessProbe:
+    httpGet: { path: /, port: http }
+    initialDelaySeconds: 20
+    periodSeconds: 30
+  readinessProbe:
+    httpGet: { path: /, port: http }
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
   podAnnotations: {}
+  podLabels: {}
   nodeSelector: {}
   affinity: {}
   tolerations: []
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  extraVolumes: []
+  extraVolumeMounts: []
 
-  # PUBLIC_API_ORIGIN — exposed to the browser so binary content (video,
-  # images, downloads) bypasses the SvelteKit /api proxy and streams directly
-  # from the API. Defaults to baseUrl, which is correct when both the SvelteKit
-  # server and the API live behind the same ingress. Set to an explicit
-  # https://api.example.com if you split them on different domains.
-  publicApiOrigin: ""    # "" → baseUrl
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    # maxUnavailable: ""
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: ""
 
 # =============================================================================
-# Backend API
+# Backend — distributed mode only
 # =============================================================================
 backend:
   api:
@@ -51,11 +265,10 @@ backend:
     port: 3001
     resources:
       requests: { cpu: 200m, memory: 512Mi }
-      limits:   { cpu: 2,    memory: 2Gi }
-    podAnnotations: {}
-    nodeSelector: {}
-    affinity: {}
-    tolerations: []
+      limits: { cpu: 2, memory: 2Gi }
+    extraEnv: []
+    updateStrategy: {}
+    terminationGracePeriodSeconds: 30
     livenessProbe:
       httpGet: { path: /api/health, port: http }
       initialDelaySeconds: 20
@@ -64,133 +277,119 @@ backend:
       httpGet: { path: /api/health, port: http }
       initialDelaySeconds: 5
       periodSeconds: 5
+    podAnnotations: {}
+    podLabels: {}
+    nodeSelector: {}
+    affinity: {}
+    tolerations: []
+    topologySpreadConstraints: []
+    priorityClassName: ""
+    extraVolumes: []
+    extraVolumeMounts: []
+    podDisruptionBudget:
+      enabled: false
+      minAvailable: 1
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: ""
 
-# =============================================================================
-# Backend worker (heavy jobs: ffmpeg, whisper.cpp, ONNX inference)
-# Runs as a separate deployment so transcode/detect work doesn't block API.
-# =============================================================================
+  # Worker — heavy jobs: ffmpeg, whisper.cpp, ONNX inference. Runs as a
+  # separate deployment so transcode/detect work doesn't block the API.
   worker:
     enabled: true
     # Scale throughput OUT, not up: each pod runs asynq at concurrency 2 (see
     # cmd/server/main.go), so to process more jobs in parallel add replicas
     # rather than raising per-pod concurrency. More pods spread peak memory
     # across nodes and fail independently — a single fat, high-concurrency pod
-    # concentrates OOM risk, which is exactly what was orphaning jobs. Default to
-    # 3 workers so a couple of heavy long-runners (whisper/transcode) don't block
-    # the rest of the queue.
+    # concentrates OOM risk. Default to 3 workers so a couple of heavy
+    # long-runners (whisper/transcode) don't block the rest of the queue.
     replicaCount: 3
-    # Memory is sized for asynq concurrency 2 (two in-flight heavy jobs per pod).
-    # Each is RAM-hungry: whisper medium ~2.5GB (f16 weights + KV cache), whisper
-    # large ~4-5GB, plus ffmpeg transcodes and ONNX detect jobs holding decoded
+    # Memory is sized for asynq concurrency 2 (two in-flight heavy jobs per
+    # pod). Each is RAM-hungry: whisper medium ~2.5GB, whisper large ~4-5GB,
+    # plus ffmpeg transcodes and ONNX detect jobs holding decoded
     # frames/tensors. Two large jobs at once can approach ~10GB, so request 4Gi
-    # for a realistic working set and cap at 12Gi to absorb a worst-case pair
-    # without the kernel reaping the pod. Raise these in lockstep if you raise
-    # per-pod concurrency.
+    # for a realistic working set and cap at 12Gi to absorb a worst-case pair.
     # No CPU limit — whisper.cpp + ffmpeg can soak whatever the node has, and
-    # CFS throttling at a hard limit hurts more than it helps for these bursty,
-    # latency-sensitive jobs. Request 2 cores for scheduling.
+    # CFS throttling at a hard limit hurts more than it helps for these bursty
+    # jobs. Request 2 cores for scheduling.
     resources:
       requests: { cpu: 2, memory: 4Gi }
-      limits:   { memory: 12Gi }
+      limits: { memory: 12Gi }
+    extraEnv: []
+    updateStrategy: {}
+    # On SIGTERM asynq stops pulling jobs and re-queues anything still running
+    # after its internal drain window, so jobs survive pod replacement; the
+    # grace period just gives short jobs a chance to finish in place.
+    terminationGracePeriodSeconds: 60
+    # Worker mode still serves /api/health + /api/version on the API port.
+    livenessProbe:
+      httpGet: { path: /api/health, port: http }
+      initialDelaySeconds: 20
+      periodSeconds: 30
+    readinessProbe:
+      httpGet: { path: /api/health, port: http }
+      initialDelaySeconds: 5
+      periodSeconds: 5
     podAnnotations: {}
+    podLabels: {}
     nodeSelector: {}
     affinity: {}
     tolerations: []
+    topologySpreadConstraints: []
+    priorityClassName: ""
+    extraVolumes: []
+    extraVolumeMounts: []
+    podDisruptionBudget:
+      enabled: false
+      minAvailable: 1
+    # CPU-based worker autoscaling is coarse (queue depth would be better) but
+    # workable because asynq re-queues in-flight jobs on scale-down.
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: ""
 
 # =============================================================================
-# Storage — persistent volume for files, cache, model downloads
+# Standalone — used only when deploymentMode=standalone
 # =============================================================================
-storage:
-  driver: local              # local | s3
-  # When driver=local the chart provisions a PVC mounted at /app/data.
-  # Both api + worker pods need access — must be ReadWriteMany if replicaCount > 1.
-  persistentVolume:
-    enabled: true
-    storageClass: ""         # "" → cluster default
-    accessModes: [ReadWriteMany]
-    size: 200Gi
-    annotations: {}
-    # If you already have a PVC, set this and the chart will reuse it.
-    existingClaim: ""
-  # When driver=s3, fill these. Buckets are separate prefixes.
-  s3:
-    bucket: ""
-    region: ""
-    endpoint: ""
-    forcePathStyle: false
-    accessKeyId: ""          # use existingSecret instead for prod
-    secretAccessKey: ""
-    filesPrefix: "files/"
-    avatarsPrefix: "avatars/"
-    cachePrefix: "cache/"
-    existingSecret: ""       # secret with keys: accessKeyId, secretAccessKey
-
-# =============================================================================
-# Database (PostgreSQL + pgvector)
-# =============================================================================
-# This chart does NOT deploy Postgres. Point at any cluster you trust
-# (CloudNativePG, Crunchy, RDS, etc.). Image must include pgvector.
-database:
-  url: ""                    # postgres://user:pass@host:5432/alcoves?sslmode=require
-  existingSecret: ""         # secret with key `url` overrides .url
-
-# =============================================================================
-# Queue (Dragonfly / Redis-compatible) for asynq jobs
-# =============================================================================
-queue:
-  host: dragonfly
-  port: 6379
-  password: ""
-  existingSecret: ""         # secret with key `password`
-
-# =============================================================================
-# Sessions
-# =============================================================================
-# AES-GCM key, ≥32 bytes. Generate: `openssl rand -base64 48`.
-sessionSecret: ""
-existingSessionSecret: ""    # secret with key `sessionSecret`
-
-# =============================================================================
-# OAuth (optional)
-# =============================================================================
-oauth:
-  google:
-    clientId: ""
-    clientSecret: ""
-    existingSecret: ""       # secret with keys: clientId, clientSecret
-
-# =============================================================================
-# Model assets — Whisper, PANNs, YOLO, InsightFace
-# Defaults point at the public bucket on s3.rustyguts.net. Override to mirror
-# privately if egress matters or the public bucket is unreachable.
-# =============================================================================
-models:
-  # Boot-time fallback for the transcription model. Admins can override at
-  # runtime from /admin → Inference Models; the worker reads admin settings
-  # first and falls back here when unset (fresh installs, tests). Allow-list
-  # lives in backend/internal/services/transcribe/whisper_models.go.
-  whisperModel: large-v3
-  whisperLanguage: auto
-  # Silero VAD model name. Required to suppress the repetition-loop
-  # hallucination on long non-speech audio (game/music/silence).
-  # Set to "" to disable (not recommended). Hosted alongside the whisper
-  # model file under whisperModelBaseUrl as ggml-<name>.bin.
-  whisperVadModel: silero-v6.2.0
-  whisperModelBaseUrl: https://s3.rustyguts.net/models
-  # Base URL for the audio-tagger ONNX bucket. The worker composes the
-  # final URL by appending the registry entry's filename. Registry lives
-  # in backend/internal/services/audiodetection/registry.go.
-  audioDetectModelBaseUrl: https://s3.rustyguts.net/models
-  audioDetectLabelsUrl: https://s3.rustyguts.net/models/audioset_class_labels_indices.csv
-
-# =============================================================================
-# Extra environment variables (advanced)
-# Merged into both api + worker pods. Use for tuning face/object detection,
-# overriding model paths, etc.
-# =============================================================================
-extraEnv: []
-# - name: ALCOVES_FACE_DETECTION_MIN_SCORE
-#   value: "0.6"
+# One pod, image role `all`: SvelteKit (:3000) + Go API/worker (:3001)
+# supervised together. Sized for the combined stack including two concurrent
+# heavy jobs.
+standalone:
+  replicaCount: 1 # >1 requires ReadWriteMany storage (or s3)
+  resources:
+    requests: { cpu: 2, memory: 4Gi }
+    limits: { memory: 12Gi }
+  extraEnv: [] # backend env; use frontend.extraEnv for the SvelteKit side
+  updateStrategy: {}
+  # type: Recreate    # uncomment with a ReadWriteOnce PVC so the old pod
+  #                   # releases the volume before the new one starts
+  terminationGracePeriodSeconds: 60
+  livenessProbe:
+    httpGet: { path: /api/health, port: http-api }
+    initialDelaySeconds: 20
+    periodSeconds: 30
+  readinessProbe:
+    httpGet: { path: /api/health, port: http-api }
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  extraVolumes: []
+  extraVolumeMounts: []
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
 
 # =============================================================================
 # Service + Ingress
@@ -203,7 +402,9 @@ ingress:
   enabled: true
   className: nginx
   annotations:
-    # Large video uploads + ranged streaming. Tune for your reverse proxy.
+    # Large video uploads + ranged streaming. proxy-buffering off is
+    # load-bearing for TUS resumable uploads and video Range requests — tune
+    # equivalents for non-nginx controllers.
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
@@ -221,6 +422,31 @@ serviceAccount:
   create: true
   annotations: {}
   name: ""
+  # Alcoves never talks to the Kubernetes API, so the token isn't mounted.
+  automountServiceAccountToken: false
 
+# Applied to every pod / container. The published image currently runs as
+# root (media tooling + /app/data ownership); if you harden this, set fsGroup
+# so the data volume stays writable, e.g.:
+#   podSecurityContext: { runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }
 podSecurityContext: {}
 securityContext: {}
+# allowPrivilegeEscalation: false
+# capabilities: { drop: [ALL] }
+
+# =============================================================================
+# NetworkPolicy (optional)
+# =============================================================================
+# Restricts inbound traffic to the app's HTTP ports (worker pods accept only
+# probe traffic on the health port). Egress is left open — the backend needs
+# Postgres, the queue, and model downloads. Requires a CNI that enforces
+# NetworkPolicy.
+networkPolicy:
+  enabled: false
+
+# =============================================================================
+# Helm tests — `helm test <release>` smoke-checks the deployed services
+# =============================================================================
+tests:
+  enabled: true
+  image: busybox:1.37

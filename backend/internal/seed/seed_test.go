@@ -119,6 +119,20 @@ func TestRun(t *testing.T) {
 	if ok, _ := st.FileExists(id("lib/family").String(), id("file/family/beach").String()); !ok {
 		t.Error("expected beach photo blob in storage")
 	}
+	// Live-document markdown seeded as a plain file (CRDT state is created on
+	// first open in the editor, exercising the client-side seeding path).
+	var tripNotes models.File
+	if err := db.Where("id = ?", id("file/travel/trip-notes")).First(&tripNotes).Error; err != nil {
+		t.Errorf("trip-notes file row: %v", err)
+	} else if tripNotes.MimeType != "text/markdown" {
+		t.Errorf("trip-notes mime = %q, want text/markdown", tripNotes.MimeType)
+	}
+	if blob, err := st.ReadFileBuffer(id("lib/travel").String(), id("file/travel/trip-notes").String()); err != nil || len(blob) == 0 {
+		t.Errorf("expected trip-notes markdown blob in storage (err=%v)", err)
+	}
+	if ok, _ := st.FileExists(id("lib/travel").String(), id("file/travel/packing-list").String()); !ok {
+		t.Error("expected packing-list markdown blob in storage")
+	}
 	// Avatar written.
 	if ok, _ := st.AvatarExists(admin.ID.String()); !ok {
 		t.Error("expected admin avatar in storage")

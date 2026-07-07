@@ -5,10 +5,18 @@ metadata:
   name: {{ include "alcoves.fullname" . }}-data
   labels:
     {{- include "alcoves.labels" . | nindent 4 }}
-  {{- with .Values.storage.persistentVolume.annotations }}
   annotations:
+    {{- if .Values.storage.persistentVolume.retain }}
+    # Survive `helm uninstall` — this volume holds every uploaded file. Delete
+    # the claim manually if you really want the data gone.
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.commonAnnotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    {{- with .Values.storage.persistentVolume.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   accessModes:
     {{- toYaml .Values.storage.persistentVolume.accessModes | nindent 4 }}

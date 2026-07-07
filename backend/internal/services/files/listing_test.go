@@ -454,10 +454,17 @@ func setupListingTestDB(t *testing.T) *gorm.DB {
 		&models.Tag{},
 		&models.FileTag{},
 		&models.FolderTag{},
+		// Purge deletes live-document CRDT rows (see purge.go); these tables
+		// exist in production (migration 00026) and must exist here too, or
+		// the purge tests fail with "relation document_updates does not exist".
+		&models.Document{},
+		&models.DocumentUpdate{},
 	); err != nil {
 		t.Fatalf("Failed to migrate test schema: %v", err)
 	}
 
+	db.Exec("DELETE FROM document_updates")
+	db.Exec("DELETE FROM documents")
 	db.Exec("DELETE FROM file_tags")
 	db.Exec("DELETE FROM folder_tags")
 	db.Exec("DELETE FROM files")

@@ -1,0 +1,32 @@
+{{- if eq .Values.deploymentMode "standalone" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "alcoves.fullname" . }}
+  labels:
+    {{- include "alcoves.labels" . | nindent 4 }}
+    app.kubernetes.io/component: standalone
+  {{- if or .Values.service.annotations .Values.commonAnnotations }}
+  annotations:
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: http-web
+      port: {{ .Values.frontend.port }}
+      targetPort: http-web
+      protocol: TCP
+    - name: http-api
+      port: {{ .Values.backend.api.port }}
+      targetPort: http-api
+      protocol: TCP
+  selector:
+    {{- include "alcoves.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: standalone
+{{- end }}
