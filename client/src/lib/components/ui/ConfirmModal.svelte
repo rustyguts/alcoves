@@ -13,6 +13,12 @@
 		pending?: boolean;
 		open?: boolean;
 		onconfirm?: () => void;
+		/**
+		 * Fired when the dialog is dismissed without confirming (Cancel button,
+		 * Escape, backdrop). Callers that drive `open` from derived state (rather
+		 * than bind:open) need this to reset their source of truth.
+		 */
+		oncancel?: () => void;
 	}
 
 	let {
@@ -23,7 +29,8 @@
 		confirmIcon = ICONS.check,
 		pending = false,
 		open = $bindable(false),
-		onconfirm
+		onconfirm,
+		oncancel
 	}: Props = $props();
 
 	// Map the legacy Nuxt UI `confirmClass` hint onto a Button color, the same
@@ -40,7 +47,13 @@
 	});
 </script>
 
-<Dialog {open} onOpenChange={(e) => (open = e.open)}>
+<Dialog
+	{open}
+	onOpenChange={(e) => {
+		open = e.open;
+		if (!e.open) oncancel?.();
+	}}
+>
 	<Dialog.Backdrop class="fixed inset-0 z-40 bg-surface-950/50 backdrop-blur-sm" />
 	<Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<Dialog.Content
@@ -51,7 +64,15 @@
 				<Dialog.Description class="text-sm text-surface-600-400">{message}</Dialog.Description>
 			</header>
 			<footer class="flex w-full justify-end gap-2">
-				<Button variant="tonal" color="surface" disabled={pending} onclick={() => (open = false)}>
+				<Button
+					variant="tonal"
+					color="surface"
+					disabled={pending}
+					onclick={() => {
+						open = false;
+						oncancel?.();
+					}}
+				>
 					Cancel
 				</Button>
 				<Button color={confirmColor} loading={pending} onclick={() => onconfirm?.()}>

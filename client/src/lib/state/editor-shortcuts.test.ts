@@ -1,163 +1,316 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 
-vi.mock('$app/environment', () => ({ browser: true }));
+// Mutable so individual tests can flip the browser flag for attach/detach.
+const env = vi.hoisted(() => ({ browser: true }));
+vi.mock('$app/environment', () => env);
 
 import { createEditorShortcuts, type KeyboardEventLike } from './editor-shortcuts';
+import { JUMP_SECONDS } from './playback.svelte';
 
-function makeHandlers(hasSelection: boolean) {
-	let selected = hasSelection;
+const FIELD_SELECTOR = 'input, textarea, select';
+const ACTIVATION_SELECTOR = 'button, [role="button"], a';
+
+function makeHandlers() {
 	return {
-		hasSelection: () => selected,
-		setSelected: (v: boolean) => {
-			selected = v;
-		},
+		isSuspended: vi.fn(() => false),
+		onTogglePlay: vi.fn(),
+		onJump: vi.fn(),
+		onStepFrame: vi.fn(),
+		onCreate: vi.fn(),
 		onSetStart: vi.fn(),
 		onSetEnd: vi.fn(),
-		onCreate: vi.fn(),
-		onTogglePlay: vi.fn()
+		onSplit: vi.fn(),
+		onRequestDelete: vi.fn(),
+		onZoomIn: vi.fn(),
+		onZoomOut: vi.fn(),
+		onZoomFit: vi.fn(),
+		onScroll: vi.fn(),
+		onCenter: vi.fn(),
+		onToggleSnap: vi.fn(),
+		onToggleLoop: vi.fn(),
+		onOpenHelp: vi.fn()
 	};
 }
 
-function makeEvent(key: string, target?: { tagName?: string } | null): KeyboardEventLike {
-	return { key, target, preventDefault: vi.fn() };
+type Handlers = ReturnType<typeof makeHandlers>;
+type HandlerName = Exclude<keyof Handlers, 'isSuspended'>;
+
+function makeEvent(key: string, overrides: Partial<KeyboardEventLike> = {}): KeyboardEventLike {
+	return { key, preventDefault: vi.fn(), ...overrides };
 }
 
-describe('createEditorShortcuts', () => {
-	it('I/O set in/out only when something is selected', () => {
-		const h = makeHandlers(false);
+afterEach(() => {
+	env.browser = true;
+	vi.unstubAllGlobals();
+});
+
+const KEYMAP: Array<[key: string, handler: HandlerName, args: unknown[]]> = [
+	[' ', 'onTogglePlay', []],
+	['k', 'onTogglePlay', []],
+	['j', 'onJump', [-JUMP_SECONDS]],
+	['ArrowLeft', 'onJump', [-JUMP_SECONDS]],
+	['l', 'onJump', [JUMP_SECONDS]],
+	['ArrowRight', 'onJump', [JUMP_SECONDS]],
+	[',', 'onStepFrame', [-1]],
+	['.', 'onStepFrame', [1]],
+	['m', 'onCreate', []],
+	['n', 'onCreate', []],
+	['i', 'onSetStart', []],
+	['o', 'onSetEnd', []],
+	['s', 'onSplit', []],
+	['Delete', 'onRequestDelete', []],
+	['Backspace', 'onRequestDelete', []],
+	['z', 'onZoomIn', []],
+	['=', 'onZoomIn', []],
+	['+', 'onZoomIn', []],
+	['x', 'onZoomOut', []],
+	['-', 'onZoomOut', []],
+	['_', 'onZoomOut', []],
+	['f', 'onZoomFit', []],
+	['a', 'onScroll', [-1]],
+	['d', 'onScroll', [1]],
+	['c', 'onCenter', []],
+	['g', 'onToggleSnap', []],
+	['r', 'onToggleLoop', []],
+	['?', 'onOpenHelp', []]
+];
+
+describe('createEditorShortcuts — keymap', () => {
+	it.each(KEYMAP)('%j fires %s (and only it) with preventDefault', (key, name, args) => {
+		const h = makeHandlers();
 		const { onKeydown } = createEditorShortcuts(h);
-
-		onKeydown(makeEvent('i'));
-		onKeydown(makeEvent('o'));
-		expect(h.onSetStart).not.toHaveBeenCalled();
-		expect(h.onSetEnd).not.toHaveBeenCalled();
-
-		h.setSelected(true);
-		onKeydown(makeEvent('i'));
-		onKeydown(makeEvent('O'));
-		expect(h.onSetStart).toHaveBeenCalledTimes(1);
-		expect(h.onSetEnd).toHaveBeenCalledTimes(1);
-	});
-
-	it('I/O always preventDefault, even with nothing selected', () => {
-		const h = makeHandlers(false);
-		const { onKeydown } = createEditorShortcuts(h);
-		const ev = makeEvent('I');
+		const ev = makeEvent(key);
 		onKeydown(ev);
+		expect(h[name]).toHaveBeenCalledTimes(1);
+		expect(h[name]).toHaveBeenCalledWith(...args);
 		expect(ev.preventDefault).toHaveBeenCalledTimes(1);
-		const ev2 = makeEvent('o');
-		onKeydown(ev2);
-		expect(ev2.preventDefault).toHaveBeenCalledTimes(1);
+		for (const other of Object.keys(h) as Array<keyof Handlers>) {
+			if (other === name || other === 'isSuspended') continue;
+			expect(h[other]).not.toHaveBeenCalled();
+		}
 	});
 
-	it('M creates regardless of selection and preventDefaults', () => {
-		const h = makeHandlers(false);
+	it.each([
+		['K', 'onTogglePlay'],
+		['J', 'onJump'],
+		['L', 'onJump'],
+		['M', 'onCreate'],
+		['N', 'onCreate'],
+		['I', 'onSetStart'],
+		['O', 'onSetEnd'],
+		['S', 'onSplit'],
+		['Z', 'onZoomIn'],
+		['X', 'onZoomOut'],
+		['F', 'onZoomFit'],
+		['A', 'onScroll'],
+		['D', 'onScroll'],
+		['C', 'onCenter'],
+		['G', 'onToggleSnap'],
+		['R', 'onToggleLoop']
+	] as Array<[string, HandlerName]>)('uppercase %s folds to its lowercase binding', (key, name) => {
+		const h = makeHandlers();
 		const { onKeydown } = createEditorShortcuts(h);
-		const ev = makeEvent('m');
+		// Real uppercase letters arrive with shiftKey: true — allowed for non-arrows.
+		const ev = makeEvent(key, { shiftKey: true });
 		onKeydown(ev);
-		expect(h.onCreate).toHaveBeenCalledTimes(1);
+		expect(h[name]).toHaveBeenCalledTimes(1);
 		expect(ev.preventDefault).toHaveBeenCalledTimes(1);
-		onKeydown(makeEvent('M'));
-		expect(h.onCreate).toHaveBeenCalledTimes(2);
 	});
 
-	it('Space toggles playback and preventDefaults', () => {
-		const h = makeHandlers(false);
+	it('? still fires with shiftKey held (how the key is actually typed)', () => {
+		const h = makeHandlers();
 		const { onKeydown } = createEditorShortcuts(h);
-		const ev = makeEvent(' ');
+		const ev = makeEvent('?', { shiftKey: true });
 		onKeydown(ev);
-		expect(h.onTogglePlay).toHaveBeenCalledTimes(1);
+		expect(h.onOpenHelp).toHaveBeenCalledTimes(1);
 		expect(ev.preventDefault).toHaveBeenCalledTimes(1);
 	});
 
-	it('ignores unrelated keys without preventDefault', () => {
-		const h = makeHandlers(true);
+	it.each(['q', 'e', '1', 'Escape', 'Enter', 'Tab', 'ArrowUp', 'ArrowDown'])(
+		'unhandled key %j fires nothing and does NOT preventDefault',
+		(key) => {
+			const h = makeHandlers();
+			const { onKeydown } = createEditorShortcuts(h);
+			const ev = makeEvent(key);
+			onKeydown(ev);
+			expect(ev.preventDefault).not.toHaveBeenCalled();
+			for (const name of Object.keys(h) as Array<keyof Handlers>) {
+				if (name === 'isSuspended') continue;
+				expect(h[name]).not.toHaveBeenCalled();
+			}
+		}
+	);
+
+	it('missing handlers are silent no-ops but mapped keys still preventDefault', () => {
+		const { onKeydown } = createEditorShortcuts({});
+		for (const [key] of KEYMAP) {
+			const ev = makeEvent(key);
+			expect(() => onKeydown(ev)).not.toThrow();
+			expect(ev.preventDefault).toHaveBeenCalledTimes(1);
+		}
+	});
+});
+
+describe('createEditorShortcuts — guards', () => {
+	it('skips events something else already handled (defaultPrevented)', () => {
+		const h = makeHandlers();
 		const { onKeydown } = createEditorShortcuts(h);
-		const ev = makeEvent('a');
+		const ev = makeEvent(' ', { defaultPrevented: true });
 		onKeydown(ev);
-		expect(h.onSetStart).not.toHaveBeenCalled();
-		expect(h.onSetEnd).not.toHaveBeenCalled();
-		expect(h.onCreate).not.toHaveBeenCalled();
 		expect(h.onTogglePlay).not.toHaveBeenCalled();
 		expect(ev.preventDefault).not.toHaveBeenCalled();
 	});
 
-	it('ignores keypresses fired from text inputs (input/textarea/select)', () => {
-		const h = makeHandlers(true);
-		const { onKeydown } = createEditorShortcuts(h);
-		for (const tag of ['INPUT', 'TEXTAREA', 'SELECT']) {
-			onKeydown(makeEvent('i', { tagName: tag }));
-			onKeydown(makeEvent('m', { tagName: tag }));
-			onKeydown(makeEvent(' ', { tagName: tag }));
+	it.each([[{ ctrlKey: true }], [{ metaKey: true }], [{ altKey: true }]])(
+		'skips modifier chords %j (browser shortcuts win)',
+		(mods) => {
+			const h = makeHandlers();
+			const { onKeydown } = createEditorShortcuts(h);
+			const ev = makeEvent('k', mods);
+			onKeydown(ev);
+			expect(h.onTogglePlay).not.toHaveBeenCalled();
+			expect(ev.preventDefault).not.toHaveBeenCalled();
 		}
-		expect(h.onSetStart).not.toHaveBeenCalled();
-		expect(h.onCreate).not.toHaveBeenCalled();
-		expect(h.onTogglePlay).not.toHaveBeenCalled();
-	});
+	);
 
-	it('still dispatches when target is null or has no tagName', () => {
-		const h = makeHandlers(true);
+	it('ctrl+z does not zoom (undo stays with the browser)', () => {
+		const h = makeHandlers();
 		const { onKeydown } = createEditorShortcuts(h);
-		onKeydown(makeEvent('m', null));
-		onKeydown(makeEvent('m', {}));
-		expect(h.onCreate).toHaveBeenCalledTimes(2);
+		const ev = makeEvent('z', { ctrlKey: true });
+		onKeydown(ev);
+		expect(h.onZoomIn).not.toHaveBeenCalled();
+		expect(ev.preventDefault).not.toHaveBeenCalled();
 	});
 
-	it('attach/detach register and remove a window keydown listener', () => {
-		const add = vi.fn();
-		const remove = vi.fn();
-		vi.stubGlobal('window', { addEventListener: add, removeEventListener: remove });
+	it.each(['INPUT', 'TEXTAREA', 'SELECT', 'input'])(
+		'skips keys typed into a %s element',
+		(tagName) => {
+			const h = makeHandlers();
+			const { onKeydown } = createEditorShortcuts(h);
+			const ev = makeEvent('m', { target: { tagName } });
+			onKeydown(ev);
+			expect(h.onCreate).not.toHaveBeenCalled();
+			expect(ev.preventDefault).not.toHaveBeenCalled();
+		}
+	);
 
-		const h = makeHandlers(true);
-		const { onKeydown, attach, detach } = createEditorShortcuts(h);
-
-		attach();
-		expect(add).toHaveBeenCalledWith('keydown', onKeydown);
-
-		detach();
-		expect(remove).toHaveBeenCalledWith('keydown', onKeydown);
-
-		vi.unstubAllGlobals();
+	it('skips contentEditable targets', () => {
+		const h = makeHandlers();
+		const { onKeydown } = createEditorShortcuts(h);
+		const ev = makeEvent('m', { target: { tagName: 'DIV', isContentEditable: true } });
+		onKeydown(ev);
+		expect(h.onCreate).not.toHaveBeenCalled();
+		expect(ev.preventDefault).not.toHaveBeenCalled();
 	});
 
-	it('a dispatched event reaches handlers through the attached listener', () => {
-		let registered: ((e: KeyboardEventLike) => void) | null = null;
-		const add = vi.fn((_type: string, fn: (e: KeyboardEventLike) => void) => {
-			registered = fn;
-		});
-		vi.stubGlobal('window', { addEventListener: add, removeEventListener: vi.fn() });
+	it('skips ALL keys for targets inside a form field (closest match)', () => {
+		const h = makeHandlers();
+		const { onKeydown } = createEditorShortcuts(h);
+		const closest = vi.fn((sel: string) => (sel === FIELD_SELECTOR ? {} : null));
+		const ev = makeEvent('m', { target: { tagName: 'SPAN', closest } });
+		onKeydown(ev);
+		expect(closest).toHaveBeenCalledWith(FIELD_SELECTOR);
+		expect(h.onCreate).not.toHaveBeenCalled();
+		expect(ev.preventDefault).not.toHaveBeenCalled();
+	});
 
-		const h = makeHandlers(true);
-		const { attach } = createEditorShortcuts(h);
-		attach();
-		expect(registered).not.toBeNull();
-		registered!(makeEvent('i'));
-		expect(h.onSetStart).toHaveBeenCalledTimes(1);
+	it('skips only Space/Enter on button-like targets — other keys still dispatch', () => {
+		const h = makeHandlers();
+		const { onKeydown } = createEditorShortcuts(h);
+		const closest = vi.fn((sel: string) => (sel === ACTIVATION_SELECTOR ? {} : null));
 
-		vi.unstubAllGlobals();
+		// Space on a focused button: native activation wins, keymap stays silent.
+		const space = makeEvent(' ', { target: { tagName: 'BUTTON', closest } });
+		onKeydown(space);
+		expect(h.onTogglePlay).not.toHaveBeenCalled();
+		expect(space.preventDefault).not.toHaveBeenCalled();
+
+		// But the rest of the keymap must survive focus resting on a button
+		// (a click leaves focus there) — m creates, Delete deletes.
+		onKeydown(makeEvent('m', { target: { tagName: 'BUTTON', closest } }));
+		expect(h.onCreate).toHaveBeenCalledTimes(1);
+		onKeydown(makeEvent('Delete', { target: { tagName: 'BUTTON', closest } }));
+		expect(h.onRequestDelete).toHaveBeenCalledTimes(1);
+	});
+
+	it('dispatches when closest finds no interactive ancestor', () => {
+		const h = makeHandlers();
+		const { onKeydown } = createEditorShortcuts(h);
+		const closest = vi.fn(() => null);
+		const ev = makeEvent(' ', { target: { tagName: 'DIV', closest } });
+		onKeydown(ev);
+		expect(closest).toHaveBeenCalledWith(FIELD_SELECTOR);
+		expect(closest).toHaveBeenCalledWith(ACTIVATION_SELECTOR);
+		expect(h.onTogglePlay).toHaveBeenCalledTimes(1);
+		expect(ev.preventDefault).toHaveBeenCalledTimes(1);
+	});
+
+	it('dispatches for null / bare targets (no tagName, no closest)', () => {
+		const h = makeHandlers();
+		const { onKeydown } = createEditorShortcuts(h);
+		onKeydown(makeEvent('m', { target: null }));
+		onKeydown(makeEvent('m', { target: {} }));
+		onKeydown(makeEvent('m'));
+		expect(h.onCreate).toHaveBeenCalledTimes(3);
+	});
+
+	it.each(['ArrowLeft', 'ArrowRight'])(
+		'skips shift+%s (reserved for the moment-bar nudge)',
+		(key) => {
+			const h = makeHandlers();
+			const { onKeydown } = createEditorShortcuts(h);
+			const ev = makeEvent(key, { shiftKey: true });
+			onKeydown(ev);
+			expect(h.onJump).not.toHaveBeenCalled();
+			expect(ev.preventDefault).not.toHaveBeenCalled();
+		}
+	);
+
+	it('isSuspended() pauses the whole keymap until it returns false again', () => {
+		let suspended = true;
+		const h = { ...makeHandlers(), isSuspended: () => suspended };
+		const { onKeydown } = createEditorShortcuts(h);
+
+		const blocked = makeEvent('k');
+		onKeydown(blocked);
+		expect(h.onTogglePlay).not.toHaveBeenCalled();
+		expect(blocked.preventDefault).not.toHaveBeenCalled();
+
+		suspended = false;
+		const allowed = makeEvent('k');
+		onKeydown(allowed);
+		expect(h.onTogglePlay).toHaveBeenCalledTimes(1);
+		expect(allowed.preventDefault).toHaveBeenCalledTimes(1);
 	});
 });
 
-describe('createEditorShortcuts in a non-browser environment', () => {
-	beforeEach(() => {
-		vi.resetModules();
-	});
-
-	it('attach/detach are no-ops when browser is false', async () => {
-		vi.doMock('$app/environment', () => ({ browser: false }));
+describe('createEditorShortcuts — attach/detach', () => {
+	it('registers and removes the same window keydown listener', () => {
 		const add = vi.fn();
 		const remove = vi.fn();
 		vi.stubGlobal('window', { addEventListener: add, removeEventListener: remove });
 
-		const mod = await import('./editor-shortcuts');
-		const h = makeHandlers(true);
-		const { attach, detach } = mod.createEditorShortcuts(h);
+		const { onKeydown, attach, detach } = createEditorShortcuts(makeHandlers());
 		attach();
+		expect(add).toHaveBeenCalledWith('keydown', onKeydown);
 		detach();
-		expect(add).not.toHaveBeenCalled();
-		expect(remove).not.toHaveBeenCalled();
+		expect(remove).toHaveBeenCalledWith('keydown', onKeydown);
+	});
 
-		vi.unstubAllGlobals();
-		vi.doUnmock('$app/environment');
+	it('attach/detach are no-ops outside the browser (no window access, no throw)', () => {
+		env.browser = false;
+		const { attach, detach } = createEditorShortcuts({});
+		expect(() => {
+			attach();
+			detach();
+		}).not.toThrow();
+	});
+
+	it('onKeydown is pure — dispatch works without ever attaching', () => {
+		env.browser = false;
+		const h = makeHandlers();
+		const { onKeydown } = createEditorShortcuts(h);
+		onKeydown(makeEvent(' '));
+		expect(h.onTogglePlay).toHaveBeenCalledTimes(1);
 	});
 });

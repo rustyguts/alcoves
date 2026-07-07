@@ -201,3 +201,9 @@ were consciously deferred:
 - **Test discipline added to CLAUDE.md** (2026-04-26) — mandatory targeted-then-full test gate, fix-or-update-or-skip-with-paper-trail rule, Nuxt 4 mocking gotchas.
 - **Avatar WebP conversion** (2026-04-26) — new `backend/internal/services/avatarproc/` package: validates input (≤8 MB, decodable image), EXIF auto-rotate, center-crop to square, downscale to ≤512px, WebP quality 85. 9 unit tests on the pure function. Handler updated to call `avatarproc.Process` and translate `ErrEmptyInput`/`ErrInputTooLarge`/`ErrInvalidImage` into 400/413/400 HTTP errors. Bonus: added missing `GET /api/auth/me/avatar` + `GET /api/auth/users/:userId/avatar` endpoints (the upload always wrote `avatarUrl` but no read route existed); responses set `Content-Type: image/webp` and `Cache-Control: private, max-age=300`.
 - **README accuracy** (2026-04-26) — fixed "Vue 3 + Vite SPA" → "Nuxt 4 (Vue 3 + Nitro server)"; updated all "localhost:3001" / "localhost:5173" user-facing URLs to "localhost:3000" (Nuxt); rewrote container-image section to clarify the published image is API-only and the frontend ships as a separate image (`frontend/Dockerfile`); production docker-compose example now includes both `api` and `frontend` services with reverse-proxy guidance; project structure no longer references the deleted `internal/spa/` directory; dropped DaisyUI from acknowledgments.
+
+- **library-moments: stale poller GET can overwrite a just-saved moment.** `refresh()` has no
+  sequence guard, so a GET that started before an `update()` landed can resolve after it and
+  briefly overwrite the fresh values (and stop the export poller on a stale snapshot). Predates
+  the editor rewrite (2026-06-11 review finding); fix is a monotonic mutation token in
+  `client/src/lib/state/library-moments.svelte.ts` that discards out-of-order refresh results.
