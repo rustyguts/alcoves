@@ -64,6 +64,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=${{ steps.appver.outputs.version }},enable=${{ inputs.version_tags }}
             type=raw,value=${{ steps.appver.outputs.major_minor }},enable=${{ inputs.version_tags }}
+            type=raw,value=dev,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7

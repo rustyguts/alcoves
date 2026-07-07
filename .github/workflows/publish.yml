@@ -11,6 +11,10 @@ on:
 
 jobs:
   build:
+    # Skip the redundant rebuild that our own rolling `dev` prerelease triggers
+    # when it is first published — the images for that commit were already
+    # built on the main push (real `v*` releases still build normally).
+    if: ${{ github.event_name != 'release' || github.event.release.tag_name != 'dev' }}
     permissions:
       contents: read
       packages: write
@@ -18,3 +22,56 @@ jobs:
     with:
       # Don't push on PRs — just verify the images build.
       push: ${{ github.event_name != 'pull_request' }}
+
+  # After images are pushed on a merge to main, refresh a rolling "dev"
+  # prerelease so testers always have a clearly-labeled latest-main build to
+  # pull. Deliberately separate from release-please's versioned `v*` releases:
+  # the dev release uses one rolling `dev` tag, is always a prerelease, and is
+  # never marked "Latest". Gated to real feature merges — release-please's own
+  # `chore(main): release …` commit gets a proper versioned release instead.
+  dev-release:
+    needs: build
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      !startsWith(github.event.head_commit.message, 'chore(main): release')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Collect build metadata
+        id: vars
+        run: |
+          echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Move the rolling dev tag to this commit
+        run: |
+          git tag -f dev
+          git push -f origin refs/tags/dev
+
+      - name: Publish the rolling dev prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev
+          target_commitish: ${{ github.sha }}
+          name: Development build (${{ steps.vars.outputs.short_sha }})
+          prerelease: true
+          make_latest: false
+          body: |
+            ⚠️ **Development build — not a stable release.** Automatically
+            refreshed on every merge to `main`, for testing only. For stable
+            releases use the versioned `v*` tags and GitHub Releases.
+
+            - Commit: ${{ github.sha }}
+            - Base version: `${{ steps.vars.outputs.version }}-dev`
+
+            Pull the matching container image:
+
+            ```sh
+            docker pull ghcr.io/${{ github.repository }}:dev
+            docker pull ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.short_sha }}
+            ```

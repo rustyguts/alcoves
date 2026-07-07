@@ -103,6 +103,14 @@ release:
 
 Tags follow semver: `0.x.y`, `0.x`, and `latest` (from `main`).
 
+:::caution[Development builds]
+A rolling `dev` tag (`ghcr.io/rustyguts/alcoves:dev`) is rebuilt on **every merge
+to `main`**, alongside a matching `dev` GitHub prerelease. It's handy for testing
+unreleased changes, but it is **not** a stable release — pin a semver tag
+(`0.x.y`) for anything you rely on. Each merge is also pinnable by its short
+commit SHA (`ghcr.io/rustyguts/alcoves:<short-sha>`).
+:::
+
 ### One image, four roles
 
 The container's entrypoint takes a role argument (the image `CMD`, overridable via
