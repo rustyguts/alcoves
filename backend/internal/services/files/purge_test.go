@@ -227,19 +227,9 @@ func TestPurge_FolderCascadesDescendants(t *testing.T) {
 }
 
 func TestPurge_RemovesDocumentState(t *testing.T) {
+	// setupListingTestDB migrates + clears the document tables for the whole
+	// package, so purge's document cleanup works here as in production.
 	svc, db, st := newPurgeService(t)
-	if err := db.AutoMigrate(&models.Document{}, &models.DocumentUpdate{}); err != nil {
-		t.Fatalf("migrate doc tables: %v", err)
-	}
-	// The doc tables FK into files within this shared schema — leftover rows
-	// would break other tests' `DELETE FROM files` cleanup, so clear them on
-	// the way in and out.
-	clearDocs := func() {
-		db.Exec("DELETE FROM document_updates")
-		db.Exec("DELETE FROM documents")
-	}
-	clearDocs()
-	t.Cleanup(clearDocs)
 	fx := seedListingLibrary(t, db)
 
 	// A trashed live document with CRDT state + a materialized blob.
