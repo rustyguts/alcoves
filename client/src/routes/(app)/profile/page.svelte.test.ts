@@ -174,6 +174,25 @@ describe('/profile +page', () => {
 		expect(themeSet).toHaveBeenCalledWith('dark');
 	});
 
+	// F15: bits-ui's `type="single"` ToggleGroup deselects to "" on a re-click
+	// of the already-active item; the fix must snap the selection back instead
+	// of leaving the group with nothing selected.
+	it('keeps the theme selected when the active option is clicked again', async () => {
+		const screen = render(Page, { props });
+		await tick();
+		const darkBtn = buttonByText(screen.container, 'Dark')!;
+		darkBtn.click();
+		await tick();
+		expect(themeSet).toHaveBeenCalledWith('dark');
+		expect(darkBtn.getAttribute('data-state')).toBe('on');
+		themeSet.mockClear();
+
+		darkBtn.click();
+		await tick();
+		expect(themeSet).not.toHaveBeenCalled();
+		expect(darkBtn.getAttribute('data-state')).toBe('on');
+	});
+
 	it('lists active sessions and revokes a non-current one', async () => {
 		listSessions.mockResolvedValue(sessions);
 		const screen = render(Page, { props });
@@ -374,6 +393,17 @@ describe('/profile +page', () => {
 		await tick();
 		const heroImg = screen.container.querySelector<HTMLImageElement>('header img');
 		expect(heroImg?.getAttribute('src')).toBe('/avatars/user-1/avatar.webp');
+	});
+
+	// F23: the avatar-change button must have an accessible name of its own
+	// (previously it inherited only the fallback's name) and a visible
+	// focus-visible ring instead of `focus:outline-none` swallowing focus.
+	it('gives the avatar button an accessible name and a focus-visible ring', async () => {
+		const screen = render(Page, { props });
+		await tick();
+		const avatarBtn = await screen.getByRole('button', { name: 'Change profile photo' }).element();
+		expect(avatarBtn.className).toContain('focus-visible:ring-2');
+		expect(avatarBtn.className).not.toContain('focus:outline-none');
 	});
 
 	it('opens the file picker when the avatar button is clicked', async () => {

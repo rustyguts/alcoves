@@ -25,7 +25,7 @@
 	<div class="min-w-0 space-y-0.5">
 		<h1 class="text-2xl font-semibold">{title}</h1>
 		{#if description}
-			<p class="text-sm text-surface-600-400">{description}</p>
+			<p class="text-sm text-muted-foreground">{description}</p>
 		{/if}
 	</div>
 	{#if actions}

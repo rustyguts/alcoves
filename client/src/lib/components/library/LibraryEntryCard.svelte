@@ -6,6 +6,8 @@
 	import { getMimeIcon } from '$lib/utils/mime-icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import AlcovesImage from '$lib/components/ui/AlcovesImage.svelte';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		entry: LibraryEntry;
@@ -90,15 +92,13 @@
 <div
 	role="button"
 	tabindex="0"
-	class={[
+	class={cn(
 		'cursor-pointer overflow-hidden rounded-md transition-colors select-none',
-		'focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none',
-		selected
-			? 'bg-primary-500/20 hover:bg-primary-500/30'
-			: 'bg-surface-100-900 hover:bg-primary-500/10',
-		isDropTarget ? 'bg-primary-500/10 ring-2 ring-primary-500' : '',
-		isDragging ? 'opacity-60' : ''
-	]}
+		'focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none',
+		selected ? 'bg-primary/20 hover:bg-primary/30' : 'bg-card hover:bg-primary/10',
+		isDropTarget && 'bg-primary/10 ring-2 ring-primary',
+		isDragging && 'opacity-60'
+	)}
 	draggable={dragEnabled && !renaming}
 	onclick={(e) => onrowClick?.(entry, e)}
 	onkeydown={(e) => {
@@ -118,9 +118,7 @@
 >
 	{#if renaming}
 		<div data-rename-input-entry-id={entry.id} class="px-2 pt-2 pb-2">
-			<!-- svelte-ignore a11y_autofocus -->
-			<input
-				class="input"
+			<Input
 				value={renameValue}
 				autofocus
 				oninput={(e) => onupdateRenameValue?.((e.currentTarget as HTMLInputElement).value)}
@@ -141,24 +139,24 @@
 		>
 			<AppIcon
 				name={entry.kind === 'folder' ? ICONS.folder : getMimeIcon(entry.mimeType)}
-				class={[
-					'mt-0.5 size-4 shrink-0 text-surface-500',
-					showTrashed && entry.kind === 'file' ? 'opacity-50' : ''
-				].join(' ')}
+				class={cn(
+					'mt-0.5 size-4 shrink-0 text-muted-foreground',
+					showTrashed && entry.kind === 'file' && 'opacity-50'
+				)}
 			/>
 			<span class="w-full truncate text-left text-sm font-semibold" title={folderTitle}>
 				{folderTitle}
 			</span>
 			{#if entry.kind === 'file' && entry.hasDuplicates}
 				<span class="mt-0.5 shrink-0" title="Duplicate of another file in this library">
-					<AppIcon name={ICONS.duplicate} class="size-4 text-warning-500" />
+					<AppIcon name={ICONS.duplicate} class="size-4 text-warning" />
 				</span>
 			{/if}
 			{#if entry.tags?.length}
 				<div class="flex shrink-0 items-center gap-1">
 					{#each entry.tags as tag (tag.id)}
 						<span
-							class="size-2 rounded-full border border-surface-400/50"
+							class="size-2 rounded-full border border-border"
 							title={tag.name}
 							style:background-color={tag.color}
 						></span>
@@ -168,9 +166,7 @@
 		</div>
 
 		{#if entry.kind === 'file'}
-			<div
-				class="flex aspect-video w-full items-center justify-center overflow-hidden bg-surface-200-800"
-			>
+			<div class="flex aspect-video w-full items-center justify-center overflow-hidden bg-muted">
 				{#if entry.mimeType.startsWith('video/')}
 					<div class="relative flex h-full w-full items-center justify-center">
 						{#if !failedThumbnails.has(entry.id) && entry.thumbnailFileId}
@@ -196,7 +192,7 @@
 								onerror={() => onthumbnailError?.(entry.id)}
 							/>
 						{:else}
-							<AppIcon name={ICONS.movie} class="size-10 text-surface-500" />
+							<AppIcon name={ICONS.movie} class="size-10 text-muted-foreground" />
 						{/if}
 						{#if entry.proxyStatus === 'processing'}
 							<div class="absolute inset-0 flex items-center justify-center bg-black/40">
@@ -224,12 +220,12 @@
 							onerror={() => onthumbnailError?.(entry.id)}
 						/>
 					{:else}
-						<AppIcon name={ICONS.image} class="size-10 text-surface-500" />
+						<AppIcon name={ICONS.image} class="size-10 text-muted-foreground" />
 					{/if}
 				{:else}
 					<AppIcon
 						name={getMimeIcon(entry.mimeType)}
-						class={['size-10 text-surface-500', showTrashed ? 'opacity-50' : ''].join(' ')}
+						class={cn('size-10 text-muted-foreground', showTrashed && 'opacity-50')}
 					/>
 				{/if}
 			</div>

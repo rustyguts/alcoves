@@ -164,6 +164,76 @@ were consciously deferred:
 - **Files:** `backend/internal/services/oauth/*`, `backend/internal/handlers/oauth_server.go`, `backend/cmd/server/main.go`.
 
 
+## 12. Activity feed/notifications show the wrong actor's avatar (Data integrity) — OPEN
+
+- **What:** Rows in the feed and notification bell sometimes render an avatar
+  that doesn't match the displayed text — e.g. "Bob Chen joined" renders the
+  library admin's avatar, and "Alice Rivera added…" can render a 'B' (Bob's)
+  fallback avatar. **Verified pre-existing, not caused by the shadcn-svelte
+  rewrite** — the rewrite only changed `NotificationItem.svelte`'s CSS tokens
+  (`UserAvatar` usage and the `group.head.actor` data path are unchanged) and
+  the backend read paths are untouched by this branch.
+- **Root cause (confirmed for the `member.joined` case):** the frontend
+  renders text from `metadata.displayName` but the avatar from the row's
+  resolved `actor` (`ActorID`-joined `User`) — see
+  `client/src/lib/utils/activity-format.ts` (`text:` `` `${(md.displayName as
+  string) ?? actor} joined` `` for `member.joined`) vs.
+  `client/src/lib/components/notifications/NotificationItem.svelte`
+  (`<UserAvatar displayName={group.head.actor.displayName}
+  avatarUrl={group.head.actor.avatarUrl} />`, driven by `group.head.actor`,
+  not `metadata`). Those two fields are populated independently and nothing
+  enforces they agree. The dev seeder exploits exactly this gap:
+  `backend/internal/seed/seed_family.go:147-150`,
+  `seed_travel.go:84`, and `seed_podcast.go:110` all call
+  `s.addActivity(..., up(admin.ID), activity.ActionMemberJoined, ...,
+  map[string]any{"displayName": alice.DisplayName /* or bob.DisplayName */,
+  ...})` — the seeded `ActorID` is hardcoded to the library **admin** while
+  `metadata.displayName` correctly names the **joining member**, so every
+  seeded "member.joined" row shows the joiner's name with the admin's avatar.
+  Contrast with the real runtime path,
+  `backend/internal/handlers/invite.go:144-163`, which correctly sets
+  `actor := userID` (the joining user themself) — so this specific mismatch
+  is a **seed-data authoring bug**, not a bug in the live invite-redemption
+  code path.
+- **Not yet root-caused:** the second reported symptom ("Alice Rivera
+  added…" showing a 'B' avatar) doesn't reproduce from the `file.created`
+  seed rows inspected so far (`addFileActivity` calls in `seed_family.go`/
+  `seed_travel.go`/`seed_podcast.go` all pass the correct uploader as actor).
+  It's most likely the same class of bug (an `ActorID` that doesn't match
+  whatever produced the display name) via a path not yet audited — check (a)
+  any other `addActivity`/`addFileActivity` call across the seed package,
+  (b) `backend/internal/handlers/notifications.go`'s `hydrate()` and
+  `backend/internal/services/activity/envelope.go`'s `buildEnvelope()` (both
+  reviewed and look correct: they key strictly off `row.ActorID`, so a
+  wrong-actor render always traces back to the row's stored `ActorID`, not a
+  hydration bug), and (c) any live (non-seed) action that sets `ActorID` to
+  someone other than the person named in `Metadata` (e.g. an admin
+  performing an action attributed to another user in the metadata).
+- **Repro:** `docker compose up` → log in as `test@alcoves.io` → open
+  `/feed` or the notification bell → the "Family Photos" library's two
+  `member.joined` rows ("Alice Rivera joined" / "Bob Chen joined", ~100-118
+  days ago) render the admin's own avatar instead of Alice's/Bob's.
+- **Fix direction:** decide the intended source of truth for `member.joined`
+  (and any other action where `metadata` names someone other than the
+  acting user) — either always render the avatar from `metadata` when it
+  names a different person, or stop trusting `metadata.displayName` for text
+  and always use `actor`. Then fix the seeder's `up(admin.ID)` → the actual
+  joining member's ID at the three call sites above, and add a seed-test
+  assertion (`backend/internal/seed/seed_test.go`) that every
+  `member.joined` row's `ActorID` equals its own `metadata.userId`.
+- **Effort:** S (seed fix) + M (full audit of the second symptom).
+- **Risk:** Low — display-only, no data corruption; but confusing/misleading
+  in a multi-user shared library (wrong person credited for an action).
+- **Files:** `backend/internal/seed/seed_family.go`,
+  `backend/internal/seed/seed_travel.go`,
+  `backend/internal/seed/seed_podcast.go`,
+  `backend/internal/handlers/invite.go`,
+  `backend/internal/handlers/notifications.go`,
+  `backend/internal/services/activity/envelope.go`,
+  `client/src/lib/utils/activity-format.ts`,
+  `client/src/lib/components/notifications/NotificationItem.svelte`.
+
+
 ---
 
 ## Completed

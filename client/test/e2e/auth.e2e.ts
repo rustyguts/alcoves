@@ -29,12 +29,13 @@ test.describe('authentication (full stack)', () => {
 
 	test('logging out returns to /login', async ({ page }) => {
 		await login(page);
-		// Open the user menu and sign out.
+		// Open the user menu and sign out. The menu is a bits-ui DropdownMenu: its
+		// items render as portalled `role="menuitem"` elements, not buttons.
 		await page
 			.getByRole('button', { name: /user menu|account|profile/i })
 			.first()
 			.click();
-		await page.getByRole('button', { name: /sign out|log ?out/i }).click();
+		await page.getByRole('menuitem', { name: /sign out|log ?out/i }).click();
 		await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
 	});
 });

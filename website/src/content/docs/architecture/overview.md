@@ -58,8 +58,8 @@ streaming and resumable uploads untouched.
 
 ## Frontend (SvelteKit)
 
-- SvelteKit with Svelte 5 runes, Skeleton UI, and Tailwind, built with
-  `adapter-node` and served by Bun.
+- SvelteKit with Svelte 5 runes, shadcn-svelte (on bits-ui), and Tailwind,
+  built with `adapter-node` and served by Bun.
 - **Server-rendered by default**: every page SSRs against the Go API (never
   the database) and hydrates in the browser. Share pages emit correct Open
   Graph tags for link embeds.

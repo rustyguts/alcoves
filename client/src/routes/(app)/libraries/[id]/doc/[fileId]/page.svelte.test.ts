@@ -102,7 +102,7 @@ describe('doc editor page', () => {
 	it('switches between edit, split, and preview modes', async () => {
 		const screen = render(DocPage);
 		await settle();
-		const buttons = [...screen.container.querySelectorAll('[role="group"] button')];
+		const buttons = [...screen.container.querySelectorAll('[role="tablist"] button')];
 		const byLabel = (label: string) =>
 			buttons.find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
 
@@ -126,7 +126,7 @@ describe('doc editor page', () => {
 		expect(screen.container.querySelector('[data-testid="markdown-preview"]')).toBeTruthy();
 		expect(screen.container.querySelector('[data-testid="markdown-editor-mock"]')).toBeNull();
 		// …and the source pane is read-only when opened.
-		const source = [...screen.container.querySelectorAll('[role="group"] button')].find(
+		const source = [...screen.container.querySelectorAll('[role="tablist"] button')].find(
 			(b) => b.textContent?.trim() === 'Source'
 		) as HTMLButtonElement;
 		source.click();

@@ -337,7 +337,7 @@
 				onscrubchange={(active) => (dragActive = active)}
 			/>
 
-			<div class="overflow-hidden rounded-b-lg border border-surface-300-700 bg-surface-100-900">
+			<div class="overflow-hidden rounded-b-lg border bg-muted">
 				<MomentsTrack
 					{moments}
 					{selectedId}

@@ -3,7 +3,15 @@
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import * as Item from '$lib/components/ui/item/index.js';
+	import * as Separator from '$lib/components/ui/separator/index.js';
 	import { ICONS } from '$lib/utils/icons';
 	import { api } from '$lib/api';
 	import { toast } from '$lib/state/toast';
@@ -32,6 +40,10 @@
 		{ label: '90 days', value: '90' },
 		{ label: '1 year', value: '365' }
 	];
+
+	const newExpiryLabel = $derived(
+		expiryOptions.find((o) => o.value === newExpiry)?.label ?? 'Never expires'
+	);
 
 	async function refresh() {
 		try {
@@ -112,16 +124,16 @@
 	icon={ICONS.key}
 >
 	{#snippet actions()}
-		<span class="badge preset-tonal-surface">{tokens.length} active</span>
+		<Badge variant="secondary">{tokens.length} active</Badge>
 	{/snippet}
 
-	<div class="space-y-5">
+	<div class="flex flex-col gap-5">
 		<!-- Create -->
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-			<label class="flex-1 space-y-1">
-				<span class="block text-sm font-medium">Name</span>
-				<input
-					class="input w-full"
+			<Field.Field class="flex-1">
+				<Label for="new-token-name">Name</Label>
+				<Input
+					id="new-token-name"
 					placeholder="e.g. Claude Desktop on laptop"
 					bind:value={newName}
 					disabled={creating}
@@ -129,76 +141,80 @@
 						if (e.key === 'Enter') createToken();
 					}}
 				/>
-				<span class="block text-xs text-surface-600-400">What is this token for?</span>
-			</label>
-			<label class="space-y-1">
-				<span class="block text-sm font-medium">Expires</span>
-				<select class="select" bind:value={newExpiry} disabled={creating}>
-					{#each expiryOptions as opt (opt.value)}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
-			</label>
-			<Button loading={creating} disabled={creating} onclick={createToken}>
-				{#snippet icon()}
+				<Field.Description>What is this token for?</Field.Description>
+			</Field.Field>
+			<Field.Field class="sm:w-40">
+				<Label for="new-token-expiry">Expires</Label>
+				<Select.Root
+					type="single"
+					value={newExpiry}
+					onValueChange={(v) => {
+						if (v) newExpiry = v;
+					}}
+					disabled={creating}
+				>
+					<Select.Trigger id="new-token-expiry" aria-label="Expires" class="w-full">
+						{newExpiryLabel}
+					</Select.Trigger>
+					<Select.Content>
+						{#each expiryOptions as opt (opt.value)}
+							<Select.Item value={opt.value} label={opt.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</Field.Field>
+			<Button disabled={creating} onclick={createToken}>
+				{#if creating}
+					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+				{:else}
 					<AppIcon name={ICONS.plus} class="size-4" />
-				{/snippet}
+				{/if}
 				Create token
 			</Button>
 		</div>
 
-		<hr class="border-surface-200-800" />
+		<Separator.Root />
 
 		<!-- List -->
 		{#if tokens.length}
-			<div class="overflow-hidden rounded-md border border-surface-200-800">
+			<Item.Group>
 				{#each tokens as token (token.id)}
-					<div
-						class="flex flex-col gap-2 border-b border-surface-200-800 px-4 py-3 last:border-b-0 md:flex-row md:items-center"
-					>
-						<div class="flex min-w-0 flex-1 items-center gap-3">
-							<div
-								class="flex size-9 shrink-0 items-center justify-center rounded-full preset-tonal-surface"
+					<Item.Root variant="outline">
+						<Item.Media variant="icon" class="size-9 rounded-full bg-muted text-muted-foreground">
+							<AppIcon name={ICONS.key} class="size-4" />
+						</Item.Media>
+						<Item.Content>
+							<Item.Title>{token.name}</Item.Title>
+							<Item.Description>
+								Created {formatDate(token.createdAt)} · Expires {formatDate(token.expiresAt)} · {token.lastUsedAt
+									? `Last used ${formatDate(token.lastUsedAt)}`
+									: 'Never used'}
+							</Item.Description>
+						</Item.Content>
+						<Item.Actions>
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={revokingId === token.id}
+								onclick={() => revokeToken(token.id)}
 							>
-								<AppIcon name={ICONS.key} class="size-4" />
-							</div>
-							<div class="min-w-0">
-								<p class="truncate text-sm font-medium">{token.name}</p>
-								<div
-									class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-surface-600-400"
-								>
-									<span>Created {formatDate(token.createdAt)}</span>
-									<span aria-hidden="true">·</span>
-									<span>Expires {formatDate(token.expiresAt)}</span>
-									<span aria-hidden="true">·</span>
-									<span>
-										{token.lastUsedAt ? `Last used ${formatDate(token.lastUsedAt)}` : 'Never used'}
-									</span>
-								</div>
-							</div>
-						</div>
-						<Button
-							variant="tonal"
-							color="error"
-							size="sm"
-							loading={revokingId === token.id}
-							disabled={revokingId === token.id}
-							onclick={() => revokeToken(token.id)}
-						>
-							{#snippet icon()}
-								<AppIcon name={ICONS.trash} class="size-4" />
-							{/snippet}
-							Revoke
-						</Button>
-					</div>
+								{#if revokingId === token.id}
+									<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+								{:else}
+									<AppIcon name={ICONS.trash} class="size-4" />
+								{/if}
+								Revoke
+							</Button>
+						</Item.Actions>
+					</Item.Root>
 				{/each}
-			</div>
+			</Item.Group>
 		{:else}
-			<div class="flex items-start gap-3 card preset-tonal-surface p-4">
+			<div class="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
 				<AppIcon name={ICONS.key} class="size-5 shrink-0 opacity-70" />
 				<div class="space-y-0.5">
 					<p class="text-sm font-medium">No access tokens yet</p>
-					<p class="text-xs text-surface-600-400">
+					<p class="text-xs text-muted-foreground">
 						Create one to connect an MCP client to your Alcoves libraries.
 					</p>
 				</div>
@@ -213,24 +229,17 @@
 	title="Copy your new token"
 	description="This is the only time the token is shown. Store it somewhere safe."
 >
-	<div class="space-y-4">
-		<div class="flex items-center gap-2">
-			<input class="input w-full font-mono text-xs" value={createdToken?.token ?? ''} readonly />
-			<Button
-				iconOnly
-				variant="tonal"
-				color="surface"
-				class="shrink-0"
-				aria-label="Copy token"
-				onclick={copyToken}
-			>
-				{#snippet icon()}
+	<div class="flex flex-col gap-4">
+		<InputGroup.Root>
+			<InputGroup.Input value={createdToken?.token ?? ''} readonly class="font-mono text-xs" />
+			<InputGroup.Addon align="inline-end">
+				<InputGroup.Button aria-label="Copy token" onclick={copyToken}>
 					<AppIcon name={ICONS.copy} class="size-4" />
-				{/snippet}
-			</Button>
-		</div>
-		<div class="flex items-start gap-3 card preset-tonal-warning p-4">
-			<AppIcon name={ICONS.shield} class="size-5 shrink-0 opacity-80" />
+				</InputGroup.Button>
+			</InputGroup.Addon>
+		</InputGroup.Root>
+		<div class="flex items-start gap-3 rounded-lg border bg-warning/10 p-4 text-warning">
+			<AppIcon name={ICONS.shield} class="size-5 shrink-0" />
 			<div class="space-y-0.5">
 				<p class="text-sm font-medium">Treat it like a password</p>
 				<p class="text-xs opacity-80">

@@ -27,7 +27,7 @@
 
 <div>
 	{#if !hideHeading}
-		<div class="flex min-h-12 items-center justify-between gap-3">
+		<div class="flex min-h-12 items-center justify-between gap-2 sm:gap-3">
 			<div class="flex min-w-0 flex-1 items-center gap-2">
 				{#if emoji}
 					<span class="shrink-0 text-2xl leading-none">{emoji}</span>
@@ -35,7 +35,7 @@
 				<LibraryBreadcrumb {libraryId} libraryName={name} />
 			</div>
 			{#if actions}
-				<div class="flex shrink-0 items-center gap-3">
+				<div class="flex shrink-0 items-center gap-2 sm:gap-3">
 					{@render actions()}
 				</div>
 			{/if}

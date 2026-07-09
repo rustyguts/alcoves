@@ -4,13 +4,13 @@ import StatCard from './StatCard.svelte';
 import { ICONS } from '$lib/utils/icons';
 
 describe('StatCard', () => {
-	it('renders the title, value, and icon on the canonical tonal surface', () => {
+	it('renders the title, value, and icon on the canonical card surface', () => {
 		const screen = render(StatCard, {
 			props: { title: 'Files', value: '1,234', icon: ICONS.files }
 		});
-		const root = screen.container.querySelector('div.card');
+		const root = screen.container.querySelector('[data-slot="stat-card"]');
 		expect(root).not.toBeNull();
-		expect(root?.className).toContain('preset-tonal-surface');
+		expect(root?.className).toContain('bg-card');
 		expect(root?.className).toContain('border');
 		expect(screen.container.textContent).toContain('Files');
 		expect(screen.container.textContent).toContain('1,234');
@@ -41,19 +41,19 @@ describe('StatCard', () => {
 				title: 'Failed',
 				value: 3,
 				icon: ICONS.files,
-				iconClass: 'text-error-500 bg-error-500/10'
+				iconClass: 'text-destructive bg-destructive/10'
 			}
 		});
-		const badge = screen.container.querySelector('div.rounded-lg');
-		expect(badge?.className).toContain('text-error-500');
-		expect(badge?.className).toContain('bg-error-500/10');
+		const badge = screen.container.querySelector('[data-slot="stat-card-icon"]');
+		expect(badge?.className).toContain('text-destructive');
+		expect(badge?.className).toContain('bg-destructive/10');
 	});
 
 	it('defaults the icon-badge tint to primary', () => {
 		const screen = render(StatCard, {
 			props: { title: 'Files', value: 1, icon: ICONS.files }
 		});
-		const badge = screen.container.querySelector('div.rounded-lg');
-		expect(badge?.className).toContain('text-primary-500');
+		const badge = screen.container.querySelector('[data-slot="stat-card-icon"]');
+		expect(badge?.className).toContain('text-primary');
 	});
 });

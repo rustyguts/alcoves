@@ -44,8 +44,12 @@ async function selectMomentCard(page: Page, name: string): Promise<void> {
 /** Delete the currently selected moment through the edit form + confirm modal. */
 async function deleteSelectedMoment(page: Page): Promise<void> {
 	await page.getByTestId('moment-edit-form').getByRole('button', { name: 'Delete' }).click();
-	// ConfirmModal's confirm button carries the error preset.
-	await page.locator('button.preset-filled-error-500', { hasText: 'Delete' }).click();
+	// ConfirmModal renders a bits-ui AlertDialog portalled to <body>; scope to
+	// its content so this doesn't collide with the form's own Delete button.
+	await page
+		.locator('[data-slot="alert-dialog-content"]')
+		.getByRole('button', { name: 'Delete', exact: true })
+		.click();
 	await expect(page.getByText('Moment deleted').first()).toBeVisible({ timeout: 10_000 });
 }
 

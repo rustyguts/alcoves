@@ -185,7 +185,7 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		bind:this={trackEl}
-		class="relative flex-1 cursor-ns-resize touch-none border-l border-surface-200-800"
+		class="relative flex-1 cursor-ns-resize touch-none border-l"
 		onpointerdown={onPointerDown}
 		onpointermove={onPointerMove}
 		onpointerup={onPointerUp}
@@ -194,18 +194,25 @@
 		<!-- Per-month density blips: longer = more photos that month. -->
 		{#each marks as m, i (`blip-${i}`)}
 			<span
-				class="pointer-events-none absolute right-2 h-[3px] -translate-y-1/2 rounded-full bg-current text-surface-400-600"
+				class="pointer-events-none absolute right-2 h-[3px] -translate-y-1/2 rounded-full bg-muted-foreground"
 				style="top: {m.midFrac * 100}%; width: {4 + m.density * 18}px; opacity: {0.5 +
 					m.density * 0.5};"
 				aria-hidden="true"
 			></span>
 		{/each}
 
-		<!-- Year labels at each year boundary (click to jump). -->
+		<!-- Year labels at each year boundary (click to jump). z-10 + a fully opaque
+		     backdrop keep the digits legible above the density blips AND the
+		     full-width slider-handle rule below (later in DOM order, so without an
+		     explicit z-index it would paint straight through the label — at page
+		     load the handle sits at 0%, exactly under the topmost year). The
+		     backdrop runs flush to the rail's right edge (right-0 + asymmetric
+		     padding keeps the digits where right-1 + px-1 put them) so no sliver
+		     of the handle rule peeks out past the label. -->
 		{#each yearMarks as m, i (`yr-${i}`)}
 			<button
 				type="button"
-				class="absolute right-1 -translate-y-1/2 cursor-pointer rounded px-1 text-[11px] font-semibold text-surface-600-400 tabular-nums transition-colors hover:text-surface-950-50"
+				class="absolute right-0 z-10 -translate-y-1/2 cursor-pointer rounded bg-background py-0.5 pr-2 pl-1 text-[11px] font-semibold text-muted-foreground tabular-nums transition-colors hover:text-foreground"
 				style="top: {m.startFrac * 100}%;"
 				onclick={() => onscrub?.(m.startFrac)}
 			>
@@ -227,13 +234,13 @@
 			style="top: {handleFrac * 100}%;"
 			onkeydown={onKeydown}
 		>
-			<span class="block h-0.5 w-full rounded-full bg-primary-500"></span>
+			<span class="block h-0.5 w-full rounded-full bg-primary"></span>
 		</div>
 
 		<!-- Date bubble shown while hovering / dragging the rail. -->
 		{#if bubbleVisible && bubbleLabel}
 			<span
-				class="pointer-events-none absolute right-full mr-2 -translate-y-1/2 rounded bg-surface-950-50 px-2 py-1 text-xs font-medium whitespace-nowrap text-surface-50-950 tabular-nums shadow ring-1 ring-surface-200-800"
+				class="pointer-events-none absolute right-full mr-2 -translate-y-1/2 rounded bg-foreground px-2 py-1 text-xs font-medium whitespace-nowrap text-background tabular-nums shadow ring-1 ring-border"
 				style="top: {clamp01(bubbleFrac) * 100}%;"
 			>
 				{bubbleLabel}

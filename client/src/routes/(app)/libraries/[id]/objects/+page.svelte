@@ -7,8 +7,10 @@
 	import { portal } from '$lib/actions/portal';
 	import { toast } from '$lib/state/toast';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import * as Table from '$lib/components/ui/table/index.js';
 	import type { ObjectLabel } from '$lib/types/api';
 	import type { PageProps } from './$types';
 
@@ -63,13 +65,11 @@
 {#if canManage}
 	<!-- Injected into the library header's action row (see +layout.svelte). -->
 	<div use:portal={'#library-header-actions'}>
-		<Button variant="tonal" color="surface" size="sm" disabled={reprocessing} onclick={reprocess}>
-			{#snippet icon()}
-				<AppIcon
-					name={ICONS.objectDetection}
-					class={['size-4', reprocessing && 'animate-spin'].filter(Boolean).join(' ')}
-				/>
-			{/snippet}
+		<Button variant="ghost" size="sm" disabled={reprocessing} onclick={reprocess}>
+			<AppIcon
+				name={ICONS.objectDetection}
+				class={['size-4', reprocessing && 'animate-spin'].filter(Boolean).join(' ')}
+			/>
 			<span>{reprocessing ? 'Queuing…' : 'Reprocess'}</span>
 		</Button>
 	</div>
@@ -78,7 +78,7 @@
 <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-0.5">
 	{#if loading}
 		<div class="flex items-center justify-center py-12">
-			<AppIcon name={ICONS.loading} class="size-6 animate-spin text-surface-600-400" />
+			<AppIcon name={ICONS.loading} class="size-6 animate-spin text-muted-foreground" />
 		</div>
 	{:else if loadError}
 		<EmptyState
@@ -88,10 +88,8 @@
 			tone="error"
 		>
 			{#snippet actions()}
-				<Button variant="tonal" color="surface" onclick={load}>
-					{#snippet icon()}
-						<AppIcon name={ICONS.reload} class="size-4" />
-					{/snippet}
+				<Button variant="outline" onclick={load}>
+					<AppIcon name={ICONS.reload} class="size-4" />
 					Retry
 				</Button>
 			{/snippet}
@@ -104,33 +102,31 @@
 		/>
 	{:else}
 		<div class="flex items-center gap-2 text-sm">
-			<span class="badge preset-tonal-surface">{labels.length} labels</span>
-			<span class="badge preset-tonal-surface">{totalDetections} total detections</span>
+			<Badge variant="secondary">{labels.length} labels</Badge>
+			<Badge variant="secondary">{totalDetections} total detections</Badge>
 		</div>
 
-		<div class="overflow-hidden rounded-lg border border-surface-200-800">
-			<div class="overflow-x-auto">
-				<table class="w-full text-sm">
-					<thead class="bg-surface-100-900 text-left">
-						<tr>
-							<th class="px-4 py-3 font-medium">Label</th>
-							<th class="px-4 py-3 text-right font-medium">Photos</th>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-surface-200-800">
-						{#each labels as item (item.label)}
-							<tr class="transition hover:bg-surface-100-900">
-								<td class="px-4 py-3">
-									<span class="badge preset-tonal-primary">{item.label}</span>
-								</td>
-								<td class="px-4 py-3 text-right tabular-nums">
-									{item.fileCount}
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+		<div class="overflow-hidden rounded-lg border">
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>Label</Table.Head>
+						<Table.Head class="text-right">Photos</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each labels as item (item.label)}
+						<Table.Row>
+							<Table.Cell>
+								<Badge variant="outline">{item.label}</Badge>
+							</Table.Cell>
+							<Table.Cell class="text-right tabular-nums">
+								{item.fileCount}
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
 		</div>
 	{/if}
 </div>

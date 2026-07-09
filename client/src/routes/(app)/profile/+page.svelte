@@ -8,7 +8,14 @@
 	import { ICONS } from '$lib/utils/icons';
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
+	import * as Avatar from '$lib/components/ui/avatar/index.js';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
+	import * as Item from '$lib/components/ui/item/index.js';
 	import AccessTokensSection from '$lib/components/profile/AccessTokensSection.svelte';
 	import ConnectedAppsSection from '$lib/components/profile/ConnectedAppsSection.svelte';
 	import type { PageProps } from './$types';
@@ -164,6 +171,39 @@
 		{ label: 'Dark', value: 'dark', icon: ICONS.dark, hint: 'Always dark' }
 	];
 
+	// F15 rework: bits-ui's `type="single"` ToggleGroup deselects to "" on a
+	// re-click of the already-active item. The prior code passed `value`
+	// one-way, so that "" got stuck as an unbound local override on the
+	// vendored wrapper's `$bindable` prop with no way back — Svelte only
+	// re-syncs a one-way bindable when the parent's VALUE actually changes,
+	// and re-clicking the current theme doesn't change it. Bind two-way to a
+	// local mirror instead and immediately snap "" back to the current theme
+	// in the change handler, so the group is never rendered with nothing
+	// selected. `lastSyncedTheme` mirrors the `lastSyncedName` idiom above:
+	// re-sync `selectedTheme` FROM `theme.preference` only when the latter
+	// changes externally (e.g. the async OS-preference bootstrap in the root
+	// layout's `theme.init()`), without fighting the user's own toggle clicks.
+	// `selectedTheme` is typed loosely (`string`, not `ColorPreference`) to
+	// match the bits-ui `ToggleGroup` single-select value type, which can
+	// momentarily be `""` on deselect — see the change handler below.
+	let selectedTheme = $state<string>(theme.preference);
+	let lastSyncedTheme = $state<ColorPreference>(theme.preference);
+	$effect(() => {
+		if (theme.preference !== lastSyncedTheme) {
+			selectedTheme = theme.preference;
+			lastSyncedTheme = theme.preference;
+		}
+	});
+
+	function onThemeToggleChange(value: string) {
+		if (!value) {
+			selectedTheme = theme.preference;
+			return;
+		}
+		theme.set(value as ColorPreference);
+		lastSyncedTheme = value as ColorPreference;
+	}
+
 	// Silence the unused-page warning while keeping the import wired for parity with peers.
 	void page;
 </script>
@@ -171,27 +211,31 @@
 <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 overflow-y-auto px-0.5 pb-8">
 	<!-- Identity hero — flat, sits directly on the page, no card chrome -->
 	<header class="flex flex-col items-center gap-5 pt-1 text-center sm:flex-row sm:text-left">
+		<!-- F23 rework: focus-visible ring (spec's custom-focusable convention) so
+		     keyboard users can see this button is focused, an aria-label since the
+		     button otherwise only exposes the avatar's name (not its action), and
+		     group-focus-visible so the camera overlay reveals on keyboard focus too,
+		     not just pointer hover. -->
 		<button
 			type="button"
-			class="group relative shrink-0 rounded-full transition focus:outline-none"
+			aria-label="Change profile photo"
+			class="group relative shrink-0 rounded-full transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
 			onclick={openAvatarPicker}
 		>
-			{#if currentAvatarSrc}
-				<img
-					src={currentAvatarSrc}
-					alt={user?.displayName ?? 'User'}
-					class="aspect-square w-24 rounded-full object-cover ring-4 ring-surface-200-800 transition group-hover:ring-primary-500/30"
-				/>
-			{:else}
-				<span
-					class="inline-flex aspect-square w-24 items-center justify-center rounded-full preset-tonal-surface text-3xl font-medium ring-4 ring-surface-200-800 transition group-hover:ring-primary-500/30"
-					aria-label={user?.displayName ?? 'User'}
-				>
+			<Avatar.Root class="size-24 ring-4 ring-border transition group-hover:ring-primary/30">
+				{#if currentAvatarSrc}
+					<Avatar.Image
+						src={currentAvatarSrc}
+						alt={user?.displayName ?? 'User'}
+						class="object-cover"
+					/>
+				{/if}
+				<Avatar.Fallback aria-label={user?.displayName ?? 'User'} class="text-3xl font-medium">
 					{avatarInitial}
-				</span>
-			{/if}
+				</Avatar.Fallback>
+			</Avatar.Root>
 			<span
-				class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition group-hover:opacity-100"
+				class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100"
 			>
 				<AppIcon name={ICONS.camera} class="size-6 text-white" />
 			</span>
@@ -204,23 +248,19 @@
 			<div
 				class="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:justify-start"
 			>
-				<span class="inline-flex max-w-full items-center gap-1.5 text-sm text-surface-600-400">
+				<span class="inline-flex max-w-full items-center gap-1.5 text-sm text-muted-foreground">
 					<AppIcon name={ICONS.email} class="size-4 shrink-0" />
 					<span class="break-all">{user?.email}</span>
 				</span>
 				{#if user?.role}
-					<span
-						class="badge capitalize {user.role === 'owner'
-							? 'preset-tonal-primary'
-							: 'preset-tonal-surface'}"
-					>
+					<Badge variant={user.role === 'owner' ? 'default' : 'secondary'} class="capitalize">
 						{user.role}
-					</span>
+					</Badge>
 				{/if}
 			</div>
 			<button
 				type="button"
-				class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-primary-500 transition hover:text-primary-600"
+				class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-primary transition hover:text-primary/80"
 				onclick={openAvatarPicker}
 			>
 				<AppIcon name={ICONS.camera} class="size-3.5" />
@@ -244,29 +284,31 @@
 		icon={ICONS.person}
 	>
 		{#snippet actions()}
-			<Button loading={saving} disabled={!hasProfileChanges || saving} onclick={save}>
-				{#snippet icon()}
+			<Button disabled={!hasProfileChanges || saving} onclick={save}>
+				{#if saving}
+					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+				{:else}
 					<AppIcon name={ICONS.save} class="size-4" />
-				{/snippet}
+				{/if}
 				Save changes
 			</Button>
 		{/snippet}
 
-		<div class="space-y-4">
-			<label class="block space-y-1">
-				<span class="block text-sm font-medium">Display name</span>
-				<input class="input w-full" placeholder="Display name" bind:value={displayName} />
-			</label>
+		<div class="flex flex-col gap-4">
+			<Field.Field>
+				<Label for="profile-display-name">Display name</Label>
+				<Input id="profile-display-name" placeholder="Display name" bind:value={displayName} />
+			</Field.Field>
 
 			{#if selectedAvatar}
 				<div
-					class="flex flex-wrap items-center justify-between gap-2 rounded-md preset-tonal-primary px-3 py-2 text-sm"
+					class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-primary/10 px-3 py-2 text-sm text-primary"
 				>
 					<span class="inline-flex items-center gap-2">
 						<AppIcon name={ICONS.camera} class="size-4 shrink-0" />
 						New photo selected — save changes to apply.
 					</span>
-					<Button variant="tonal" color="primary" size="sm" onclick={discardAvatar}>Discard</Button>
+					<Button variant="ghost" size="sm" onclick={discardAvatar}>Discard</Button>
 				</div>
 			{/if}
 		</div>
@@ -278,30 +320,33 @@
 		description="Choose how Alcoves looks on this device."
 		icon={ICONS.appearance}
 	>
-		<div class="grid grid-cols-3 gap-2 sm:gap-3">
+		<ToggleGroup.Root
+			type="single"
+			variant="outline"
+			spacing={2}
+			bind:value={selectedTheme}
+			onValueChange={onThemeToggleChange}
+			class="grid w-full grid-cols-3 gap-2 sm:gap-3"
+		>
 			{#each themeOptions as opt (opt.value)}
-				<button
-					type="button"
-					class="relative flex flex-col items-center gap-1.5 rounded-md px-3 py-4 text-center transition {theme.preference ===
-					opt.value
-						? 'preset-tonal-primary ring-1 ring-primary-500 ring-inset'
-						: 'preset-tonal-surface hover:preset-filled-surface-100-900'}"
-					onclick={() => theme.set(opt.value)}
+				<ToggleGroup.Item
+					value={opt.value}
+					class="relative h-auto flex-col gap-1.5 rounded-md px-3 py-4 text-center data-[state=on]:ring-1 data-[state=on]:ring-primary data-[state=on]:ring-inset"
 				>
 					{#if theme.preference === opt.value}
-						<AppIcon name={ICONS.success} class="absolute top-2 right-2 size-4 text-primary-500" />
+						<AppIcon name={ICONS.success} class="absolute top-2 right-2 size-4 text-primary" />
 					{/if}
 					<AppIcon
 						name={opt.icon}
 						class="size-6 {theme.preference === opt.value
-							? 'text-primary-500'
-							: 'text-surface-600-400'}"
+							? 'text-primary'
+							: 'text-muted-foreground'}"
 					/>
 					<span class="text-sm font-medium">{opt.label}</span>
-					<span class="text-xs text-surface-600-400">{opt.hint}</span>
-				</button>
+					<span class="text-xs text-muted-foreground">{opt.hint}</span>
+				</ToggleGroup.Item>
 			{/each}
-		</div>
+		</ToggleGroup.Root>
 	</AppPanel>
 
 	<!-- Active sessions -->
@@ -311,62 +356,57 @@
 		icon={ICONS.admin}
 	>
 		{#snippet actions()}
-			<span class="badge preset-tonal-surface">{sessions.length}</span>
+			<Badge variant="secondary">{sessions.length}</Badge>
 		{/snippet}
 
 		{#if sessions.length}
-			<div class="overflow-hidden rounded-md border border-surface-200-800">
+			<Item.Group>
 				{#each sessions as session (session.id)}
-					<div
-						class="flex flex-wrap items-center justify-between gap-3 border-b border-surface-200-800 px-4 py-3 last:border-b-0"
-					>
-						<div class="flex min-w-0 items-center gap-3">
-							<div
-								class="flex size-9 shrink-0 items-center justify-center rounded-full preset-tonal-surface"
-							>
-								<AppIcon name={ICONS.system} class="size-4" />
-							</div>
-							<div class="min-w-0 space-y-0.5">
-								<div class="flex items-center gap-2">
-									<span class="truncate text-sm font-medium">
-										{parseBrowser(session.userAgent)}
-									</span>
-									{#if session.isCurrent}
-										<span class="badge preset-tonal-primary">Current</span>
-									{/if}
-								</div>
-								<div
-									class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-surface-600-400"
-								>
-									{#if session.ipAddress}
-										<span>{session.ipAddress}</span>
-										<span aria-hidden="true">·</span>
-									{/if}
-									<span>Signed in {formatSessionDate(session.createdAt)}</span>
-								</div>
-							</div>
-						</div>
+					<Item.Root variant="outline">
+						<Item.Media variant="icon" class="size-9 rounded-full bg-muted text-muted-foreground">
+							<AppIcon name={ICONS.system} class="size-4" />
+						</Item.Media>
+						<Item.Content>
+							<Item.Title>
+								<span class="truncate">{parseBrowser(session.userAgent)}</span>
+								{#if session.isCurrent}
+									<Badge variant="secondary">Current</Badge>
+								{/if}
+							</Item.Title>
+							<Item.Description>
+								{#if session.ipAddress}
+									{session.ipAddress}
+									<span aria-hidden="true">·</span>
+								{/if}
+								Signed in {formatSessionDate(session.createdAt)}
+							</Item.Description>
+						</Item.Content>
 						{#if !session.isCurrent}
-							<Button
-								variant="tonal"
-								color="error"
-								size="sm"
-								loading={revokingId === session.id}
-								disabled={revokingId === session.id}
-								onclick={() => revokeSession(session.id)}
-							>
-								Revoke
-							</Button>
+							<Item.Actions>
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={revokingId === session.id}
+									onclick={() => revokeSession(session.id)}
+								>
+									{#if revokingId === session.id}
+										<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+									{/if}
+									Revoke
+								</Button>
+							</Item.Actions>
 						{/if}
-					</div>
+					</Item.Root>
 				{/each}
-			</div>
+			</Item.Group>
 		{:else}
-			<div class="flex items-start gap-3 card preset-tonal-surface p-4">
+			<div class="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
 				<AppIcon name={ICONS.admin} class="size-5 shrink-0 opacity-70" />
 				<div class="space-y-0.5">
 					<p class="text-sm font-medium">No other active sessions</p>
-					<p class="text-xs text-surface-600-400">Only this browser session is active right now.</p>
+					<p class="text-xs text-muted-foreground">
+						Only this browser session is active right now.
+					</p>
 				</div>
 			</div>
 		{/if}

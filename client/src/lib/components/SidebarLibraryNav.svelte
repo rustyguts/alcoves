@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import LibrarySwitcher from '$lib/components/LibrarySwitcher.svelte';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { ICONS } from '$lib/utils/icons';
 	import type { AuthUser, Library } from '$lib/types/api';
 
@@ -10,9 +11,11 @@
 	 * Timeline, Map, Tags, Feed, People, Settings, Trash) as a static nav. Objects
 	 * is an advanced owner feature reached from the library Settings page, not
 	 * here. The actions always target the active library (or the default library
-	 * when no library is open). Shared between the desktop sidebar and the mobile
-	 * slideover. The active link is derived from `currentPath` so this component
-	 * stays free of `$app/state` and is trivially testable.
+	 * when no library is open). Rendered once inside `Sidebar.Content` — the
+	 * `Sidebar.Root` primitive itself swaps between the fixed desktop panel and
+	 * the mobile Sheet, so this markup is shared between both automatically. The
+	 * active link is derived from `currentPath` so this component stays free of
+	 * `$app/state` and is trivially testable.
 	 */
 	interface Props {
 		libraries: Library[] | null;
@@ -152,21 +155,43 @@
 			}
 		];
 	});
+
+	// Close the mobile drawer (Sheet) whenever the active section changes, so
+	// tapping a link doesn't leave the sheet covering the new page.
+	// `useSidebar()` resolves to `undefined` outside a `Sidebar.Provider` — e.g.
+	// this component's isolated unit tests — where the close is simply a no-op.
+	//
+	// This component only mounts while the mobile Sheet is open (bits-ui
+	// unmounts its content entirely while closed), so the effect's first run —
+	// on mount, with whatever `currentPath` the drawer was opened on — must be
+	// skipped, or every open would immediately self-close.
+	const sidebar = Sidebar.useSidebar();
+	let mounted = false;
+	$effect(() => {
+		// Read currentPath so it registers as a dependency, then close the drawer.
+		void currentPath;
+		if (!mounted) {
+			mounted = true;
+			return;
+		}
+		sidebar?.setOpenMobile(false);
+	});
 </script>
 
-{#snippet navLink(item: NavItem)}
-	<a
-		href={item.to}
-		aria-current={item.active ? 'page' : undefined}
-		class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-base transition-colors
-			{item.active ? 'preset-filled-primary-500' : 'hover:preset-tonal'}"
-	>
-		<AppIcon name={item.icon} class="size-5 shrink-0" />
-		<span class="min-w-0 flex-1 truncate">{item.label}</span>
-	</a>
+{#snippet navItem(item: NavItem)}
+	<Sidebar.MenuItem>
+		<Sidebar.MenuButton isActive={item.active} size="lg">
+			{#snippet child({ props })}
+				<a href={item.to} aria-current={item.active ? 'page' : undefined} {...props}>
+					<AppIcon name={item.icon} />
+					<span class="min-w-0 flex-1 truncate">{item.label}</span>
+				</a>
+			{/snippet}
+		</Sidebar.MenuButton>
+	</Sidebar.MenuItem>
 {/snippet}
 
-<div class="flex min-h-0 flex-col">
+<div class="flex h-full min-h-0 flex-col">
 	<div class="px-2 pt-1">
 		<LibrarySwitcher
 			{libraries}
@@ -175,11 +200,11 @@
 		/>
 	</div>
 
-	<hr class="my-2 border-surface-200-800" />
+	<Sidebar.Separator class="my-2" />
 
 	{#if librariesError && !currentLibrary}
 		<div
-			class="mx-2 mb-2 flex items-start gap-2 rounded-lg border border-error-500/30 bg-error-500/10 px-3 py-2 text-xs text-error-600"
+			class="mx-2 mb-2 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 		>
 			<AppIcon name={ICONS.warning} class="size-4 shrink-0" />
 			<span>Couldn't load your libraries. Refresh to try again.</span>
@@ -187,20 +212,24 @@
 	{/if}
 
 	<div class="flex-1 overflow-y-auto px-2">
-		<nav aria-label="Library sections" class="flex w-full flex-col gap-1">
-			{#each actionItems as item (item.key)}
-				{@render navLink(item)}
-			{/each}
+		<nav aria-label="Library sections">
+			<Sidebar.Menu>
+				{#each actionItems as item (item.key)}
+					{@render navItem(item)}
+				{/each}
+			</Sidebar.Menu>
 		</nav>
 	</div>
 
 	{#if bottomItems.length}
 		<div class="mt-auto px-2 pb-3">
-			<hr class="mb-2 border-surface-200-800" />
-			<nav aria-label="Admin" class="flex w-full flex-col gap-1">
-				{#each bottomItems as item (item.key)}
-					{@render navLink(item)}
-				{/each}
+			<Sidebar.Separator class="mb-2" />
+			<nav aria-label="Admin">
+				<Sidebar.Menu>
+					{#each bottomItems as item (item.key)}
+						{@render navItem(item)}
+					{/each}
+				</Sidebar.Menu>
 			</nav>
 		</div>
 	{/if}

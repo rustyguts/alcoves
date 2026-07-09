@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 
 	// Types only — the runtime modules are dynamically imported inside onMount
 	// (LibraryMap pattern) so CodeMirror never runs during SSR. The instances
@@ -50,8 +51,9 @@
 			import('yjs')
 		]);
 
-		// Obsidian-style source highlighting, themed via Skeleton pairing tokens
-		// so light/dark tracks the app palette automatically.
+		// Obsidian-style source highlighting, themed via the shadcn semantic
+		// tokens so light/dark tracks the app palette automatically (the tokens
+		// are re-defined per `.dark`, so no `isDark` branching is needed here).
 		const markdownHighlight = HighlightStyle.define([
 			{ tag: tags.heading1, fontSize: '1.5em', fontWeight: '700' },
 			{ tag: tags.heading2, fontSize: '1.3em', fontWeight: '700' },
@@ -60,13 +62,13 @@
 			{ tag: tags.strong, fontWeight: '700' },
 			{ tag: tags.emphasis, fontStyle: 'italic' },
 			{ tag: tags.strikethrough, textDecoration: 'line-through' },
-			{ tag: tags.link, color: 'var(--color-primary-600-400)', textDecoration: 'underline' },
-			{ tag: tags.url, color: 'var(--color-primary-600-400)' },
-			{ tag: tags.monospace, color: 'var(--color-tertiary-600-400)' },
-			{ tag: tags.quote, color: 'var(--color-surface-600-400)', fontStyle: 'italic' },
-			{ tag: tags.meta, color: 'var(--color-surface-500)' },
-			{ tag: tags.processingInstruction, color: 'var(--color-surface-500)' },
-			{ tag: tags.contentSeparator, color: 'var(--color-surface-500)', fontWeight: '700' }
+			{ tag: tags.link, color: 'var(--color-primary)', textDecoration: 'underline' },
+			{ tag: tags.url, color: 'var(--color-primary)' },
+			{ tag: tags.monospace, color: 'var(--color-muted-foreground)' },
+			{ tag: tags.quote, color: 'var(--color-muted-foreground)', fontStyle: 'italic' },
+			{ tag: tags.meta, color: 'var(--color-muted-foreground)' },
+			{ tag: tags.processingInstruction, color: 'var(--color-muted-foreground)' },
+			{ tag: tags.contentSeparator, color: 'var(--color-muted-foreground)', fontWeight: '700' }
 		]);
 
 		buildTheme = (isDark: boolean) =>
@@ -78,18 +80,22 @@
 						lineHeight: '1.65'
 					},
 					'.cm-content': {
-						caretColor: 'var(--color-surface-950-50)',
+						caretColor: 'var(--color-foreground)',
 						padding: '1rem 0'
 					},
 					'.cm-line': { padding: '0 1.25rem' },
 					'&.cm-focused': { outline: 'none' },
 					'.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-						backgroundColor: isDark ? 'rgba(99,102,241,0.30)' : 'rgba(99,102,241,0.18)'
+						backgroundColor: 'var(--color-accent)'
 					},
-					'.cm-cursor': { borderLeftColor: 'var(--color-surface-950-50)' },
-					// y-codemirror.next remote carets/name tags.
+					'.cm-cursor': { borderLeftColor: 'var(--color-foreground)' },
+					// y-codemirror.next remote carets/name tags — the tag's fill
+					// color comes from each peer's presence color
+					// ($lib/collab/user-colors, decorative); only its typography is
+					// themed here, via the app's own system font stack (no CM
+					// monospace inheritance for this UI label).
 					'.cm-ySelectionInfo': {
-						fontFamily: 'var(--base-font-family, inherit)',
+						fontFamily: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
 						fontSize: '0.65rem',
 						padding: '0.05rem 0.3rem',
 						borderRadius: '0.25rem',
@@ -139,7 +145,7 @@
 <div class="relative h-full min-h-0" data-testid="markdown-editor">
 	{#if !ready}
 		<div class="absolute inset-0 grid place-items-center">
-			<div class="h-6 placeholder w-40 animate-pulse rounded"></div>
+			<Skeleton class="h-6 w-40" />
 		</div>
 	{/if}
 	<div bind:this={editorEl} class="h-full min-h-0 [&_.cm-editor]:h-full"></div>

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+
 	interface Props {
 		entryViewMode: 'file' | 'card';
 		showTrashed: boolean;
@@ -11,31 +13,31 @@
 
 {#if entryViewMode === 'file'}
 	<table class="w-full">
-		<thead class="sticky top-0 z-30 shadow-[0_1px_0_0] shadow-surface-300-700/70">
+		<thead class="sticky top-0 z-30 shadow-[0_1px_0_0] shadow-border">
 			<tr>
-				<th class="w-12 rounded-tl-xl bg-surface-50-950/90 px-4 py-3 backdrop-blur-sm"></th>
+				<th class="w-12 rounded-tl-xl bg-background/90 px-4 py-3 backdrop-blur-sm"></th>
 				<th
-					class="bg-surface-50-950/90 px-4 py-3 text-left text-xs font-medium text-surface-600-400 backdrop-blur-sm"
+					class="bg-background/90 px-4 py-3 text-left text-xs font-medium text-muted-foreground backdrop-blur-sm"
 				>
 					Name
 				</th>
 				<th
-					class="bg-surface-50-950/90 px-4 py-3 text-left text-xs font-medium text-surface-600-400 backdrop-blur-sm"
+					class="bg-background/90 px-4 py-3 text-left text-xs font-medium text-muted-foreground backdrop-blur-sm"
 				>
 					Tags
 				</th>
 				<th
-					class="hidden bg-surface-50-950/90 px-4 py-3 text-left text-xs font-medium text-surface-600-400 backdrop-blur-sm sm:table-cell"
+					class="hidden bg-background/90 px-4 py-3 text-left text-xs font-medium text-muted-foreground backdrop-blur-sm sm:table-cell"
 				>
 					Owner
 				</th>
 				<th
-					class="hidden bg-surface-50-950/90 px-4 py-3 text-left text-xs font-medium text-surface-600-400 backdrop-blur-sm sm:table-cell"
+					class="hidden bg-background/90 px-4 py-3 text-left text-xs font-medium text-muted-foreground backdrop-blur-sm sm:table-cell"
 				>
 					{showTrashed ? 'Trashed' : 'Modified'}
 				</th>
 				<th
-					class="hidden rounded-tr-xl bg-surface-50-950/90 px-4 py-3 text-right text-xs font-medium text-surface-600-400 backdrop-blur-sm sm:table-cell"
+					class="hidden rounded-tr-xl bg-background/90 px-4 py-3 text-right text-xs font-medium text-muted-foreground backdrop-blur-sm sm:table-cell"
 				>
 					Size
 				</th>
@@ -45,25 +47,22 @@
 			{#each rows as i (i)}
 				<tr>
 					<td class="px-4 py-3">
-						<div class="h-5 placeholder w-5 animate-pulse rounded"></div>
+						<Skeleton class="h-5 w-5" />
 					</td>
 					<td class="px-4 py-3">
-						<div
-							class="h-4 placeholder animate-pulse rounded"
-							style="width: {40 + ((i * 17) % 40)}%"
-						></div>
+						<Skeleton class="h-4" style="width: {40 + ((i * 17) % 40)}%" />
 					</td>
 					<td class="px-4 py-3">
-						<div class="h-3 placeholder w-8 animate-pulse rounded-full"></div>
+						<Skeleton class="h-3 w-8 rounded-full" />
 					</td>
 					<td class="hidden px-4 py-3 sm:table-cell">
-						<div class="h-6 placeholder w-6 animate-pulse rounded-full"></div>
+						<Skeleton class="h-6 w-6 rounded-full" />
 					</td>
 					<td class="hidden px-4 py-3 sm:table-cell">
-						<div class="h-4 placeholder w-20 animate-pulse rounded"></div>
+						<Skeleton class="h-4 w-20" />
 					</td>
 					<td class="hidden px-4 py-3 sm:table-cell">
-						<div class="ml-auto h-4 placeholder w-14 animate-pulse rounded"></div>
+						<Skeleton class="ml-auto h-4 w-14" />
 					</td>
 				</tr>
 			{/each}
@@ -72,13 +71,10 @@
 {:else}
 	<div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 		{#each rows as i (i)}
-			<div class="rounded-xl bg-surface-100-900/50 p-3">
-				<div class="mb-3 h-40 placeholder w-full animate-pulse rounded-lg"></div>
-				<div
-					class="mb-2 h-4 placeholder animate-pulse rounded"
-					style="width: {50 + ((i * 13) % 40)}%"
-				></div>
-				<div class="h-3 placeholder w-16 animate-pulse rounded"></div>
+			<div class="rounded-xl bg-muted/50 p-3">
+				<Skeleton class="mb-3 h-40 w-full rounded-lg" />
+				<Skeleton class="mb-2 h-4" style="width: {50 + ((i * 13) % 40)}%" />
+				<Skeleton class="h-3 w-16" />
 			</div>
 		{/each}
 	</div>

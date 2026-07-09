@@ -11,10 +11,12 @@
 	 * the backend requires before audio detection can run.
 	 */
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import { formatDuration } from '$lib/utils/format-duration';
+	import { cn } from '$lib/utils';
 	import type { AudioDetection } from '$lib/types/api';
 	import type { JobStatusButton } from '$lib/utils/job-status-button';
 
@@ -86,6 +88,20 @@
 		const width = Math.max(0.5, ((window.endSeconds - window.startSeconds) / duration) * 100);
 		return `left: ${left}%; width: ${width}%;`;
 	}
+
+	function scoreBadgeClass(score: number): string {
+		if (score >= 0.7) return 'bg-success/10 text-success';
+		if (score >= 0.4) return 'bg-primary/10 text-primary';
+		if (score >= 0.2) return 'bg-warning/10 text-warning';
+		return '';
+	}
+
+	function scoreBarClass(score: number): string {
+		if (score >= 0.7) return 'bg-success';
+		if (score >= 0.4) return 'bg-primary';
+		if (score >= 0.2) return 'bg-warning';
+		return 'bg-muted-foreground';
+	}
 </script>
 
 {#if detections.length === 0}
@@ -100,15 +116,18 @@
 			{#if onrunjob}
 				<Button
 					size="sm"
-					variant="tonal"
-					color="primary"
-					loading={jobButton?.loading ?? false}
-					disabled={!canDetectAudio || (jobButton?.disabled ?? false)}
+					variant="secondary"
+					disabled={!canDetectAudio ||
+						(jobButton?.disabled ?? false) ||
+						(jobButton?.loading ?? false)}
+					aria-busy={jobButton?.loading || undefined}
 					onclick={() => onrunjob?.()}
 				>
-					{#snippet icon()}
+					{#if jobButton?.loading}
+						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+					{:else}
 						<AppIcon name={ICONS.audioDetect} class="size-4" />
-					{/snippet}
+					{/if}
 					{jobButton?.label ?? 'Detect audio'}
 				</Button>
 			{/if}
@@ -116,12 +135,12 @@
 	</EmptyState>
 {:else}
 	<div class="flex flex-col" data-testid="audio-detections-panel">
-		<div class="flex items-center justify-between gap-2 border-b border-surface-200-800 pb-2">
-			<span class="badge preset-tonal-surface text-xs">{buckets.length} labels</span>
-			<p class="text-[11px] text-surface-600-400">Click a bar to jump to that moment</p>
+		<div class="flex items-center justify-between gap-2 border-b pb-2">
+			<Badge variant="secondary">{buckets.length} labels</Badge>
+			<p class="text-[11px] text-muted-foreground">Click a bar to jump to that moment</p>
 		</div>
 
-		<ul class="flex flex-col divide-y divide-surface-200-800">
+		<ul class="flex flex-col divide-y">
 			{#each buckets as b (b.label)}
 				<li class="py-2">
 					<button
@@ -132,39 +151,27 @@
 						<div class="flex min-w-0 flex-1 items-center gap-2">
 							<AppIcon
 								name={expanded.has(b.label) ? ICONS.chevronDown : ICONS.chevronRight}
-								class="size-3.5 shrink-0 text-surface-600-400"
+								class="size-3.5 shrink-0 text-muted-foreground"
 							/>
 							<span class="truncate text-sm font-medium">{b.label}</span>
-							<span
-								class="badge shrink-0 text-xs {b.bestScore >= 0.7
-									? 'preset-tonal-success'
-									: b.bestScore >= 0.4
-										? 'preset-tonal-primary'
-										: b.bestScore >= 0.2
-											? 'preset-tonal-warning'
-											: 'preset-tonal-surface'}"
-							>
+							<Badge variant="secondary" class={cn('shrink-0', scoreBadgeClass(b.bestScore))}>
 								{(b.bestScore * 100).toFixed(0)}%
-							</span>
-							<span class="shrink-0 text-[11px] text-surface-600-400 tabular-nums">
+							</Badge>
+							<span class="shrink-0 text-[11px] text-muted-foreground tabular-nums">
 								{b.count}×
 							</span>
 						</div>
 					</button>
 
 					<!-- Timeline strip -->
-					<div class="relative mt-1.5 h-2 overflow-hidden rounded-full bg-surface-200-800/70">
+					<div class="relative mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
 						{#each b.windows as w (w.id)}
 							<button
 								type="button"
-								class="absolute top-0 bottom-0 rounded-sm transition-opacity hover:opacity-90 {w.score >=
-								0.7
-									? 'bg-success-500'
-									: w.score >= 0.4
-										? 'bg-primary-500'
-										: w.score >= 0.2
-											? 'bg-warning-500'
-											: 'bg-surface-500'}"
+								class={cn(
+									'absolute top-0 bottom-0 rounded-sm transition-opacity hover:opacity-90',
+									scoreBarClass(w.score)
+								)}
 								style="{barStyle(w)} opacity: {0.4 + 0.6 * w.score};"
 								title={`${w.label} · ${(w.score * 100).toFixed(0)}% at ${formatTime(w.startSeconds)}`}
 								onclick={(e) => {
@@ -182,12 +189,12 @@
 								<li>
 									<button
 										type="button"
-										class="flex items-center gap-1 rounded-md border border-surface-200-800 px-2 py-0.5 text-[11px] tabular-nums hover:border-primary-500 hover:bg-surface-200-800"
+										class="flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] tabular-nums hover:border-primary hover:bg-accent"
 										onclick={() => onseek?.(w.startSeconds)}
 									>
 										<AppIcon name={ICONS.play} class="size-2.5" />
 										{formatTime(w.startSeconds)}
-										<span class="text-surface-600-400"> · {(w.score * 100).toFixed(0)}% </span>
+										<span class="text-muted-foreground"> · {(w.score * 100).toFixed(0)}% </span>
 									</button>
 								</li>
 							{/each}

@@ -167,7 +167,7 @@ test.describe('live documents (full stack)', () => {
 			});
 
 			// The source pane is not editable for viewers.
-			await alicePage.getByRole('button', { name: 'Source' }).click();
+			await alicePage.getByRole('tab', { name: 'Source' }).click();
 			const aliceEditor = alicePage.locator('.cm-content');
 			await expect(aliceEditor).toBeVisible({ timeout: 15_000 });
 			await expect(aliceEditor).toHaveAttribute('contenteditable', 'false');
@@ -197,7 +197,7 @@ test.describe('live documents (full stack)', () => {
 		});
 
 		// Preview renders the markdown.
-		await page.getByRole('button', { name: 'Preview', exact: true }).click();
+		await page.getByRole('tab', { name: 'Preview', exact: true }).click();
 		await expect(
 			page.getByTestId('markdown-preview').getByRole('heading', { name: /Trip Notes/ })
 		).toBeVisible({ timeout: 15_000 });

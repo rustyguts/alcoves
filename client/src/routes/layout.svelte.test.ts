@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { createRawSnippet } from 'svelte';
+import { toast as sonnerToast } from 'svelte-sonner';
 import Layout from './+layout.svelte';
 import { auth } from '$lib/state/auth.svelte';
-import { toaster } from '$lib/state/toast';
+import { toast } from '$lib/state/toast';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 
@@ -15,7 +16,7 @@ const pageChild = () =>
 beforeEach(() => {
 	auth.setUser(null);
 	// Clear any toasts left over from a previous test so each case starts clean.
-	for (const t of toaster.getVisibleToasts()) toaster.remove(t.id);
+	sonnerToast.dismiss();
 });
 
 describe('root +layout', () => {
@@ -58,17 +59,17 @@ describe('root +layout', () => {
 		});
 	});
 
-	it('renders queued toasts through the Toast.Group children snippet', async () => {
-		toaster.success({ title: 'Saved', description: 'Your changes were saved' });
-		const screen = render(Layout, {
+	it('renders queued toasts through the svelte-sonner Toaster', async () => {
+		render(Layout, {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			props: { data: { user: null }, children: pageChild() } as any
 		});
+		toast.success('Saved', 'Your changes were saved');
 		await vi.waitFor(() => {
-			expect(screen.container.textContent).toContain('Saved');
-			expect(screen.container.textContent).toContain('Your changes were saved');
+			expect(document.body.textContent).toContain('Saved');
+			expect(document.body.textContent).toContain('Your changes were saved');
 		});
-		// A close trigger is rendered for the toast (Toast.CloseTrigger).
-		expect(screen.container.querySelector('[data-part="close-trigger"]')).not.toBeNull();
+		// The Toaster is rendered with `closeButton`, so every toast gets one.
+		expect(document.querySelector('[data-close-button]')).not.toBeNull();
 	});
 });

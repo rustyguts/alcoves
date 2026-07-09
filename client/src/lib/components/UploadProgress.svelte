@@ -4,6 +4,8 @@
 	import { formatFileSize } from '$lib/utils/mime-icons';
 	import { uploadQueue } from '$lib/state/upload-queue.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Progress } from '$lib/components/ui/progress/index.js';
 
 	/**
 	 * App-wide upload progress panel. Mounted once in the authed layout so it stays
@@ -96,7 +98,7 @@
 
 {#if uploadQueue.hasActiveUploads}
 	<div
-		class="fixed right-4 bottom-4 z-50 w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-surface-300-700 bg-surface-50-950 shadow-xl sm:w-96"
+		class="fixed right-4 bottom-4 z-50 w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-xl sm:w-96"
 		role="region"
 		aria-label="Upload progress"
 	>
@@ -104,87 +106,75 @@
 		<button
 			type="button"
 			bind:this={toggleBtn}
-			class="flex w-full items-center justify-between gap-2 bg-surface-100-900 px-4 py-2.5 text-left select-none"
+			class="flex w-full items-center justify-between gap-2 bg-muted px-4 py-2.5 text-left select-none"
 			onclick={toggleExpanded}
 			aria-expanded={expanded}
 		>
 			<span class="flex min-w-0 flex-col">
 				<span class="truncate text-sm font-medium">{headerTitle}</span>
-				<span class="text-xs opacity-60">
+				<span class="text-xs text-muted-foreground">
 					{uploadQueue.completedCount} of {uploadQueue.submittedCount}
 					{#if uploadQueue.errorCount > 0}
-						· <span class="text-error-500">{uploadQueue.errorCount} failed</span>
+						· <span class="text-destructive">{uploadQueue.errorCount} failed</span>
 					{/if}
 				</span>
 			</span>
 			<span class="flex shrink-0 items-center gap-2">
 				{#if uploadQueue.uploadSpeed > 0}
-					<span class="text-xs opacity-60">{formatFileSize(uploadQueue.uploadSpeed)}/s</span>
+					<span class="text-xs text-muted-foreground"
+						>{formatFileSize(uploadQueue.uploadSpeed)}/s</span
+					>
 				{/if}
-				<AppIcon name={expanded ? ICONS.chevronDown : ICONS.chevronUp} class="size-4 opacity-60" />
+				<AppIcon
+					name={expanded ? ICONS.chevronDown : ICONS.chevronUp}
+					class="size-4 text-muted-foreground"
+				/>
 			</span>
 		</button>
 
 		<!-- Overall progress (by completed file count) -->
-		<div class="h-1 w-full bg-surface-200-800">
-			<div
-				class="h-full bg-primary-500 transition-[width] duration-200"
-				style:width="{overallPercent}%"
-			></div>
-		</div>
+		<Progress value={overallPercent} class="h-1 rounded-none" />
 
 		{#if expanded}
 			{#if uploadQueue.hasInFlightUploads || uploadQueue.errorCount > 0}
-				<div
-					class="flex items-center justify-between gap-2 border-t border-surface-300-700 px-4 py-1.5"
-				>
+				<div class="flex items-center justify-between gap-2 border-t border-border px-4 py-1.5">
 					<div class="flex gap-1">
 						{#if uploadQueue.errorCount > 0}
-							<button
-								type="button"
-								class="btn btn-sm {filter === 'all'
-									? 'preset-filled-surface-200-800'
-									: 'preset-tonal'}"
+							<Button
+								variant={filter === 'all' ? 'secondary' : 'ghost'}
+								size="sm"
 								onclick={() => setFilter('all')}
 							>
 								All
-							</button>
-							<button
-								type="button"
-								class="btn btn-sm {filter === 'failed'
-									? 'preset-filled-error-500'
-									: 'preset-tonal-error'}"
+							</Button>
+							<Button
+								variant={filter === 'failed' ? 'destructive' : 'ghost'}
+								size="sm"
+								class={filter === 'failed' ? '' : 'text-destructive hover:bg-destructive/10'}
 								onclick={() => setFilter('failed')}
 							>
 								{uploadQueue.errorCount} failed
-							</button>
+							</Button>
 						{/if}
 					</div>
 					<div class="flex gap-1">
 						{#if uploadQueue.hasInFlightUploads}
-							<button
-								type="button"
-								class="btn preset-tonal btn-sm"
-								onclick={() => act(() => uploadQueue.cancelAll())}
-							>
+							<Button variant="ghost" size="sm" onclick={() => act(() => uploadQueue.cancelAll())}>
 								Cancel all
-							</button>
+							</Button>
 						{/if}
 						{#if uploadQueue.errorCount > 0}
-							<button
-								type="button"
-								class="btn preset-tonal btn-sm"
-								onclick={() => act(() => uploadQueue.retryAll())}
-							>
+							<Button variant="ghost" size="sm" onclick={() => act(() => uploadQueue.retryAll())}>
 								Retry all
-							</button>
-							<button
-								type="button"
-								class="btn preset-tonal-error btn-sm"
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								class="text-destructive hover:bg-destructive/10"
 								onclick={() => act(() => uploadQueue.clearErrors())}
 							>
 								Clear
-							</button>
+							</Button>
 						{/if}
 					</div>
 				</div>
@@ -199,42 +189,29 @@
 			>
 				<div style:height="{topPad}px"></div>
 				{#each windowItems as item (item.id)}
-					<div
-						class="flex h-14 items-center gap-2 border-b border-surface-200-800/60 px-3"
-						data-upload-row
-					>
+					<div class="flex h-14 items-center gap-2 border-b border-border/60 px-3" data-upload-row>
 						<div class="flex min-w-0 flex-1 flex-col justify-center gap-1">
 							<div class="flex items-center justify-between gap-2">
 								<span class="min-w-0 flex-1 truncate text-sm" title={item.file.name}
 									>{item.file.name}</span
 								>
-								<span class="shrink-0 text-xs whitespace-nowrap opacity-50">{item.libraryName}</span
+								<span class="shrink-0 text-xs whitespace-nowrap text-muted-foreground"
+									>{item.libraryName}</span
 								>
 							</div>
 
 							{#if item.status === 'uploading'}
 								<div class="flex items-center gap-2">
-									<div
-										class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-300-700"
-										role="progressbar"
-										aria-valuenow={item.progress}
-										aria-valuemin={0}
-										aria-valuemax={100}
-									>
-										<div
-											class="h-full rounded-full bg-primary-500 transition-[width] duration-150"
-											style:width="{item.progress}%"
-										></div>
-									</div>
-									<span class="w-9 text-right text-xs opacity-60">{item.progress}%</span>
+									<Progress value={item.progress} class="h-1.5 flex-1" />
+									<span class="w-9 text-right text-xs text-muted-foreground">{item.progress}%</span>
 								</div>
 							{:else if item.status === 'error'}
-								<span class="flex items-center gap-1 text-xs text-error-500">
+								<span class="flex items-center gap-1 text-xs text-destructive">
 									<AppIcon name={ICONS.warning} class="size-3.5 shrink-0" />
 									<span class="truncate" title={item.error}>{item.error ?? 'Upload failed'}</span>
 								</span>
 							{:else if item.status === 'done'}
-								<span class="flex items-center gap-1 text-xs text-success-500">
+								<span class="flex items-center gap-1 text-xs text-success">
 									<AppIcon name={ICONS.check} class="size-3.5 shrink-0" />
 									{#if item.duplicateCount && item.duplicateCount > 0}
 										Done · duplicate
@@ -243,41 +220,42 @@
 									{/if}
 								</span>
 							{:else}
-								<span class="text-xs opacity-50">Queued</span>
+								<span class="text-xs text-muted-foreground">Queued</span>
 							{/if}
 						</div>
 
 						<!-- Per-row actions -->
 						<div class="flex shrink-0 items-center gap-1">
 							{#if item.status === 'error'}
-								<button
-									type="button"
-									class="btn-icon btn-icon-sm preset-tonal"
+								<Button
+									variant="ghost"
+									size="icon-sm"
 									aria-label="Retry upload"
 									title="Retry"
 									onclick={() => act(() => uploadQueue.retryFile(item.id))}
 								>
 									<AppIcon name={ICONS.retry} class="size-3.5" />
-								</button>
-								<button
-									type="button"
-									class="btn-icon btn-icon-sm preset-tonal-error"
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									class="text-destructive hover:bg-destructive/10"
 									aria-label="Remove upload"
 									title="Remove"
 									onclick={() => act(() => uploadQueue.removeFile(item.id))}
 								>
 									<AppIcon name={ICONS.trash} class="size-3.5" />
-								</button>
+								</Button>
 							{:else if item.status === 'pending' || item.status === 'uploading'}
-								<button
-									type="button"
-									class="btn-icon btn-icon-sm preset-tonal"
+								<Button
+									variant="ghost"
+									size="icon-sm"
 									aria-label="Cancel upload"
 									title="Cancel"
 									onclick={() => act(() => uploadQueue.cancelFile(item.id))}
 								>
 									<AppIcon name={ICONS.close} class="size-3.5" />
-								</button>
+								</Button>
 							{/if}
 						</div>
 					</div>

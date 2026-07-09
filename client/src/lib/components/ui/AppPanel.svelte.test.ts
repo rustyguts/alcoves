@@ -23,23 +23,23 @@ describe('AppPanel', () => {
 			props: { title: 'Box', children: text('hello body') }
 		});
 		await expect.element(screen.getByText('hello body')).toBeInTheDocument();
-		const body = screen.container.querySelector('.card > div:last-child');
+		const body = screen.container.querySelector('[data-slot="app-panel-body"]');
 		expect(body?.className).toContain('p-4');
 	});
 
 	it('omits the header entirely when nothing header-related is provided', async () => {
 		const screen = render(AppPanel, { props: { children: text('just a body') } });
 		expect(screen.container.querySelector('h2')).toBeNull();
-		// Only the body div should exist under the card.
-		const card = screen.container.querySelector('.card')!;
-		expect(card.children.length).toBe(1);
+		// Only the body div should exist under the panel.
+		const panel = screen.container.querySelector('[data-slot="app-panel"]')!;
+		expect(panel.children.length).toBe(1);
 	});
 
 	it('applies flush (p-0) when requested', async () => {
 		const screen = render(AppPanel, {
 			props: { title: 'Flush', flush: true, children: text('x') }
 		});
-		const body = screen.container.querySelector('.card > div:last-child');
+		const body = screen.container.querySelector('[data-slot="app-panel-body"]');
 		expect(body?.className).toContain('p-0');
 		expect(body?.className).not.toContain('p-4');
 	});
@@ -48,7 +48,7 @@ describe('AppPanel', () => {
 		const screen = render(AppPanel, {
 			props: { title: 'Custom', flush: true, bodyClass: 'px-6 py-8', children: text('x') }
 		});
-		const body = screen.container.querySelector('.card > div:last-child');
+		const body = screen.container.querySelector('[data-slot="app-panel-body"]');
 		expect(body?.className).toContain('px-6');
 		expect(body?.className).toContain('py-8');
 		expect(body?.className).not.toContain('p-0');

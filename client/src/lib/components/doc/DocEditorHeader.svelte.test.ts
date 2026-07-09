@@ -30,7 +30,7 @@ describe('DocEditorHeader', () => {
 		expect(screen.container.querySelector('[data-testid="doc-status"]')?.textContent).toContain(
 			'All changes saved'
 		);
-		const buttons = [...screen.container.querySelectorAll('[role="group"] button')].map((b) =>
+		const buttons = [...screen.container.querySelectorAll('[role="tablist"] button')].map((b) =>
 			b.textContent?.trim()
 		);
 		expect(buttons).toEqual(['Edit', 'Split', 'Preview']);
@@ -47,7 +47,7 @@ describe('DocEditorHeader', () => {
 			}
 		});
 		await tick();
-		const buttons = [...screen.container.querySelectorAll('[role="group"] button')].map((b) =>
+		const buttons = [...screen.container.querySelectorAll('[role="tablist"] button')].map((b) =>
 			b.textContent?.trim()
 		);
 		expect(buttons).toEqual(['Preview', 'Source']);
@@ -67,8 +67,8 @@ describe('DocEditorHeader', () => {
 			}
 		});
 		await tick();
-		const buttons = [...screen.container.querySelectorAll('[role="group"] button')];
-		expect(buttons[1].getAttribute('aria-pressed')).toBe('true');
+		const buttons = [...screen.container.querySelectorAll('[role="tablist"] button')];
+		expect(buttons[1].getAttribute('aria-selected')).toBe('true');
 		(buttons[2] as HTMLButtonElement).click();
 		expect(onmode).toHaveBeenCalledWith('preview');
 	});

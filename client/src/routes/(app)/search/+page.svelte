@@ -9,6 +9,8 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import JustifiedGallery from '$lib/components/JustifiedGallery.svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 
 	const MIN_QUERY_LENGTH = 2;
 	const SEARCH_LIMIT = 80;
@@ -139,13 +141,9 @@
 	/>
 
 	{#if results.length}
-		<div class="flex flex-wrap items-center gap-2 text-xs text-surface-500">
-			<span class="rounded bg-surface-200-800 px-2 py-0.5 font-medium">
-				{searchData.totalCount ?? 0} total matches
-			</span>
-			<span class="rounded bg-surface-200-800 px-2 py-0.5 font-medium">
-				{results.length} shown
-			</span>
+		<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+			<Badge variant="secondary">{searchData.totalCount ?? 0} total matches</Badge>
+			<Badge variant="secondary">{results.length} shown</Badge>
 			{#if (searchData.totalCount ?? 0) > results.length}
 				<span>Showing the top {results.length} most relevant results.</span>
 			{/if}
@@ -153,26 +151,20 @@
 	{/if}
 
 	{#if activeQuery.length < MIN_QUERY_LENGTH}
-		<div
-			class="flex items-center gap-3 rounded-lg bg-primary-500/10 px-4 py-3 text-sm text-primary-600"
-		>
+		<div class="flex items-center gap-3 rounded-lg bg-primary/10 px-4 py-3 text-sm text-primary">
 			<AppIcon name={ICONS.search} class="size-5 shrink-0" />
 			<span>Enter at least {MIN_QUERY_LENGTH} characters to start searching.</span>
 		</div>
 	{:else if status === 'pending'}
 		<div class="flex items-center justify-center py-12">
-			<AppIcon name={ICONS.loading} class="size-6 animate-spin text-surface-500" />
+			<AppIcon name={ICONS.loading} class="size-6 animate-spin text-muted-foreground" />
 		</div>
 	{:else if status === 'error'}
-		<div
-			class="flex items-center gap-3 rounded-lg bg-error-500/10 px-4 py-3 text-sm text-error-600"
-		>
-			<AppIcon name={ICONS.warning} class="size-5 shrink-0" />
-			<div>
-				<p class="font-medium">Search failed</p>
-				<p>Try again in a moment.</p>
-			</div>
-		</div>
+		<Alert.Root variant="destructive">
+			<AppIcon name={ICONS.warning} class="size-4 shrink-0" />
+			<Alert.Title>Search failed</Alert.Title>
+			<Alert.Description>Try again in a moment.</Alert.Description>
+		</Alert.Root>
 	{:else if !results.length}
 		<EmptyState
 			icon={ICONS.search}

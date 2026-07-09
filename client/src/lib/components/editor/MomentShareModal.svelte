@@ -1,7 +1,8 @@
 <script lang="ts">
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { ICONS } from '$lib/utils/icons';
 	import { api } from '$lib/api';
 	import { toast } from '$lib/state/toast';
@@ -89,48 +90,46 @@
 
 <AppModal bind:open title="Share moment" {description}>
 	<div class="flex flex-col gap-3">
-		<Button
-			class="self-start"
-			loading={creating}
-			disabled={!sharingEnabled || creating}
-			onclick={onCreate}
-		>
-			{#snippet icon()}
+		<Button class="self-start" disabled={!sharingEnabled || creating} onclick={onCreate}>
+			{#if creating}
+				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+			{:else}
 				<AppIcon name={ICONS.link} class="size-4" />
-			{/snippet}
+			{/if}
 			<span>Create share link</span>
 		</Button>
 
 		{#if loading}
-			<div class="text-sm opacity-60">Loading…</div>
+			<div class="text-sm text-muted-foreground">Loading…</div>
 		{/if}
 
 		{#if shares.length}
 			<div class="flex flex-col gap-2">
 				{#each shares as s (s.id)}
-					<div class="flex items-center gap-2 rounded-md bg-surface-200-800/50 p-3">
-						<code class="flex-1 truncate text-xs">{s.url}</code>
-						<button
-							type="button"
-							class="btn-icon preset-tonal"
-							aria-label="Copy link"
-							onclick={() => copy(s.url)}
-						>
-							<AppIcon name={ICONS.copy} class="size-4" />
-						</button>
-						<Button variant="tonal" color="error" onclick={() => onRevoke(s.token)}>
-							{#snippet icon()}
-								<AppIcon name={ICONS.close} class="size-4" />
-							{/snippet}
+					<div class="flex items-center gap-2">
+						<InputGroup.Root class="flex-1">
+							<InputGroup.Text class="min-w-0 flex-1 truncate font-mono text-xs">
+								{s.url}
+							</InputGroup.Text>
+							<InputGroup.Addon align="inline-end">
+								<InputGroup.Button
+									size="icon-xs"
+									aria-label="Copy link"
+									onclick={() => copy(s.url)}
+								>
+									<AppIcon name={ICONS.copy} class="size-4" />
+								</InputGroup.Button>
+							</InputGroup.Addon>
+						</InputGroup.Root>
+						<Button variant="destructive" size="sm" onclick={() => onRevoke(s.token)}>
+							<AppIcon name={ICONS.close} class="size-4" />
 							<span>Revoke</span>
 						</Button>
 					</div>
 				{/each}
 			</div>
 		{:else if !loading}
-			<div
-				class="rounded-lg border border-dashed border-surface-300-700 p-4 text-center text-sm opacity-60"
-			>
+			<div class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
 				No active share links.
 			</div>
 		{/if}

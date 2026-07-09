@@ -10,6 +10,7 @@
 	 */
 	import type { Snippet } from 'svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		/** An ICONS registry value. */
@@ -24,17 +25,17 @@
 	let { icon, title, description, tone = 'neutral', actions }: Props = $props();
 
 	const badgeClass = $derived(
-		tone === 'error' ? 'bg-error-500/10 text-error-500' : 'bg-surface-200-800 text-surface-500'
+		tone === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
 	);
 </script>
 
 <div class="flex flex-col items-center justify-center px-4 py-16 text-center">
-	<div class={['mb-4 flex size-16 items-center justify-center rounded-full', badgeClass]}>
+	<div class={cn('mb-4 flex size-16 items-center justify-center rounded-full', badgeClass)}>
 		<AppIcon name={icon} class="size-8" />
 	</div>
 	<p class="text-lg font-medium">{title}</p>
 	{#if description}
-		<p class="mt-1 max-w-sm text-sm text-surface-600-400">{description}</p>
+		<p class="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
 	{/if}
 	{#if actions}
 		<div class="mt-4 flex items-center gap-2">

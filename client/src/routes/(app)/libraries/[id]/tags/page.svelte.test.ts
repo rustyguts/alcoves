@@ -345,10 +345,56 @@ describe('/libraries/[id]/tags', () => {
 		await trigger.click();
 		await expect.element(screen.getByTitle('#22C55E')).toBeInTheDocument();
 
-		// Click again → toggleColorDropdown collapses it.
+		// Click again → the popover collapses. It portals to document.body (not
+		// screen.container), so assert against document directly — a
+		// screen.container query here would be null whether the dropdown is open
+		// or closed and would never fail.
 		await trigger.click();
 		await vi.waitFor(() => {
-			expect(screen.container.querySelector('[title="#22C55E"]')).toBeNull();
+			expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
+		});
+	});
+
+	// Regression test for F8/F16/F17: the color popover used to be a one-way
+	// controlled `Popover.Root {open}` with no `onOpenChange`, so bits-ui's
+	// Escape-triggered close never reached the page's `openColorDropdown`
+	// state — the trigger's next click just flipped the (already-stale) key to
+	// null with no visible effect, requiring a second click to actually reopen.
+	it('closes the color dropdown on Escape and reopens with a single click', async () => {
+		const screen = render(Page);
+		await expect.element(screen.getByLabelText('Rename tag Alpha')).toBeInTheDocument();
+
+		const trigger = screen.getByTitle('Choose new tag color');
+		await trigger.click();
+		await expect.element(screen.getByTitle('#22C55E')).toBeInTheDocument();
+
+		const panel = document.querySelector('[data-slot="popover-content"]');
+		expect(panel).not.toBeNull();
+		panel!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+		await vi.waitFor(() => {
+			expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
+		});
+
+		// A single click reopens it — the page's `openColorDropdown` state is
+		// kept in sync with bits-ui via `onOpenChange`, so there is no stale
+		// "dead" click to burn before the trigger responds again.
+		await trigger.click();
+		await expect.element(screen.getByTitle('#22C55E')).toBeInTheDocument();
+	});
+
+	it('closes the color dropdown when clicking outside of it', async () => {
+		const screen = render(Page);
+		await expect.element(screen.getByLabelText('Rename tag Alpha')).toBeInTheDocument();
+
+		const trigger = screen.getByTitle('Choose new tag color');
+		await trigger.click();
+		await expect.element(screen.getByTitle('#22C55E')).toBeInTheDocument();
+
+		await screen.getByText('Tags').click();
+
+		await vi.waitFor(() => {
+			expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
 		});
 	});
 
@@ -358,10 +404,11 @@ describe('/libraries/[id]/tags', () => {
 
 		await screen.getByTitle('Choose new tag color').click();
 
-		// The dropdown hosts a hex input (placeholder #3B82F6). Type a 3-char hex
+		// The dropdown hosts a hex input (placeholder #3B82F6) inside bits-ui's
+		// Popover.Content, which is portalled to `document.body`. Type a 3-char hex
 		// to exercise the shorthand-expansion branch of normalizeHexColor.
-		const hexInput = screen.container.querySelector(
-			'input[placeholder="#3B82F6"]'
+		const hexInput = document.querySelector(
+			'[data-slot="popover-content"] input[placeholder="#3B82F6"]'
 		) as HTMLInputElement;
 		expect(hexInput).not.toBeNull();
 		hexInput.value = 'abc';
@@ -387,8 +434,8 @@ describe('/libraries/[id]/tags', () => {
 
 		await screen.getByTitle('Choose new tag color').click();
 
-		const hexInput = screen.container.querySelector(
-			'input[placeholder="#3B82F6"]'
+		const hexInput = document.querySelector(
+			'[data-slot="popover-content"] input[placeholder="#3B82F6"]'
 		) as HTMLInputElement;
 		hexInput.value = 'nothex';
 		hexInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -426,8 +473,8 @@ describe('/libraries/[id]/tags', () => {
 		(triggers[0] as HTMLButtonElement).click();
 		await tick();
 
-		const hexInput = screen.container.querySelector(
-			'input[placeholder="#3B82F6"]'
+		const hexInput = document.querySelector(
+			'[data-slot="popover-content"] input[placeholder="#3B82F6"]'
 		) as HTMLInputElement;
 		expect(hexInput).not.toBeNull();
 		hexInput.value = '#123456';
@@ -448,8 +495,8 @@ describe('/libraries/[id]/tags', () => {
 		(triggers[0] as HTMLButtonElement).click();
 		await tick();
 
-		const hexInput = screen.container.querySelector(
-			'input[placeholder="#3B82F6"]'
+		const hexInput = document.querySelector(
+			'[data-slot="popover-content"] input[placeholder="#3B82F6"]'
 		) as HTMLInputElement;
 		hexInput.value = 'zzz';
 		hexInput.dispatchEvent(new Event('input', { bubbles: true }));

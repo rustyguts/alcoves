@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import * as Card from '$lib/components/ui/card/index.js';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import { ICONS } from '$lib/utils/icons';
 
@@ -14,33 +16,33 @@
 	let { title, subtitle, error = '', children, footer }: Props = $props();
 </script>
 
-<div class="flex min-h-svh items-center justify-center bg-surface-50-950 p-4">
+<div class="flex min-h-svh items-center justify-center bg-background p-4">
 	<div class="w-full max-w-md">
 		<!-- The auth box is intentionally elevated (a focused, floating panel),
-			 unlike the flat tonal panels used for in-page content. -->
-		<div
-			class="card rounded-lg preset-filled-surface-100-900 p-6 shadow-lg ring ring-surface-200-800"
-		>
-			<div class="mb-6 flex flex-col items-center gap-3">
+			 unlike the flat surfaces used for in-page content. -->
+		<Card.Root class="shadow-lg">
+			<Card.Header class="flex flex-col items-center gap-3 text-center">
 				<img src="/logo.webp" alt="Alcoves" width="72" height="72" class="rounded-xl" />
-				<h2 class="text-2xl font-bold text-surface-950-50">{title}</h2>
-				<p class="text-center text-sm opacity-75">{subtitle}</p>
-			</div>
+				<Card.Title role="heading" aria-level={2} class="text-2xl font-bold">{title}</Card.Title>
+				<Card.Description class="text-center">{subtitle}</Card.Description>
+			</Card.Header>
 
-			{#if error}
-				<div class="mb-4 flex items-center gap-2 card preset-tonal-error p-3 text-sm" role="alert">
-					<AppIcon name={ICONS.error} class="size-4 shrink-0" />
-					<span>{error}</span>
-				</div>
-			{/if}
+			<Card.Content class="flex flex-col gap-4">
+				{#if error}
+					<Alert.Root variant="destructive">
+						<AppIcon name={ICONS.error} class="size-4 shrink-0" />
+						<Alert.Description>{error}</Alert.Description>
+					</Alert.Root>
+				{/if}
 
-			{@render children?.()}
+				{@render children?.()}
+			</Card.Content>
 
 			{#if footer}
-				<div class="mt-6 border-t border-surface-200-800 pt-4">
+				<Card.Footer class="border-t">
 					{@render footer()}
-				</div>
+				</Card.Footer>
 			{/if}
-		</div>
+		</Card.Root>
 	</div>
 </div>

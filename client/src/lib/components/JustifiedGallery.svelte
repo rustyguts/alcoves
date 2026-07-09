@@ -92,8 +92,8 @@
 		{#each laidOutContinuous as entry (entry.group.key)}
 			<section data-group-key={entry.group.key} class="mb-6">
 				<div class="flex items-baseline gap-2 px-1 pt-5 pb-2 first:pt-1">
-					<h3 class="text-default text-sm font-semibold">{entry.group.heading}</h3>
-					<span class="text-dimmed text-xs tabular-nums">{entry.group.count}</span>
+					<h3 class="text-sm font-semibold text-foreground">{entry.group.heading}</h3>
+					<span class="text-xs text-muted-foreground tabular-nums">{entry.group.count}</span>
 				</div>
 
 				<div class="flex flex-col" style:gap="{gap}px">
@@ -102,7 +102,7 @@
 							{#each row.boxes as box (box.item.id)}
 								<button
 									type="button"
-									class="group bg-elevated focus-visible:ring-primary relative cursor-pointer overflow-hidden rounded-[2px] focus:outline-none focus-visible:z-10 focus-visible:ring-2"
+									class="group relative cursor-pointer overflow-hidden rounded-[2px] bg-card focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary"
 									style:width="{box.width}px"
 									style:height="{box.height}px"
 									title={box.item.name}
@@ -119,7 +119,9 @@
 											class="h-full w-full object-cover transition duration-200 group-hover:brightness-110"
 										/>
 									{:else}
-										<span class="text-dimmed flex h-full w-full items-center justify-center">
+										<span
+											class="flex h-full w-full items-center justify-center text-muted-foreground"
+										>
 											<AppIcon name={getMimeIcon(box.item.mime)} class="size-7" />
 										</span>
 									{/if}
@@ -144,15 +146,17 @@
 		{#each laidOut as entry (entry.group.key)}
 			<!-- Optional large section divider (e.g. a month) -->
 			{#if entry.group.sectionLabel}
-				<h2 class="text-default pt-6 pb-1 text-2xl font-semibold tracking-tight first:pt-3">
+				<h2 class="pt-6 pb-1 text-2xl font-semibold tracking-tight text-foreground first:pt-3">
 					{entry.group.sectionLabel}
 				</h2>
 			{/if}
 
 			<section class="mb-5">
-				<h3 class="bg-default/85 sticky top-0 z-10 flex items-baseline gap-2 py-1.5 backdrop-blur">
-					<span class="text-default truncate text-sm font-medium">{entry.group.heading}</span>
-					<span class="text-dimmed shrink-0 text-xs">{entry.group.count}</span>
+				<h3
+					class="sticky top-0 z-10 flex items-baseline gap-2 bg-background/85 py-1.5 backdrop-blur"
+				>
+					<span class="truncate text-sm font-medium text-foreground">{entry.group.heading}</span>
+					<span class="shrink-0 text-xs text-muted-foreground">{entry.group.count}</span>
 				</h3>
 
 				<div class="mt-1.5 flex flex-col" style:gap="{gap}px">
@@ -161,7 +165,7 @@
 							{#each row.boxes as box (box.item.id)}
 								<button
 									type="button"
-									class="group bg-elevated focus-visible:ring-primary relative cursor-pointer overflow-hidden rounded-[2px] focus:outline-none focus-visible:z-10 focus-visible:ring-2"
+									class="group relative cursor-pointer overflow-hidden rounded-[2px] bg-card focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary"
 									style:width="{box.width}px"
 									style:height="{box.height}px"
 									title={box.item.name}
@@ -178,7 +182,9 @@
 											class="h-full w-full object-cover transition duration-200 group-hover:brightness-110"
 										/>
 									{:else}
-										<span class="text-dimmed flex h-full w-full items-center justify-center">
+										<span
+											class="flex h-full w-full items-center justify-center text-muted-foreground"
+										>
 											<AppIcon name={getMimeIcon(box.item.mime)} class="size-7" />
 										</span>
 									{/if}

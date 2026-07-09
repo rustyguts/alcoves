@@ -10,6 +10,12 @@
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import AuthCardShell from '$lib/components/ui/AuthCardShell.svelte';
 	import OAuthGoogleButton from '$lib/components/ui/OAuthGoogleButton.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
+	import * as Alert from '$lib/components/ui/alert/index.js';
+	import * as Separator from '$lib/components/ui/separator/index.js';
 	import type { RegistrationMode, InviteLookupResponse } from '$lib/types/api';
 
 	let error = $state('');
@@ -144,128 +150,122 @@
 <AuthCardShell title="Create an account" subtitle="Get started with Alcoves." {error}>
 	{#if bootLoading}
 		<div class="flex justify-center py-8">
-			<AppIcon name={ICONS.loading} class="size-6 animate-spin opacity-60" />
+			<AppIcon name={ICONS.loading} class="size-6 animate-spin text-muted-foreground" />
 		</div>
 	{:else if !canRegister}
-		<div class="space-y-3 py-2">
-			<div class="flex items-start gap-2 card preset-tonal-warning p-3 text-sm" role="alert">
-				<AppIcon name={ICONS.lock} class="mt-0.5 size-4 shrink-0" />
-				<div>
-					<p class="font-medium">Registration disabled</p>
-					<p class="opacity-80">
-						{disabledMessage || 'Registration is not available right now.'}
-					</p>
-				</div>
-			</div>
-		</div>
+		<Alert.Root>
+			<AppIcon name={ICONS.lock} class="size-4 shrink-0 text-warning" />
+			<Alert.Title>Registration disabled</Alert.Title>
+			<Alert.Description>
+				{disabledMessage || 'Registration is not available right now.'}
+			</Alert.Description>
+		</Alert.Root>
 	{:else}
 		<form
-			class="space-y-4"
+			class="flex flex-col gap-4"
 			onsubmit={(e) => {
 				e.preventDefault();
 				onSubmit();
 			}}
 		>
 			{#if invite && invite.library}
-				<div class="flex items-start gap-2 card preset-tonal-secondary p-3 text-sm" role="status">
-					<AppIcon name={ICONS.email} class="mt-0.5 size-4 shrink-0" />
-					<div>
-						<p class="font-medium">You've been invited to {invite.library.name}</p>
-						<p class="opacity-80">
-							Create an account below to accept the invite. Already have one?
-							<a href={loginLink} class="font-medium text-primary-500 hover:underline">
-								Sign in instead
-							</a>.
-						</p>
-					</div>
-				</div>
+				<Alert.Root>
+					<AppIcon name={ICONS.email} class="size-4 shrink-0 text-primary" />
+					<Alert.Title>You've been invited to {invite.library.name}</Alert.Title>
+					<Alert.Description>
+						Create an account below to accept the invite. Already have one?
+						<a href={loginLink} class="font-medium text-primary hover:underline">
+							Sign in instead
+						</a>.
+					</Alert.Description>
+				</Alert.Root>
 			{/if}
 
-			<label class="label">
-				<span class="label-text">Name</span>
-				<input
-					class="input w-full"
+			<Field.Field data-invalid={!!fieldErrors.name}>
+				<Label for="register-name">Name</Label>
+				<Input
+					id="register-name"
 					type="text"
 					placeholder="Your full name"
 					autocomplete="name"
+					aria-invalid={!!fieldErrors.name}
 					bind:value={name}
 				/>
 				{#if fieldErrors.name}
-					<span class="text-xs text-error-500">{fieldErrors.name}</span>
+					<Field.Error>{fieldErrors.name}</Field.Error>
 				{/if}
-			</label>
+			</Field.Field>
 
-			<label class="label">
-				<span class="label-text">Email</span>
-				<input
-					class="input w-full"
+			<Field.Field data-invalid={!!fieldErrors.email}>
+				<Label for="register-email">Email</Label>
+				<Input
+					id="register-email"
 					type="email"
 					placeholder="you@example.com"
 					autocomplete="email"
+					aria-invalid={!!fieldErrors.email}
 					bind:value={email}
 				/>
 				{#if fieldErrors.email}
-					<span class="text-xs text-error-500">{fieldErrors.email}</span>
+					<Field.Error>{fieldErrors.email}</Field.Error>
 				{/if}
-			</label>
+			</Field.Field>
 
-			<label class="label">
-				<span class="label-text">Password</span>
-				<input
-					class="input w-full"
+			<Field.Field data-invalid={!!fieldErrors.password}>
+				<Label for="register-password">Password</Label>
+				<Input
+					id="register-password"
 					type="password"
 					placeholder="At least 8 characters"
 					autocomplete="new-password"
+					aria-invalid={!!fieldErrors.password}
 					bind:value={password}
 				/>
 				{#if fieldErrors.password}
-					<span class="text-xs text-error-500">{fieldErrors.password}</span>
+					<Field.Error>{fieldErrors.password}</Field.Error>
 				{/if}
-			</label>
+			</Field.Field>
 
-			<label class="label">
-				<span class="label-text">Confirm password</span>
-				<input
-					class="input w-full"
+			<Field.Field data-invalid={!!fieldErrors.confirmPassword}>
+				<Label for="register-confirm-password">Confirm password</Label>
+				<Input
+					id="register-confirm-password"
 					type="password"
 					placeholder="Re-enter password"
 					autocomplete="new-password"
+					aria-invalid={!!fieldErrors.confirmPassword}
 					bind:value={confirmPassword}
 				/>
 				{#if fieldErrors.confirmPassword}
-					<span class="text-xs text-error-500">{fieldErrors.confirmPassword}</span>
+					<Field.Error>{fieldErrors.confirmPassword}</Field.Error>
 				{/if}
-			</label>
+			</Field.Field>
 
-			<button
-				type="submit"
-				class="btn w-full justify-center preset-filled-primary-500 btn-lg"
-				disabled={submitting}
-			>
+			<Button type="submit" size="lg" class="w-full" disabled={submitting}>
 				{#if submitting}
 					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
 				{/if}
 				Create account
-			</button>
+			</Button>
 		</form>
 	{/if}
 
 	{#snippet footer()}
-		<div class="w-full space-y-4">
+		<div class="flex w-full flex-col gap-4">
 			{#if canRegister && !providersLoading && googleAuthEnabled}
-				<div class="space-y-4">
-					<div class="flex items-center gap-3 text-xs opacity-60">
-						<hr class="flex-1 border-surface-200-800" />
+				<div class="flex flex-col gap-4">
+					<div class="flex items-center gap-3 text-xs text-muted-foreground">
+						<Separator.Root class="flex-1" />
 						<span>or</span>
-						<hr class="flex-1 border-surface-200-800" />
+						<Separator.Root class="flex-1" />
 					</div>
 					<OAuthGoogleButton />
 				</div>
 			{/if}
 
-			<p class="text-center text-sm opacity-75">
+			<p class="text-center text-sm text-muted-foreground">
 				Already have an account?
-				<a href={loginLink} class="font-medium text-primary-500 hover:underline">Sign in</a>
+				<a href={loginLink} class="font-medium text-primary hover:underline">Sign in</a>
 			</p>
 		</div>
 	{/snippet}

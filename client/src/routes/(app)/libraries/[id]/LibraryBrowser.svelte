@@ -23,7 +23,13 @@
 	import { createFileDrop } from '$lib/state/file-drop.svelte';
 	import type { AuthUser, Library, LibraryEntry, LibraryFile, LibraryFolder } from '$lib/types/api';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 	import UploadModal from '$lib/components/UploadModal.svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
@@ -107,6 +113,13 @@
 
 	const dragEnabled = $derived(canManageLibrary && !trashed);
 
+	// Whether the mobile toolbar overflow trigger has anything to show. Mirrors
+	// the union of the desktop toolbar's own `{#if}` conditions below so the
+	// "More actions" button never opens onto an empty menu.
+	const mobileToolbarHasItems = $derived(
+		!trashed || (!explorer.filesPending && explorer.totalCount > 0)
+	);
+
 	// Move-files modal state
 	let moveFilesOpen = $state(false);
 	let moveFilesLoading = $state(false);
@@ -133,34 +146,33 @@
 	};
 
 	let contextMenuOpen = $state(false);
-	let contextMenuX = $state(0);
-	let contextMenuY = $state(0);
 	let contextMenuGroups = $state<ContextMenuItem[][]>([]);
-	let openSubmenuKey = $state<string | null>(null);
 
+	// Set (and reset) by the Trigger's own `oncontextmenu` handler below —
+	// true for the duration of a single contextmenu event's dispatch when a
+	// row/card claimed it via `showContextMenu` during the bubble phase. Not
+	// `$state`: it's a synchronous, per-event bookkeeping flag, not UI state.
+	let entryContextMenuHandled = false;
+
+	// Once the menu closes, drop any leftover items so a future open (however
+	// it's triggered) never briefly renders a previous entry's actions.
+	$effect(() => {
+		if (!contextMenuOpen) contextMenuGroups = [];
+	});
+
+	// The row-level `oncontextmenu` handler (LibraryEntriesTable/Grid, via
+	// `onrowContextMenu`) only computes which items apply for ITS entry and
+	// marks the event as claimed; the actual open/position/dismiss behavior is
+	// owned by the ContextMenu.Root that wraps the whole entries area below.
+	// When there's nothing to show for a claimed entry (e.g. a read-only trash
+	// view) we prevent the default so no menu opens at all, rather than
+	// showing an empty one.
 	function showContextMenu(entry: LibraryEntry, event: MouseEvent) {
-		const groups = getContextMenuItems(entry);
-		if (!groups.length) {
-			contextMenuOpen = false;
-			return;
+		entryContextMenuHandled = true;
+		contextMenuGroups = getContextMenuItems(entry);
+		if (!contextMenuGroups.length) {
+			event.preventDefault();
 		}
-		event.preventDefault();
-		contextMenuGroups = groups;
-		contextMenuX = event.clientX;
-		contextMenuY = event.clientY;
-		openSubmenuKey = null;
-		contextMenuOpen = true;
-	}
-
-	function closeContextMenu() {
-		contextMenuOpen = false;
-		openSubmenuKey = null;
-	}
-
-	function runContextItem(item: ContextMenuItem) {
-		if (item.disabled || item.children) return;
-		closeContextMenu();
-		item.onSelect?.();
 	}
 
 	// ── Folder path sync (published to the library header breadcrumb) ────────────
@@ -291,6 +303,10 @@
 	// Files can move anywhere, so no destinations are excluded (unlike moving a
 	// folder, which must exclude itself and its descendants).
 	const moveFileDestinationOptions = $derived(buildMoveDestinationOptions(moveFileFolders));
+	const moveFilesDestinationLabel = $derived(
+		moveFileDestinationOptions.find((o) => o.value === moveFilesDestinationValue)?.label ??
+			'Select destination'
+	);
 
 	const moveFileCount = $derived(moveFileIds.length);
 
@@ -980,6 +996,11 @@
 		purgeAll ? explorer.totalCount : filesToPurge.length + foldersToPurge.length
 	);
 
+	const moveFolderDestinationLabel = $derived(
+		folderActions.moveDestinationOptions.find((o) => o.value === folderActions.moveDestinationValue)
+			?.label ?? 'Select destination'
+	);
+
 	// The download-zip store exposes `showSizeWarning` read-only (closing it goes
 	// through cancel/confirm). AppModal needs a two-way `open`, so mirror the store
 	// flag into local state and route any modal-driven close to cancelLargeDownload.
@@ -1052,15 +1073,6 @@
 	});
 </script>
 
-<svelte:window
-	onclick={closeContextMenu}
-	oncontextmenu={(e) => {
-		// Close any open menu when a contextmenu fires outside an entry row; entry
-		// rows call showContextMenu() (which preventsDefault) before this bubbles.
-		if (!e.defaultPrevented) closeContextMenu();
-	}}
-/>
-
 <div
 	class="relative flex h-full min-h-0 flex-1 flex-col gap-4"
 	ondragenter={fileDrop.dropZoneProps.ondragenter}
@@ -1072,254 +1084,295 @@
 >
 	{#if fileDrop.isOverDropZone}
 		<div
-			class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-primary-500 bg-primary-500/10"
+			class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/10"
 		>
-			<span class="badge gap-2 preset-filled-primary-500 px-4 py-3 text-sm font-medium shadow-lg">
+			<Badge class="gap-2 px-4 py-3 text-sm font-medium shadow-lg">
 				<AppIcon name={ICONS.cloudUpload} class="size-4" />
 				Drop files to upload to this folder
-			</span>
+			</Badge>
 		</div>
 	{/if}
 
-	<!-- Toolbar — portaled into the library header's breadcrumb row. -->
+	<!-- Toolbar — portaled into the library header's breadcrumb row. Two
+	     responsive variants share the same actions: a full desktop strip
+	     (`sm:` and up) and a single-button mobile overflow (below `sm`) so a
+	     handful of icon-only buttons don't crowd out the library title/
+	     breadcrumb, which shares the row and needs to truncate gracefully. -->
 	<div use:portal={'#library-header-actions'}>
 		<div class="flex shrink-0 items-center gap-1.5">
-			{#if !trashed}
-				<button
-					type="button"
-					title="List view"
-					data-icon={ICONS.listView}
-					data-color={explorer.entryViewMode === 'file' ? 'primary' : 'neutral'}
-					class="btn h-9 w-9 px-0 {explorer.entryViewMode === 'file'
-						? 'preset-tonal-primary'
-						: 'preset-tonal'}"
-					onclick={() => (explorer.entryViewMode = 'file')}
-				>
-					<AppIcon name={ICONS.listView} class="size-4" />
-				</button>
-				<button
-					type="button"
-					title="Grid view"
-					data-icon={ICONS.gridView}
-					data-color={explorer.entryViewMode === 'card' ? 'primary' : 'neutral'}
-					class="btn h-9 w-9 px-0 {explorer.entryViewMode === 'card'
-						? 'preset-tonal-primary'
-						: 'preset-tonal'}"
-					onclick={() => (explorer.entryViewMode = 'card')}
-				>
-					<AppIcon name={ICONS.gridView} class="size-4" />
-				</button>
-			{/if}
+			<!-- Desktop: every action as its own labeled button. -->
+			<div class="hidden shrink-0 items-center gap-1.5 sm:flex">
+				{#if !trashed}
+					<Button
+						variant={explorer.entryViewMode === 'file' ? 'secondary' : 'ghost'}
+						size="icon"
+						aria-label="List view"
+						aria-pressed={explorer.entryViewMode === 'file'}
+						title="List view"
+						onclick={() => (explorer.entryViewMode = 'file')}
+					>
+						<AppIcon name={ICONS.listView} class="size-4" />
+					</Button>
+					<Button
+						variant={explorer.entryViewMode === 'card' ? 'secondary' : 'ghost'}
+						size="icon"
+						aria-label="Grid view"
+						aria-pressed={explorer.entryViewMode === 'card'}
+						title="Grid view"
+						onclick={() => (explorer.entryViewMode = 'card')}
+					>
+						<AppIcon name={ICONS.gridView} class="size-4" />
+					</Button>
+				{/if}
 
-			{#if trashed && !explorer.filesPending && explorer.totalCount > 0}
-				<Button variant="tonal" color="error" size="sm" onclick={() => openPurgeAllModal()}>
-					{#snippet icon()}
+				{#if trashed && !explorer.filesPending && explorer.totalCount > 0}
+					<Button variant="destructive" size="sm" onclick={() => openPurgeAllModal()}>
 						<AppIcon name={ICONS.trash} class="size-4" />
-					{/snippet}
-					<span class="hidden sm:inline">Delete All</span>
-				</Button>
-			{/if}
+						<span>Delete All</span>
+					</Button>
+				{/if}
 
-			{#if canManageLibrary && !trashed}
-				<div class="flex items-center gap-1.5">
-					<Button
-						variant="tonal"
-						color="primary"
-						class="h-9"
-						onclick={() => folderActions.openCreateFolderModal()}
-					>
-						{#snippet icon()}
+				{#if canManageLibrary && !trashed}
+					<div class="flex items-center gap-1.5">
+						<Button variant="ghost" onclick={() => folderActions.openCreateFolderModal()}>
 							<AppIcon name={ICONS.folder} class="size-4" />
-						{/snippet}
-						<span class="hidden sm:inline">Folder</span>
-					</Button>
-					<Button
-						variant="tonal"
-						color="primary"
-						class="h-9"
-						onclick={() => documentActions.openCreateDocumentModal()}
-					>
-						{#snippet icon()}
+							<span>Folder</span>
+						</Button>
+						<Button variant="ghost" onclick={() => documentActions.openCreateDocumentModal()}>
 							<AppIcon name={ICONS.file} class="size-4" />
-						{/snippet}
-						<span class="hidden sm:inline">Document</span>
-					</Button>
-					<Button variant="tonal" color="primary" class="h-9" onclick={() => (uploadOpen = true)}>
-						{#snippet icon()}
+							<span>Document</span>
+						</Button>
+						<Button variant="ghost" onclick={() => (uploadOpen = true)}>
 							<AppIcon name={ICONS.upload} class="size-4" />
-						{/snippet}
-						<span class="hidden sm:inline">Upload</span>
-					</Button>
+							<span>Upload</span>
+						</Button>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Mobile: everything collapses into one overflow menu so the
+			     breadcrumb/title keeps its space in the shared header row. -->
+			{#if mobileToolbarHasItems}
+				<div class="sm:hidden">
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<Button
+									{...props}
+									variant="ghost"
+									size="icon"
+									aria-label="More actions"
+									title="More actions"
+								>
+									<AppIcon name={ICONS.ellipsis} class="size-4" />
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content align="end" class="w-48">
+							{#if !trashed}
+								<DropdownMenu.RadioGroup
+									value={explorer.entryViewMode}
+									onValueChange={(v) => (explorer.entryViewMode = v as 'file' | 'card')}
+								>
+									<DropdownMenu.RadioItem value="file">
+										<AppIcon name={ICONS.listView} class="size-4" />
+										List view
+									</DropdownMenu.RadioItem>
+									<DropdownMenu.RadioItem value="card">
+										<AppIcon name={ICONS.gridView} class="size-4" />
+										Grid view
+									</DropdownMenu.RadioItem>
+								</DropdownMenu.RadioGroup>
+							{/if}
+
+							{#if trashed && !explorer.filesPending && explorer.totalCount > 0}
+								<DropdownMenu.Item variant="destructive" onSelect={() => openPurgeAllModal()}>
+									<AppIcon name={ICONS.trash} class="size-4" />
+									Delete All
+								</DropdownMenu.Item>
+							{/if}
+
+							{#if canManageLibrary && !trashed}
+								<DropdownMenu.Separator />
+								<DropdownMenu.Item onSelect={() => folderActions.openCreateFolderModal()}>
+									<AppIcon name={ICONS.folder} class="size-4" />
+									New folder
+								</DropdownMenu.Item>
+								<DropdownMenu.Item onSelect={() => documentActions.openCreateDocumentModal()}>
+									<AppIcon name={ICONS.file} class="size-4" />
+									New document
+								</DropdownMenu.Item>
+								<DropdownMenu.Item onSelect={() => (uploadOpen = true)}>
+									<AppIcon name={ICONS.upload} class="size-4" />
+									Upload files
+								</DropdownMenu.Item>
+							{/if}
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
 				</div>
 			{/if}
 		</div>
 	</div>
 
-	<div class="relative min-h-0 flex-1 overflow-y-auto px-0.5">
-		{#if explorer.filesPending && explorer.entries.length === 0}
-			<!-- Skeleton placeholder while the first page loads (matches the table/grid
-			     layout so there's no spinner-then-content layout jump). -->
-			<LibraryEntriesSkeleton entryViewMode={explorer.entryViewMode} showTrashed={trashed} />
-		{/if}
+	<ContextMenu.Root bind:open={contextMenuOpen}>
+		<ContextMenu.Trigger>
+			{#snippet child({ props })}
+				<div
+					{...props}
+					class="relative min-h-0 flex-1 overflow-y-auto px-0.5"
+					oncontextmenu={(event: MouseEvent) => {
+						// Only let bits-ui open its menu when a row/card claimed THIS
+						// event during the bubble phase (see showContextMenu, which
+						// runs first — rows/cards are descendants of this div).
+						// Otherwise leave the event alone entirely: no preventDefault,
+						// no bits-ui open call, so the browser's native context menu
+						// shows over empty space, grid gaps, the table header, and the
+						// empty-state panel — instead of a stale or empty menu carried
+						// over from a previously right-clicked entry.
+						if (entryContextMenuHandled) {
+							entryContextMenuHandled = false;
+							(props.oncontextmenu as ((e: MouseEvent) => void) | undefined)?.(event);
+						}
+					}}
+				>
+					{#if explorer.filesPending && explorer.entries.length === 0}
+						<!-- Skeleton placeholder while the first page loads (matches the table/grid
+						     layout so there's no spinner-then-content layout jump). -->
+						<LibraryEntriesSkeleton entryViewMode={explorer.entryViewMode} showTrashed={trashed} />
+					{/if}
 
-		{#if explorer.filesPending && explorer.entries.length > 0}
-			<div
-				class="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-surface-50-950/35 pt-6"
-			>
-				<span class="badge gap-2 preset-tonal-primary px-3 py-3">
-					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-					Loading
-				</span>
-			</div>
-		{/if}
+					{#if explorer.filesPending && explorer.entries.length > 0}
+						<div
+							class="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-background/35 pt-6"
+						>
+							<Badge variant="secondary" class="gap-2 px-3 py-3">
+								<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+								Loading
+							</Badge>
+						</div>
+					{/if}
 
-		{#if explorer.entryViewMode === 'file' && explorer.entries.length > 0}
-			<LibraryEntriesTable
-				entries={explorer.entries}
-				showTrashed={trashed}
-				{dragEnabled}
-				{draggedFileIds}
-				{draggedFolderIds}
-				{dropTargetFolderId}
-				{renameValue}
-				isEntrySelected={(e) => explorer.isEntrySelected(e)}
-				{isRenaming}
-				onrowClick={handleRowClick}
-				onrowDoubleClick={openEntry}
-				onrowContextMenu={showContextMenu}
-				ondragStart={handleEntryDragStart}
-				ondragEnd={handleEntryDragEnd}
-				ondragEnter={handleFolderDragEnter}
-				ondragOver={handleFolderDragOver}
-				ondragLeave={handleFolderDragLeave}
-				ondrop={handleFolderDrop}
-				onsaveRename={saveEntryRename}
-				oncancelRename={() => (renamingEntry = null)}
-				onupdateRenameValue={(v) => (renameValue = v)}
-			/>
-		{:else if explorer.entryViewMode === 'card' && explorer.entries.length > 0}
-			<LibraryEntriesGrid
-				entries={explorer.entries}
-				{libraryId}
-				showTrashed={trashed}
-				{dragEnabled}
-				{draggedFileIds}
-				{draggedFolderIds}
-				{dropTargetFolderId}
-				{renameValue}
-				isEntrySelected={(e) => explorer.isEntrySelected(e)}
-				{isRenaming}
-				{failedThumbnails}
-				{isImageFile}
-				{isSmallImage}
-				onrowClick={handleRowClick}
-				onrowDoubleClick={openEntry}
-				onrowContextMenu={showContextMenu}
-				ondragStart={handleEntryDragStart}
-				ondragEnd={handleEntryDragEnd}
-				ondragEnter={handleFolderDragEnter}
-				ondragOver={handleFolderDragOver}
-				ondragLeave={handleFolderDragLeave}
-				ondrop={handleFolderDrop}
-				onsaveRename={saveEntryRename}
-				oncancelRename={() => (renamingEntry = null)}
-				onupdateRenameValue={(v) => (renameValue = v)}
-				onthumbnailError={(id) => failedThumbnails.add(id)}
-			/>
-		{/if}
+					{#if explorer.entryViewMode === 'file' && explorer.entries.length > 0}
+						<LibraryEntriesTable
+							entries={explorer.entries}
+							showTrashed={trashed}
+							{dragEnabled}
+							{draggedFileIds}
+							{draggedFolderIds}
+							{dropTargetFolderId}
+							{renameValue}
+							isEntrySelected={(e) => explorer.isEntrySelected(e)}
+							{isRenaming}
+							onrowClick={handleRowClick}
+							onrowDoubleClick={openEntry}
+							onrowContextMenu={showContextMenu}
+							ondragStart={handleEntryDragStart}
+							ondragEnd={handleEntryDragEnd}
+							ondragEnter={handleFolderDragEnter}
+							ondragOver={handleFolderDragOver}
+							ondragLeave={handleFolderDragLeave}
+							ondrop={handleFolderDrop}
+							onsaveRename={saveEntryRename}
+							oncancelRename={() => (renamingEntry = null)}
+							onupdateRenameValue={(v) => (renameValue = v)}
+						/>
+					{:else if explorer.entryViewMode === 'card' && explorer.entries.length > 0}
+						<LibraryEntriesGrid
+							entries={explorer.entries}
+							{libraryId}
+							showTrashed={trashed}
+							{dragEnabled}
+							{draggedFileIds}
+							{draggedFolderIds}
+							{dropTargetFolderId}
+							{renameValue}
+							isEntrySelected={(e) => explorer.isEntrySelected(e)}
+							{isRenaming}
+							{failedThumbnails}
+							{isImageFile}
+							{isSmallImage}
+							onrowClick={handleRowClick}
+							onrowDoubleClick={openEntry}
+							onrowContextMenu={showContextMenu}
+							ondragStart={handleEntryDragStart}
+							ondragEnd={handleEntryDragEnd}
+							ondragEnter={handleFolderDragEnter}
+							ondragOver={handleFolderDragOver}
+							ondragLeave={handleFolderDragLeave}
+							ondrop={handleFolderDrop}
+							onsaveRename={saveEntryRename}
+							oncancelRename={() => (renamingEntry = null)}
+							onupdateRenameValue={(v) => (renameValue = v)}
+							onthumbnailError={(id) => failedThumbnails.add(id)}
+						/>
+					{/if}
 
-		{#if explorer.entries.length === 0 && !explorer.filesPending}
-			<LibraryEmptyState
-				showTrashed={trashed}
-				title={emptyStateTitle}
-				description={emptyStateDescription}
-				{canManageLibrary}
-				oncreateFolder={() => folderActions.openCreateFolderModal()}
-				onuploadFiles={() => (uploadOpen = true)}
-			/>
-		{/if}
+					{#if explorer.entries.length === 0 && !explorer.filesPending}
+						<LibraryEmptyState
+							showTrashed={trashed}
+							title={emptyStateTitle}
+							description={emptyStateDescription}
+							{canManageLibrary}
+							oncreateFolder={() => folderActions.openCreateFolderModal()}
+							onuploadFiles={() => (uploadOpen = true)}
+						/>
+					{/if}
 
-		<div bind:this={sentinel} class="h-px"></div>
-		{#if explorer.loadingMore}
-			<div class="flex items-center justify-center py-4">
-				<AppIcon name={ICONS.loading} class="size-5 animate-spin text-surface-500" />
-			</div>
-		{/if}
-	</div>
+					<div bind:this={sentinel} class="h-px"></div>
+					{#if explorer.loadingMore}
+						<div class="flex items-center justify-center py-4">
+							<AppIcon name={ICONS.loading} class="size-5 animate-spin text-muted-foreground" />
+						</div>
+					{/if}
+				</div>
+			{/snippet}
+		</ContextMenu.Trigger>
 
-	<!-- Context menu (replaces the Nuxt UContextMenu) -->
-	{#if contextMenuOpen}
-		<div
-			class="fixed z-50 flex w-56 flex-col gap-1 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-1 shadow-xl"
-			style:left="{contextMenuX}px"
-			style:top="{contextMenuY}px"
-			role="menu"
-			tabindex="-1"
-			onclick={(e) => e.stopPropagation()}
-			oncontextmenu={(e) => e.preventDefault()}
-			onkeydown={(e) => {
-				if (e.key === 'Escape') closeContextMenu();
-			}}
-		>
+		<!-- Right-click file/folder menu. A single Root+Trigger wraps the whole
+		     entries area (rather than one per row) — the native contextmenu event
+		     bubbles from whichever row was clicked up to this Trigger, which then
+		     opens itself positioned at the cursor automatically; `showContextMenu`
+		     above only computes which items apply. -->
+		<ContextMenu.Content class="w-56">
 			{#each contextMenuGroups as group, gi (gi)}
 				{#if gi > 0}
-					<hr class="my-1 border-surface-200-800" />
+					<ContextMenu.Separator />
 				{/if}
 				{#each group as item, ii (`${gi}-${ii}-${item.label}`)}
 					{#if item.children}
-						<div class="relative">
-							<button
-								type="button"
-								role="menuitem"
-								class="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-primary-500/10"
-								onmouseenter={() => (openSubmenuKey = `${gi}-${ii}`)}
-								onclick={() =>
-									(openSubmenuKey = openSubmenuKey === `${gi}-${ii}` ? null : `${gi}-${ii}`)}
-							>
+						<ContextMenu.Sub>
+							<ContextMenu.SubTrigger>
+								<!-- The vendored SubTrigger primitive (unlike Item) doesn't
+								     set `gap-2` itself — wrap the icon+label to match the
+								     spacing of sibling Items. -->
 								<span class="flex items-center gap-2">
 									{#if item.icon}<AppIcon name={item.icon} class="size-4" />{/if}
 									{item.label}
 								</span>
-								<AppIcon name={ICONS.chevronRight} class="size-3" />
-							</button>
-							{#if openSubmenuKey === `${gi}-${ii}`}
-								<div
-									class="absolute top-0 left-full ml-1 flex max-h-72 w-48 flex-col gap-1 overflow-y-auto card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-1 shadow-xl"
-								>
-									{#each item.children as child, ci (`${ci}-${child.label}`)}
-										<button
-											type="button"
-											role="menuitem"
-											class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-primary-500/10 disabled:opacity-50"
-											disabled={child.disabled}
-											onclick={() => runContextItem(child)}
-										>
-											{#if child.icon}<AppIcon name={child.icon} class="size-4" />{/if}
-											{child.label}
-										</button>
-									{/each}
-								</div>
-							{/if}
-						</div>
+							</ContextMenu.SubTrigger>
+							<ContextMenu.SubContent class="w-48">
+								{#each item.children as child (child.label)}
+									<ContextMenu.Item disabled={child.disabled} onSelect={() => child.onSelect?.()}>
+										{#if child.icon}<AppIcon name={child.icon} class="size-4" />{/if}
+										{child.label}
+									</ContextMenu.Item>
+								{/each}
+							</ContextMenu.SubContent>
+						</ContextMenu.Sub>
 					{:else}
-						<button
-							type="button"
-							role="menuitem"
-							class={[
-								'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-primary-500/10 disabled:opacity-50',
-								item.color === 'error' ? 'text-error-500' : ''
-							]}
+						<ContextMenu.Item
+							variant={item.color === 'error' ? 'destructive' : 'default'}
 							disabled={item.disabled}
-							onclick={() => runContextItem(item)}
+							onSelect={() => item.onSelect?.()}
 						>
 							{#if item.icon}<AppIcon name={item.icon} class="size-4" />{/if}
 							{item.label}
-						</button>
+						</ContextMenu.Item>
 					{/if}
 				{/each}
 			{/each}
-		</div>
-	{/if}
+		</ContextMenu.Content>
+	</ContextMenu.Root>
 
 	<UploadModal
 		bind:open={uploadOpen}
@@ -1341,10 +1394,9 @@
 	<!-- Create Folder Modal -->
 	<AppModal bind:open={folderActions.createFolderOpen} title="Create Folder">
 		<div class="flex flex-col gap-2">
-			<label class="text-sm font-medium" for="create-folder-name">Folder name</label>
-			<input
+			<Label for="create-folder-name">Folder name</Label>
+			<Input
 				id="create-folder-name"
-				class="input w-full"
 				placeholder="New folder"
 				bind:value={folderActions.createFolderName}
 				onkeydown={(e) => {
@@ -1353,23 +1405,22 @@
 			/>
 		</div>
 		<div class="flex w-full justify-end gap-2">
-			<button
+			<Button
 				type="button"
-				class="btn preset-tonal"
+				variant="ghost"
 				onclick={() => (folderActions.createFolderOpen = false)}
 			>
 				Cancel
-			</button>
+			</Button>
 			<Button
-				variant="tonal"
-				color="primary"
-				loading={folderActions.creatingFolder}
 				disabled={!folderActions.createFolderName.trim() || folderActions.creatingFolder}
 				onclick={() => folderActions.createFolder()}
 			>
-				{#snippet icon()}
+				{#if folderActions.creatingFolder}
+					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+				{:else}
 					<AppIcon name={ICONS.folder} class="size-4" />
-				{/snippet}
+				{/if}
 				Create
 			</Button>
 		</div>
@@ -1378,38 +1429,36 @@
 	<!-- Create Document Modal -->
 	<AppModal bind:open={documentActions.createDocumentOpen} title="New Document">
 		<div class="flex flex-col gap-2">
-			<label class="text-sm font-medium" for="create-document-name">Document name</label>
-			<input
+			<Label for="create-document-name">Document name</Label>
+			<Input
 				id="create-document-name"
-				class="input w-full"
 				placeholder="Untitled"
 				bind:value={documentActions.createDocumentName}
 				onkeydown={(e) => {
 					if (e.key === 'Enter') documentActions.createDocument();
 				}}
 			/>
-			<p class="text-xs opacity-60">
+			<p class="text-xs text-muted-foreground">
 				A markdown file everyone in the library can edit together, live.
 			</p>
 		</div>
 		<div class="flex w-full justify-end gap-2">
-			<button
+			<Button
 				type="button"
-				class="btn preset-tonal"
+				variant="ghost"
 				onclick={() => (documentActions.createDocumentOpen = false)}
 			>
 				Cancel
-			</button>
+			</Button>
 			<Button
-				variant="tonal"
-				color="primary"
-				loading={documentActions.creatingDocument}
 				disabled={!documentActions.createDocumentName.trim() || documentActions.creatingDocument}
 				onclick={() => documentActions.createDocument()}
 			>
-				{#snippet icon()}
+				{#if documentActions.creatingDocument}
+					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+				{:else}
 					<AppIcon name={ICONS.file} class="size-4" />
-				{/snippet}
+				{/if}
 				Create
 			</Button>
 		</div>
@@ -1418,41 +1467,41 @@
 	<!-- Move Folder Modal -->
 	<AppModal bind:open={folderActions.moveFolderOpen} title="Move Folder">
 		<div class="flex flex-col gap-4">
-			<p class="text-sm opacity-75">
-				Move <strong>{folderActions.movingFolder?.name}</strong> to a new location.
+			<p class="text-sm text-muted-foreground">
+				Move <strong class="text-foreground">{folderActions.movingFolder?.name}</strong> to a new location.
 			</p>
 			<div class="flex flex-col gap-2">
-				<label class="text-sm font-medium" for="move-folder-dest">Destination</label>
-				<select
-					id="move-folder-dest"
-					class="select w-full"
-					bind:value={folderActions.moveDestinationValue}
+				<Label for="move-folder-dest">Destination</Label>
+				<Select.Root
+					type="single"
+					value={folderActions.moveDestinationValue}
+					onValueChange={(v) => (folderActions.moveDestinationValue = v)}
 					disabled={folderActions.moveLoading}
 				>
-					{#each folderActions.moveDestinationOptions as option (option.value)}
-						<option value={option.value}>{option.label}</option>
-					{/each}
-				</select>
+					<Select.Trigger id="move-folder-dest" class="w-full">
+						{moveFolderDestinationLabel}
+					</Select.Trigger>
+					<Select.Content>
+						{#each folderActions.moveDestinationOptions as option (option.value)}
+							<Select.Item value={option.value} label={option.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
 			</div>
 		</div>
 		<div class="flex w-full justify-end gap-2">
-			<button
-				type="button"
-				class="btn preset-tonal"
-				onclick={() => (folderActions.moveFolderOpen = false)}
-			>
+			<Button type="button" variant="ghost" onclick={() => (folderActions.moveFolderOpen = false)}>
 				Cancel
-			</button>
+			</Button>
 			<Button
-				variant="tonal"
-				color="primary"
-				loading={folderActions.moveFolderSaving}
 				disabled={folderActions.moveLoading || folderActions.moveFolderSaving}
 				onclick={() => folderActions.moveFolder()}
 			>
-				{#snippet icon()}
+				{#if folderActions.moveFolderSaving}
+					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+				{:else}
 					<AppIcon name={ICONS.folder} class="size-4" />
-				{/snippet}
+				{/if}
 				Move
 			</Button>
 		</div>
@@ -1461,36 +1510,37 @@
 	<!-- Move Files Modal -->
 	<AppModal bind:open={moveFilesOpen} title="Move Files">
 		<div class="flex flex-col gap-4">
-			<p class="text-sm opacity-75">
-				Move <strong>{moveFileCount}</strong>
+			<p class="text-sm text-muted-foreground">
+				Move <strong class="text-foreground">{moveFileCount}</strong>
 				{moveFileCount === 1 ? 'file' : 'files'} to a new location.
 			</p>
 			<div class="flex flex-col gap-2">
-				<label class="text-sm font-medium" for="move-files-dest">Destination</label>
-				<select
-					id="move-files-dest"
-					class="select w-full"
-					bind:value={moveFilesDestinationValue}
+				<Label for="move-files-dest">Destination</Label>
+				<Select.Root
+					type="single"
+					value={moveFilesDestinationValue}
+					onValueChange={(v) => (moveFilesDestinationValue = v)}
 					disabled={moveFilesLoading}
 				>
-					{#each moveFileDestinationOptions as option (option.value)}
-						<option value={option.value}>{option.label}</option>
-					{/each}
-				</select>
+					<Select.Trigger id="move-files-dest" class="w-full">
+						{moveFilesDestinationLabel}
+					</Select.Trigger>
+					<Select.Content>
+						{#each moveFileDestinationOptions as option (option.value)}
+							<Select.Item value={option.value} label={option.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
 			</div>
 		</div>
 		<div class="flex w-full justify-end gap-2">
-			<button type="button" class="btn preset-tonal" onclick={closeMoveFilesModal}>Cancel</button>
-			<Button
-				variant="tonal"
-				color="primary"
-				loading={moveFilesSaving}
-				disabled={moveFilesLoading || moveFilesSaving}
-				onclick={() => moveFiles()}
-			>
-				{#snippet icon()}
+			<Button type="button" variant="ghost" onclick={closeMoveFilesModal}>Cancel</Button>
+			<Button disabled={moveFilesLoading || moveFilesSaving} onclick={() => moveFiles()}>
+				{#if moveFilesSaving}
+					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+				{:else}
 					<AppIcon name={ICONS.folder} class="size-4" />
-				{/snippet}
+				{/if}
 				Move
 			</Button>
 		</div>
@@ -1499,40 +1549,33 @@
 	<!-- Permanently Delete Items Modal -->
 	<AppModal bind:open={purgeModalOpen} title="Permanently Delete Items">
 		<div class="flex flex-col gap-4">
-			<div class="flex items-start gap-2 rounded-md preset-tonal-error p-3 text-sm">
-				<AppIcon name={ICONS.warning} class="mt-0.5 size-4 shrink-0" />
+			<div
+				class="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm"
+			>
+				<AppIcon name={ICONS.warning} class="mt-0.5 size-4 shrink-0 text-destructive" />
 				<div>
-					<p class="font-medium">
+					<p class="font-medium text-destructive">
 						Delete {purgeFileCount}
 						{purgeFileCount === 1 ? 'item' : 'items'}
 					</p>
-					<p class="opacity-75">
+					<p class="text-muted-foreground">
 						This will permanently delete these items from disk. This action cannot be undone.
 					</p>
 				</div>
 			</div>
 			<div class="flex flex-col gap-2">
-				<label class="text-sm font-medium" for="purge-confirm">Type 'delete' to confirm</label>
-				<input
-					id="purge-confirm"
-					class="input w-full"
-					placeholder="delete"
-					bind:value={purgeConfirmation}
-				/>
+				<Label for="purge-confirm">Type 'delete' to confirm</Label>
+				<Input id="purge-confirm" placeholder="delete" bind:value={purgeConfirmation} />
 			</div>
 		</div>
 		<div class="flex w-full justify-end gap-2">
-			<button type="button" class="btn preset-tonal" onclick={() => (purgeModalOpen = false)}>
-				Cancel
-			</button>
+			<Button type="button" variant="ghost" onclick={() => (purgeModalOpen = false)}>Cancel</Button>
 			<Button
-				color="error"
+				variant="destructive"
 				disabled={purgeConfirmation !== 'delete'}
 				onclick={() => handlePermanentDelete()}
 			>
-				{#snippet icon()}
-					<AppIcon name={ICONS.trash} class="size-4" />
-				{/snippet}
+				<AppIcon name={ICONS.trash} class="size-4" />
 				Delete Permanently
 			</Button>
 		</div>
@@ -1541,34 +1584,33 @@
 	<!-- Large Download Warning Modal -->
 	<AppModal bind:open={sizeWarningOpen} title="Large Download Warning">
 		<div class="flex flex-col gap-3">
-			<div class="flex items-start gap-2 rounded-md preset-tonal-warning p-3 text-sm">
+			<div
+				class="flex items-start gap-2 rounded-md border border-warning/20 bg-warning/10 p-3 text-sm text-warning"
+			>
 				<AppIcon name={ICONS.warning} class="mt-0.5 size-4 shrink-0" />
 				<p>This download is very large and may take a while.</p>
 			</div>
 			<div class="grid grid-cols-2 gap-3 text-sm">
-				<div class="rounded-md bg-surface-100-900/50 p-3">
-					<p class="text-xs tracking-wide text-surface-500 uppercase">Estimated Size</p>
+				<div class="rounded-md bg-muted/50 p-3">
+					<p class="text-xs tracking-wide text-muted-foreground uppercase">Estimated Size</p>
 					<p class="mt-1 font-medium">{zip.formattedEstimatedSize}</p>
 				</div>
-				<div class="rounded-md bg-surface-100-900/50 p-3">
-					<p class="text-xs tracking-wide text-surface-500 uppercase">Files</p>
+				<div class="rounded-md bg-muted/50 p-3">
+					<p class="text-xs tracking-wide text-muted-foreground uppercase">Files</p>
 					<p class="mt-1 font-medium">{zip.estimatedFileCount.toLocaleString('en-US')}</p>
 				</div>
 			</div>
 		</div>
 		<div class="flex w-full justify-end gap-2">
-			<button type="button" class="btn preset-tonal" onclick={() => zip.cancelLargeDownload()}>
+			<Button type="button" variant="ghost" onclick={() => zip.cancelLargeDownload()}>
 				Cancel
-			</button>
-			<Button
-				variant="tonal"
-				color="primary"
-				loading={zip.downloading}
-				onclick={() => zip.confirmLargeDownload()}
-			>
-				{#snippet icon()}
+			</Button>
+			<Button disabled={zip.downloading} onclick={() => zip.confirmLargeDownload()}>
+				{#if zip.downloading}
+					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+				{:else}
 					<AppIcon name={ICONS.download} class="size-4" />
-				{/snippet}
+				{/if}
 				Download Anyway
 			</Button>
 		</div>

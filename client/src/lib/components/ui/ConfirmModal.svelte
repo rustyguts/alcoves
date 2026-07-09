@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { Dialog } from '@skeletonlabs/skeleton-svelte';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
 	import { ICONS } from '$lib/utils/icons';
 
 	interface Props {
@@ -33,55 +32,48 @@
 		oncancel
 	}: Props = $props();
 
-	// Map the legacy Nuxt UI `confirmClass` hint onto a Button color, the same
-	// substring matching the Vue original used to derive its UButton color. The
-	// Button renders `preset-filled-{color}-500` — byte-equivalent to the prior
-	// hand-rolled preset string.
-	const confirmColor = $derived.by<'primary' | 'surface' | 'error' | 'warning' | 'success'>(() => {
-		const c = confirmClass;
-		if (c.includes('error')) return 'error';
-		if (c.includes('warning')) return 'warning';
-		if (c.includes('success')) return 'success';
-		if (c.includes('neutral')) return 'surface';
-		return 'primary';
-	});
+	// Legacy callers pass Skeleton-era hints ("error"/"btn-error"/"btn-soft
+	// btn-error") to flag a destructive action; map those onto the vendored
+	// Button's `destructive` variant. Everything else (including the old
+	// warning/success/neutral hints, which have no standalone destructive-free
+	// shadcn Button variant) uses the default/primary treatment.
+	const confirmVariant = $derived(confirmClass.includes('error') ? 'destructive' : 'default');
 </script>
 
-<Dialog
+<AlertDialog.Root
 	{open}
-	onOpenChange={(e) => {
-		open = e.open;
-		if (!e.open) oncancel?.();
+	onOpenChange={(next) => {
+		open = next;
+		if (!next) oncancel?.();
 	}}
 >
-	<Dialog.Backdrop class="fixed inset-0 z-40 bg-surface-950/50 backdrop-blur-sm" />
-	<Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
-		<Dialog.Content
-			class="flex w-full max-w-md flex-col gap-4 card rounded-lg preset-filled-surface-50-950 p-6 shadow-xl"
-		>
-			<header class="flex flex-col gap-1">
-				<Dialog.Title class="text-lg font-semibold">{title}</Dialog.Title>
-				<Dialog.Description class="text-sm text-surface-600-400">{message}</Dialog.Description>
-			</header>
-			<footer class="flex w-full justify-end gap-2">
-				<Button
-					variant="tonal"
-					color="surface"
-					disabled={pending}
-					onclick={() => {
-						open = false;
-						oncancel?.();
-					}}
-				>
-					Cancel
-				</Button>
-				<Button color={confirmColor} loading={pending} onclick={() => onconfirm?.()}>
-					{#snippet icon()}
-						<AppIcon name={confirmIcon} class="size-4" />
-					{/snippet}
-					{confirmLabel}
-				</Button>
-			</footer>
-		</Dialog.Content>
-	</Dialog.Positioner>
-</Dialog>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>{title}</AlertDialog.Title>
+			<AlertDialog.Description>{message}</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<!--
+				bits-ui's AlertDialogCancelState consumes `disabled` purely to gate
+				its internal onclick/onkeydown close handler; it does NOT reflect it
+				as a DOM/aria attribute (unlike Action), so the native
+				`disabled:opacity-50` button styling never kicks in on its own — add
+				the visual treatment by hand to match Action's disabled look.
+			-->
+			<AlertDialog.Cancel
+				disabled={pending}
+				class={pending ? 'pointer-events-none opacity-50' : ''}
+			>
+				Cancel
+			</AlertDialog.Cancel>
+			<AlertDialog.Action variant={confirmVariant} disabled={pending} onclick={() => onconfirm?.()}>
+				{#if pending}
+					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+				{:else}
+					<AppIcon name={confirmIcon} class="size-4" />
+				{/if}
+				{confirmLabel}
+			</AlertDialog.Action>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>

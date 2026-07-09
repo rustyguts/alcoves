@@ -74,7 +74,7 @@ describe('TimelineControls', () => {
 		}).not.toThrow();
 	});
 
-	it('renders the snap toggle unpressed and surface-toned when snapping is off', async () => {
+	it('renders the snap toggle unpressed and in the off state when snapping is off', async () => {
 		const ontogglesnap = vi.fn();
 		const screen = render(TimelineControls, {
 			props: baseProps({ snapping: false, ontogglesnap })
@@ -82,17 +82,17 @@ describe('TimelineControls', () => {
 		await tick();
 		const snap = byLabel(screen.container, 'Toggle snapping');
 		expect(snap.getAttribute('aria-pressed')).toBe('false');
-		expect(snap.className).toContain('preset-tonal-surface');
+		expect(snap.getAttribute('data-state')).toBe('off');
 		snap.click();
 		expect(ontogglesnap).toHaveBeenCalledTimes(1);
 	});
 
-	it('renders the snap toggle pressed and primary-toned when snapping is on', async () => {
+	it('renders the snap toggle pressed and in the on state when snapping is on', async () => {
 		const screen = render(TimelineControls, { props: baseProps({ snapping: true }) });
 		await tick();
 		const snap = byLabel(screen.container, 'Toggle snapping');
 		expect(snap.getAttribute('aria-pressed')).toBe('true');
-		expect(snap.className).toContain('preset-tonal-primary');
+		expect(snap.getAttribute('data-state')).toBe('on');
 	});
 
 	it('disables Split unless cansplit and never fires while disabled', async () => {
@@ -130,7 +130,7 @@ describe('TimelineControls', () => {
 		const save = findButton(screen.container, 'Save changes');
 		expect(save?.disabled).toBe(true);
 		expect(save?.textContent).not.toContain('(');
-		expect(save?.className).toContain('preset-tonal-surface');
+		expect(save?.className).toContain('bg-secondary');
 		save?.click();
 		expect(onsave).not.toHaveBeenCalled();
 	});
@@ -141,7 +141,7 @@ describe('TimelineControls', () => {
 		await tick();
 		const save = findButton(screen.container, 'Save changes');
 		expect(save?.textContent).toContain('Save changes (2)');
-		expect(save?.className).toContain('preset-filled-warning-500');
+		expect(save?.className).toContain('bg-warning');
 		expect(save?.disabled).toBe(false);
 		save?.click();
 		expect(onsave).toHaveBeenCalledTimes(1);

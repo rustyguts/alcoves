@@ -132,7 +132,7 @@ describe('MomentsTrack', () => {
 			});
 			await tick();
 			const el = bar(screen.container);
-			expect(el.classList.contains('border-warning-500')).toBe(true);
+			expect(el.classList.contains('border-warning')).toBe(true);
 			expect(el.textContent).toContain('●');
 		});
 
@@ -140,7 +140,7 @@ describe('MomentsTrack', () => {
 			const screen = renderTrack();
 			await tick();
 			const el = bar(screen.container);
-			expect(el.className).toContain('border-primary-500/60');
+			expect(el.className).toContain('border-primary/60');
 			expect(el.classList.contains('ring-2')).toBe(false);
 			expect(el.textContent).not.toContain('●');
 		});
@@ -150,7 +150,7 @@ describe('MomentsTrack', () => {
 			await tick();
 			const el = bar(screen.container);
 			expect(el.classList.contains('ring-2')).toBe(true);
-			expect(el.classList.contains('ring-primary-500')).toBe(true);
+			expect(el.classList.contains('ring-primary')).toBe(true);
 		});
 
 		it('rings a selected dirty bar in warning', async () => {
@@ -161,7 +161,7 @@ describe('MomentsTrack', () => {
 			await tick();
 			const el = bar(screen.container);
 			expect(el.classList.contains('ring-2')).toBe(true);
-			expect(el.classList.contains('ring-warning-500')).toBe(true);
+			expect(el.classList.contains('ring-warning')).toBe(true);
 		});
 
 		it('falls back to Untitled for a nameless moment', async () => {

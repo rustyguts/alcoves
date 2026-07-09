@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import * as Popover from '$lib/components/ui/popover/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		/** The currently selected emoji, or `null` when none is chosen. */
@@ -13,7 +15,6 @@
 	let { value = null, onselect }: Props = $props();
 
 	let open = $state(false);
-	let pickerRef = $state<HTMLElement | null>(null);
 
 	const emojiCategories = [
 		{
@@ -153,74 +154,46 @@
 		onselect?.(null);
 		open = false;
 	}
-
-	function handleClickOutside(event: MouseEvent) {
-		if (pickerRef && !pickerRef.contains(event.target as Node)) {
-			open = false;
-		}
-	}
-
-	$effect(() => {
-		if (open) {
-			document.addEventListener('click', handleClickOutside, true);
-		} else {
-			document.removeEventListener('click', handleClickOutside, true);
-		}
-	});
-
-	onDestroy(() => {
-		if (typeof document !== 'undefined') {
-			document.removeEventListener('click', handleClickOutside, true);
-		}
-	});
 </script>
 
-<div bind:this={pickerRef} class="relative inline-block">
-	<button
-		type="button"
-		class="inline-flex size-10 items-center justify-center rounded-lg transition-colors hover:bg-surface-200-800"
+<Popover.Root bind:open>
+	<Popover.Trigger
+		class="inline-flex size-10 items-center justify-center rounded-lg transition-colors hover:bg-accent hover:text-accent-foreground"
 		title="Choose emoji icon"
-		onclick={(e) => {
-			e.stopPropagation();
-			open = !open;
-		}}
 	>
 		{#if value}
 			<span class="text-2xl leading-none">{value}</span>
 		{:else}
 			<AppIcon name={ICONS.emoji} class="size-5 opacity-60" />
 		{/if}
-	</button>
+	</Popover.Trigger>
 
-	{#if open}
-		<div
-			class="absolute top-full left-0 z-50 mt-2 w-72 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-3 shadow-xl"
-		>
-			<div class="mb-2 flex items-center justify-between">
-				<span class="text-xs font-semibold opacity-60">Pick an icon</span>
-				{#if value}
-					<button type="button" class="btn preset-tonal btn-sm" onclick={clearEmoji}>
-						Remove
-					</button>
-				{/if}
-			</div>
-			{#each emojiCategories as category (category.label)}
-				<div class="mb-2 last:mb-0">
-					<p class="mb-1 text-xs opacity-40">{category.label}</p>
-					<div class="grid grid-cols-8 gap-0.5">
-						{#each category.emojis as emoji (emoji)}
-							<button
-								type="button"
-								class="inline-flex size-8 items-center justify-center rounded-md text-lg transition-colors hover:bg-surface-200-800"
-								class:preset-tonal-primary={value === emoji}
-								onclick={() => selectEmoji(emoji)}
-							>
-								{emoji}
-							</button>
-						{/each}
-					</div>
-				</div>
-			{/each}
+	<Popover.Content class="w-72" align="start">
+		<div class="mb-2 flex items-center justify-between">
+			<span class="text-xs font-semibold opacity-60">Pick an icon</span>
+			{#if value}
+				<Button variant="ghost" size="sm" onclick={clearEmoji}>Remove</Button>
+			{/if}
 		</div>
-	{/if}
-</div>
+		{#each emojiCategories as category (category.label)}
+			<div class="mb-2 last:mb-0">
+				<p class="mb-1 text-xs opacity-40">{category.label}</p>
+				<div class="grid grid-cols-8 gap-0.5">
+					{#each category.emojis as emoji (emoji)}
+						<button
+							type="button"
+							class={cn(
+								'inline-flex size-8 items-center justify-center rounded-md text-lg transition-colors hover:bg-accent',
+								value === emoji && 'bg-accent'
+							)}
+							aria-pressed={value === emoji}
+							onclick={() => selectEmoji(emoji)}
+						>
+							{emoji}
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/each}
+	</Popover.Content>
+</Popover.Root>

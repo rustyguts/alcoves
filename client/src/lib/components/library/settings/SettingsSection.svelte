@@ -1,18 +1,16 @@
 <script lang="ts">
 	/**
-	 * SettingsSection — the flat, card-free section used on the library settings
-	 * page.
+	 * SettingsSection — a titled Card used to group one settings concern
+	 * (name, a feature toggle, danger zone, …) on the library settings page.
 	 *
-	 * Where AppPanel wraps a card (a filled tonal block that still reads as a
-	 * card), a SettingsSection lays its content directly on the page background.
-	 * Stack a column of these inside a `divide-y` wrapper and the page becomes a
-	 * clean flat list: each group is just an icon + title + description header with
-	 * its controls below, separated from its neighbours by a single hairline rule.
-	 * Mirrors AppPanel's API (title / description / icon + `title` and `actions`
-	 * snippets) so swapping is mechanical.
+	 * Composes the vendored `Card.*` primitives: an icon + title + description
+	 * header (or a fully custom `title_` snippet), an `actions` row pinned to the
+	 * header, and the section body in `Card.Content`. Stack a column of these with
+	 * `flex flex-col gap-4` and the page reads as a list of self-contained cards.
 	 */
 	import type { Snippet } from 'svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import * as Card from '$lib/components/ui/card/index.js';
 
 	interface Props {
 		title?: string;
@@ -32,35 +30,33 @@
 	const hasHeader = $derived(!!(title || icon || title_ || actions || description));
 </script>
 
-<section class="py-6 first:pt-0 last:pb-0">
+<Card.Root>
 	{#if hasHeader}
-		<div class="flex items-start justify-between gap-3">
-			<div class="min-w-0 space-y-0.5">
-				{#if title_}
-					{@render title_()}
-				{:else}
-					<div class="flex items-center gap-2">
-						{#if icon}
-							<AppIcon name={icon} class="size-4 shrink-0 text-primary-500" />
-						{/if}
-						<h2 class="text-sm font-semibold">{title}</h2>
-					</div>
-				{/if}
-				{#if description}
-					<p class="max-w-prose text-xs text-surface-600-400">{description}</p>
-				{/if}
-			</div>
-			{#if actions}
-				<div class="flex shrink-0 items-center gap-2">
-					{@render actions()}
-				</div>
+		<Card.Header>
+			{#if title_}
+				{@render title_()}
+			{:else}
+				<Card.Title role="heading" aria-level={2} class="flex items-center gap-2">
+					{#if icon}
+						<AppIcon name={icon} class="size-4 shrink-0 text-primary" />
+					{/if}
+					<span>{title}</span>
+				</Card.Title>
 			{/if}
-		</div>
+			{#if description}
+				<Card.Description>{description}</Card.Description>
+			{/if}
+			{#if actions}
+				<Card.Action class="flex items-center gap-2">
+					{@render actions()}
+				</Card.Action>
+			{/if}
+		</Card.Header>
 	{/if}
 
 	{#if children}
-		<div class={hasHeader ? 'mt-4' : ''}>
+		<Card.Content>
 			{@render children()}
-		</div>
+		</Card.Content>
 	{/if}
-</section>
+</Card.Root>

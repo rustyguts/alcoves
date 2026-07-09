@@ -125,6 +125,14 @@ function renderPanel(props: Record<string, unknown> = {}) {
 	return { screen, es };
 }
 
+/** The purge confirmation (AlertDialog) is portalled to `document.body`. */
+function purgeConfirmAction() {
+	return document.querySelector<HTMLButtonElement>('[data-slot="alert-dialog-action"]');
+}
+function purgeConfirmCancel() {
+	return document.querySelector<HTMLButtonElement>('[data-slot="alert-dialog-cancel"]');
+}
+
 describe('AdminJobsPanel', () => {
 	it('renders heading as h1 when not embedded', async () => {
 		const { screen } = renderPanel();
@@ -198,13 +206,55 @@ describe('AdminJobsPanel', () => {
 		expect(normalized).toContain('3 jobs');
 	});
 
+	// Mobile-layout regression: the Jobs header (title + queue/status filters +
+	// count badge) and the Status/Type/Queue/Progress table used to hard-clip
+	// past the viewport edge on narrow screens because the table's own
+	// horizontal-scroll container was reachable only if every flex ancestor
+	// up to it stayed width-bounded, and the filter row lived in AppPanel's
+	// non-wrapping, `shrink-0` "actions" slot. The table now scrolls inside
+	// its own `overflow-x-auto` container, and the filters live in a
+	// dedicated `flex-wrap` row instead of that actions slot.
+	it('renders the jobs table inside its own horizontally-scrollable container', async () => {
+		const { screen, es } = renderPanel();
+		es.simulateMessage(getSnapshot());
+		await tick();
+		const jobsTable = screen.container.querySelectorAll('table')[1]!;
+		const scrollContainer = jobsTable.closest('[data-slot="table-container"]');
+		expect(scrollContainer).not.toBeNull();
+		expect(scrollContainer?.className).toContain('overflow-x-auto');
+		// The page itself must not be the thing scrolling horizontally — every
+		// ancestor between the panel root and the table's own scroll container
+		// stays width-bounded via `min-w-0`.
+		expect(screen.container.querySelector('.min-w-0')).not.toBeNull();
+	});
+
+	it('wraps the jobs filter header (queue/status selects + count badge) instead of clipping it', async () => {
+		const { screen, es } = renderPanel();
+		es.simulateMessage(getSnapshot());
+		await tick();
+		const queueTrigger = screen.container.querySelector('[aria-label="Filter by queue"]');
+		const statusTrigger = screen.container.querySelector('[aria-label="Filter by status"]');
+		expect(queueTrigger).not.toBeNull();
+		expect(statusTrigger).not.toBeNull();
+		const headerRow = queueTrigger?.closest('.flex-wrap');
+		expect(headerRow).not.toBeNull();
+		expect(headerRow?.contains(statusTrigger)).toBe(true);
+		// The count badge lives in the same wrapping row and must not truncate.
+		const badge = [...screen.container.querySelectorAll('[data-slot="badge"]')].find((b) =>
+			b.textContent?.includes('jobs')
+		);
+		expect(badge).toBeDefined();
+		expect(headerRow?.contains(badge!)).toBe(true);
+		expect(badge?.className).not.toContain('truncate');
+	});
+
 	it('shows a progress bar for active jobs', async () => {
 		const { screen, es } = renderPanel();
 		es.simulateMessage(getSnapshot());
 		await tick();
-		const progress = screen.container.querySelector('progress');
+		const progress = screen.container.querySelector('[role="progressbar"]');
 		expect(progress).not.toBeNull();
-		expect(progress?.getAttribute('value')).toBe('60');
+		expect(progress?.getAttribute('aria-valuenow')).toBe('60');
 		expect(screen.container.textContent).toContain('60%');
 	});
 
@@ -274,12 +324,12 @@ describe('AdminJobsPanel', () => {
 		expect(screen.container.textContent).toContain('No jobs matching current filters.');
 	});
 
-	it('shows a loading spinner when disconnected and no jobs', async () => {
+	it('shows loading skeleton rows when disconnected and no jobs', async () => {
 		const { screen } = renderPanel();
 		await tick();
 		// Before the stream opens or sends data: connected=false, jobs=[].
-		const spinner = screen.container.querySelector('.animate-spin');
-		expect(spinner).not.toBeNull();
+		const skeletons = screen.container.querySelectorAll('[data-slot="skeleton"]');
+		expect(skeletons.length).toBeGreaterThan(0);
 	});
 
 	it('calls the purge API after confirming in the modal', async () => {
@@ -296,11 +346,10 @@ describe('AdminJobsPanel', () => {
 		await tick();
 		expect(mocks.purgeQueue).not.toHaveBeenCalled();
 		// Confirm in the modal (rendered in a portal on document.body).
-		const confirmBtn = [...document.querySelectorAll('button.preset-filled-error-500')].find((b) =>
-			b.textContent?.includes('Purge')
-		) as HTMLButtonElement;
-		expect(confirmBtn).toBeDefined();
-		confirmBtn.click();
+		const confirmBtn = purgeConfirmAction();
+		expect(confirmBtn).not.toBeNull();
+		expect(confirmBtn?.textContent).toContain('Purge');
+		confirmBtn?.click();
 		await tick();
 		expect(mocks.purgeQueue).toHaveBeenCalledWith('{video-processing}');
 	});
@@ -315,11 +364,10 @@ describe('AdminJobsPanel', () => {
 		) as HTMLButtonElement;
 		rowPurge.click();
 		await tick();
-		const cancelBtn = [...document.querySelectorAll('button')].find(
-			(b) => b.textContent?.trim() === 'Cancel'
-		) as HTMLButtonElement;
-		expect(cancelBtn).toBeDefined();
-		cancelBtn.click();
+		const cancelBtn = purgeConfirmCancel();
+		expect(cancelBtn).not.toBeNull();
+		expect(cancelBtn?.textContent).toContain('Cancel');
+		cancelBtn?.click();
 		await tick();
 		expect(mocks.purgeQueue).not.toHaveBeenCalled();
 	});

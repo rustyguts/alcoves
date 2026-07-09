@@ -249,6 +249,13 @@ function renderTrash() {
 	});
 }
 
+// bits-ui's ContextMenu.Content (and AppModal's Dialog.Content, and Select's
+// Select.Content) are portalled to `document.body`, not the mounted container —
+// query the document for anything that can render inside one of those.
+function modalRoot(): HTMLElement {
+	return document.body;
+}
+
 // Open the context menu for a row (default: first) and return the rendered menu.
 async function openRowContextMenu(
 	screen: ReturnType<typeof render>,
@@ -261,12 +268,13 @@ async function openRowContextMenu(
 	);
 	await tick();
 	await tick();
-	return screen.container.querySelector('[role="menu"]') as HTMLElement;
+	return document.querySelector('[role="menu"]') as HTMLElement;
 }
 
-// Find a top-level (non-submenu) context-menu item by visible label.
-function menuItem(menu: HTMLElement, label: string): HTMLButtonElement | undefined {
-	return Array.from(menu.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')).find((b) =>
+// Find a top-level (non-submenu) context-menu item by visible label. Items
+// render as `[role="menuitem"]` (a styled div, not a native button).
+function menuItem(menu: HTMLElement, label: string): HTMLElement | undefined {
+	return Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]')).find((b) =>
 		b.textContent?.includes(label)
 	);
 }
@@ -405,6 +413,100 @@ describe('/libraries/[id] (browser)', () => {
 			screen.container.querySelectorAll<HTMLButtonElement>('button')
 		).find((b) => b.textContent?.trim() === 'Folder');
 		expect(folderBtn).toBeUndefined();
+	});
+
+	// ── F25: view toggles expose pressed state ─────────────────────────────────
+	it('exposes aria-pressed reflecting the active view mode', async () => {
+		explorerState.entries = [makeFile()];
+		explorerState.entryViewMode = 'file';
+		const fileScreen = renderPage();
+		expect(
+			fileScreen.container.querySelector('button[title="List view"]')!.getAttribute('aria-pressed')
+		).toBe('true');
+		expect(
+			fileScreen.container.querySelector('button[title="Grid view"]')!.getAttribute('aria-pressed')
+		).toBe('false');
+
+		explorerState.entryViewMode = 'card';
+		const cardScreen = renderPage();
+		expect(
+			cardScreen.container.querySelector('button[title="List view"]')!.getAttribute('aria-pressed')
+		).toBe('false');
+		expect(
+			cardScreen.container.querySelector('button[title="Grid view"]')!.getAttribute('aria-pressed')
+		).toBe('true');
+	});
+
+	// ── F7: toolbar buttons keep accessible names ───────────────────────────────
+	it('gives the Folder/Document/Upload/Delete All buttons an accessible name on desktop', async () => {
+		explorerState.entries = [makeFile()];
+		const filesScreen = renderPage();
+		// Desktop-width test viewport: the `sm:flex` strip is visible and its
+		// buttons' accessible name comes from their always-rendered text (no
+		// `hidden sm:inline` span to strip it) — matches the e2e locators
+		// (`getByRole('button', { name: 'Folder' })` / `'Upload'`, unqualified).
+		await expect
+			.element(filesScreen.getByRole('button', { name: 'Folder', exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(filesScreen.getByRole('button', { name: 'Document', exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(filesScreen.getByRole('button', { name: 'Upload', exact: true }).first())
+			.toBeInTheDocument();
+
+		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
+		explorerState.totalCount = 1;
+		const trashScreen = renderTrash();
+		await expect
+			.element(trashScreen.getByRole('button', { name: 'Delete All', exact: true }))
+			.toBeInTheDocument();
+	});
+
+	// The mobile overflow tests below cover the F7 mobile case directly: the
+	// icon-only "More actions" trigger has its own aria-label, and once open
+	// its items ("New folder"/"New document"/"Upload files"/"Delete All") get
+	// their accessible name from visible text like any other menu item — no
+	// `hidden sm:inline` text-stripping ever applies to them.
+
+	// ── Mobile overflow menu ─────────────────────────────────────────────────
+	it('collapses toolbar actions into a mobile "More actions" overflow menu', async () => {
+		explorerState.entries = [makeFile()];
+		const screen = renderPage();
+		const trigger = screen.container.querySelector<HTMLButtonElement>(
+			'button[aria-label="More actions"]'
+		);
+		expect(trigger).toBeTruthy();
+		trigger!.click();
+		await tick();
+		await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy());
+		const menu = document.querySelector('[role="menu"]') as HTMLElement;
+		expect(menu.textContent).toContain('List view');
+		expect(menu.textContent).toContain('Grid view');
+
+		const newFolderItem = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(el) => el.textContent?.includes('New folder')
+		);
+		newFolderItem!.click();
+		expect(folderActionsMock.openCreateFolderModal).toHaveBeenCalled();
+	});
+
+	it('the mobile overflow menu offers Delete All in the trash view', async () => {
+		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
+		explorerState.totalCount = 1;
+		const screen = renderTrash();
+		const trigger = screen.container.querySelector<HTMLButtonElement>(
+			'button[aria-label="More actions"]'
+		);
+		expect(trigger).toBeTruthy();
+		trigger!.click();
+		await tick();
+		await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy());
+		const menu = document.querySelector('[role="menu"]') as HTMLElement;
+		const deleteAllItem = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(el) => el.textContent?.includes('Delete All')
+		);
+		expect(deleteAllItem).toBeTruthy();
 	});
 
 	// ── Empty-state actions ────────────────────────────────────────────────────
@@ -572,8 +674,8 @@ describe('/libraries/[id] (browser)', () => {
 		// Open the "Tags" submenu trigger (has children → not runContextItem).
 		menuItem(menu, 'Tags')!.click();
 		await tick();
-		const holiday = Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
-			b.textContent?.includes('Holiday')
+		const holiday = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(b) => b.textContent?.includes('Holiday')
 		);
 		holiday!.click();
 		expect(tagsMock.toggleTagForFiles).toHaveBeenCalledWith(['file-1'], 'tag-1');
@@ -794,10 +896,10 @@ describe('/libraries/[id] (browser)', () => {
 		const screen = renderPage();
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Move')!.click();
-		await vi.waitFor(() => expect(screen.container.textContent).toContain('Move Files'));
-		const cancelBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.trim() === 'Cancel');
+		await vi.waitFor(() => expect(modalRoot().textContent).toContain('Move Files'));
+		const cancelBtn = Array.from(modalRoot().querySelectorAll<HTMLButtonElement>('button')).find(
+			(b) => b.textContent?.trim() === 'Cancel'
+		);
 		cancelBtn!.click();
 		expect(apiMock.files.update).not.toHaveBeenCalled();
 	});
@@ -875,7 +977,8 @@ describe('/libraries/[id] (browser)', () => {
 		});
 		const row = screen.container.querySelector('tbody tr') as HTMLElement;
 		row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-		expect(screen.container.querySelector('[role="menu"]')).toBeFalsy();
+		await tick();
+		expect(document.querySelector('[role="menu"]')).toBeFalsy();
 	});
 
 	// ── Purge modal confirm flow ──────────────────────────────────────────────
@@ -885,13 +988,13 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Permanently delete')!.click();
 		await tick();
-		const confirm = screen.container.querySelector('#purge-confirm') as HTMLInputElement;
+		const confirm = document.querySelector('#purge-confirm') as HTMLInputElement;
 		confirm.value = 'delete';
 		confirm.dispatchEvent(new Event('input', { bubbles: true }));
 		await tick();
-		const deleteBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.includes('Delete Permanently'));
+		const deleteBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+			b.textContent?.includes('Delete Permanently')
+		);
 		deleteBtn!.click();
 		await vi.waitFor(() => expect(apiMock.files.purge).toHaveBeenCalled());
 	});
@@ -902,13 +1005,13 @@ describe('/libraries/[id] (browser)', () => {
 		const screen = renderTrash();
 		await screen.getByRole('button', { name: 'Delete All' }).click();
 		await tick();
-		const confirm = screen.container.querySelector('#purge-confirm') as HTMLInputElement;
+		const confirm = document.querySelector('#purge-confirm') as HTMLInputElement;
 		confirm.value = 'delete';
 		confirm.dispatchEvent(new Event('input', { bubbles: true }));
 		await tick();
-		const deleteBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.includes('Delete Permanently'));
+		const deleteBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+			b.textContent?.includes('Delete Permanently')
+		);
 		deleteBtn!.click();
 		await vi.waitFor(() => expect(apiMock.files.purge).toHaveBeenCalledWith('lib-1'));
 	});
@@ -920,13 +1023,13 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Permanently delete')!.click();
 		await tick();
-		const confirm = screen.container.querySelector('#purge-confirm') as HTMLInputElement;
+		const confirm = document.querySelector('#purge-confirm') as HTMLInputElement;
 		confirm.value = 'delete';
 		confirm.dispatchEvent(new Event('input', { bubbles: true }));
 		await tick();
-		const deleteBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.includes('Delete Permanently'));
+		const deleteBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+			b.textContent?.includes('Delete Permanently')
+		);
 		deleteBtn!.click();
 		await vi.waitFor(() =>
 			expect(toastMock.add).toHaveBeenCalledWith(
@@ -993,11 +1096,11 @@ describe('/libraries/[id] (browser)', () => {
 		folderRow.dispatchEvent(new DragEvent('dragenter', { bubbles: true, dataTransfer: dt }));
 		await tick();
 		// Entering a folder highlights it as the drop target (ring).
-		expect(folderRow.className).toContain('ring-primary-500/60');
+		expect(folderRow.className).toContain('ring-primary/60');
 		folderRow.dispatchEvent(new DragEvent('dragleave', { bubbles: true, dataTransfer: dt }));
 		await tick();
 		// Leaving clears the highlight.
-		expect(folderRow.className).not.toContain('ring-primary-500/60');
+		expect(folderRow.className).not.toContain('ring-primary/60');
 		fileRow.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
 	});
 
@@ -1030,23 +1133,27 @@ describe('/libraries/[id] (browser)', () => {
 	});
 
 	// ── Context menu dismissal ─────────────────────────────────────────────────
-	it('window click closes an open context menu', async () => {
+	// Dismissal-on-outside-interaction is bits-ui's ContextMenu behavior (the
+	// ContextMenu.Root wrapping the entries area owns it now, replacing the old
+	// hand-rolled `closeContextMenu`); Escape is the reliable, synthesizable way
+	// to exercise "the menu can be dismissed" without reproducing bits-ui's
+	// internal outside-pointerdown geometry/debounce heuristics in a unit test.
+	it('Escape closes an open context menu', async () => {
 		explorerState.entries = [makeFile()];
 		const screen = renderPage();
 		const menu = await openRowContextMenu(screen);
 		expect(menu).toBeTruthy();
-		window.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-		await tick();
-		expect(screen.container.querySelector('[role="menu"]')).toBeFalsy();
+		menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		await vi.waitFor(() => {
+			expect(document.querySelector('[role="menu"]')).toBeFalsy();
+		});
 	});
 
 	// ── Large-download size-warning modal buttons ──────────────────────────────
 	it('size-warning modal Cancel calls cancelLargeDownload', async () => {
 		zipMock.showSizeWarning = true;
 		const screen = renderPage();
-		await vi.waitFor(() =>
-			expect(screen.container.textContent).toContain('Large Download Warning')
-		);
+		await vi.waitFor(() => expect(document.body.textContent).toContain('Large Download Warning'));
 		await screen.getByRole('button', { name: 'Cancel', exact: true }).click();
 		expect(zipMock.cancelLargeDownload).toHaveBeenCalled();
 	});
@@ -1054,9 +1161,7 @@ describe('/libraries/[id] (browser)', () => {
 	it('size-warning modal Download Anyway calls confirmLargeDownload', async () => {
 		zipMock.showSizeWarning = true;
 		const screen = renderPage();
-		await vi.waitFor(() =>
-			expect(screen.container.textContent).toContain('Large Download Warning')
-		);
+		await vi.waitFor(() => expect(document.body.textContent).toContain('Large Download Warning'));
 		await screen.getByRole('button', { name: 'Download Anyway' }).click();
 		expect(zipMock.confirmLargeDownload).toHaveBeenCalled();
 	});
@@ -1231,8 +1336,8 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Tags')!.click();
 		await tick();
-		const tagBtn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
-			b.textContent?.includes('Trip')
+		const tagBtn = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(b) => b.textContent?.includes('Trip')
 		);
 		tagBtn!.click();
 		expect(tagsMock.toggleTagForFolder).toHaveBeenCalled();
@@ -1247,8 +1352,8 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Tags')!.click();
 		await tick();
-		const tagBtn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
-			b.textContent?.includes('Trip')
+		const tagBtn = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(b) => b.textContent?.includes('Trip')
 		);
 		tagBtn!.click();
 		expect(tagsMock.toggleTagForFiles).toHaveBeenCalledWith(['file-1', 'file-2'], 'tag-1');
@@ -1262,9 +1367,9 @@ describe('/libraries/[id] (browser)', () => {
 			{ label: 'Root', value: '__root__' },
 			{ label: 'Photos', value: 'p1' }
 		];
-		const screen = renderPage();
-		await vi.waitFor(() => expect(screen.container.textContent).toContain('Move Folder'));
-		expect(screen.container.textContent).toContain('Docs');
+		renderPage();
+		await vi.waitFor(() => expect(document.body.textContent).toContain('Move Folder'));
+		expect(document.body.textContent).toContain('Docs');
 	});
 
 	it('grid view opens a context menu from a card and toggles a file tag', async () => {
@@ -1279,12 +1384,12 @@ describe('/libraries/[id] (browser)', () => {
 		);
 		await tick();
 		await tick();
-		const menu = screen.container.querySelector('[role="menu"]') as HTMLElement;
+		const menu = document.querySelector('[role="menu"]') as HTMLElement;
 		expect(menu).toBeTruthy();
 		menuItem(menu, 'Tags')!.click();
 		await tick();
-		const tagBtn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
-			b.textContent?.includes('Fun')
+		const tagBtn = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(b) => b.textContent?.includes('Fun')
 		);
 		tagBtn!.click();
 		expect(tagsMock.toggleTagForFiles).toHaveBeenCalledWith(['file-1'], 'tag-1');
@@ -1326,14 +1431,20 @@ describe('/libraries/[id] (browser)', () => {
 		const screen = renderPage();
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Move')!.click();
+		await vi.waitFor(() => expect(document.querySelector('#move-files-dest')).toBeTruthy());
+		// Open the Select (portalled Select.Content lists Select.Item options).
+		// bits-ui's Select opens on `pointerdown`, not `click` — a bare
+		// `element.click()` DOM call only synthesizes a `click` event.
+		const trigger = document.querySelector<HTMLElement>('#move-files-dest')!;
+		trigger.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1 })
+		);
 		await vi.waitFor(() => {
-			const opt = screen.container.querySelector('#move-files-dest option[value="child-f"]');
-			if (!opt) throw new Error('nested option not ready');
+			const item = Array.from(document.querySelectorAll('[data-slot="select-item"]')).find((el) =>
+				el.textContent?.includes('Root Folder / Child')
+			);
+			if (!item) throw new Error('nested option not ready');
 		});
-		const nested = screen.container.querySelector(
-			'#move-files-dest option[value="child-f"]'
-		) as HTMLOptionElement;
-		expect(nested.textContent).toContain('Root Folder / Child');
 	});
 
 	// ── Drag handler guards ─────────────────────────────────────────────────────

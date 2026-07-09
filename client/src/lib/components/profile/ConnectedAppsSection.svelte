@@ -2,7 +2,10 @@
 	import { onMount } from 'svelte';
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import * as Item from '$lib/components/ui/item/index.js';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { ICONS } from '$lib/utils/icons';
 	import { api, ApiError } from '$lib/api';
 	import { toast } from '$lib/state/toast';
@@ -64,6 +67,10 @@
 			timeZone: 'UTC'
 		});
 	}
+
+	function scopesOf(scope: string): string[] {
+		return scope.split(/\s+/).filter(Boolean);
+	}
 </script>
 
 {#if available}
@@ -74,66 +81,65 @@
 	>
 		{#snippet actions()}
 			{#if !loadError}
-				<span class="badge preset-tonal-surface">{connections.length} connected</span>
+				<Badge variant="secondary">{connections.length} connected</Badge>
 			{/if}
 		{/snippet}
 
 		{#if loadError}
-			<div class="flex items-center gap-3 card preset-tonal-error p-4" role="alert">
-				<AppIcon name={ICONS.error} class="size-5 shrink-0" />
-				<div class="flex-1 space-y-0.5">
-					<p class="text-sm font-medium">Couldn't load connected apps</p>
-					<p class="text-xs opacity-80">Something went wrong. Try again in a moment.</p>
-				</div>
-				<Button variant="tonal" color="surface" size="sm" onclick={refresh}>Retry</Button>
-			</div>
+			<Alert.Root variant="destructive">
+				<AppIcon name={ICONS.error} class="size-4 shrink-0" />
+				<Alert.Title>Couldn't load connected apps</Alert.Title>
+				<Alert.Description>Something went wrong. Try again in a moment.</Alert.Description>
+				<Alert.Action>
+					<Button variant="ghost" size="sm" onclick={refresh}>Retry</Button>
+				</Alert.Action>
+			</Alert.Root>
 		{:else if connections.length}
-			<div class="overflow-hidden rounded-md border border-surface-200-800">
+			<Item.Group>
 				{#each connections as conn (conn.clientId)}
-					<div
-						class="flex flex-col gap-2 border-b border-surface-200-800 px-4 py-3 last:border-b-0 md:flex-row md:items-center"
-					>
-						<div class="flex min-w-0 flex-1 items-center gap-3">
-							<div
-								class="flex size-9 shrink-0 items-center justify-center rounded-full preset-tonal-surface"
-							>
-								<AppIcon name={ICONS.link} class="size-4" />
-							</div>
-							<div class="min-w-0">
-								<p class="truncate text-sm font-medium">{conn.clientName}</p>
-								<div
-									class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-surface-600-400"
-								>
-									<span>Connected {formatDate(conn.createdAt)}</span>
-									<span aria-hidden="true">·</span>
-									<span>
-										{conn.lastUsedAt ? `Last used ${formatDate(conn.lastUsedAt)}` : 'Never used'}
-									</span>
+					<Item.Root variant="outline">
+						<Item.Media variant="icon" class="size-9 rounded-full bg-muted text-muted-foreground">
+							<AppIcon name={ICONS.link} class="size-4" />
+						</Item.Media>
+						<Item.Content>
+							<Item.Title>{conn.clientName}</Item.Title>
+							<Item.Description>
+								Connected {formatDate(conn.createdAt)} · {conn.lastUsedAt
+									? `Last used ${formatDate(conn.lastUsedAt)}`
+									: 'Never used'}
+							</Item.Description>
+							{#if scopesOf(conn.scope).length}
+								<div class="mt-1 flex flex-wrap gap-1">
+									{#each scopesOf(conn.scope) as scope (scope)}
+										<Badge variant="outline">{scope}</Badge>
+									{/each}
 								</div>
-							</div>
-						</div>
-						<Button
-							variant="tonal"
-							color="error"
-							size="sm"
-							loading={revokingId === conn.clientId}
-							disabled={revokingId === conn.clientId}
-							onclick={() => revoke(conn.clientId)}
-						>
-							{#snippet icon()}
-								<AppIcon name={ICONS.trash} class="size-4" />
-							{/snippet}
-							Disconnect
-						</Button>
-					</div>
+							{/if}
+						</Item.Content>
+						<Item.Actions>
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={revokingId === conn.clientId}
+								onclick={() => revoke(conn.clientId)}
+							>
+								{#if revokingId === conn.clientId}
+									<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+								{:else}
+									<AppIcon name={ICONS.trash} class="size-4" />
+								{/if}
+								Disconnect
+							</Button>
+						</Item.Actions>
+					</Item.Root>
 				{/each}
-			</div>
+			</Item.Group>
 		{:else}
-			<div class="flex items-start gap-3 card preset-tonal-surface p-4">
+			<div class="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
 				<AppIcon name={ICONS.link} class="size-5 shrink-0 opacity-70" />
 				<div class="space-y-0.5">
 					<p class="text-sm font-medium">No connected apps</p>
-					<p class="text-xs text-surface-600-400">
+					<p class="text-xs text-muted-foreground">
 						Add Alcoves as a custom connector in an MCP client (like Claude) to connect one.
 					</p>
 				</div>

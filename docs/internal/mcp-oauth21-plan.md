@@ -206,7 +206,9 @@ injects it. Register the two `/.well-known/*` handlers directly on `e` (root).
 
 - **`/oauth/authorize` consent route** — fetch request details from
   `GET /api/oauth/authorize`; if anon, redirect `/login?redirect=…` (existing
-  pattern); render consent with Skeleton UI; Approve/Deny POST to the decision
+  pattern); render consent with Skeleton UI (this plan predates the
+  shadcn-svelte rewrite — the shipped route uses shadcn-svelte); Approve/Deny
+  POST to the decision
   endpoint and follow the returned `Location`. Reuse `createApi` + a new
   `oauth` namespace in `src/lib/api/`.
 - **Well-known forwarding** in `hooks.server.ts` (above).

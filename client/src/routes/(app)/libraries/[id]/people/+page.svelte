@@ -5,9 +5,12 @@
 	import { ICONS } from '$lib/utils/icons';
 	import { createLibraryPeople } from '$lib/state/library-people.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import AppModal from '$lib/components/ui/AppModal.svelte';
+	import { cn } from '$lib/utils';
 
 	/**
 	 * People (face clusters) grid for a single library. Ported from the Nuxt
@@ -62,6 +65,20 @@
 		goto(`/libraries/${libraryId}/people/${personId}`);
 	}
 
+	// Keyboard equivalent of the mouse double-click: a native button only
+	// synthesizes a single `click` per Enter/Space, so pointer users toggle
+	// selection with one click and open the detail view with a second
+	// (double-click), while keyboard users have no double-click gesture at all.
+	// A single Enter/Space activation opens the person directly instead —
+	// `preventDefault` stops the browser's own click synthesis so the tile's
+	// `onclick` (selection toggle) doesn't also fire for the same keypress.
+	function onTileKeydown(event: KeyboardEvent, personId: string) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			openPerson(personId);
+		}
+	}
+
 	function getPersonAlt(person: { name: string | null }): string {
 		return person.name?.trim() || 'Unnamed person';
 	}
@@ -87,19 +104,17 @@
 		{#if people.selectedPeople.size >= 2}
 			<div class="flex items-center gap-2">
 				<Button size="sm" onclick={() => people.mergePeople()}>
-					{#snippet icon()}
-						<AppIcon name={ICONS.mergePeople} class="size-4" />
-					{/snippet}
+					<AppIcon name={ICONS.mergePeople} class="size-4" />
 					<span>Merge Selected</span>
 				</Button>
-				<span class="text-sm opacity-75">{people.selectedPeople.size} selected</span>
-				<Button variant="tonal" color="surface" size="sm" onclick={clearSelection}>Clear</Button>
+				<span class="text-sm text-muted-foreground">{people.selectedPeople.size} selected</span>
+				<Button variant="outline" size="sm" onclick={clearSelection}>Clear</Button>
 			</div>
 		{/if}
 
 		{#if people.loading}
 			<div class="flex items-center justify-center py-16">
-				<AppIcon name={ICONS.loading} class="size-5 animate-spin opacity-75" />
+				<AppIcon name={ICONS.loading} class="size-5 animate-spin text-muted-foreground" />
 			</div>
 		{:else if people.people.length}
 			<div class="space-y-2 p-2">
@@ -107,14 +122,16 @@
 					{#each people.people as person (person.id)}
 						<button
 							type="button"
-							class="group relative size-40 shrink-0 cursor-pointer overflow-hidden rounded-md bg-surface-100-900 transition select-none {people.selectedPeople.has(
-								person.id
-							)
-								? 'ring-2 ring-primary-500 ring-offset-2 ring-offset-surface-50-950'
-								: 'hover:bg-surface-200-800'}"
+							class={cn(
+								'group relative size-40 shrink-0 cursor-pointer overflow-hidden rounded-md bg-muted transition select-none',
+								people.selectedPeople.has(person.id)
+									? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+									: 'hover:bg-accent'
+							)}
 							title={person.name?.trim() || 'Unnamed person'}
 							onclick={() => people.togglePersonSelection(person.id)}
 							ondblclick={() => openPerson(person.id)}
+							onkeydown={(e) => onTileKeydown(e, person.id)}
 							oncontextmenu={(e) => {
 								e.preventDefault();
 								openRenamePersonModal(person);
@@ -162,21 +179,19 @@
 		description="Leave blank to remove the name"
 	>
 		<div class="flex flex-col gap-2">
-			<label class="text-sm font-medium" for="rename-person-input">Person name</label>
-			<input
+			<Label for="rename-person-input">Person name</Label>
+			<Input
 				id="rename-person-input"
-				class="input"
 				bind:value={renamePersonValue}
 				placeholder="e.g. Alex"
 				onkeydown={onRenameKeydown}
 			/>
-			<p class="text-xs opacity-75">Leave blank to remove the name</p>
+			<p class="text-xs text-muted-foreground">Leave blank to remove the name</p>
 		</div>
 
 		<div class="flex w-full justify-end gap-2">
 			<Button
-				variant="tonal"
-				color="surface"
+				variant="outline"
 				size="sm"
 				disabled={!!renamingPersonSavingId}
 				onclick={closeRenamePersonModal}
@@ -185,10 +200,12 @@
 			</Button>
 			<Button
 				size="sm"
-				loading={!!renamingPersonSavingId}
 				disabled={!!renamingPersonSavingId || !renamePersonTarget}
 				onclick={confirmRenamePerson}
 			>
+				{#if renamingPersonSavingId}
+					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+				{/if}
 				<span>Save</span>
 			</Button>
 		</div>

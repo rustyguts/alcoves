@@ -35,10 +35,18 @@
 	import { api, apiUrl } from '$lib/api';
 	import { toast } from '$lib/state/toast';
 	import { ICONS } from '$lib/utils/icons';
+	import { cn } from '$lib/utils';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Progress } from '$lib/components/ui/progress/index.js';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import * as Table from '$lib/components/ui/table/index.js';
 
 	interface Props {
 		embedded?: boolean;
@@ -69,6 +77,13 @@
 		{ label: 'All queues', value: 'all' },
 		...queues.map((q) => ({ label: formatQueueName(q.name), value: q.name }))
 	]);
+
+	const statusFilterLabel = $derived(
+		statusOptions.find((o) => o.value === statusFilter)?.label ?? 'All statuses'
+	);
+	const queueFilterLabel = $derived(
+		queueOptions.find((o) => o.value === queueFilter)?.label ?? 'All queues'
+	);
 
 	const filteredJobs = $derived(
 		jobs.filter((job) => {
@@ -119,12 +134,15 @@
 		return map[state] ?? 'neutral';
 	}
 
+	// Soft/tonal chip tint per job state — all built from the semantic tokens
+	// (no built-in Badge variant covers "warning"/"success", so those two are
+	// hand-tinted the same way the vendored `destructive` variant is).
 	const stateBadgeClass: Record<StateColor, string> = {
-		info: 'preset-tonal-primary',
-		neutral: 'preset-tonal-surface',
-		error: 'preset-tonal-error',
-		warning: 'preset-tonal-warning',
-		success: 'preset-tonal-success'
+		info: 'bg-primary/10 text-primary',
+		neutral: 'bg-muted text-muted-foreground',
+		error: 'bg-destructive/10 text-destructive',
+		warning: 'bg-warning/10 text-warning',
+		success: 'bg-success/10 text-success'
 	};
 
 	function stateIcon(state: string): string {
@@ -243,31 +261,31 @@
 		iconClass: string;
 	}
 
-	const NEUTRAL_TILE = 'text-surface-500 bg-surface-500/10';
+	const NEUTRAL_TILE = 'text-muted-foreground bg-muted';
 	const statTiles = $derived<StatTile[]>([
 		{
 			label: 'Active',
 			value: totalActive,
 			icon: ICONS.stateActive,
-			iconClass: 'text-primary-500 bg-primary-500/10'
+			iconClass: 'text-primary bg-primary/10'
 		},
 		{ label: 'Waiting', value: totalWaiting, icon: ICONS.stateWaiting, iconClass: NEUTRAL_TILE },
 		{
 			label: 'Failed',
 			value: totalFailed,
 			icon: ICONS.stateFailed,
-			iconClass: totalFailed > 0 ? 'text-error-500 bg-error-500/10' : NEUTRAL_TILE
+			iconClass: totalFailed > 0 ? 'text-destructive bg-destructive/10' : NEUTRAL_TILE
 		},
 		{
 			label: 'Delayed',
 			value: totalDelayed,
 			icon: ICONS.stateDelayed,
-			iconClass: 'text-warning-500 bg-warning-500/10'
+			iconClass: 'text-warning bg-warning/10'
 		}
 	]);
 </script>
 
-<div class="flex min-h-0 flex-col gap-6">
+<div class="flex min-h-0 min-w-0 flex-col gap-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
 			{#if embedded}
@@ -275,12 +293,19 @@
 			{:else}
 				<h1 class="text-2xl font-bold">Background Jobs</h1>
 			{/if}
-			<p class="mt-0.5 text-sm text-surface-500">Real-time monitoring of background task queues.</p>
+			<p class="mt-0.5 text-sm text-muted-foreground">
+				Real-time monitoring of background task queues.
+			</p>
 		</div>
-		<span class={['badge gap-1.5', connected ? 'preset-tonal-success' : 'preset-tonal-error']}>
+		<Badge
+			class={cn(
+				'gap-1.5',
+				connected ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
+			)}
+		>
 			<AppIcon name={connected ? ICONS.live : ICONS.disconnected} class="size-4" />
 			{connected ? 'Live' : 'Disconnected'}
-		</span>
+		</Badge>
 	</div>
 
 	<div class="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -290,142 +315,159 @@
 	</div>
 
 	{#if queues.length}
-		<AppPanel title="Queues" icon={ICONS.jobDefault} flush bodyClass="max-h-[24rem] overflow-auto">
-			<table class="w-full text-sm">
-				<thead class="bg-surface-200-800">
-					<tr class="text-left">
-						<th class="px-4 py-3 font-medium">Queue</th>
-						<th class="px-4 py-3 text-right font-medium">Active</th>
-						<th class="px-4 py-3 text-right font-medium">Waiting</th>
-						<th class="px-4 py-3 text-right font-medium">Delayed</th>
-						<th class="px-4 py-3 text-right font-medium">Failed</th>
-						<th class="px-4 py-3 text-right font-medium">Completed</th>
-						<th class="px-4 py-3 text-right font-medium">Actions</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-surface-200-800">
-					{#each queues as q (q.name)}
-						<tr
-							class="cursor-pointer hover:bg-surface-200-800/60"
-							onclick={() => (queueFilter = queueFilter === q.name ? 'all' : q.name)}
-						>
-							<td class="px-4 py-3">
-								<div class="flex items-center gap-2">
-									<AppIcon name={queueIcon(q.name)} class="size-4 text-primary-500" />
-									<span class="font-medium capitalize">{formatQueueName(q.name)}</span>
-									{#if queueFilter === q.name}
-										<span class="badge preset-tonal-primary text-xs">filtered</span>
-									{/if}
-								</div>
-							</td>
-							<td class="px-4 py-3 text-right font-medium text-primary-500">{q.active}</td>
-							<td class="px-4 py-3 text-right font-medium">{q.waiting}</td>
-							<td class="px-4 py-3 text-right font-medium text-warning-500">{q.delayed}</td>
-							<td
-								class={['px-4 py-3 text-right font-medium', q.failed > 0 ? 'text-error-500' : '']}
+		<div class="min-w-0">
+			<AppPanel
+				title="Queues"
+				icon={ICONS.jobDefault}
+				bodyClass="min-w-0 max-h-[24rem] overflow-y-auto"
+			>
+				<Table.Root>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head>Queue</Table.Head>
+							<Table.Head class="text-right">Active</Table.Head>
+							<Table.Head class="text-right">Waiting</Table.Head>
+							<Table.Head class="text-right">Delayed</Table.Head>
+							<Table.Head class="text-right">Failed</Table.Head>
+							<Table.Head class="text-right">Completed</Table.Head>
+							<Table.Head class="text-right">Actions</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each queues as q (q.name)}
+							<Table.Row
+								class="cursor-pointer"
+								onclick={() => (queueFilter = queueFilter === q.name ? 'all' : q.name)}
 							>
-								{q.failed}
-							</td>
-							<td class="px-4 py-3 text-right font-medium text-success-500">{q.completed}</td>
-							<td class="px-4 py-3 text-right" onclick={(e) => e.stopPropagation()}>
-								<button
-									type="button"
-									class="btn gap-1.5 preset-tonal-error btn-sm"
-									disabled={actionQueueName === q.name}
-									onclick={() => purgeQueue(q.name)}
+								<Table.Cell>
+									<div class="flex items-center gap-2">
+										<AppIcon name={queueIcon(q.name)} class="size-4 text-primary" />
+										<span class="font-medium capitalize">{formatQueueName(q.name)}</span>
+										{#if queueFilter === q.name}
+											<Badge class="bg-primary/10 text-primary">filtered</Badge>
+										{/if}
+									</div>
+								</Table.Cell>
+								<Table.Cell class="text-right font-medium text-primary">{q.active}</Table.Cell>
+								<Table.Cell class="text-right font-medium">{q.waiting}</Table.Cell>
+								<Table.Cell class="text-right font-medium text-warning">{q.delayed}</Table.Cell>
+								<Table.Cell
+									class={cn('text-right font-medium', q.failed > 0 && 'text-destructive')}
 								>
-									{#if actionQueueName === q.name}
-										<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-									{:else}
-										<AppIcon name={ICONS.trash} class="size-4" />
-									{/if}
-									Purge
-								</button>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</AppPanel>
+									{q.failed}
+								</Table.Cell>
+								<Table.Cell class="text-right font-medium text-success">{q.completed}</Table.Cell>
+								<Table.Cell class="text-right" onclick={(e) => e.stopPropagation()}>
+									<Button
+										variant="destructive"
+										size="sm"
+										disabled={actionQueueName === q.name}
+										onclick={() => purgeQueue(q.name)}
+									>
+										{#if actionQueueName === q.name}
+											<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+										{:else}
+											<AppIcon name={ICONS.trash} class="size-4" />
+										{/if}
+										Purge
+									</Button>
+								</Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			</AppPanel>
+		</div>
 	{/if}
 
-	<AppPanel title="Jobs" icon={ICONS.jobDefault} flush>
-		{#snippet actions()}
-			<select class="select w-36 sm:w-40" aria-label="Filter by queue" bind:value={queueFilter}>
-				{#each queueOptions as opt (opt.value)}
-					<option value={opt.value}>{opt.label}</option>
-				{/each}
-			</select>
-			<select class="select w-32 sm:w-36" aria-label="Filter by status" bind:value={statusFilter}>
-				{#each statusOptions as opt (opt.value)}
-					<option value={opt.value}>{opt.label}</option>
-				{/each}
-			</select>
-			<span class="badge preset-tonal-surface whitespace-nowrap">
-				{filteredJobs.length}
-				{filteredJobs.length === 1 ? 'job' : 'jobs'}
-			</span>
-		{/snippet}
+	<div class="min-w-0">
+		<AppPanel title="Jobs" icon={ICONS.jobDefault} bodyClass="min-w-0 p-0">
+			<!-- Custom header row (instead of AppPanel's `actions` slot, which is
+			     pinned `shrink-0` next to the title with no wrap) so the queue/status
+			     filters and the job-count badge wrap onto their own line instead of
+			     hard-clipping past the viewport edge on mobile. -->
+			<div class="flex min-w-0 flex-wrap items-center gap-2 border-b p-4">
+				<Select.Root type="single" value={queueFilter} onValueChange={(v) => (queueFilter = v)}>
+					<Select.Trigger class="w-36 sm:w-40" aria-label="Filter by queue">
+						{queueFilterLabel}
+					</Select.Trigger>
+					<Select.Content>
+						{#each queueOptions as opt (opt.value)}
+							<Select.Item value={opt.value} label={opt.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<Select.Root type="single" value={statusFilter} onValueChange={(v) => (statusFilter = v)}>
+					<Select.Trigger class="w-32 sm:w-36" aria-label="Filter by status">
+						{statusFilterLabel}
+					</Select.Trigger>
+					<Select.Content>
+						{#each statusOptions as opt (opt.value)}
+							<Select.Item value={opt.value} label={opt.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<Badge variant="secondary" class="whitespace-nowrap">
+					{filteredJobs.length}
+					{filteredJobs.length === 1 ? 'job' : 'jobs'}
+				</Badge>
+			</div>
 
-		<div class="max-h-[40rem] overflow-auto">
-			{#if !connected && jobs.length === 0}
-				<div class="flex justify-center py-16">
-					<AppIcon name={ICONS.loading} class="size-6 animate-spin text-surface-500" />
-				</div>
-			{:else if sortedJobs.length}
-				<div class="overflow-x-auto">
-					<table class="w-full text-sm">
-						<thead class="bg-surface-200-800">
-							<tr class="text-left">
-								<th class="px-4 py-3 font-medium">Status</th>
-								<th class="px-4 py-3 font-medium">Type</th>
-								<th class="px-4 py-3 font-medium">Queue</th>
-								<th class="px-4 py-3 font-medium">Progress</th>
-								<th class="px-4 py-3 font-medium">Attempts</th>
-								<th class="px-4 py-3 font-medium">Created</th>
-								<th class="px-4 py-3 text-right font-medium">Actions</th>
-							</tr>
-						</thead>
-						<tbody class="divide-y divide-surface-200-800">
+			<div class="max-h-[40rem] min-w-0 overflow-y-auto">
+				{#if !connected && jobs.length === 0}
+					<div class="flex flex-col gap-2 p-4">
+						{#each Array(5) as _, i (i)}
+							<Skeleton class="h-10 w-full" />
+						{/each}
+					</div>
+				{:else if sortedJobs.length}
+					<Table.Root>
+						<Table.Header>
+							<Table.Row>
+								<Table.Head>Status</Table.Head>
+								<Table.Head>Type</Table.Head>
+								<Table.Head>Queue</Table.Head>
+								<Table.Head>Progress</Table.Head>
+								<Table.Head>Attempts</Table.Head>
+								<Table.Head>Created</Table.Head>
+								<Table.Head class="text-right">Actions</Table.Head>
+							</Table.Row>
+						</Table.Header>
+						<Table.Body>
 							{#each sortedJobs as job (`${job.queueName}-${job.id}`)}
-								<tr
-									class="cursor-pointer hover:bg-surface-200-800/60"
-									onclick={() => toggleJobExpand(job.id)}
-								>
-									<td class="px-4 py-3">
-										<span class={['badge gap-1.5', stateBadgeClass[stateColor(job.state)]]}>
+								<Table.Row class="cursor-pointer" onclick={() => toggleJobExpand(job.id)}>
+									<Table.Cell>
+										<Badge class={cn('gap-1.5', stateBadgeClass[stateColor(job.state)])}>
 											<AppIcon name={stateIcon(job.state)} class="size-4" />
 											{job.state}
-										</span>
-									</td>
-									<td class="px-4 py-3 font-medium">{jobType(job)}</td>
-									<td class="px-4 py-3 text-surface-500 capitalize">
+										</Badge>
+									</Table.Cell>
+									<Table.Cell class="font-medium">{jobType(job)}</Table.Cell>
+									<Table.Cell class="text-muted-foreground capitalize">
 										{formatQueueName(job.queueName)}
-									</td>
-									<td class="min-w-[120px] px-4 py-3">
+									</Table.Cell>
+									<Table.Cell class="min-w-[120px]">
 										{#if job.state === 'active'}
 											<div class="flex items-center gap-2">
-												<progress class="progress h-2 w-20" value={jobProgress(job)} max="100"
-												></progress>
-												<span class="text-xs text-surface-500">{jobProgress(job)}%</span>
+												<Progress value={jobProgress(job)} max={100} class="h-2 w-20" />
+												<span class="text-xs text-muted-foreground">{jobProgress(job)}%</span>
 											</div>
 										{:else if job.state === 'failed'}
-											<span class="text-xs text-error-500">Failed</span>
+											<span class="text-xs text-destructive">Failed</span>
 										{:else}
-											<span class="text-xs text-surface-500">—</span>
+											<span class="text-xs text-muted-foreground">—</span>
 										{/if}
-									</td>
-									<td class="px-4 py-3">{job.attemptsMade}</td>
-									<td class="px-4 py-3 text-xs whitespace-nowrap text-surface-500">
+									</Table.Cell>
+									<Table.Cell>{job.attemptsMade}</Table.Cell>
+									<Table.Cell class="text-xs text-muted-foreground">
 										{formatTimestamp(job.timestamp)}
-									</td>
-									<td class="px-4 py-3 text-right" onclick={(e) => e.stopPropagation()}>
+									</Table.Cell>
+									<Table.Cell class="text-right" onclick={(e) => e.stopPropagation()}>
 										{#if job.state === 'failed'}
 											<div class="flex items-center justify-end gap-1">
-												<button
-													type="button"
-													class="btn-icon btn-icon-sm preset-tonal-surface"
-													title="Retry"
+												<Button
+													variant="outline"
+													size="icon-sm"
 													aria-label="Retry"
 													disabled={actionJobId === job.id}
 													onclick={() => retryJob(job.queueName, job.id)}
@@ -434,11 +476,10 @@
 														name={actionJobId === job.id ? ICONS.loading : ICONS.retry}
 														class={actionJobId === job.id ? 'size-4 animate-spin' : 'size-4'}
 													/>
-												</button>
-												<button
-													type="button"
-													class="btn-icon btn-icon-sm preset-tonal-error"
-													title="Remove"
+												</Button>
+												<Button
+													variant="destructive"
+													size="icon-sm"
 													aria-label="Remove"
 													disabled={actionJobId === job.id}
 													onclick={() => removeJob(job.queueName, job.id)}
@@ -447,53 +488,50 @@
 														name={actionJobId === job.id ? ICONS.loading : ICONS.trash}
 														class={actionJobId === job.id ? 'size-4 animate-spin' : 'size-4'}
 													/>
-												</button>
+												</Button>
 											</div>
 										{/if}
-									</td>
-								</tr>
+									</Table.Cell>
+								</Table.Row>
 								{#if expandedJobId === job.id}
-									<tr class="bg-surface-200-800/60">
-										<td colspan="7">
-											<div class="space-y-2 p-3 text-xs">
+									<Table.Row class="bg-muted/40 hover:bg-muted/40">
+										<Table.Cell colspan={7} class="whitespace-normal">
+											<div class="flex flex-col gap-2 p-1 text-xs">
 												{#if job.failedReason}
 													<div class="flex gap-2">
-														<span class="shrink-0 font-semibold text-error-500">Error:</span>
-														<code class="break-all text-error-500/80">{job.failedReason}</code>
+														<span class="shrink-0 font-semibold text-destructive">Error:</span>
+														<code class="break-all text-destructive/80">{job.failedReason}</code>
 													</div>
 												{/if}
 												<div class="flex gap-2">
 													<span class="shrink-0 font-semibold">Job ID:</span>
-													<code class="text-surface-500">{job.id}</code>
+													<code class="text-muted-foreground">{job.id}</code>
 												</div>
 												{#if job.data && Object.keys(job.data).length}
 													<div class="flex gap-2">
 														<span class="shrink-0 font-semibold">Payload:</span>
-														<code class="break-all text-surface-500">
+														<code class="break-all text-muted-foreground">
 															{JSON.stringify(job.data)}
 														</code>
 													</div>
 												{/if}
-												<div class="flex gap-4 text-surface-500">
+												<div class="flex gap-4 text-muted-foreground">
 													<span>Processed: {formatTimestamp(job.processedOn)}</span>
 													<span>Finished: {formatTimestamp(job.finishedOn)}</span>
 												</div>
 											</div>
-										</td>
-									</tr>
+										</Table.Cell>
+									</Table.Row>
 								{/if}
 							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<div class="flex flex-col items-center justify-center gap-2 py-16">
-					<AppIcon name={ICONS.emptyQueue} class="size-8 text-surface-500" />
-					<p class="text-sm text-surface-500">No jobs matching current filters.</p>
-				</div>
-			{/if}
-		</div>
-	</AppPanel>
+						</Table.Body>
+					</Table.Root>
+				{:else}
+					<EmptyState icon={ICONS.emptyQueue} title="No jobs matching current filters." />
+				{/if}
+			</div>
+		</AppPanel>
+	</div>
 
 	<ConfirmModal
 		bind:open={purgeModalOpen}

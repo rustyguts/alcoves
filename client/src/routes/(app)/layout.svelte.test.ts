@@ -87,11 +87,13 @@ describe('(app) dashboard shell +layout', () => {
 	it('renders the brand, the sidebar nav, and the page children', async () => {
 		const screen = renderShell();
 		expect(screen.container.querySelector('[data-testid="page-content"]')).not.toBeNull();
-		// SidebarLibraryNav renders the current library's actions (Files…). It
-		// appears twice — desktop sidebar + mobile drawer — so target the first.
+		// The shadcn Sidebar renders a single shared instance for desktop + the
+		// mobile drawer (a Sheet whose content unmounts while closed). This unit
+		// harness's default viewport is mobile-sized, so open the drawer first —
+		// its content is portalled to `document.body`, not `screen.container`.
+		await screen.getByRole('button', { name: 'Open sidebar' }).click();
 		await expect.element(screen.getByText('Files').first()).toBeInTheDocument();
-		// Brand appears (desktop sidebar + drawer); at least one is present.
-		expect(screen.container.querySelectorAll('img[alt="Alcoves"]').length).toBeGreaterThan(0);
+		expect(document.querySelectorAll('img[alt="Alcoves"]').length).toBeGreaterThan(0);
 	});
 
 	it('seeds the search box from ?q and navigates to /search on submit', async () => {

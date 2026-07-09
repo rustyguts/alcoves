@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { userEvent } from '@vitest/browser/context';
+import { tick } from 'svelte';
 import LibraryMemberRow from './LibraryMemberRow.svelte';
 import type { LibraryMemberWithUser } from '$lib/types/api';
 
@@ -38,6 +40,20 @@ function renderRow(props: Partial<Record<string, unknown>> = {}) {
 	});
 }
 
+// bits-ui's Select.Content is portalled to `document.body` and opens on
+// `pointerdown`, not `click` — see the same idiom in
+// routes/(app)/admin/page.svelte.test.ts.
+async function chooseRole(trigger: HTMLElement, optionText: string) {
+	await userEvent.click(trigger);
+	await tick();
+	const item = [...document.querySelectorAll<HTMLElement>('[data-slot="select-item"]')].find(
+		(el) => el.textContent?.trim() === optionText
+	);
+	expect(item).toBeDefined();
+	await userEvent.click(item!);
+	await tick();
+}
+
 describe('LibraryMemberRow', () => {
 	it('renders member display name and email', async () => {
 		const screen = renderRow();
@@ -47,45 +63,42 @@ describe('LibraryMemberRow', () => {
 
 	it('shows owner badge for owner role', async () => {
 		const screen = renderRow({ member: createMember({ role: 'owner' }) });
-		const badge = screen.container.querySelector('.badge');
+		const badge = screen.container.querySelector('[data-slot="badge"]');
 		expect(badge?.textContent?.trim()).toBe('owner');
 	});
 
-	it('does not show role select for owner role', async () => {
+	it('does not show a role select for owner role', async () => {
 		const screen = renderRow({ member: createMember({ role: 'owner' }) });
-		expect(screen.container.querySelector('select')).toBeNull();
+		expect(screen.container.querySelector('[data-slot="select-trigger"]')).toBeNull();
 	});
 
-	it('shows role select with the given options for non-owner roles', async () => {
+	it('shows a role select trigger for non-owner roles', async () => {
 		const screen = renderRow();
-		const select = screen.container.querySelector('select');
-		expect(select).not.toBeNull();
-		const options = select!.querySelectorAll('option');
-		expect(options).toHaveLength(2);
-		expect(options[0]!.textContent).toBe('Admin');
-		expect(options[1]!.textContent).toBe('Viewer');
+		const trigger = screen.container.querySelector('[data-slot="select-trigger"]');
+		expect(trigger).not.toBeNull();
 	});
 
-	it('reflects roleDraft as the selected value', async () => {
+	it('reflects roleDraft as the trigger label', async () => {
 		const screen = renderRow({ roleDraft: 'viewer' });
-		const select = screen.container.querySelector('select')!;
-		expect(select.value).toBe('viewer');
+		const trigger = screen.container.querySelector('[data-slot="select-trigger"]');
+		expect(trigger?.textContent?.trim()).toBe('Viewer');
 	});
 
-	it('calls onupdateRole when the role select changes', async () => {
+	it('calls onupdateRole with the chosen role when a select item is picked', async () => {
 		const onupdateRole = vi.fn();
 		const member = createMember();
 		const screen = renderRow({ member, onupdateRole });
-		const select = screen.container.querySelector('select')!;
-		select.value = 'viewer';
-		select.dispatchEvent(new Event('change', { bubbles: true }));
+		const trigger = screen.container.querySelector<HTMLElement>('[data-slot="select-trigger"]')!;
+		await chooseRole(trigger, 'Viewer');
 		expect(onupdateRole).toHaveBeenCalledWith(member, 'viewer');
 	});
 
-	it('disables role select when updatingRole is true', async () => {
+	it('disables the role select trigger when updatingRole is true', async () => {
 		const screen = renderRow({ updatingRole: true });
-		const select = screen.container.querySelector('select')!;
-		expect(select.disabled).toBe(true);
+		const trigger = screen.container.querySelector<HTMLButtonElement>(
+			'[data-slot="select-trigger"]'
+		)!;
+		expect(trigger.disabled).toBe(true);
 	});
 
 	it('does not render the remove button for owners', async () => {
@@ -97,26 +110,34 @@ describe('LibraryMemberRow', () => {
 		const onremove = vi.fn();
 		const member = createMember();
 		const screen = renderRow({ member, onremove });
-		const button = screen.container.querySelector('button')!;
+		const button = screen.container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Remove member"]'
+		)!;
 		button.click();
 		expect(onremove).toHaveBeenCalledWith(member);
 	});
 
 	it('disables the remove button when removing is true', async () => {
 		const screen = renderRow({ removing: true });
-		const button = screen.container.querySelector('button')!;
+		const button = screen.container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Remove member"]'
+		)!;
 		expect(button.disabled).toBe(true);
 	});
 
 	it('shows a spinner on the remove button when removing', async () => {
 		const screen = renderRow({ removing: true });
-		const spinner = screen.container.querySelector('button .animate-spin');
+		const spinner = screen.container.querySelector(
+			'button[aria-label="Remove member"] .animate-spin'
+		);
 		expect(spinner).not.toBeNull();
 	});
 
 	it('does not show a spinner when not removing', async () => {
 		const screen = renderRow({ removing: false });
-		const spinner = screen.container.querySelector('button .animate-spin');
+		const spinner = screen.container.querySelector(
+			'button[aria-label="Remove member"] .animate-spin'
+		);
 		expect(spinner).toBeNull();
 	});
 });

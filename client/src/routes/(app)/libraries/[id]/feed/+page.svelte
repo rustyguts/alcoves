@@ -9,6 +9,7 @@
 	import NotificationItem from '$lib/components/notifications/NotificationItem.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
 
 	const libraryId = $derived(page.params.id ?? '');
 
@@ -44,7 +45,7 @@
 <div class="flex h-full flex-col">
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#if feed.loading && feed.entries.length === 0}
-			<div class="px-4 py-8 text-center text-sm text-surface-600-400">
+			<div class="px-4 py-8 text-center text-sm text-muted-foreground">
 				<AppIcon name={ICONS.loading} class="inline-block size-5 animate-spin" />
 				<p class="mt-2">Loading…</p>
 			</div>
@@ -55,7 +56,7 @@
 				description="Uploads, edits, and shares in this library will show up here."
 			/>
 		{:else}
-			<div class="divide-y divide-surface-200-800">
+			<div class="divide-y">
 				{#each groups as g (g.head.id)}
 					<NotificationItem
 						group={g}
@@ -68,14 +69,14 @@
 		{/if}
 		{#if feed.nextCursor}
 			<div class="px-4 py-4 text-center">
-				<button
-					type="button"
-					class="text-sm text-primary-500 hover:underline"
+				<Button
+					variant="link"
+					size="sm"
 					disabled={feed.loadingMore}
 					onclick={() => feed.loadMore()}
 				>
 					{feed.loadingMore ? 'Loading…' : 'Load older'}
-				</button>
+				</Button>
 			</div>
 		{/if}
 	</div>

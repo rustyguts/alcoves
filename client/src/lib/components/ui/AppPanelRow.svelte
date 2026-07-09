@@ -7,11 +7,12 @@
 	 * the text block grows the row rather than clipping.
 	 */
 	import type { Snippet } from 'svelte';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		title: string;
 		description?: string;
-		/** Render the title in the error color (danger-zone rows). */
+		/** Render the title in the destructive color (danger-zone rows). */
 		danger?: boolean;
 		/** Vertically center the control against the text (default) or top-align it. */
 		align?: 'center' | 'start';
@@ -32,20 +33,17 @@
 </script>
 
 <div
-	class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:gap-4"
-	class:sm:items-center={align === 'center'}
-	class:sm:items-start={align === 'start'}
+	class={cn(
+		'flex flex-col gap-3 sm:flex-row sm:justify-between sm:gap-4',
+		align === 'center' ? 'sm:items-center' : 'sm:items-start'
+	)}
 >
 	<div class="min-w-0 space-y-0.5">
-		<p
-			class="text-sm font-medium"
-			class:text-error-500={danger}
-			class:text-surface-950-50={!danger}
-		>
+		<p class={cn('text-sm font-medium', danger ? 'text-destructive' : 'text-foreground')}>
 			{title}
 		</p>
 		{#if description}
-			<p class="text-xs text-surface-600-400">{description}</p>
+			<p class="text-xs text-muted-foreground">{description}</p>
 		{/if}
 		{@render descriptionExtra?.()}
 	</div>

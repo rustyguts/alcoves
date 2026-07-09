@@ -1,23 +1,176 @@
-/* Tailwind 4 + Skeleton UI (v4) — CSS-first config, no tailwind.config. */
+/*
+ * Tailwind 4 — CSS-first config, no tailwind.config.
+ *
+ * The client UI is built on shadcn-svelte (bits-ui + Tailwind v4 CSS
+ * variables). The `:root`/`.dark` token blocks below drive every component
+ * (built on semantic `bg-background` / `text-foreground` / etc. tokens).
+ */
 @import 'tailwindcss';
-
-@import '@skeletonlabs/skeleton';
-@import '@skeletonlabs/skeleton/themes/cerberus';
-@import '@skeletonlabs/skeleton-svelte';
+@import 'tw-animate-css';
 
 /*
- * Class-based dark mode. Skeleton's base uses `@variant dark`; by redefining the
- * variant to match the `.dark` class we drive light/dark from a manual, persisted
- * toggle (see $lib/state/theme.svelte.ts) instead of `prefers-color-scheme` alone.
+ * Class-based dark mode. shadcn's components read this custom variant,
+ * redefined to match the `.dark` class so light/dark is driven by a manual,
+ * persisted toggle (see $lib/state/theme.svelte.ts) instead of
+ * `prefers-color-scheme` alone.
  */
 @custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * shadcn-svelte design tokens — base color "zinc", radius 0.625rem, per the
+ * live shadcn-svelte registry (https://shadcn-svelte.com/registry/colors/zinc.json)
+ * as of the shadcn-svelte rewrite's foundation pass. `--success`/`--warning`
+ * (+ `-foreground` pairings) are an Alcoves addition (job/upload status UI)
+ * not part of the stock shadcn palette; picked from Tailwind's green-700/
+ * amber-700 (light) and green-500/amber-500 (dark) for WCAG AA contrast
+ * against both `--background` and their own `-foreground` pairing.
+ */
+:root {
+	/*
+	 * F11 rework: Skeleton's base CSS declared `color-scheme` (light/dark) so
+	 * native UA chrome (scrollbars, form controls, <select> popups, autofill)
+	 * followed the app theme. That was lost in the shadcn migration, leaving
+	 * `color-scheme: normal` — every dark-theme user got light-scheme native
+	 * widgets regardless of OS. Restore it explicitly, keyed off the same
+	 * `.dark` class the rest of the theme uses.
+	 */
+	color-scheme: light;
+	--radius: 0.625rem;
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.141 0.005 285.823);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.141 0.005 285.823);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.141 0.005 285.823);
+	--primary: oklch(0.21 0.006 285.885);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.967 0.001 286.375);
+	--secondary-foreground: oklch(0.21 0.006 285.885);
+	--muted: oklch(0.967 0.001 286.375);
+	--muted-foreground: oklch(0.552 0.016 285.938);
+	--accent: oklch(0.967 0.001 286.375);
+	--accent-foreground: oklch(0.21 0.006 285.885);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.92 0.004 286.32);
+	--input: oklch(0.92 0.004 286.32);
+	--ring: oklch(0.705 0.015 286.067);
+	--success: oklch(0.527 0.154 150.069);
+	--success-foreground: oklch(0.985 0 0);
+	--warning: oklch(0.555 0.163 48.998);
+	--warning-foreground: oklch(0.985 0 0);
+	--chart-1: oklch(0.646 0.222 41.116);
+	--chart-2: oklch(0.6 0.118 184.704);
+	--chart-3: oklch(0.398 0.07 227.392);
+	--chart-4: oklch(0.828 0.189 84.429);
+	--chart-5: oklch(0.769 0.188 70.08);
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.141 0.005 285.823);
+	--sidebar-primary: oklch(0.21 0.006 285.885);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.967 0.001 286.375);
+	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+	--sidebar-border: oklch(0.92 0.004 286.32);
+	--sidebar-ring: oklch(0.705 0.015 286.067);
+}
+
+.dark {
+	color-scheme: dark;
+	--background: oklch(0.141 0.005 285.823);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.21 0.006 285.885);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.21 0.006 285.885);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: oklch(0.92 0.004 286.32);
+	--primary-foreground: oklch(0.21 0.006 285.885);
+	--secondary: oklch(0.274 0.006 286.033);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.274 0.006 286.033);
+	--muted-foreground: oklch(0.705 0.015 286.067);
+	--accent: oklch(0.274 0.006 286.033);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.552 0.016 285.938);
+	--success: oklch(0.723 0.219 149.579);
+	--success-foreground: oklch(0.141 0.005 285.823);
+	--warning: oklch(0.769 0.188 70.08);
+	--warning-foreground: oklch(0.141 0.005 285.823);
+	--chart-1: oklch(0.871 0.006 286.286);
+	--chart-2: oklch(0.552 0.016 285.938);
+	--chart-3: oklch(0.442 0.017 285.786);
+	--chart-4: oklch(0.37 0.013 285.805);
+	--chart-5: oklch(0.274 0.006 286.033);
+	--sidebar: oklch(0.21 0.006 285.885);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.488 0.243 264.376);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.274 0.006 286.033);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.552 0.016 285.938);
+}
+
+@theme inline {
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	body {
+		@apply bg-background text-foreground;
+	}
+}
 
 html,
 body {
 	height: 100%;
 }
 
-/* App-wide niceties on top of the Skeleton theme. */
+/* App-wide niceties on top of the theme. */
 body {
 	min-height: 100%;
 	-webkit-font-smoothing: antialiased;
@@ -34,8 +187,11 @@ body {
  *   flex ancestor between the frame and that scroller must carry `min-h-0`,
  *   or the child can't shrink and content gets cut off.
  * - Page padding: `p-4 sm:p-6`. Vertical section rhythm: `flex flex-col gap-4`.
- *   Tight control rows: `gap-1.5`. Card padding scale: p-3 / p-4 / p-6 = the
- *   Card primitive's sm / md / lg.
- * - Buttons go through `ui/Button.svelte`; surfaces through `ui/Card.svelte` /
- *   `ui/AppPanel.svelte`; icons through `ui/AppIcon.svelte` (default size-4).
+ *   Tight control rows: `gap-1.5`. Card padding scale: p-3 / p-4 / p-6.
+ * - Buttons go through shadcn `Button` (`$lib/components/ui/button`);
+ *   surfaces through shadcn `Card.*` / `ui/AppPanel.svelte`; icons through
+ *   `ui/AppIcon.svelte` (default size-4). Semantic tokens only for chrome
+ *   (`bg-background/card/muted/accent/popover`, `text-foreground/muted-foreground`,
+ *   `border`, `ring`, `bg-primary`, `text-destructive`, `text-success`,
+ *   `text-warning`) — never raw palette colors in markup.
  */

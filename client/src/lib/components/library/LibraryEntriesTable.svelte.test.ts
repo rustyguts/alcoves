@@ -115,7 +115,7 @@ describe('LibraryEntriesTable', () => {
 			props: baseProps({ entries: [makeFile()], isEntrySelected: () => true })
 		});
 		const row = screen.container.querySelector('tbody tr')!;
-		expect(row.className).toContain('bg-primary-500/20');
+		expect(row.className).toContain('bg-primary/20');
 	});
 
 	it('applies drop-target styling on a folder', async () => {

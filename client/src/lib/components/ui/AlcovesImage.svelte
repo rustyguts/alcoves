@@ -81,7 +81,7 @@
 		onerror?.(event);
 	}
 
-	const imgClass = $derived([klass, loaded ? '' : 'bg-surface-200-800'].filter(Boolean).join(' '));
+	const imgClass = $derived([klass, loaded ? '' : 'bg-muted'].filter(Boolean).join(' '));
 </script>
 
 <img

@@ -20,7 +20,12 @@ API_URL="${INTERNAL_API_URL:-http://localhost:3001}"
 FRONT_PORT="${FRONTEND_PORT:-4173}"
 UPDATE_ARG=""
 if [[ "${1:-}" == "--update" ]]; then
-	UPDATE_ARG="--update-snapshots"
+	# `--update-snapshots` alone only rewrites baselines Playwright's pixel diff
+	# flags as "changed" — it silently skips ones that are stale for a reason
+	# the diff can't see (e.g. a still-passing-by-luck screenshot of the wrong
+	# theme). That left 16 stale baselines uncaught this rework cycle. `all`
+	# forces every baseline in the run to be rewritten unconditionally.
+	UPDATE_ARG="--update-snapshots all"
 fi
 
 cd "$(dirname "$0")/.."

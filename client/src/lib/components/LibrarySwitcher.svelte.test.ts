@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { tick } from 'svelte';
 import LibrarySwitcher from './LibrarySwitcher.svelte';
 import type { Library } from '$lib/types/api';
 
@@ -29,20 +30,29 @@ beforeEach(() => {
 	goto.mockClear();
 });
 
-// The popover content only mounts once open — click the trigger to reveal it.
+// bits-ui's DropdownMenu.Content is portalled to `document.body`, so its rows
+// (`role="menuitem"`) are queried from `document`, not `screen.container`.
+function trigger(screen: ReturnType<typeof render>): HTMLButtonElement {
+	return screen.container.querySelector('button[aria-haspopup]') as HTMLButtonElement;
+}
+
+function menuItems(): HTMLElement[] {
+	return Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+}
+
+// The dropdown content only mounts once open — click the trigger to reveal it.
 async function open(screen: ReturnType<typeof render>) {
-	const trigger = screen.container.querySelector('button[aria-haspopup]') as HTMLButtonElement;
-	expect(trigger).not.toBeNull();
-	trigger.click();
-	// Wait for the content to mount.
+	const t = trigger(screen);
+	expect(t).not.toBeNull();
+	t.click();
 	await vi.waitFor(() => {
-		expect(screen.container.querySelectorAll('button').length).toBeGreaterThan(1);
+		expect(menuItems().length).toBeGreaterThan(0);
 	});
 }
 
-function menuLabels(screen: ReturnType<typeof render>): string[] {
-	return Array.from(screen.container.querySelectorAll('button'))
-		.map((b) => (b as HTMLElement).textContent?.trim().replace(/\s+/g, ' ') ?? '')
+function menuLabels(): string[] {
+	return menuItems()
+		.map((b) => b.textContent?.trim().replace(/\s+/g, ' ') ?? '')
 		.filter((t) => t.length > 0);
 }
 
@@ -57,8 +67,7 @@ describe('LibrarySwitcher', () => {
 				currentLibraryId: 'lib-2'
 			}
 		});
-		const trigger = screen.container.querySelector('button[aria-haspopup]') as HTMLElement;
-		expect(trigger.textContent).toContain('Projects');
+		expect(trigger(screen).textContent).toContain('Projects');
 	});
 
 	it('falls back to the default library when none is current', () => {
@@ -71,16 +80,14 @@ describe('LibrarySwitcher', () => {
 				currentLibraryId: null
 			}
 		});
-		const trigger = screen.container.querySelector('button[aria-haspopup]') as HTMLElement;
-		expect(trigger.textContent).toContain('Home');
+		expect(trigger(screen).textContent).toContain('Home');
 	});
 
 	it('shows a Select library placeholder when there are no libraries', () => {
 		const screen = render(LibrarySwitcher, {
 			props: { libraries: [], currentLibraryId: null }
 		});
-		const trigger = screen.container.querySelector('button[aria-haspopup]') as HTMLElement;
-		expect(trigger.textContent).toContain('Select library');
+		expect(trigger(screen).textContent).toContain('Select library');
 	});
 
 	it('pins the default first, lists others sorted, then the create action', async () => {
@@ -95,7 +102,7 @@ describe('LibrarySwitcher', () => {
 			}
 		});
 		await open(screen);
-		const labels = menuLabels(screen).filter((t) => t !== 'Home Projects'); // exclude trigger text
+		const labels = menuLabels();
 		// Default pinned first, others sorted A→Z, create action last.
 		expect(labels).toContain('Home');
 		const homeIdx = labels.indexOf('Home');
@@ -119,11 +126,10 @@ describe('LibrarySwitcher', () => {
 			}
 		});
 		await open(screen);
-		const projects = Array.from(screen.container.querySelectorAll('button')).find((b) =>
-			b.textContent?.includes('Projects')
-		) as HTMLButtonElement;
+		const projects = menuItems().find((b) => b.textContent?.includes('Projects'));
 		expect(projects).toBeTruthy();
-		projects.click();
+		(projects as HTMLElement).click();
+		await tick();
 		expect(goto).toHaveBeenCalledWith('/libraries/lib-2');
 	});
 
@@ -137,11 +143,10 @@ describe('LibrarySwitcher', () => {
 			}
 		});
 		await open(screen);
-		const createBtn = Array.from(screen.container.querySelectorAll('button')).find((b) =>
-			b.textContent?.includes('New library')
-		) as HTMLButtonElement;
+		const createBtn = menuItems().find((b) => b.textContent?.includes('New library'));
 		expect(createBtn).toBeTruthy();
-		createBtn.click();
+		(createBtn as HTMLElement).click();
+		await tick();
 		expect(oncreate).toHaveBeenCalledOnce();
 	});
 
@@ -152,8 +157,7 @@ describe('LibrarySwitcher', () => {
 				currentLibraryId: 'def'
 			}
 		});
-		const trigger = screen.container.querySelector('button[aria-haspopup]') as HTMLElement;
-		expect(trigger.textContent).toContain('🏠');
+		expect(trigger(screen).textContent).toContain('🏠');
 	});
 
 	it('shows each library emoji exactly once per dropdown row (not duplicated)', async () => {
@@ -167,10 +171,7 @@ describe('LibrarySwitcher', () => {
 			}
 		});
 		await open(screen);
-		// Dropdown rows are the buttons that aren't the popover trigger.
-		const rows = Array.from(screen.container.querySelectorAll('button')).filter(
-			(b) => !b.hasAttribute('aria-haspopup')
-		);
+		const rows = menuItems();
 		const homeRow = rows.find((b) => b.textContent?.includes('Home'));
 		const projRow = rows.find((b) => b.textContent?.includes('Projects'));
 		expect((homeRow?.textContent?.match(/🏠/g) ?? []).length).toBe(1);

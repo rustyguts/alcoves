@@ -59,6 +59,7 @@
 
 <style>
 	.doc-prose {
+		color: var(--color-foreground);
 		line-height: 1.65;
 		word-wrap: break-word;
 	}
@@ -104,21 +105,21 @@
 		margin-right: 0.4rem;
 	}
 	.doc-prose :global(blockquote) {
-		border-left: 3px solid var(--color-surface-300-700);
-		color: var(--color-surface-600-400);
+		border-left: 3px solid var(--color-border);
+		color: var(--color-muted-foreground);
 		padding-left: 0.9rem;
 		margin: 0.6rem 0;
 		font-style: italic;
 	}
 	.doc-prose :global(code) {
-		background: var(--color-surface-200-800);
+		background: var(--color-muted);
 		border-radius: 0.25rem;
 		padding: 0.1rem 0.35rem;
 		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 		font-size: 0.88em;
 	}
 	.doc-prose :global(pre) {
-		background: var(--color-surface-200-800);
+		background: var(--color-muted);
 		border-radius: 0.5rem;
 		padding: 0.75rem 1rem;
 		overflow-x: auto;
@@ -129,12 +130,12 @@
 		padding: 0;
 	}
 	.doc-prose :global(a) {
-		color: var(--color-primary-600-400);
+		color: var(--color-primary);
 		text-decoration: underline;
 	}
 	.doc-prose :global(hr) {
 		border: 0;
-		border-top: 1px solid var(--color-surface-300-700);
+		border-top: 1px solid var(--color-border);
 		margin: 1rem 0;
 	}
 	.doc-prose :global(table) {
@@ -144,12 +145,12 @@
 	}
 	.doc-prose :global(th),
 	.doc-prose :global(td) {
-		border: 1px solid var(--color-surface-300-700);
+		border: 1px solid var(--color-border);
 		padding: 0.35rem 0.6rem;
 		text-align: left;
 	}
 	.doc-prose :global(th) {
-		background: var(--color-surface-100-900);
+		background: var(--color-muted);
 		font-weight: 600;
 	}
 	.doc-prose :global(img) {

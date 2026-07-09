@@ -75,15 +75,13 @@
 
 <div class="flex h-full flex-col">
 	{#if map.points.length > 0}
-		<div class="border-b border-surface-200-800 px-4 py-2 text-xs text-surface-500">
+		<div class="border-b px-4 py-2 text-xs text-muted-foreground">
 			{map.points.length} geotagged {map.points.length === 1 ? 'photo' : 'photos'}
 		</div>
 	{/if}
 
 	{#if map.truncated}
-		<div
-			class="border-b border-surface-200-800 bg-warning-500/10 px-4 py-2 text-xs text-warning-600"
-		>
+		<div class="border-b bg-warning/10 px-4 py-2 text-xs text-warning">
 			Showing the most recent {map.points.length} geotagged files. Some points are not displayed.
 		</div>
 	{/if}
@@ -91,20 +89,22 @@
 	<div class="relative min-h-0 flex-1">
 		<!-- Loading -->
 		{#if map.loading && map.points.length === 0}
-			<div class="absolute inset-0 z-10 flex items-center justify-center text-sm text-surface-500">
+			<div
+				class="absolute inset-0 z-10 flex items-center justify-center text-sm text-muted-foreground"
+			>
 				<AppIcon name={ICONS.loading} class="size-5 animate-spin" />
 			</div>
 			<!-- Error -->
 		{:else if map.error}
 			<div
-				class="absolute inset-0 z-10 flex items-center justify-center px-4 text-center text-sm text-error-500"
+				class="absolute inset-0 z-10 flex items-center justify-center px-4 text-center text-sm text-destructive"
 			>
 				{map.error}
 			</div>
 			<!-- Empty -->
 		{:else if !map.loading && map.points.length === 0}
 			<div
-				class="absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center text-sm text-surface-500"
+				class="absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center text-sm text-muted-foreground"
 			>
 				<AppIcon name={ICONS.location} class="mb-3 size-8 opacity-40" />
 				<p>No geotagged photos yet.</p>

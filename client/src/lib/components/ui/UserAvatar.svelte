@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { apiUrl } from '$lib/api';
-	import { Tooltip } from '@skeletonlabs/skeleton-svelte';
+	import * as Avatar from '$lib/components/ui/avatar/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		displayName: string;
@@ -29,41 +31,35 @@
 	const initial = $derived(displayName.charAt(0).toUpperCase());
 	const resolvedSrc = $derived(avatarUrl ? apiUrl(avatarUrl) : undefined);
 	const rounded = $derived(roundedClass || 'rounded-full');
-	const bg = $derived(bgClass || 'preset-tonal-surface');
 </script>
 
 {#snippet avatar()}
-	{#if resolvedSrc}
-		<img
-			src={resolvedSrc}
-			{alt}
-			class="aspect-square shrink-0 object-cover {sizeClass} {rounded}"
-		/>
-	{:else}
-		<span
-			class="inline-flex aspect-square shrink-0 items-center justify-center font-medium {sizeClass} {textSizeClass} {rounded} {bg}"
-			aria-label={alt}
-			title={alt}
+	<Avatar.Root class={cn(sizeClass, rounded)}>
+		{#if resolvedSrc}
+			<Avatar.Image src={resolvedSrc} {alt} class={rounded} />
+		{/if}
+		<Avatar.Fallback
+			class={cn(textSizeClass, rounded, bgClass || 'bg-muted text-muted-foreground')}
 		>
 			{initial}
-		</span>
-	{/if}
+		</Avatar.Fallback>
+	</Avatar.Root>
 {/snippet}
 
 {#if tooltip}
-	<Tooltip positioning={{ placement: tooltipPosition }} openDelay={200} closeDelay={0}>
-		<Tooltip.Trigger
-			class="inline-flex cursor-default border-0 bg-transparent p-0"
-			aria-label={displayName}
-		>
-			{@render avatar()}
-		</Tooltip.Trigger>
-		<Tooltip.Positioner>
-			<Tooltip.Content class="z-50 card preset-filled-surface-900-100 px-2 py-1 text-xs">
+	<Tooltip.Provider>
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				class="inline-flex cursor-default border-0 bg-transparent p-0"
+				aria-label={displayName}
+			>
+				{@render avatar()}
+			</Tooltip.Trigger>
+			<Tooltip.Content side={tooltipPosition}>
 				{displayName}
 			</Tooltip.Content>
-		</Tooltip.Positioner>
-	</Tooltip>
+		</Tooltip.Root>
+	</Tooltip.Provider>
 {:else}
 	{@render avatar()}
 {/if}
