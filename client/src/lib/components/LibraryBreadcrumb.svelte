@@ -36,22 +36,24 @@
 </script>
 
 <Breadcrumb.Root aria-label="Breadcrumb" class="min-w-0">
-	<Breadcrumb.List class="flex-nowrap gap-0 sm:gap-0">
+	<Breadcrumb.List class="flex-nowrap">
 		{#each crumbs as crumb, index (crumb.to)}
 			{#if index > 0}
-				<Breadcrumb.Separator class="mx-1 shrink-0 sm:mx-1.5" />
+				<Breadcrumb.Separator class="shrink-0" />
 			{/if}
 			<Breadcrumb.Item class="min-w-0">
 				{#if index === lastIndex}
+					<!-- Stock PageHeader h1 scale (text-2xl font-semibold) — this crumb
+					     IS the page's primary heading on library sub-tabs. -->
 					<Breadcrumb.Page
-						class="block truncate text-lg font-semibold text-foreground sm:max-w-xs sm:text-xl"
+						class="block truncate text-2xl font-semibold text-foreground sm:max-w-xs"
 					>
 						{crumb.label}
 					</Breadcrumb.Page>
 				{:else}
 					<Breadcrumb.Link
 						href={crumb.to}
-						class="block truncate text-lg font-medium text-muted-foreground sm:max-w-xs sm:text-xl"
+						class="block truncate text-2xl font-medium text-muted-foreground sm:max-w-xs"
 					>
 						{crumb.label}
 					</Breadcrumb.Link>

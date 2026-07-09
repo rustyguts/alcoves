@@ -36,7 +36,15 @@
 	 */
 	color-scheme: light;
 	--radius: 0.625rem;
-	--background: oklch(1 0 0);
+	/*
+	 * R8 flat-redesign-fixes review: the light canvas used to be pure white,
+	 * identical to `--card`, so every elevated sheet (Card, wells) needed a
+	 * `ring-1` on the vendored Card just to read as a separate layer from the
+	 * page. Shifting the canvas to a subtle zinc-tinted off-white lets sheets
+	 * pop tonally via `shadow-xs` alone — no ring/border needed. `--card` stays
+	 * pure white; dark-mode tokens are unchanged.
+	 */
+	--background: oklch(0.977 0.0013 286.35);
 	--foreground: oklch(0.141 0.005 285.823);
 	--card: oklch(1 0 0);
 	--card-foreground: oklch(0.141 0.005 285.823);

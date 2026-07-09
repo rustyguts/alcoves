@@ -75,13 +75,13 @@
 
 <div class="flex h-full flex-col">
 	{#if map.points.length > 0}
-		<div class="border-b px-4 py-2 text-xs text-muted-foreground">
+		<div class="bg-muted px-4 py-2 text-xs text-muted-foreground">
 			{map.points.length} geotagged {map.points.length === 1 ? 'photo' : 'photos'}
 		</div>
 	{/if}
 
 	{#if map.truncated}
-		<div class="border-b bg-warning/10 px-4 py-2 text-xs text-warning">
+		<div class="bg-warning/10 px-4 py-2 text-xs text-warning">
 			Showing the most recent {map.points.length} geotagged files. Some points are not displayed.
 		</div>
 	{/if}

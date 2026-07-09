@@ -122,7 +122,7 @@
 				<UserAvatar
 					displayName={invite.invitedBy.displayName}
 					avatarUrl={invite.invitedBy.avatarUrl}
-					sizeClass="w-10"
+					size="lg"
 				/>
 			{/if}
 			<h1 class="text-base font-semibold">{inviteTitle}</h1>
@@ -133,7 +133,7 @@
 				<AppIcon name={ICONS.loading} class="size-5 animate-spin text-muted-foreground" />
 			</div>
 		{:else}
-			<div class="flex items-start gap-2 rounded-lg border bg-card p-3 text-sm" role="status">
+			<div class="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm" role="status">
 				<AppIcon name={statusIcon} class={cn('mt-0.5 size-4 shrink-0', statusTone)} />
 				<span>{statusMessage}</span>
 			</div>

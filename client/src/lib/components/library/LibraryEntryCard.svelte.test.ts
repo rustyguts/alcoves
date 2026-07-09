@@ -45,11 +45,14 @@ describe('LibraryEntryCard', () => {
 		await expect.element(screen.getByText('clip.mp4')).toBeInTheDocument();
 	});
 
-	it('renders a folder name with the trashed file count', async () => {
+	it('renders a folder name with the trashed file count as muted metadata', async () => {
 		const screen = render(LibraryEntryCard, {
 			props: baseProps(folderEntry({ trashFileCount: 3 }), { showTrashed: true })
 		});
-		await expect.element(screen.getByText('Trips (3 files)')).toBeInTheDocument();
+		await expect.element(screen.getByText('Trips')).toBeInTheDocument();
+		const meta = screen.getByText('(3 files)');
+		await expect.element(meta).toBeInTheDocument();
+		expect(meta.element().className).toContain('text-muted-foreground');
 	});
 
 	it('fires row interaction callbacks', async () => {

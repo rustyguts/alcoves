@@ -5,6 +5,8 @@
 	 * share token is unknown or expired.
 	 */
 	import { page } from '$app/state';
+	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import { ICONS } from '$lib/utils/icons';
 
 	const status = $derived(page.status);
 	const isNotFound = $derived(status === 404);
@@ -20,6 +22,12 @@
 	<span class="text-sm font-bold tracking-tight text-muted-foreground">
 		Alcoves · shared moment
 	</span>
+	<!-- App's one empty-state motif (EmptyState.svelte): rounded-full muted icon
+		 badge + heading + muted text. Kept minimal/public — no CTA, same as
+		 before (this page still has no follow-up action to offer). -->
+	<div class="inline-flex rounded-full bg-muted p-3 text-muted-foreground">
+		<AppIcon name={isNotFound ? ICONS.search : ICONS.warning} class="size-6" />
+	</div>
 	<p class="text-5xl font-bold text-primary">{status}</p>
 	<h1 class="text-xl font-semibold">
 		{isNotFound ? 'Moment not found' : 'Something went wrong'}

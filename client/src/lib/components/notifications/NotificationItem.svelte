@@ -52,7 +52,7 @@
 			<UserAvatar
 				displayName={group.head.actor.displayName}
 				avatarUrl={group.head.actor.avatarUrl}
-				sizeClass="w-7"
+				size="sm"
 			/>
 		{:else}
 			<div

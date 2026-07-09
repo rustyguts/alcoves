@@ -39,7 +39,7 @@
 </svelte:head>
 
 <div class="flex min-h-dvh flex-col bg-background text-foreground">
-	<header class="flex items-center gap-3 border-b px-5 py-4">
+	<header class="flex items-center gap-3 px-5 py-4">
 		<span class="font-bold tracking-tight">Alcoves</span>
 		<span class="text-muted-foreground">· shared moment</span>
 	</header>
@@ -73,7 +73,7 @@
 		{/if}
 	</main>
 
-	<footer class="border-t py-4 text-center text-sm text-muted-foreground">
+	<footer class="py-4 text-center text-sm text-muted-foreground">
 		<a href={meta.appUrl} class="text-primary hover:underline">View on Alcoves</a>
 	</footer>
 </div>

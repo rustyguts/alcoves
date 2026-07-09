@@ -32,6 +32,10 @@ export async function settle(page: Page): Promise<void> {
 			);
 		})
 		.catch(() => {});
+	// Park the pointer off-canvas so a prior click/hover (e.g. clicking through
+	// the "Grid view" toggle) never bakes a hover layer into the baseline —
+	// every screenshot call site re-settles right before capturing.
+	await page.mouse.move(0, 0).catch(() => {});
 }
 
 /** Dynamic regions (relative timestamps, etc.) that must be masked for stability. */

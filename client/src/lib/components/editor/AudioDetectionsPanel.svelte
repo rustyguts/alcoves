@@ -134,13 +134,13 @@
 		{/snippet}
 	</EmptyState>
 {:else}
-	<div class="flex flex-col" data-testid="audio-detections-panel">
-		<div class="flex items-center justify-between gap-2 border-b pb-2">
+	<div class="flex flex-col gap-2" data-testid="audio-detections-panel">
+		<div class="flex items-center justify-between gap-2">
 			<Badge variant="secondary">{buckets.length} labels</Badge>
 			<p class="text-[11px] text-muted-foreground">Click a bar to jump to that moment</p>
 		</div>
 
-		<ul class="flex flex-col divide-y">
+		<ul class="flex flex-col gap-1">
 			{#each buckets as b (b.label)}
 				<li class="py-2">
 					<button
@@ -189,7 +189,7 @@
 								<li>
 									<button
 										type="button"
-										class="flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] tabular-nums hover:border-primary hover:bg-accent"
+										class="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] tabular-nums hover:bg-accent"
 										onclick={() => onseek?.(w.startSeconds)}
 									>
 										<AppIcon name={ICONS.play} class="size-2.5" />

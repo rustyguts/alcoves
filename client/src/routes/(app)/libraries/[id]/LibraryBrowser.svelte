@@ -1105,7 +1105,7 @@
 				{#if !trashed}
 					<Button
 						variant={explorer.entryViewMode === 'file' ? 'secondary' : 'ghost'}
-						size="icon"
+						size="icon-sm"
 						aria-label="List view"
 						aria-pressed={explorer.entryViewMode === 'file'}
 						title="List view"
@@ -1115,7 +1115,7 @@
 					</Button>
 					<Button
 						variant={explorer.entryViewMode === 'card' ? 'secondary' : 'ghost'}
-						size="icon"
+						size="icon-sm"
 						aria-label="Grid view"
 						aria-pressed={explorer.entryViewMode === 'card'}
 						title="Grid view"
@@ -1134,15 +1134,19 @@
 
 				{#if canManageLibrary && !trashed}
 					<div class="flex items-center gap-1.5">
-						<Button variant="ghost" onclick={() => folderActions.openCreateFolderModal()}>
+						<Button variant="ghost" size="sm" onclick={() => folderActions.openCreateFolderModal()}>
 							<AppIcon name={ICONS.folder} class="size-4" />
 							<span>Folder</span>
 						</Button>
-						<Button variant="ghost" onclick={() => documentActions.openCreateDocumentModal()}>
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => documentActions.openCreateDocumentModal()}
+						>
 							<AppIcon name={ICONS.file} class="size-4" />
 							<span>Document</span>
 						</Button>
-						<Button variant="ghost" onclick={() => (uploadOpen = true)}>
+						<Button variant="ghost" size="sm" onclick={() => (uploadOpen = true)}>
 							<AppIcon name={ICONS.upload} class="size-4" />
 							<span>Upload</span>
 						</Button>
@@ -1160,7 +1164,7 @@
 								<Button
 									{...props}
 									variant="ghost"
-									size="icon"
+									size="icon-sm"
 									aria-label="More actions"
 									title="More actions"
 								>

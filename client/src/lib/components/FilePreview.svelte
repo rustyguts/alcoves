@@ -481,7 +481,7 @@
 			<div class="flex h-full w-full items-center justify-center overflow-auto p-16">
 				{#if textContent !== null}
 					<pre
-						class="w-full max-w-4xl self-start rounded-lg border border-white/20 bg-neutral-900/80 p-4 text-sm whitespace-pre-wrap text-white">{textContent}</pre>
+						class="w-full max-w-4xl self-start rounded-lg bg-neutral-900/85 p-4 text-sm whitespace-pre-wrap text-white">{textContent}</pre>
 				{:else}
 					<div class="flex items-center justify-center">
 						<AppIcon name={ICONS.loading} class="size-5 animate-spin text-white/60" />
@@ -560,7 +560,7 @@
 
 		{#if videoProxyProcessing}
 			<div
-				class="absolute top-14 left-1/2 z-20 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 rounded-xl border border-white/15 bg-black/65 p-3 backdrop-blur-sm"
+				class="absolute top-14 left-1/2 z-20 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 rounded-xl bg-black/70 p-3 backdrop-blur-sm"
 			>
 				<div class="mb-2 flex items-center justify-between text-xs text-white/80">
 					<span>Preparing video preview</span>

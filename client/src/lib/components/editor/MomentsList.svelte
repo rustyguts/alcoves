@@ -87,10 +87,10 @@
 					role="button"
 					tabindex="0"
 					class={cn(
-						'flex cursor-pointer flex-col gap-0.5 rounded-lg border p-2 transition-colors outline-none',
+						'flex cursor-pointer flex-col gap-0.5 rounded-lg p-2 transition-colors outline-none',
 						m.id === selectedId
-							? 'border-primary bg-primary/10 ring-2 ring-primary'
-							: 'border-transparent bg-muted hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring'
+							? 'bg-primary/10 ring-2 ring-primary'
+							: 'bg-muted/50 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring'
 					)}
 					onclick={() => select(m.id)}
 					onkeydown={(e) => {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import AppPanel from '$lib/components/ui/AppPanel.svelte';
+	import SettingsSection from '$lib/components/library/settings/SettingsSection.svelte';
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -118,7 +118,7 @@
 	});
 </script>
 
-<AppPanel
+<SettingsSection
 	title="MCP access tokens"
 	description="Connect the Alcoves MCP server. A token acts as you — it can only read and change what you can."
 	icon={ICONS.key}
@@ -177,40 +177,42 @@
 
 		<!-- List -->
 		{#if tokens.length}
-			<Item.Group>
-				{#each tokens as token (token.id)}
-					<Item.Root variant="outline">
-						<Item.Media variant="icon" class="size-9 rounded-full bg-muted text-muted-foreground">
-							<AppIcon name={ICONS.key} class="size-4" />
-						</Item.Media>
-						<Item.Content>
-							<Item.Title>{token.name}</Item.Title>
-							<Item.Description>
-								Created {formatDate(token.createdAt)} · Expires {formatDate(token.expiresAt)} · {token.lastUsedAt
-									? `Last used ${formatDate(token.lastUsedAt)}`
-									: 'Never used'}
-							</Item.Description>
-						</Item.Content>
-						<Item.Actions>
-							<Button
-								variant="ghost"
-								size="sm"
-								disabled={revokingId === token.id}
-								onclick={() => revokeToken(token.id)}
-							>
-								{#if revokingId === token.id}
-									<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-								{:else}
-									<AppIcon name={ICONS.trash} class="size-4" />
-								{/if}
-								Revoke
-							</Button>
-						</Item.Actions>
-					</Item.Root>
-				{/each}
-			</Item.Group>
+			<div class="overflow-hidden rounded-xl bg-muted/50">
+				<Item.Group>
+					{#each tokens as token (token.id)}
+						<Item.Root class="hover:bg-muted/60">
+							<Item.Media variant="icon" class="size-9 rounded-full bg-muted text-muted-foreground">
+								<AppIcon name={ICONS.key} class="size-4" />
+							</Item.Media>
+							<Item.Content>
+								<Item.Title>{token.name}</Item.Title>
+								<Item.Description>
+									Created {formatDate(token.createdAt)} · Expires {formatDate(token.expiresAt)} · {token.lastUsedAt
+										? `Last used ${formatDate(token.lastUsedAt)}`
+										: 'Never used'}
+								</Item.Description>
+							</Item.Content>
+							<Item.Actions>
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={revokingId === token.id}
+									onclick={() => revokeToken(token.id)}
+								>
+									{#if revokingId === token.id}
+										<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+									{:else}
+										<AppIcon name={ICONS.trash} class="size-4" />
+									{/if}
+									Revoke
+								</Button>
+							</Item.Actions>
+						</Item.Root>
+					{/each}
+				</Item.Group>
+			</div>
 		{:else}
-			<div class="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
+			<div class="flex items-start gap-3 rounded-lg bg-muted/30 p-4">
 				<AppIcon name={ICONS.key} class="size-5 shrink-0 opacity-70" />
 				<div class="space-y-0.5">
 					<p class="text-sm font-medium">No access tokens yet</p>
@@ -221,7 +223,7 @@
 			</div>
 		{/if}
 	</div>
-</AppPanel>
+</SettingsSection>
 
 <!-- Show-once token modal -->
 <AppModal
@@ -238,7 +240,7 @@
 				</InputGroup.Button>
 			</InputGroup.Addon>
 		</InputGroup.Root>
-		<div class="flex items-start gap-3 rounded-lg border bg-warning/10 p-4 text-warning">
+		<div class="flex items-start gap-3 rounded-lg bg-warning/10 p-4 text-warning">
 			<AppIcon name={ICONS.shield} class="size-5 shrink-0" />
 			<div class="space-y-0.5">
 				<p class="text-sm font-medium">Treat it like a password</p>

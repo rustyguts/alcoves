@@ -70,11 +70,11 @@
 					title={peer.name}
 					data-testid="doc-peer"
 				>
-					<UserAvatar displayName={peer.name} sizeClass="size-7" textSizeClass="text-[0.6rem]" />
+					<UserAvatar displayName={peer.name} size="sm" />
 				</div>
 			{/each}
 			{#if overflow > 0}
-				<Avatar.GroupCount class="size-7 text-[0.6rem] font-semibold">
+				<Avatar.GroupCount class="size-7 text-xs font-semibold">
 					+{overflow}
 				</Avatar.GroupCount>
 			{/if}

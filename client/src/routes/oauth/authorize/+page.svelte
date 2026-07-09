@@ -56,7 +56,7 @@
 		subtitle="{data.info.client.clientName} wants to connect to your account."
 	>
 		<div class="flex flex-col gap-5">
-			<div class="flex items-start gap-3 rounded-lg border bg-muted/40 p-4">
+			<div class="flex items-start gap-3 rounded-lg bg-muted/50 p-4">
 				<AppIcon name={ICONS.shield} class="size-5 shrink-0 text-muted-foreground" />
 				<div class="flex flex-col gap-1.5 text-sm">
 					<p class="font-medium">This will allow {data.info.client.clientName} to:</p>

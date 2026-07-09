@@ -4,6 +4,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/state/auth.svelte';
 	import { registerLibrariesRefresh } from '$lib/state/libraries-list.svelte';
@@ -84,14 +85,16 @@
 
 	<Sidebar.Inset class="min-h-0 min-w-0 overflow-hidden">
 		<!-- relative z-40 gives the header (and its dropdowns) a stacking context
-		     above the page content — e.g. the library table's sticky thead (z-30). -->
-		<header
-			class="relative z-40 flex h-16 shrink-0 items-center gap-3 border-b bg-background px-4 md:px-6"
-		>
+		     above the page content — e.g. the library table's sticky thead (z-30).
+		     No border-b: the header doesn't overlay scrolling content (main scrolls
+		     in its own container below), so a routine divider isn't earning its
+		     keep here — layering (bg-background) is enough. -->
+		<header class="relative z-40 flex h-16 shrink-0 items-center gap-3 bg-background px-4 md:px-6">
 			<Sidebar.Trigger aria-label="Open sidebar" size="icon-lg" class="md:hidden" />
 
-			<!-- Fills the header on mobile (capped only at md); a plain flex row (no
-			     input-group) so there's no vertical divider between icon and input. -->
+			<!-- Fills the header on mobile (capped only at md). Stock InputGroup so
+			     the search box keeps its bordered form affordance (inputs/selects
+			     keep their stock border per the flat-redesign design language). -->
 			<form
 				class="min-w-0 flex-1 md:max-w-lg"
 				onsubmit={(e) => {
@@ -99,20 +102,17 @@
 					submitGlobalSearch();
 				}}
 			>
-				<label
-					class="flex items-center rounded-lg bg-muted focus-within:ring-2 focus-within:ring-ring"
-				>
-					<span class="flex shrink-0 items-center justify-center pr-2.5 pl-3 opacity-60">
-						<AppIcon name={ICONS.search} class="size-4" />
-					</span>
-					<input
+				<InputGroup.Root>
+					<InputGroup.Addon>
+						<AppIcon name={ICONS.search} />
+					</InputGroup.Addon>
+					<InputGroup.Input
 						bind:value={globalSearchQuery}
 						type="search"
 						placeholder="Search everything…"
 						aria-label="Search everything"
-						class="min-w-0 flex-1 bg-transparent py-2 pr-3 outline-none"
 					/>
-				</label>
+				</InputGroup.Root>
 			</form>
 
 			<!-- Desktop-only spacer: pushes the bell/avatar right while the search stays
@@ -126,11 +126,11 @@
 					class="rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
 					aria-label="User menu"
 				>
-					<UserAvatar {displayName} avatarUrl={data.user?.avatarUrl ?? null} sizeClass="w-8" />
+					<UserAvatar {displayName} avatarUrl={data.user?.avatarUrl ?? null} size="md" />
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end" class="w-56">
 					<div class="flex items-center gap-2 px-2 py-1.5">
-						<UserAvatar {displayName} avatarUrl={data.user?.avatarUrl ?? null} sizeClass="w-7" />
+						<UserAvatar {displayName} avatarUrl={data.user?.avatarUrl ?? null} size="sm" />
 						<span class="min-w-0 flex-1 truncate text-sm font-semibold">{displayName}</span>
 					</div>
 

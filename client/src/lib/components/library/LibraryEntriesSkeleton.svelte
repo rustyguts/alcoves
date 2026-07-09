@@ -13,31 +13,31 @@
 
 {#if entryViewMode === 'file'}
 	<table class="w-full">
-		<thead class="sticky top-0 z-30 shadow-[0_1px_0_0] shadow-border">
+		<thead class="sticky top-0 z-30 border-b border-border">
 			<tr>
 				<th class="w-12 rounded-tl-xl bg-background/90 px-4 py-3 backdrop-blur-sm"></th>
 				<th
-					class="bg-background/90 px-4 py-3 text-left text-xs font-medium text-muted-foreground backdrop-blur-sm"
+					class="bg-background/90 px-4 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase backdrop-blur-sm"
 				>
 					Name
 				</th>
 				<th
-					class="bg-background/90 px-4 py-3 text-left text-xs font-medium text-muted-foreground backdrop-blur-sm"
+					class="bg-background/90 px-4 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase backdrop-blur-sm"
 				>
 					Tags
 				</th>
 				<th
-					class="hidden bg-background/90 px-4 py-3 text-left text-xs font-medium text-muted-foreground backdrop-blur-sm sm:table-cell"
+					class="hidden bg-background/90 px-4 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase backdrop-blur-sm sm:table-cell"
 				>
 					Owner
 				</th>
 				<th
-					class="hidden bg-background/90 px-4 py-3 text-left text-xs font-medium text-muted-foreground backdrop-blur-sm sm:table-cell"
+					class="hidden bg-background/90 px-4 py-3 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase backdrop-blur-sm sm:table-cell"
 				>
 					{showTrashed ? 'Trashed' : 'Modified'}
 				</th>
 				<th
-					class="hidden rounded-tr-xl bg-background/90 px-4 py-3 text-right text-xs font-medium text-muted-foreground backdrop-blur-sm sm:table-cell"
+					class="hidden rounded-tr-xl bg-background/90 px-4 py-3 text-right text-xs font-semibold tracking-wide text-muted-foreground uppercase backdrop-blur-sm sm:table-cell"
 				>
 					Size
 				</th>

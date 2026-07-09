@@ -6,7 +6,7 @@
 	import { ICONS } from '$lib/utils/icons';
 	import { formatFileSize } from '$lib/utils/mime-icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import AppPanel from '$lib/components/ui/AppPanel.svelte';
+	import SettingsSection from '$lib/components/library/settings/SettingsSection.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -18,6 +18,7 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import type { AdminStats, AdminUser, AppSettings, RegistrationMode } from '$lib/types/api';
 
 	const currentUser = $derived(page.data.user);
@@ -495,9 +496,10 @@
 		color: string;
 	}
 
-	// Neutral, media-first chrome: alternate primary/neutral tints instead of a
-	// rainbow per metric — success/warning/destructive stay reserved for actual
-	// status signal elsewhere on this page (job states, load errors).
+	// Neutral, media-first chrome: a single muted/primary text tint per metric
+	// (no tinted icon "chrome box" — see StatCard) — success/warning/destructive
+	// stay reserved for actual status signal elsewhere on this page (job states,
+	// load errors).
 	const statCards = $derived<StatCard[]>([
 		{
 			key: 'files',
@@ -505,7 +507,7 @@
 			value: stats?.files?.toLocaleString('en-US') ?? '—',
 			caption: 'Active across all libraries',
 			icon: ICONS.files,
-			color: 'text-primary bg-primary/10'
+			color: 'text-primary'
 		},
 		{
 			key: 'storage',
@@ -513,7 +515,7 @@
 			value: stats ? formatFileSize(stats.totalSize) : '—',
 			caption: 'Total disk usage',
 			icon: ICONS.storage,
-			color: 'text-muted-foreground bg-muted'
+			color: 'text-muted-foreground'
 		},
 		{
 			key: 'libraries',
@@ -521,7 +523,7 @@
 			value: stats?.libraries?.toLocaleString('en-US') ?? '—',
 			caption: 'Including personal defaults',
 			icon: ICONS.library,
-			color: 'text-primary bg-primary/10'
+			color: 'text-primary'
 		},
 		{
 			key: 'users',
@@ -529,7 +531,7 @@
 			value: stats?.users?.toLocaleString('en-US') ?? '—',
 			caption: 'Registered accounts',
 			icon: ICONS.members,
-			color: 'text-muted-foreground bg-muted'
+			color: 'text-muted-foreground'
 		},
 		{
 			key: 'folders',
@@ -537,7 +539,7 @@
 			value: stats?.folders?.toLocaleString('en-US') ?? '—',
 			caption: 'Active folder hierarchy',
 			icon: ICONS.folder,
-			color: 'text-primary bg-primary/10'
+			color: 'text-primary'
 		}
 	]);
 </script>
@@ -549,13 +551,13 @@
 	/>
 
 	{#if statsError}
-		<div
-			class="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-		>
-			<AppIcon name={ICONS.warning} class="size-5 shrink-0" />
-			<span class="flex-1">Couldn't load instance statistics.</span>
-			<Button variant="destructive" size="sm" onclick={loadStats}>Retry</Button>
-		</div>
+		<Alert.Root variant="destructive">
+			<AppIcon name={ICONS.warning} class="size-4 shrink-0" />
+			<Alert.Title>Couldn't load instance statistics</Alert.Title>
+			<Alert.Action>
+				<Button variant="ghost" size="sm" onclick={loadStats}>Retry</Button>
+			</Alert.Action>
+		</Alert.Root>
 	{/if}
 
 	<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -571,16 +573,17 @@
 	</div>
 
 	{#if settingsError}
-		<div
-			class="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-		>
-			<AppIcon name={ICONS.warning} class="size-5 shrink-0" />
-			<span class="flex-1">Couldn't load instance settings — values below may be inaccurate.</span>
-			<Button variant="destructive" size="sm" onclick={loadSettings}>Retry</Button>
-		</div>
+		<Alert.Root variant="destructive">
+			<AppIcon name={ICONS.warning} class="size-4 shrink-0" />
+			<Alert.Title>Couldn't load instance settings</Alert.Title>
+			<Alert.Description>Values below may be inaccurate.</Alert.Description>
+			<Alert.Action>
+				<Button variant="ghost" size="sm" onclick={loadSettings}>Retry</Button>
+			</Alert.Action>
+		</Alert.Root>
 	{/if}
 
-	<AppPanel
+	<SettingsSection
 		title="Registration"
 		description="Control who can create accounts on this instance."
 		icon={ICONS.person}
@@ -605,9 +608,9 @@
 				</label>
 			{/each}
 		</RadioGroup.Root>
-	</AppPanel>
+	</SettingsSection>
 
-	<AppPanel
+	<SettingsSection
 		title="Inference models"
 		description="Switch the transcription model and audio-tagger used by background workers. Changes take effect on the next job; long-running jobs already in flight finish on the previous model."
 		icon={ICONS.models}
@@ -742,9 +745,9 @@
 				</p>
 			</div>
 		</div>
-	</AppPanel>
+	</SettingsSection>
 
-	<AppPanel title="Users" description="Manage accounts and roles." icon={ICONS.members} flush>
+	<SettingsSection title="Users" description="Manage accounts and roles." icon={ICONS.members}>
 		{#snippet actions()}
 			{#if users}
 				<Badge variant="secondary">{users.length}</Badge>
@@ -760,30 +763,42 @@
 		{:else if users?.length}
 			<Table.Root>
 				<Table.Header>
-					<Table.Row>
-						<Table.Head>User</Table.Head>
-						<Table.Head>Role</Table.Head>
-						<Table.Head>Joined</Table.Head>
-						<Table.Head>Updated</Table.Head>
+					<Table.Row class="hover:bg-transparent">
+						<Table.Head
+							class="px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+						>
+							User
+						</Table.Head>
+						<Table.Head
+							class="px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+						>
+							Role
+						</Table.Head>
+						<Table.Head
+							class="px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+						>
+							Joined
+						</Table.Head>
+						<Table.Head
+							class="px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+						>
+							Updated
+						</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
 					{#each users as user (user.id)}
-						<Table.Row>
-							<Table.Cell class="whitespace-normal">
+						<Table.Row class="border-0 hover:bg-muted">
+							<Table.Cell class="px-4 py-3 whitespace-normal">
 								<div class="flex items-center gap-3">
-									<UserAvatar
-										displayName={user.displayName}
-										avatarUrl={user.avatarUrl}
-										sizeClass="w-8"
-									/>
+									<UserAvatar displayName={user.displayName} avatarUrl={user.avatarUrl} size="md" />
 									<div class="min-w-0">
 										<p class="truncate text-sm font-medium">{user.displayName}</p>
 										<p class="truncate text-xs text-muted-foreground">{user.email}</p>
 									</div>
 								</div>
 							</Table.Cell>
-							<Table.Cell>
+							<Table.Cell class="px-4 py-3">
 								<Select.Root
 									type="single"
 									value={user.role}
@@ -800,10 +815,10 @@
 									</Select.Content>
 								</Select.Root>
 							</Table.Cell>
-							<Table.Cell class="text-xs text-muted-foreground">
+							<Table.Cell class="px-4 py-3 text-xs text-muted-foreground">
 								{formatDateTime(user.createdAt)}
 							</Table.Cell>
-							<Table.Cell class="text-xs text-muted-foreground">
+							<Table.Cell class="px-4 py-3 text-xs text-muted-foreground">
 								{formatDateTime(user.updatedAt)}
 							</Table.Cell>
 						</Table.Row>
@@ -827,7 +842,7 @@
 		{:else}
 			<EmptyState icon={ICONS.members} title="No users found" />
 		{/if}
-	</AppPanel>
+	</SettingsSection>
 
 	<AdminJobsPanel embedded />
 

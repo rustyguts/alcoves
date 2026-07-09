@@ -213,7 +213,7 @@
 		icon={ICONS.tag}
 		flush
 	>
-		<div class="divide-y">
+		<div class="overflow-hidden rounded-xl">
 			<!-- Create row — always present so a tag can be added in any state -->
 			<div class="flex items-center gap-2 bg-muted/40 px-3 py-2.5 sm:gap-3">
 				<TagColorPickerDropdown

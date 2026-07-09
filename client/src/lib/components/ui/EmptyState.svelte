@@ -2,11 +2,12 @@
 	/**
 	 * EmptyState — the one "nothing here" treatment.
 	 *
-	 * A tinted round icon badge, a title, an optional muted description, and an
-	 * optional `actions` CTA row. Generalises the gold-standard `LibraryEmptyState`
-	 * pattern so every empty / zero-result / load-error view looks the same instead
-	 * of each route hand-rolling a bare one-liner. Pass `tone="error"` to surface a
-	 * failed load (distinct from a genuinely-empty result).
+	 * A tinted round icon badge (padding-sized, not a fixed box), a title, an
+	 * optional muted description, and an optional `actions` CTA row.
+	 * Generalises the gold-standard `LibraryEmptyState` pattern so every empty
+	 * / zero-result / load-error view looks the same instead of each route
+	 * hand-rolling a bare one-liner. Pass `tone="error"` to surface a failed
+	 * load (distinct from a genuinely-empty result).
 	 */
 	import type { Snippet } from 'svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
@@ -30,8 +31,8 @@
 </script>
 
 <div class="flex flex-col items-center justify-center px-4 py-16 text-center">
-	<div class={cn('mb-4 flex size-16 items-center justify-center rounded-full', badgeClass)}>
-		<AppIcon name={icon} class="size-8" />
+	<div class={cn('mb-4 inline-flex rounded-full p-3', badgeClass)}>
+		<AppIcon name={icon} class="size-6" />
 	</div>
 	<p class="text-lg font-medium">{title}</p>
 	{#if description}

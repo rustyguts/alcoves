@@ -150,7 +150,7 @@
 {#if moment}
 	<Card.Root size="sm" data-testid="moment-edit-form">
 		<!-- Header -->
-		<Card.Header class="flex-row items-center justify-between gap-2 border-b">
+		<Card.Header class="flex-row items-center justify-between gap-2">
 			<div class="flex min-w-0 items-center gap-2">
 				<p class="text-sm font-semibold whitespace-nowrap">Edit moment</p>
 				<Badge variant="secondary" class="tabular-nums">{clipLength}</Badge>
@@ -197,7 +197,7 @@
 
 		<!-- Export progress -->
 		{#if exporting}
-			<div class="flex items-center gap-2 border-b px-4 py-2">
+			<div class="flex items-center gap-2 px-4 py-2">
 				<AppIcon name={ICONS.loading} class="size-3.5 animate-spin text-warning" />
 				<Progress
 					value={Math.max(0, Math.min(100, moment.exportProgress ?? 0))}
@@ -289,7 +289,7 @@
 		</Card.Content>
 
 		<!-- Footer -->
-		<Card.Footer class="justify-end gap-2 border-t">
+		<Card.Footer class="justify-end gap-2">
 			<Button variant="destructive" size="sm" onclick={onDelete}>
 				<AppIcon name={ICONS.trash} class="size-4" />
 				Delete

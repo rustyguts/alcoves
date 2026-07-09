@@ -65,11 +65,11 @@
 				{#if def.emoji}
 					<span class="shrink-0 text-base leading-none">{def.emoji}</span>
 				{:else}
-					<AppIcon name={ICONS.library} class="size-4 shrink-0 opacity-60" />
+					<AppIcon name={ICONS.library} class="opacity-60" />
 				{/if}
 				<span class="min-w-0 flex-1 truncate">{def.name}</span>
 				{#if def.id === current?.id}
-					<AppIcon name={ICONS.check} class="size-4 shrink-0 text-primary" />
+					<AppIcon name={ICONS.check} class="text-primary" />
 				{/if}
 			</DropdownMenu.Item>
 		{/if}
@@ -83,11 +83,11 @@
 					{#if l.emoji}
 						<span class="shrink-0 text-base leading-none">{l.emoji}</span>
 					{:else}
-						<AppIcon name={ICONS.folder} class="size-4 shrink-0 opacity-60" />
+						<AppIcon name={ICONS.folder} class="opacity-60" />
 					{/if}
 					<span class="min-w-0 flex-1 truncate">{l.name}</span>
 					{#if l.id === current?.id}
-						<AppIcon name={ICONS.check} class="size-4 shrink-0 text-primary" />
+						<AppIcon name={ICONS.check} class="text-primary" />
 					{/if}
 				</DropdownMenu.Item>
 			{/each}
@@ -95,7 +95,7 @@
 
 		<DropdownMenu.Separator />
 		<DropdownMenu.Item onSelect={createLibrary}>
-			<AppIcon name={ICONS.plus} class="size-4 shrink-0 opacity-60" />
+			<AppIcon name={ICONS.plus} class="opacity-60" />
 			<span class="min-w-0 flex-1 truncate">New library</span>
 		</DropdownMenu.Item>
 	</DropdownMenu.Content>

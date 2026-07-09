@@ -18,7 +18,7 @@
 <div class="flex min-h-0 flex-1 items-center justify-center p-4">
 	<Card.Root class="w-full max-w-md text-center">
 		<Card.Content class="flex flex-col items-center gap-3">
-			<div class="grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
+			<div class="inline-flex rounded-full bg-primary/10 p-3 text-primary">
 				<AppIcon name={isNotFound ? ICONS.search : ICONS.warning} class="size-6" />
 			</div>
 			<p class="text-5xl font-bold text-primary">{status}</p>

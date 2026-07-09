@@ -4,7 +4,14 @@
 	 *
 	 * The recurring settings row. `min-w-0` + the right column's `shrink-0` keep
 	 * long descriptions wrapping instead of shoving the control off-screen, and
-	 * the text block grows the row rather than clipping.
+	 * the text block grows the row rather than clipping. Borderless — rows
+	 * inside an AppPanel/well are separated by whitespace, not
+	 * `<Separator>`/`border-b`. Comfortable `py-2.5` rhythm compensates for the
+	 * dropped dividers. Not itself a click target: the right column always
+	 * holds a real interactive control (Switch/Button/Select), and nesting a
+	 * `role="button"` row around another interactive element is its own a11y
+	 * anti-pattern — a fully row-clickable list uses a real `<a>`/`<button>`
+	 * wrapper instead (see NotificationItem for that idiom).
 	 */
 	import type { Snippet } from 'svelte';
 	import { cn } from '$lib/utils';
@@ -34,7 +41,7 @@
 
 <div
 	class={cn(
-		'flex flex-col gap-3 sm:flex-row sm:justify-between sm:gap-4',
+		'flex flex-col gap-3 rounded-lg px-3 py-2.5 sm:flex-row sm:justify-between sm:gap-4',
 		align === 'center' ? 'sm:items-center' : 'sm:items-start'
 	)}
 >

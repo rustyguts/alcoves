@@ -19,8 +19,9 @@
 <div class="flex min-h-svh items-center justify-center bg-background p-4">
 	<div class="w-full max-w-md">
 		<!-- The auth box is intentionally elevated (a focused, floating panel),
-			 unlike the flat surfaces used for in-page content. -->
-		<Card.Root class="shadow-lg">
+			 unlike the flat surfaces used for in-page content — Card is
+			 borderless + shadow-xs by default (08-flat-redesign.md). -->
+		<Card.Root>
 			<Card.Header class="flex flex-col items-center gap-3 text-center">
 				<img src="/logo.webp" alt="Alcoves" width="72" height="72" class="rounded-xl" />
 				<Card.Title role="heading" aria-level={2} class="text-2xl font-bold">{title}</Card.Title>
@@ -39,7 +40,7 @@
 			</Card.Content>
 
 			{#if footer}
-				<Card.Footer class="border-t">
+				<Card.Footer>
 					{@render footer()}
 				</Card.Footer>
 			{/if}

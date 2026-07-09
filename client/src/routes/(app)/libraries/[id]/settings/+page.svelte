@@ -12,7 +12,6 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import AppPanelRow from '$lib/components/ui/AppPanelRow.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
@@ -460,7 +459,7 @@
 </script>
 
 <div class="min-h-0 w-full flex-1 overflow-y-auto px-0.5">
-	<div class="flex flex-col gap-4 pb-6">
+	<div class="flex flex-col gap-6 pb-6">
 		<!-- Library Name -->
 		<SettingsSection
 			title="Library Name"
@@ -540,7 +539,6 @@
 					</div>
 
 					{#if members.inviteLinks.length}
-						<Separator />
 						<div class="flex flex-col gap-3">
 							<div class="flex items-center justify-between gap-3">
 								<div>
@@ -551,7 +549,7 @@
 								</div>
 								<Badge variant="secondary">{members.inviteLinks.length}</Badge>
 							</div>
-							<div class="divide-y rounded-md border">
+							<div class="overflow-hidden rounded-xl bg-muted/50">
 								{#each members.inviteLinks as invite (invite.id)}
 									<InviteLinkRow
 										{invite}
@@ -565,10 +563,9 @@
 					{/if}
 
 					{#if members.libraryMembers.length}
-						<Separator />
 						<div class="flex flex-col gap-3">
 							<p class="text-sm font-medium">Members</p>
-							<div class="divide-y rounded-md border">
+							<div class="overflow-hidden rounded-xl bg-muted/50">
 								{#each members.libraryMembers as member (member.id)}
 									<LibraryMemberRow
 										{member}
@@ -610,8 +607,6 @@
 					/>
 				</AppPanelRow>
 
-				<Separator />
-
 				<AppPanelRow
 					title="Queue full reprocessing"
 					description="Deletes current face inference data, then re-runs detection on all images."
@@ -651,8 +646,6 @@
 					/>
 				</AppPanelRow>
 
-				<Separator />
-
 				<AppPanelRow
 					title="Browse detected objects"
 					description="View detected object labels and their frequency across the library."
@@ -667,8 +660,6 @@
 						View Objects
 					</Button>
 				</AppPanelRow>
-
-				<Separator />
 
 				<AppPanelRow
 					title="Queue full reprocessing"
@@ -812,7 +803,7 @@
 			{#snippet title_()}
 				<div class="flex items-center gap-2">
 					<AppIcon name={ICONS.warning} class="size-4 shrink-0 text-destructive" />
-					<h2 class="text-sm font-semibold text-destructive">Delete Library</h2>
+					<h2 class="text-base font-medium text-destructive">Delete Library</h2>
 				</div>
 			{/snippet}
 			<AppPanelRow

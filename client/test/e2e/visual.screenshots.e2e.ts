@@ -116,6 +116,21 @@ test.describe('authenticated app', () => {
 	});
 
 	test('profile', async ({ page }) => {
+		// Every screenshots.sh invocation's setup login mints a fresh session, so
+		// the "Active sessions" count/list would differ between an --update run
+		// and the compare run that follows — on the stacked mobile layout that
+		// shifts every section below it. Make session state deterministic first:
+		// keep only the session this run is on (there is no bulk "revoke others"
+		// endpoint, so enumerate and delete). All four visual projects share the
+		// same storageState session, so the kept session survives the whole run.
+		const sessions: Array<{ id: string; isCurrent: boolean }> = await (
+			await page.request.get('/api/auth/sessions')
+		).json();
+		for (const s of sessions) {
+			if (!s.isCurrent) {
+				await page.request.delete(`/api/auth/sessions/${s.id}`);
+			}
+		}
 		await shot(page, '/profile', 'profile.png');
 	});
 

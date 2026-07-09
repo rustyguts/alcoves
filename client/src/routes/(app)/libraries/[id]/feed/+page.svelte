@@ -56,7 +56,7 @@
 				description="Uploads, edits, and shares in this library will show up here."
 			/>
 		{:else}
-			<div class="divide-y">
+			<div class="flex flex-col">
 				{#each groups as g (g.head.id)}
 					<NotificationItem
 						group={g}

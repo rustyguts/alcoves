@@ -61,7 +61,7 @@
 		{/if}
 	</div>
 
-	<div class="flex justify-end gap-2">
+	<div class="flex w-full justify-end gap-2">
 		<Button type="button" variant="ghost" onclick={() => (open = false)}>Cancel</Button>
 		<Button disabled={!selectedFileCount} onclick={handleUpload}>
 			<AppIcon name={ICONS.upload} class="size-4" />

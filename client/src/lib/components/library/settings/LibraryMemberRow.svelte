@@ -28,13 +28,11 @@
 	const roleLabel = $derived(roleOptions.find((o) => o.value === roleDraft)?.label ?? roleDraft);
 </script>
 
-<div class="flex flex-col gap-3 px-3 py-3 md:flex-row md:items-center">
+<div
+	class="flex flex-col gap-3 px-3 py-3 transition-colors hover:bg-muted/60 md:flex-row md:items-center"
+>
 	<div class="flex min-w-0 flex-1 items-center gap-3">
-		<UserAvatar
-			displayName={member.user.displayName}
-			avatarUrl={member.user.avatarUrl}
-			sizeClass="w-8"
-		/>
+		<UserAvatar displayName={member.user.displayName} avatarUrl={member.user.avatarUrl} size="md" />
 		<div class="min-w-0">
 			<p class="truncate text-sm font-medium">{member.user.displayName}</p>
 			<p class="truncate text-xs text-muted-foreground">{member.user.email}</p>

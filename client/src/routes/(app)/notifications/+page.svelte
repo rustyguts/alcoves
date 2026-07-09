@@ -53,8 +53,8 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
-	<div class="border-b px-4 py-3">
+<div class="flex h-full flex-col gap-4">
+	<div class="px-0.5">
 		<PageHeader title="Notifications" description="Activity across all your libraries.">
 			{#snippet actions()}
 				{#if notifications.entries.length > 0}
@@ -79,13 +79,13 @@
 			/>
 		{:else}
 			{#each groupedByLibrary as lib (lib.libraryId)}
-				<section class="border-b">
+				<section class="mb-4">
 					<header
-						class="px-4 pt-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+						class="px-3 pt-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
 					>
 						{lib.libraryName}
 					</header>
-					<div class="divide-y">
+					<div>
 						{#each lib.groups as g (g.head.id)}
 							<NotificationItem
 								group={g}

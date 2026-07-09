@@ -19,7 +19,7 @@
 	const isTimeline = $derived(page.url.pathname.endsWith('/timeline'));
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col" class:gap-2={isTimeline} class:gap-4={!isTimeline}>
+<div class="flex min-h-0 flex-1 flex-col" class:gap-2={isTimeline} class:gap-6={!isTimeline}>
 	<LibraryHeader
 		{libraryId}
 		name={data.library?.name}

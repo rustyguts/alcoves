@@ -95,7 +95,7 @@
 	class={cn(
 		'cursor-pointer overflow-hidden rounded-md transition-colors select-none',
 		'focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none',
-		selected ? 'bg-primary/20 hover:bg-primary/30' : 'bg-card hover:bg-primary/10',
+		selected ? 'bg-primary/20 hover:bg-primary/30' : 'hover:bg-muted',
 		isDropTarget && 'bg-primary/10 ring-2 ring-primary',
 		isDragging && 'opacity-60'
 	)}
@@ -144,9 +144,18 @@
 					showTrashed && entry.kind === 'file' && 'opacity-50'
 				)}
 			/>
-			<span class="w-full truncate text-left text-sm font-semibold" title={folderTitle}>
-				{folderTitle}
-			</span>
+			{#if entry.kind === 'folder' && showTrashed}
+				<span class="flex w-full min-w-0 items-baseline gap-1" title={folderTitle}>
+					<span class="truncate text-sm font-semibold">{entry.name}</span>
+					<span class="shrink-0 text-xs text-muted-foreground"
+						>({entry.trashFileCount ?? 0} files)</span
+					>
+				</span>
+			{:else}
+				<span class="w-full truncate text-left text-sm font-semibold" title={folderTitle}>
+					{folderTitle}
+				</span>
+			{/if}
 			{#if entry.kind === 'file' && entry.hasDuplicates}
 				<span class="mt-0.5 shrink-0" title="Duplicate of another file in this library">
 					<AppIcon name={ICONS.duplicate} class="size-4 text-warning" />

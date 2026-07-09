@@ -98,14 +98,14 @@
 			</Table.Head>
 		</Table.Row>
 	</Table.Header>
-	<Table.Body class="divide-y divide-border/60 select-none">
+	<Table.Body class="select-none">
 		{#each entries as entry (`${entry.kind}-${entry.id}`)}
 			<Table.Row
 				tabindex={0}
 				class={cn(
-					'cursor-pointer transition-colors',
+					'cursor-pointer border-0 transition-colors',
 					'focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus-visible:ring-inset',
-					isEntrySelected(entry) ? 'bg-primary/20 hover:bg-primary/30' : 'hover:bg-primary/10',
+					isEntrySelected(entry) ? 'bg-primary/20 hover:bg-primary/30' : 'hover:bg-muted',
 					dropTargetFolderId === entry.id &&
 						entry.kind === 'folder' &&
 						'bg-primary/5 ring-2 ring-primary/60 ring-inset',
@@ -209,8 +209,7 @@
 							<UserAvatar
 								displayName={entry.owner.displayName}
 								avatarUrl={entry.owner.avatarUrl}
-								sizeClass="w-6"
-								textSizeClass="text-[10px]"
+								size="xs"
 								bgClass="bg-primary/10 text-primary"
 								tooltip
 								tooltipPosition="right"

@@ -98,7 +98,7 @@
 
 {#if uploadQueue.hasActiveUploads}
 	<div
-		class="fixed right-4 bottom-4 z-50 w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-xl sm:w-96"
+		class="fixed right-4 bottom-4 z-50 w-[calc(100vw-2rem)] overflow-hidden rounded-xl bg-card shadow-xs sm:w-96"
 		role="region"
 		aria-label="Upload progress"
 	>
@@ -137,7 +137,7 @@
 
 		{#if expanded}
 			{#if uploadQueue.hasInFlightUploads || uploadQueue.errorCount > 0}
-				<div class="flex items-center justify-between gap-2 border-t border-border px-4 py-1.5">
+				<div class="flex items-center justify-between gap-2 px-4 py-1.5">
 					<div class="flex gap-1">
 						{#if uploadQueue.errorCount > 0}
 							<Button
@@ -189,7 +189,7 @@
 			>
 				<div style:height="{topPad}px"></div>
 				{#each windowItems as item (item.id)}
-					<div class="flex h-14 items-center gap-2 border-b border-border/60 px-3" data-upload-row>
+					<div class="flex h-14 items-center gap-2 px-3 hover:bg-muted" data-upload-row>
 						<div class="flex min-w-0 flex-1 flex-col justify-center gap-1">
 							<div class="flex items-center justify-between gap-2">
 								<span class="min-w-0 flex-1 truncate text-sm" title={item.file.name}

@@ -297,8 +297,8 @@
 		{/snippet}
 	</EmptyState>
 {:else}
-	<div class="flex flex-col" data-testid="transcript-panel">
-		<div class="flex items-center gap-1 border-b pb-0">
+	<div class="flex flex-col gap-2" data-testid="transcript-panel">
+		<div class="flex items-center gap-1">
 			<button
 				type="button"
 				class={cn(
@@ -328,8 +328,8 @@
 		</div>
 
 		{#if tab === 'cues'}
-			<div class="flex flex-col">
-				<div class="border-b py-2">
+			<div class="flex flex-col gap-2">
+				<div>
 					<InputGroup.Root>
 						<InputGroup.Addon>
 							<AppIcon name={ICONS.search} class="size-3.5 text-muted-foreground" />
@@ -358,19 +358,17 @@
 				</div>
 
 				{#if filteredCues.length > 0}
-					<ul bind:this={listRef} class="flex flex-col divide-y">
+					<ul bind:this={listRef} class="flex flex-col gap-0.5">
 						{#each filteredCues as cue, idx (`${cue.startSeconds}-${idx}`)}
 							<li
 								class={cn(
-									'border-l-2 transition-colors',
-									idx === activeIndex
-										? 'border-primary bg-primary/10'
-										: 'border-transparent hover:bg-accent'
+									'rounded-lg transition-colors',
+									idx === activeIndex ? 'bg-primary/10' : 'hover:bg-accent'
 								)}
 							>
 								<button
 									type="button"
-									class="flex w-full items-start gap-3 px-2 py-2 text-left"
+									class="flex w-full items-start gap-3 px-3 py-2.5 text-left"
 									onclick={() => onseek?.(cue.startSeconds)}
 								>
 									<span
@@ -398,8 +396,8 @@
 				{/if}
 			</div>
 		{:else}
-			<div class="flex flex-col">
-				<div class="flex items-center justify-between gap-2 border-b py-2">
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2">
 					<p class="text-[11px] text-muted-foreground">
 						Most-spoken words (stopwords excluded). Click to filter cues.
 					</p>
@@ -427,12 +425,12 @@
 				</div>
 
 				{#if topWords.length > 0}
-					<ul class="flex flex-col divide-y">
+					<ul class="flex flex-col gap-0.5">
 						{#each topWords as w, idx (w.word)}
-							<li class="transition-colors hover:bg-accent">
+							<li class="rounded-lg transition-colors hover:bg-accent">
 								<button
 									type="button"
-									class="flex w-full items-center gap-3 px-2 py-2 text-left"
+									class="flex w-full items-center gap-3 px-3 py-2.5 text-left"
 									onclick={() => pickWord(w.word)}
 								>
 									<span class="w-6 shrink-0 text-[11px] text-muted-foreground tabular-nums">

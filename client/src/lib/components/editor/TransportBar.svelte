@@ -79,7 +79,7 @@
 </script>
 
 <div
-	class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-lg border bg-muted px-2 py-1.5 sm:justify-between"
+	class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-xl bg-muted/50 px-2 py-1.5 sm:justify-between"
 >
 	<!-- Transport cluster -->
 	<div class="flex items-center gap-1">

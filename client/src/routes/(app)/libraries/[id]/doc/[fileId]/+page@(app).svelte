@@ -98,7 +98,7 @@
 	{:else}
 		<div
 			class={cn(
-				'min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-card text-card-foreground',
+				'min-h-0 flex-1 overflow-hidden rounded-xl bg-card text-card-foreground shadow-xs',
 				mode === 'split' && 'grid grid-cols-2 divide-x divide-border'
 			)}
 		>

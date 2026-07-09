@@ -106,27 +106,33 @@
 			<Badge variant="secondary">{totalDetections} total detections</Badge>
 		</div>
 
-		<div class="overflow-hidden rounded-lg border">
-			<Table.Root>
-				<Table.Header>
-					<Table.Row>
-						<Table.Head>Label</Table.Head>
-						<Table.Head class="text-right">Photos</Table.Head>
+		<table class="w-full">
+			<Table.Header class="sticky top-0 z-30 border-b border-border [&_tr]:border-0">
+				<Table.Row class="hover:bg-transparent">
+					<Table.Head
+						class="rounded-tl-xl bg-background/90 px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase backdrop-blur-sm"
+					>
+						Label
+					</Table.Head>
+					<Table.Head
+						class="rounded-tr-xl bg-background/90 px-4 py-3 text-right text-xs font-semibold tracking-wide text-muted-foreground uppercase backdrop-blur-sm"
+					>
+						Photos
+					</Table.Head>
+				</Table.Row>
+			</Table.Header>
+			<Table.Body>
+				{#each labels as item (item.label)}
+					<Table.Row class="border-0 hover:bg-muted">
+						<Table.Cell class="px-4 py-3">
+							<Badge variant="outline">{item.label}</Badge>
+						</Table.Cell>
+						<Table.Cell class="px-4 py-3 text-right tabular-nums">
+							{item.fileCount}
+						</Table.Cell>
 					</Table.Row>
-				</Table.Header>
-				<Table.Body>
-					{#each labels as item (item.label)}
-						<Table.Row>
-							<Table.Cell>
-								<Badge variant="outline">{item.label}</Badge>
-							</Table.Cell>
-							<Table.Cell class="text-right tabular-nums">
-								{item.fileCount}
-							</Table.Cell>
-						</Table.Row>
-					{/each}
-				</Table.Body>
-			</Table.Root>
-		</div>
+				{/each}
+			</Table.Body>
+		</table>
 	{/if}
 </div>

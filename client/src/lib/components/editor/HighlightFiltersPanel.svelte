@@ -143,8 +143,8 @@
 	);
 </script>
 
-<div class="flex flex-col" data-testid="highlight-filters-panel">
-	<div class="flex items-center justify-between gap-2 border-b pb-2">
+<div class="flex flex-col gap-2" data-testid="highlight-filters-panel">
+	<div class="flex items-center justify-between gap-2">
 		<div class="flex min-w-0 items-center gap-2">
 			<Badge variant="secondary">{filters.length}</Badge>
 			<span title="Comma = OR · & = AND · word:foo = transcript · audio:foo = label · :25 = min %">
@@ -185,7 +185,7 @@
 
 	<!-- Add form -->
 	{#if adding}
-		<div class="border-b bg-muted/50 px-2 py-2">
+		<div class="rounded-lg bg-muted/50 px-2 py-2">
 			<div class="flex flex-wrap items-end gap-2">
 				<div class="flex w-40 flex-col gap-1">
 					<Label class="text-[11px] font-medium text-muted-foreground" for="hf-add-name">
@@ -240,9 +240,9 @@
 	{/if}
 
 	{#if sortedFilters.length > 0}
-		<ul class="flex flex-col divide-y">
+		<ul class="flex flex-col gap-1">
 			{#each sortedFilters as f (f.id)}
-				<li class="py-2">
+				<li class="rounded-lg py-2">
 					{#if editing === f.id}
 						<!-- Edit form -->
 						<div class="flex flex-wrap items-end gap-2">
@@ -364,7 +364,7 @@
 									<li>
 										<button
 											type="button"
-											class="flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] tabular-nums hover:border-primary hover:bg-accent"
+											class="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] tabular-nums hover:bg-accent"
 											title={joinEvidence(m.evidence)}
 											onclick={() => onseek?.(m.startSeconds)}
 										>

@@ -1,29 +1,35 @@
 <script lang="ts">
 	/**
-	 * AppPanel — the single, consistent "titled card section" used across the app.
+	 * AppPanel — the single, consistent "titled section" used across the app.
 	 *
-	 * One header treatment everywhere: an optional icon + `text-sm font-semibold`
-	 * title, an optional muted description, and an `actions` snippet pinned to the
-	 * right. The default children are the card body. A lightweight card surface
-	 * (`bg-card` + `border`) rather than the full `Card` composition.
+	 * Flat redesign (.agents/specs/shadcn-rewrite/08-flat-redesign.md): no
+	 * outer border/card box. The header sits plain on the page canvas — an
+	 * optional icon + `text-sm font-medium` title, an optional muted
+	 * description, and an `actions` snippet pinned to the right. The BODY is
+	 * the one layered surface: a borderless `bg-muted/50 rounded-xl` well.
+	 * `flush` only strips the well's padding (for tables / full-bleed lists
+	 * that manage their own spacing); `bodyClass` replaces the well entirely
+	 * (e.g. for a bare, unstyled list) — same "takes precedence" contract as
+	 * before, just with a well as the new default instead of a bordered card.
 	 */
 	import type { Snippet } from 'svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		title?: string;
 		description?: string;
 		/** An ICONS registry value, e.g. `lineicons:cog`. */
 		icon?: string;
-		/** Remove body padding — for tables / full-bleed lists. */
+		/** Remove the well's padding — for tables / full-bleed lists. */
 		flush?: boolean;
-		/** Override body padding (takes precedence over `flush`). */
+		/** Replace the body's classes entirely (takes precedence over `flush`). */
 		bodyClass?: string;
 		/** Replaces the default icon + title row. */
 		title_?: Snippet;
 		/** Right-pinned header actions. */
 		actions?: Snippet;
-		/** Card body. */
+		/** Panel body. */
 		children?: Snippet;
 	}
 
@@ -39,12 +45,12 @@
 	}: Props = $props();
 
 	const hasHeader = $derived(!!(title || icon || title_ || actions || description));
-	const bodyUi = $derived(bodyClass ? bodyClass : flush ? 'p-0' : 'p-4');
+	const bodyUi = $derived(bodyClass ?? cn('rounded-xl bg-muted/50', flush ? 'p-0' : 'p-4'));
 </script>
 
-<div data-slot="app-panel" class="rounded-lg border bg-card text-card-foreground">
+<div data-slot="app-panel" class="flex flex-col gap-3">
 	{#if hasHeader}
-		<div class="flex items-start justify-between gap-3 border-b p-4">
+		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0 space-y-0.5">
 				{#if title_}
 					{@render title_()}
@@ -53,7 +59,7 @@
 						{#if icon}
 							<AppIcon name={icon} class="size-4 shrink-0 text-primary" />
 						{/if}
-						<h2 class="text-sm font-semibold">{title}</h2>
+						<h2 class="text-sm font-medium">{title}</h2>
 					</div>
 				{/if}
 				{#if description}

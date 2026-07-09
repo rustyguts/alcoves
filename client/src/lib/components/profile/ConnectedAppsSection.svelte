@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import AppPanel from '$lib/components/ui/AppPanel.svelte';
+	import SettingsSection from '$lib/components/library/settings/SettingsSection.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -74,7 +74,7 @@
 </script>
 
 {#if available}
-	<AppPanel
+	<SettingsSection
 		title="Connected apps"
 		description="Apps you've authorized to access Alcoves over MCP. Each acts as you and can only do what you can."
 		icon={ICONS.link}
@@ -95,47 +95,49 @@
 				</Alert.Action>
 			</Alert.Root>
 		{:else if connections.length}
-			<Item.Group>
-				{#each connections as conn (conn.clientId)}
-					<Item.Root variant="outline">
-						<Item.Media variant="icon" class="size-9 rounded-full bg-muted text-muted-foreground">
-							<AppIcon name={ICONS.link} class="size-4" />
-						</Item.Media>
-						<Item.Content>
-							<Item.Title>{conn.clientName}</Item.Title>
-							<Item.Description>
-								Connected {formatDate(conn.createdAt)} · {conn.lastUsedAt
-									? `Last used ${formatDate(conn.lastUsedAt)}`
-									: 'Never used'}
-							</Item.Description>
-							{#if scopesOf(conn.scope).length}
-								<div class="mt-1 flex flex-wrap gap-1">
-									{#each scopesOf(conn.scope) as scope (scope)}
-										<Badge variant="outline">{scope}</Badge>
-									{/each}
-								</div>
-							{/if}
-						</Item.Content>
-						<Item.Actions>
-							<Button
-								variant="ghost"
-								size="sm"
-								disabled={revokingId === conn.clientId}
-								onclick={() => revoke(conn.clientId)}
-							>
-								{#if revokingId === conn.clientId}
-									<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
-								{:else}
-									<AppIcon name={ICONS.trash} class="size-4" />
+			<div class="overflow-hidden rounded-xl bg-muted/50">
+				<Item.Group>
+					{#each connections as conn (conn.clientId)}
+						<Item.Root class="hover:bg-muted/60">
+							<Item.Media variant="icon" class="size-9 rounded-full bg-muted text-muted-foreground">
+								<AppIcon name={ICONS.link} class="size-4" />
+							</Item.Media>
+							<Item.Content>
+								<Item.Title>{conn.clientName}</Item.Title>
+								<Item.Description>
+									Connected {formatDate(conn.createdAt)} · {conn.lastUsedAt
+										? `Last used ${formatDate(conn.lastUsedAt)}`
+										: 'Never used'}
+								</Item.Description>
+								{#if scopesOf(conn.scope).length}
+									<div class="mt-1 flex flex-wrap gap-1">
+										{#each scopesOf(conn.scope) as scope (scope)}
+											<Badge variant="outline">{scope}</Badge>
+										{/each}
+									</div>
 								{/if}
-								Disconnect
-							</Button>
-						</Item.Actions>
-					</Item.Root>
-				{/each}
-			</Item.Group>
+							</Item.Content>
+							<Item.Actions>
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={revokingId === conn.clientId}
+									onclick={() => revoke(conn.clientId)}
+								>
+									{#if revokingId === conn.clientId}
+										<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+									{:else}
+										<AppIcon name={ICONS.trash} class="size-4" />
+									{/if}
+									Disconnect
+								</Button>
+							</Item.Actions>
+						</Item.Root>
+					{/each}
+				</Item.Group>
+			</div>
 		{:else}
-			<div class="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
+			<div class="flex items-start gap-3 rounded-lg bg-muted/30 p-4">
 				<AppIcon name={ICONS.link} class="size-5 shrink-0 opacity-70" />
 				<div class="space-y-0.5">
 					<p class="text-sm font-medium">No connected apps</p>
@@ -145,5 +147,5 @@
 				</div>
 			</div>
 		{/if}
-	</AppPanel>
+	</SettingsSection>
 {/if}

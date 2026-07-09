@@ -6,7 +6,7 @@
 	import { toast } from '$lib/state/toast';
 	import { api, apiUrl, ApiError } from '$lib/api';
 	import { ICONS } from '$lib/utils/icons';
-	import AppPanel from '$lib/components/ui/AppPanel.svelte';
+	import SettingsSection from '$lib/components/library/settings/SettingsSection.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -278,7 +278,7 @@
 	</header>
 
 	<!-- Account -->
-	<AppPanel
+	<SettingsSection
 		title="Account"
 		description="Update how your name appears across Alcoves."
 		icon={ICONS.person}
@@ -312,10 +312,10 @@
 				</div>
 			{/if}
 		</div>
-	</AppPanel>
+	</SettingsSection>
 
 	<!-- Appearance -->
-	<AppPanel
+	<SettingsSection
 		title="Appearance"
 		description="Choose how Alcoves looks on this device."
 		icon={ICONS.appearance}
@@ -347,10 +347,10 @@
 				</ToggleGroup.Item>
 			{/each}
 		</ToggleGroup.Root>
-	</AppPanel>
+	</SettingsSection>
 
 	<!-- Active sessions -->
-	<AppPanel
+	<SettingsSection
 		title="Active sessions"
 		description="Revoke any session you don't recognise."
 		icon={ICONS.admin}
@@ -360,47 +360,49 @@
 		{/snippet}
 
 		{#if sessions.length}
-			<Item.Group>
-				{#each sessions as session (session.id)}
-					<Item.Root variant="outline">
-						<Item.Media variant="icon" class="size-9 rounded-full bg-muted text-muted-foreground">
-							<AppIcon name={ICONS.system} class="size-4" />
-						</Item.Media>
-						<Item.Content>
-							<Item.Title>
-								<span class="truncate">{parseBrowser(session.userAgent)}</span>
-								{#if session.isCurrent}
-									<Badge variant="secondary">Current</Badge>
-								{/if}
-							</Item.Title>
-							<Item.Description>
-								{#if session.ipAddress}
-									{session.ipAddress}
-									<span aria-hidden="true">·</span>
-								{/if}
-								Signed in {formatSessionDate(session.createdAt)}
-							</Item.Description>
-						</Item.Content>
-						{#if !session.isCurrent}
-							<Item.Actions>
-								<Button
-									variant="ghost"
-									size="sm"
-									disabled={revokingId === session.id}
-									onclick={() => revokeSession(session.id)}
-								>
-									{#if revokingId === session.id}
-										<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+			<div class="overflow-hidden rounded-xl bg-muted/50">
+				<Item.Group>
+					{#each sessions as session (session.id)}
+						<Item.Root class="hover:bg-muted/60">
+							<Item.Media variant="icon" class="size-9 rounded-full bg-muted text-muted-foreground">
+								<AppIcon name={ICONS.system} class="size-4" />
+							</Item.Media>
+							<Item.Content>
+								<Item.Title>
+									<span class="truncate">{parseBrowser(session.userAgent)}</span>
+									{#if session.isCurrent}
+										<Badge variant="secondary">Current</Badge>
 									{/if}
-									Revoke
-								</Button>
-							</Item.Actions>
-						{/if}
-					</Item.Root>
-				{/each}
-			</Item.Group>
+								</Item.Title>
+								<Item.Description>
+									{#if session.ipAddress}
+										{session.ipAddress}
+										<span aria-hidden="true">·</span>
+									{/if}
+									Signed in {formatSessionDate(session.createdAt)}
+								</Item.Description>
+							</Item.Content>
+							{#if !session.isCurrent}
+								<Item.Actions>
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={revokingId === session.id}
+										onclick={() => revokeSession(session.id)}
+									>
+										{#if revokingId === session.id}
+											<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+										{/if}
+										Revoke
+									</Button>
+								</Item.Actions>
+							{/if}
+						</Item.Root>
+					{/each}
+				</Item.Group>
+			</div>
 		{:else}
-			<div class="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
+			<div class="flex items-start gap-3 rounded-lg bg-muted/30 p-4">
 				<AppIcon name={ICONS.admin} class="size-5 shrink-0 opacity-70" />
 				<div class="space-y-0.5">
 					<p class="text-sm font-medium">No other active sessions</p>
@@ -410,7 +412,7 @@
 				</div>
 			</div>
 		{/if}
-	</AppPanel>
+	</SettingsSection>
 
 	<AccessTokensSection />
 

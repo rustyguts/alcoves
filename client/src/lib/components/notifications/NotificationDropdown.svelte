@@ -39,8 +39,8 @@
 	}
 </script>
 
-<div class="flex w-96 max-w-[90vw] flex-col">
-	<div class="flex items-center justify-between border-b px-4 py-2.5">
+<div class="flex w-96 max-w-[90vw] flex-col overflow-hidden rounded-md">
+	<div class="flex items-center justify-between px-4 py-2.5">
 		<h3 class="text-sm font-semibold">Notifications</h3>
 		{#if notifications.entries.length > 0}
 			<button
@@ -72,7 +72,7 @@
 	{#if hasMore}
 		<button
 			type="button"
-			class="border-t px-4 py-2 text-center text-sm text-primary hover:bg-muted"
+			class="px-4 py-2.5 text-center text-sm text-primary hover:bg-muted"
 			onclick={viewAll}
 		>
 			See all notifications

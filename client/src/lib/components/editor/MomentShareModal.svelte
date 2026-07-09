@@ -129,7 +129,7 @@
 				{/each}
 			</div>
 		{:else if !loading}
-			<div class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+			<div class="rounded-xl bg-muted/50 p-4 text-center text-sm text-muted-foreground">
 				No active share links.
 			</div>
 		{/if}

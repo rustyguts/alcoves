@@ -104,7 +104,7 @@
 
 <aside
 	class={cn(
-		'relative flex w-full min-w-0 flex-col rounded-lg border bg-card lg:w-(--inspector-w) lg:shrink-0',
+		'relative flex w-full min-w-0 flex-col rounded-xl bg-card shadow-xs lg:w-(--inspector-w) lg:shrink-0',
 		klass
 	)}
 	style="--inspector-w: {renderedWidth}px"
@@ -139,7 +139,7 @@
 	>
 		<Tabs.List
 			aria-label="Inspector"
-			class="w-full shrink-0 justify-start gap-0.5 overflow-x-auto rounded-none border-b bg-transparent p-1"
+			class="w-full shrink-0 justify-start gap-0.5 overflow-x-auto rounded-none bg-transparent p-1"
 		>
 			{#each tabs as tab (tab.id)}
 				<Tabs.Trigger

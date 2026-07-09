@@ -43,9 +43,7 @@
 	>
 		<AppIcon name={ICONS.bell} class="size-5" />
 		{#if badgeText}
-			<Badge
-				class="absolute top-1 right-1 h-4 min-w-4 justify-center rounded-full px-1 text-[10px] leading-none"
-			>
+			<Badge class="absolute -top-1 -right-1 min-w-5 justify-center rounded-full px-1">
 				{badgeText}
 			</Badge>
 		{/if}

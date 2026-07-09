@@ -37,7 +37,7 @@
 	const uses = $derived(invite.uses ?? []);
 </script>
 
-<div class="flex flex-col gap-2 px-3 py-3">
+<div class="flex flex-col gap-2 px-3 py-3 transition-colors hover:bg-muted/60">
 	<div class="flex flex-col gap-3 md:flex-row md:items-center">
 		<div class="min-w-0 flex-1">
 			<p class="truncate text-sm font-medium">{invite.inviteUrl}</p>
@@ -86,14 +86,10 @@
 		</div>
 	</div>
 	{#if expanded && uses.length}
-		<div class="space-y-2 rounded-md border bg-muted/30 px-3 py-2">
+		<div class="space-y-2 rounded-lg bg-muted/50 px-3 py-2">
 			{#each uses as u, idx (idx)}
 				<div class="flex items-center gap-2 text-xs">
-					<UserAvatar
-						displayName={u.user.displayName}
-						avatarUrl={u.user.avatarUrl}
-						sizeClass="w-6"
-					/>
+					<UserAvatar displayName={u.user.displayName} avatarUrl={u.user.avatarUrl} size="xs" />
 					<div class="min-w-0 flex-1">
 						<p class="truncate">{u.user.displayName}</p>
 						<p class="truncate text-muted-foreground">{u.user.email}</p>

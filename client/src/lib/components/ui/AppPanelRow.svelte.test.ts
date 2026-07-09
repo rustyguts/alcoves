@@ -68,4 +68,11 @@ describe('AppPanelRow', () => {
 		expect(startedRow?.className).toContain('sm:items-start');
 		expect(startedRow?.className).not.toContain('sm:items-center');
 	});
+
+	it('is borderless with comfortable row padding (flat redesign: no per-row divider)', async () => {
+		const screen = render(AppPanelRow, { props: { title: 'Row' } });
+		const row = screen.container.firstElementChild;
+		expect(row?.className).not.toContain('border');
+		expect(row?.className).toContain('py-2.5');
+	});
 });
