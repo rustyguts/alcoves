@@ -23,13 +23,13 @@ describe('EmptyState', () => {
 	it('uses a neutral badge by default and an error badge for tone="error"', () => {
 		const neutral = render(EmptyState, { props: { icon: ICONS.search, title: 'Empty' } });
 		expect(neutral.container.querySelector('.rounded-full')?.className).toContain(
-			'text-surface-500'
+			'text-muted-foreground'
 		);
 
 		const error = render(EmptyState, {
 			props: { icon: ICONS.warning, title: 'Failed', tone: 'error' }
 		});
-		expect(error.container.querySelector('.rounded-full')?.className).toContain('text-error-500');
+		expect(error.container.querySelector('.rounded-full')?.className).toContain('text-destructive');
 	});
 
 	it('renders the actions snippet', () => {

@@ -37,6 +37,9 @@ test.describe('authenticated app', () => {
 		const id = await defaultLibraryId(page);
 		await page.goto(`/libraries/${id}`);
 		await settle(page);
+		// The view toggle is its own labeled icon button at every breakpoint now
+		// (the single Create dropdown replaced the old Folder/Document/Upload
+		// trio, so there's no more mobile-only "More actions" overflow to open).
 		await page.getByRole('button', { name: 'Grid view' }).click();
 		await settle(page);
 		await expect(page).toHaveScreenshot('library-files-grid.png', { mask: masks(page) });
@@ -109,6 +112,21 @@ test.describe('authenticated app', () => {
 	});
 
 	test('profile', async ({ page }) => {
+		// Every screenshots.sh invocation's setup login mints a fresh session, so
+		// the "Active sessions" count/list would differ between an --update run
+		// and the compare run that follows — on the stacked mobile layout that
+		// shifts every section below it. Make session state deterministic first:
+		// keep only the session this run is on (there is no bulk "revoke others"
+		// endpoint, so enumerate and delete). All four visual projects share the
+		// same storageState session, so the kept session survives the whole run.
+		const sessions: Array<{ id: string; isCurrent: boolean }> = await (
+			await page.request.get('/api/auth/sessions')
+		).json();
+		for (const s of sessions) {
+			if (!s.isCurrent) {
+				await page.request.delete(`/api/auth/sessions/${s.id}`);
+			}
+		}
 		await shot(page, '/profile', 'profile.png');
 	});
 
@@ -124,13 +142,79 @@ test.describe('authenticated app', () => {
 		await shot(page, '/this-route-does-not-exist', 'not-found-app.png');
 	});
 
+	// ── Editor views ─────────────────────────────────────────────────────────────
+	test('video editor — workspace', async ({ page }) => {
+		// Seeded "Podcast Recordings" library: episode-01-welcome.mp4 (6s, transcript
+		// + waveform ready). Resolved over the API (shares the storageState session
+		// cookie) so the test never hardcodes seed UUIDs — same approach as
+		// editor.e2e.ts.
+		const libraries = await (await page.request.get('/api/libraries')).json();
+		const podcast = libraries.find((l: { name: string }) => /Podcast/i.test(l.name));
+		expect(podcast, 'seeded Podcast Recordings library').toBeTruthy();
+		const listing = await (
+			await page.request.get(`/api/libraries/${podcast.id}/files?limit=100`)
+		).json();
+		const episode = listing.entries.find(
+			(f: { name: string }) => f.name === 'episode-01-welcome.mp4'
+		);
+		expect(episode, 'seeded episode-01-welcome.mp4').toBeTruthy();
+
+		await page.goto(`/libraries/${podcast.id}/edit/${episode.id}`);
+		await settle(page);
+		await expect(page.getByTestId('timeline')).toBeVisible({ timeout: 15_000 });
+		// The editor only settles into its final layout once the player has
+		// surfaced the file's duration — before that, seek/zoom math (and the
+		// transport timecode) is parked at zero.
+		await expect(page.getByTestId('transport-timecode')).not.toHaveText(/\/ 0:00\.0$/, {
+			timeout: 15_000
+		});
+		await expect(page.getByTestId('waveform-track')).toBeVisible({ timeout: 15_000 });
+
+		await expect(page).toHaveScreenshot('editor-workspace.png', {
+			// Vidstack's `<media-player>` decodes and paints the first video frame
+			// itself — that's nondeterministic across environments/codecs, so mask
+			// the player surface on top of the standard dynamic-content masks.
+			mask: [...masks(page), page.locator('media-player')]
+		});
+	});
+
+	test('document editor — split view', async ({ page }) => {
+		// Seeded "Travel 2025" library: trip-notes.md (first open seeds the CRDT
+		// from the blob). Resolved over the API like documents.e2e.ts.
+		const libraries = await (await page.request.get('/api/libraries')).json();
+		const travel = libraries.find((l: { name: string }) => l.name === 'Travel 2025');
+		expect(travel, 'seeded Travel 2025 library').toBeTruthy();
+		const listing = await (
+			await page.request.get(`/api/libraries/${travel.id}/files?limit=100`)
+		).json();
+		const doc = listing.entries.find((f: { name: string }) => f.name === 'trip-notes.md');
+		expect(doc, 'seeded trip-notes.md').toBeTruthy();
+
+		await page.goto(`/libraries/${travel.id}/doc/${doc.id}`);
+		await settle(page);
+		await expect(page.locator('.cm-content')).toContainText('Trip Notes', { timeout: 15_000 });
+		// The owner opens in "Edit" mode by default — click into Split explicitly
+		// so the baseline doesn't depend on that default.
+		await page.getByRole('tab', { name: 'Split', exact: true }).click();
+		await expect(page.getByTestId('markdown-preview')).toBeVisible({ timeout: 15_000 });
+		// Wait for the save queue to settle so the status label (and anything it
+		// affects) is in its final state before the shot.
+		await expect(page.getByTestId('doc-status')).toHaveText('All changes saved', {
+			timeout: 15_000
+		});
+
+		await expect(page).toHaveScreenshot('doc-editor.png', { mask: masks(page) });
+	});
+
 	// ── Interactive states ──────────────────────────────────────────────────────
 	test('state — create folder modal', async ({ page }) => {
-		test.skip(isMobile(), 'desktop toolbar labels');
+		// The Create dropdown renders identically at every breakpoint now, so
+		// this state is no longer desktop-only.
 		const id = await defaultLibraryId(page);
 		await page.goto(`/libraries/${id}`);
 		await settle(page);
-		await page.getByRole('button', { name: 'Folder' }).click();
+		await page.getByRole('button', { name: 'Create' }).click();
+		await page.getByRole('menuitem', { name: 'New folder' }).click();
 		await expect(page.getByText('Create Folder')).toBeVisible();
 		await expect(page).toHaveScreenshot('state-create-folder-modal.png', { mask: masks(page) });
 	});

@@ -137,10 +137,8 @@ describe('UploadProgress', () => {
 		expect(text).toContain('32%');
 		expect(text).toContain('photo.jpg');
 
-		const bars = Array.from(
-			screen.container.querySelectorAll<HTMLElement>('[role="progressbar"] > div')
-		);
-		expect(bars.some((b) => b.style.width === '32%')).toBe(true);
+		const bars = Array.from(screen.container.querySelectorAll<HTMLElement>('[role="progressbar"]'));
+		expect(bars.some((b) => b.getAttribute('aria-valuenow') === '32')).toBe(true);
 	});
 
 	it('shows a "complete" title once nothing is in flight', () => {

@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+// Real compiled Tailwind so getComputedStyle sees actual box dimensions — the
+// owner-avatar test below is the ORIGINAL repro site of the UserAvatar
+// elongation bug (a free-form `sizeClass="w-6"` inside this table's owner
+// column); it asserts RENDERED width/height, not class strings.
+import '../../../app.css';
 import LibraryEntriesTable from './LibraryEntriesTable.svelte';
 import type { LibraryEntry, LibraryFile, LibraryFolder } from '$lib/types/api';
 
@@ -115,7 +120,20 @@ describe('LibraryEntriesTable', () => {
 			props: baseProps({ entries: [makeFile()], isEntrySelected: () => true })
 		});
 		const row = screen.container.querySelector('tbody tr')!;
-		expect(row.className).toContain('bg-primary-500/20');
+		expect(row.className).toContain('bg-primary/20');
+	});
+
+	it('renders borderless rows that hover to a muted layer instead of a bordered box', async () => {
+		const screen = render(LibraryEntriesTable, {
+			props: baseProps({ entries: [makeFile()] })
+		});
+		const row = screen.container.querySelector('tbody tr')!;
+		expect(row.className).toContain('border-0');
+		expect(row.className).toContain('hover:bg-muted');
+		// No per-row divider utility left on the body (flat redesign: row
+		// separation comes from height + hover, not `divide-y`).
+		const body = screen.container.querySelector('tbody')!;
+		expect(body.className).not.toContain('divide-y');
 	});
 
 	it('applies drop-target styling on a folder', async () => {
@@ -230,6 +248,34 @@ describe('LibraryEntriesTable', () => {
 		});
 		const ownerCell = screen.container.querySelectorAll('tbody td')[3]!;
 		expect(ownerCell.textContent?.trim()).not.toBe('-');
+	});
+
+	// Elongation-bug regression net (the original repro site): the owner
+	// avatar used to pass a free-form `sizeClass="w-6"`, which tailwind-merge
+	// dropped the vendored Avatar.Root's base `size-8` for — leaving only a
+	// width with no height, so it stretched vertically inside this exact
+	// table cell. UserAvatar now takes a constrained `size` prop that always
+	// emits `size-*`; assert the RENDERED box, not class strings.
+	it('renders a perfectly circular (non-elongated) owner avatar in its table cell', async () => {
+		const screen = render(LibraryEntriesTable, {
+			props: baseProps({
+				entries: [makeFile({ owner: { id: 'u1', displayName: 'Alice', avatarUrl: null } })]
+			})
+		});
+		const avatarRoot = screen.container.querySelector<HTMLElement>('tbody [data-slot="avatar"]')!;
+		expect(avatarRoot).not.toBeNull();
+		// The owner column is `hidden sm:table-cell` and this suite's browser
+		// viewport is narrower than the `sm` breakpoint, so `getBoundingClientRect`
+		// would read 0×0 regardless of the fix. `getComputedStyle` still resolves
+		// the CASCADED (not just used/painted) width/height/radius for the
+		// explicit-length `size-*`/`rounded-full` classes even under a
+		// `display:none` ancestor — the real assertion this test exists for.
+		const cs = getComputedStyle(avatarRoot);
+		const width = parseFloat(cs.width);
+		const height = parseFloat(cs.height);
+		expect(width).toBeGreaterThan(0);
+		expect(width).toBe(height);
+		expect(parseFloat(cs.borderRadius)).toBeGreaterThanOrEqual(width / 2);
 	});
 
 	it('renders a dash when the entry has no owner', async () => {

@@ -9,6 +9,11 @@
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import AuthCardShell from '$lib/components/ui/AuthCardShell.svelte';
 	import OAuthGoogleButton from '$lib/components/ui/OAuthGoogleButton.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import * as Separator from '$lib/components/ui/separator/index.js';
 
 	let email = $state('');
 	let password = $state('');
@@ -51,71 +56,65 @@
 </script>
 
 <AuthCardShell title="Welcome back" subtitle="Sign in to your account to continue." {error}>
-	<form class="space-y-4" onsubmit={onSubmit}>
-		<label class="label">
-			<span class="label-text">Email</span>
-			<div class="input-group grid grid-cols-[auto_1fr] rounded-lg preset-filled-surface-100-900">
-				<span class="flex items-center justify-center pl-3 opacity-60">
+	<form class="flex flex-col gap-4" onsubmit={onSubmit}>
+		<Field.Field>
+			<Label for="login-email">Email</Label>
+			<InputGroup.Root>
+				<InputGroup.Addon>
 					<AppIcon name={ICONS.email} class="size-4" />
-				</span>
-				<input
-					class="bg-transparent px-2 py-2 outline-none"
+				</InputGroup.Addon>
+				<InputGroup.Input
+					id="login-email"
 					type="email"
 					bind:value={email}
 					placeholder="you@example.com"
-					aria-label="Email"
 					autocomplete="email"
 					required
 				/>
-			</div>
-		</label>
+			</InputGroup.Root>
+		</Field.Field>
 
-		<label class="label">
-			<span class="label-text">Password</span>
-			<div class="input-group grid grid-cols-[auto_1fr] rounded-lg preset-filled-surface-100-900">
-				<span class="flex items-center justify-center pl-3 opacity-60">
+		<Field.Field>
+			<Label for="login-password">Password</Label>
+			<InputGroup.Root>
+				<InputGroup.Addon>
 					<AppIcon name={ICONS.lock} class="size-4" />
-				</span>
-				<input
-					class="bg-transparent px-2 py-2 outline-none"
+				</InputGroup.Addon>
+				<InputGroup.Input
+					id="login-password"
 					type="password"
 					bind:value={password}
 					placeholder="••••••••"
-					aria-label="Password"
 					autocomplete="current-password"
 					required
 				/>
-			</div>
-		</label>
+			</InputGroup.Root>
+		</Field.Field>
 
-		<button
-			type="submit"
-			class="btn w-full justify-center preset-filled-primary-500 btn-lg"
-			disabled={submitting}
-		>
+		<Button type="submit" size="lg" class="w-full" disabled={submitting}>
 			{#if submitting}
 				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
 			{/if}
 			Sign in
-		</button>
+		</Button>
 	</form>
 
 	{#snippet footer()}
-		<div class="w-full space-y-4">
+		<div class="flex w-full flex-col gap-4">
 			{#if googleAuthEnabled}
-				<div class="space-y-4">
-					<div class="flex items-center gap-3 text-sm opacity-60">
-						<hr class="flex-1 border-surface-200-800" />
+				<div class="flex flex-col gap-4">
+					<div class="flex items-center gap-3 text-sm text-muted-foreground">
+						<Separator.Root class="flex-1" />
 						<span>or</span>
-						<hr class="flex-1 border-surface-200-800" />
+						<Separator.Root class="flex-1" />
 					</div>
 					<OAuthGoogleButton />
 				</div>
 			{/if}
 
-			<p class="text-center text-sm opacity-75">
+			<p class="text-center text-sm text-muted-foreground">
 				Don't have an account?
-				<a href={registerLink} class="font-medium text-primary-500 hover:underline">Sign up</a>
+				<a href={registerLink} class="font-medium text-primary hover:underline">Sign up</a>
 			</p>
 		</div>
 	{/snippet}

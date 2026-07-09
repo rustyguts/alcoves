@@ -11,9 +11,13 @@
 	 * transcription job (CPU-only, nothing leaves the instance).
 	 */
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import { ICONS } from '$lib/utils/icons';
+	import { cn } from '$lib/utils';
 	import type { VttCue } from '$lib/utils/parse-vtt';
 	import type { JobStatusButton } from '$lib/utils/job-status-button';
 
@@ -277,101 +281,108 @@
 			{#if onrunjob}
 				<Button
 					size="sm"
-					variant="tonal"
-					color="primary"
-					loading={jobButton?.loading ?? false}
-					disabled={jobButton?.disabled ?? false}
+					variant="secondary"
+					disabled={jobButton?.loading || jobButton?.disabled}
+					aria-busy={jobButton?.loading || undefined}
 					onclick={() => onrunjob?.()}
 				>
-					{#snippet icon()}
+					{#if jobButton?.loading}
+						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+					{:else}
 						<AppIcon name={ICONS.transcript} class="size-4" />
-					{/snippet}
+					{/if}
 					{jobButton?.label ?? 'Transcribe'}
 				</Button>
 			{/if}
 		{/snippet}
 	</EmptyState>
 {:else}
-	<div class="flex flex-col" data-testid="transcript-panel">
-		<div class="flex items-center gap-1 border-b border-surface-200-800 pb-0">
+	<div class="flex flex-col gap-2" data-testid="transcript-panel">
+		<div class="flex items-center gap-1">
 			<button
 				type="button"
-				class="rounded-t-md border-b-2 px-2.5 py-1 text-xs font-medium transition-colors {tab ===
-				'cues'
-					? 'border-primary-500 text-primary-500'
-					: 'border-transparent text-surface-600-400 hover:text-surface-950-50'}"
+				class={cn(
+					'rounded-t-md border-b-2 px-2.5 py-1 text-xs font-medium transition-colors',
+					tab === 'cues'
+						? 'border-primary text-primary'
+						: 'border-transparent text-muted-foreground hover:text-foreground'
+				)}
 				onclick={() => (tab = 'cues')}
 			>
 				Cues
 			</button>
 			<button
 				type="button"
-				class="rounded-t-md border-b-2 px-2.5 py-1 text-xs font-medium transition-colors {tab ===
-				'top'
-					? 'border-primary-500 text-primary-500'
-					: 'border-transparent text-surface-600-400 hover:text-surface-950-50'}"
+				class={cn(
+					'rounded-t-md border-b-2 px-2.5 py-1 text-xs font-medium transition-colors',
+					tab === 'top'
+						? 'border-primary text-primary'
+						: 'border-transparent text-muted-foreground hover:text-foreground'
+				)}
 				onclick={() => (tab = 'top')}
 			>
 				Top words
 			</button>
 			<span class="flex-1"></span>
-			<span class="badge preset-tonal-surface text-xs">{cues.length} cues</span>
+			<Badge variant="secondary">{cues.length} cues</Badge>
 		</div>
 
 		{#if tab === 'cues'}
-			<div class="flex flex-col">
-				<div class="flex items-center gap-2 border-b border-surface-200-800 px-1 py-2">
-					<AppIcon name={ICONS.search} class="size-3.5 shrink-0 text-surface-600-400" />
-					<input
-						bind:value={search}
-						type="text"
-						placeholder="Search transcript…"
-						class="flex-1 bg-transparent text-sm outline-none placeholder:text-surface-600-400"
-					/>
-					{#if search}
-						<button
-							type="button"
-							class="text-surface-600-400 hover:text-surface-950-50"
-							aria-label="Clear search"
-							onclick={() => (search = '')}
-						>
-							<AppIcon name={ICONS.close} class="size-3.5" />
-						</button>
-					{/if}
-					<span class="shrink-0 text-[11px] text-surface-600-400 tabular-nums">
-						{filteredCues.length}/{cues.length}
-					</span>
+			<div class="flex flex-col gap-2">
+				<div>
+					<InputGroup.Root>
+						<InputGroup.Addon>
+							<AppIcon name={ICONS.search} class="size-3.5 text-muted-foreground" />
+						</InputGroup.Addon>
+						<InputGroup.Input
+							bind:value={search}
+							type="text"
+							placeholder="Search transcript…"
+							aria-label="Search transcript"
+						/>
+						<InputGroup.Addon align="inline-end" class="gap-1.5">
+							<span class="text-[11px] text-muted-foreground tabular-nums">
+								{filteredCues.length}/{cues.length}
+							</span>
+							{#if search}
+								<InputGroup.Button
+									size="icon-xs"
+									aria-label="Clear search"
+									onclick={() => (search = '')}
+								>
+									<AppIcon name={ICONS.close} class="size-3.5" />
+								</InputGroup.Button>
+							{/if}
+						</InputGroup.Addon>
+					</InputGroup.Root>
 				</div>
 
 				{#if filteredCues.length > 0}
-					<ul bind:this={listRef} class="flex flex-col divide-y divide-surface-200-800">
+					<ul bind:this={listRef} class="flex flex-col gap-0.5">
 						{#each filteredCues as cue, idx (`${cue.startSeconds}-${idx}`)}
 							<li
-								class="transition-colors {idx === activeIndex
-									? 'border-l-2 border-primary-500 bg-primary-500/10'
-									: 'border-l-2 border-transparent hover:bg-surface-200-800/40'}"
+								class={cn(
+									'rounded-lg transition-colors',
+									idx === activeIndex ? 'bg-primary/10' : 'hover:bg-accent'
+								)}
 							>
 								<button
 									type="button"
-									class="flex w-full items-start gap-3 px-2 py-2 text-left"
+									class="flex w-full items-start gap-3 px-3 py-2.5 text-left"
 									onclick={() => onseek?.(cue.startSeconds)}
 								>
 									<span
-										class="mt-0.5 flex shrink-0 items-center gap-1 text-[11px] tabular-nums {idx ===
-										activeIndex
-											? 'font-semibold text-primary-500'
-											: 'text-surface-600-400'}"
+										class={cn(
+											'mt-0.5 flex shrink-0 items-center gap-1 text-[11px] tabular-nums',
+											idx === activeIndex ? 'font-semibold text-primary' : 'text-muted-foreground'
+										)}
 									>
 										{#if idx === activeIndex}
 											<AppIcon name={ICONS.play} class="size-2.5" />
 										{/if}
 										{formatTime(cue.startSeconds)}
 									</span>
-									<span
-										class="text-sm leading-snug {idx === activeIndex
-											? 'text-surface-950-50'
-											: 'text-surface-950-50/90'}"
-									>
+									<span class="text-sm leading-snug">
 										{cue.text}
 									</span>
 								</button>
@@ -379,55 +390,61 @@
 						{/each}
 					</ul>
 				{:else}
-					<p class="px-3 py-4 text-center text-xs text-surface-600-400">
+					<p class="px-3 py-4 text-center text-xs text-muted-foreground">
 						No matches for "{search}".
 					</p>
 				{/if}
 			</div>
 		{:else}
-			<div class="flex flex-col">
-				<div
-					class="flex items-center justify-between gap-2 border-b border-surface-200-800 px-1 py-2"
-				>
-					<p class="text-[11px] text-surface-600-400">
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2">
+					<p class="text-[11px] text-muted-foreground">
 						Most-spoken words (stopwords excluded). Click to filter cues.
 					</p>
-					<label class="flex items-center gap-1.5 text-[11px] text-surface-600-400">
+					<label class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
 						<span>Top</span>
-						<select
-							bind:value={topCount}
-							class="select rounded border border-surface-200-800 px-1 py-0.5 text-xs tabular-nums outline-none focus:border-primary-500"
+						<Select.Root
+							type="single"
+							value={String(topCount)}
+							onValueChange={(v) => v && (topCount = Number(v))}
 						>
-							{#each COUNT_OPTIONS as n (n)}
-								<option value={n}>{n}</option>
-							{/each}
-						</select>
+							<Select.Trigger
+								size="sm"
+								class="h-7 px-1.5 text-xs tabular-nums"
+								aria-label="Top word count"
+							>
+								{topCount}
+							</Select.Trigger>
+							<Select.Content>
+								{#each COUNT_OPTIONS as n (n)}
+									<Select.Item value={String(n)} label={String(n)} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
 					</label>
 				</div>
 
 				{#if topWords.length > 0}
-					<ul class="flex flex-col divide-y divide-surface-200-800">
+					<ul class="flex flex-col gap-0.5">
 						{#each topWords as w, idx (w.word)}
-							<li class="transition-colors hover:bg-surface-200-800/40">
+							<li class="rounded-lg transition-colors hover:bg-accent">
 								<button
 									type="button"
-									class="flex w-full items-center gap-3 px-2 py-2 text-left"
+									class="flex w-full items-center gap-3 px-3 py-2.5 text-left"
 									onclick={() => pickWord(w.word)}
 								>
-									<span class="w-6 shrink-0 text-[11px] text-surface-600-400 tabular-nums">
+									<span class="w-6 shrink-0 text-[11px] text-muted-foreground tabular-nums">
 										{idx + 1}.
 									</span>
 									<span class="flex-1 truncate text-sm font-medium">{w.word}</span>
 									<div class="flex w-32 shrink-0 items-center gap-2">
-										<div
-											class="relative h-1.5 flex-1 overflow-hidden rounded-full bg-surface-200-800/70"
-										>
+										<div class="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
 											<div
-												class="absolute inset-y-0 left-0 rounded-full bg-primary-500"
+												class="absolute inset-y-0 left-0 rounded-full bg-primary"
 												style="width: {maxWordCount > 0 ? (w.count / maxWordCount) * 100 : 0}%;"
 											></div>
 										</div>
-										<span class="w-8 text-right text-[11px] text-surface-600-400 tabular-nums">
+										<span class="w-8 text-right text-[11px] text-muted-foreground tabular-nums">
 											{w.count}
 										</span>
 									</div>
@@ -436,7 +453,7 @@
 						{/each}
 					</ul>
 				{:else}
-					<p class="px-3 py-4 text-center text-xs text-surface-600-400">No words to count.</p>
+					<p class="px-3 py-4 text-center text-xs text-muted-foreground">No words to count.</p>
 				{/if}
 			</div>
 		{/if}

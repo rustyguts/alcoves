@@ -10,6 +10,11 @@
 	import DocEditorHeader, { type DocViewMode } from '$lib/components/doc/DocEditorHeader.svelte';
 	import MarkdownEditor from '$lib/components/doc/MarkdownEditor.svelte';
 	import MarkdownPreview from '$lib/components/doc/MarkdownPreview.svelte';
+	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import * as Alert from '$lib/components/ui/alert/index.js';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import { ICONS } from '$lib/utils/icons';
+	import { cn } from '$lib/utils';
 	import type { LibraryFile } from '$lib/types/api';
 
 	const libraryId = $derived(page.params.id ?? '');
@@ -81,18 +86,21 @@
 	/>
 
 	{#if provider.loadError}
-		<div class="rounded-lg preset-tonal-error p-4 text-sm" data-testid="doc-error">
-			Failed to open this document: {provider.loadError}
-		</div>
+		<Alert.Root variant="destructive" data-testid="doc-error">
+			<AppIcon name={ICONS.error} class="size-4 shrink-0" />
+			<Alert.Title>Failed to open this document</Alert.Title>
+			<Alert.Description>{provider.loadError}</Alert.Description>
+		</Alert.Root>
 	{:else if !provider.loaded}
 		<div class="grid flex-1 place-items-center">
-			<div class="h-6 placeholder w-48 animate-pulse rounded"></div>
+			<Skeleton class="h-6 w-48" />
 		</div>
 	{:else}
 		<div
-			class="min-h-0 flex-1 overflow-hidden card preset-outlined-surface-200-800 {mode === 'split'
-				? 'grid grid-cols-2 divide-x divide-surface-300-700'
-				: ''}"
+			class={cn(
+				'min-h-0 flex-1 overflow-hidden rounded-xl bg-card text-card-foreground shadow-xs',
+				mode === 'split' && 'grid grid-cols-2 divide-x divide-border'
+			)}
 		>
 			{#if mode === 'edit' || mode === 'split'}
 				<!-- Keyed on generation: a resync replaces the Y.Doc, and

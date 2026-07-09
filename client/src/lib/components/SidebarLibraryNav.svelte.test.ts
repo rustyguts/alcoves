@@ -174,20 +174,24 @@ describe('SidebarLibraryNav', () => {
 		const screen = render(SidebarLibraryNav, {
 			props: { libraries: [lib({ isDefault: true })], user: owner, oncreate }
 		});
-		// Open the switcher popover, then click its "New library" action.
+		// Open the switcher dropdown, then click its "New library" action. The
+		// dropdown content is portalled to `document.body`, and its rows are
+		// `role="menuitem"` elements, not `<button>`s.
 		const trigger = screen.container.querySelector('button[aria-haspopup]') as HTMLButtonElement;
 		expect(trigger).not.toBeNull();
 		trigger.click();
 		await vi.waitFor(() => {
-			const createBtn = Array.from(screen.container.querySelectorAll('button')).find((b) =>
-				b.textContent?.includes('New library')
-			);
+			const createBtn = Array.from(
+				document.querySelectorAll<HTMLElement>('[role="menuitem"]')
+			).find((b) => b.textContent?.includes('New library'));
 			expect(createBtn).toBeTruthy();
 		});
-		const createBtn = Array.from(screen.container.querySelectorAll('button')).find((b) =>
-			b.textContent?.includes('New library')
-		) as HTMLButtonElement;
+		const createBtn = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(b) => b.textContent?.includes('New library')
+		) as HTMLElement;
 		createBtn.click();
-		expect(oncreate).toHaveBeenCalledOnce();
+		await vi.waitFor(() => {
+			expect(oncreate).toHaveBeenCalledOnce();
+		});
 	});
 });

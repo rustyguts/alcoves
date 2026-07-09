@@ -9,6 +9,7 @@
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import NotificationItem from '$lib/components/notifications/NotificationItem.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
 
 	let unsubscribe: (() => void) | null = null;
 
@@ -52,25 +53,21 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
-	<div class="border-b border-surface-200-800 px-4 py-3">
+<div class="flex h-full flex-col gap-4">
+	<div class="px-0.5">
 		<PageHeader title="Notifications" description="Activity across all your libraries.">
 			{#snippet actions()}
 				{#if notifications.entries.length > 0}
-					<button
-						type="button"
-						class="text-sm text-surface-600-400 underline hover:text-surface-950-50"
-						onclick={() => notifications.dismissAll()}
-					>
+					<Button variant="ghost" size="sm" onclick={() => notifications.dismissAll()}>
 						Dismiss all
-					</button>
+					</Button>
 				{/if}
 			{/snippet}
 		</PageHeader>
 	</div>
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#if notifications.loading && notifications.entries.length === 0}
-			<div class="px-4 py-8 text-center text-sm text-surface-600-400">
+			<div class="px-4 py-8 text-center text-sm text-muted-foreground">
 				<AppIcon name={ICONS.loading} class="inline-block size-5 animate-spin" />
 				<p class="mt-2">Loading…</p>
 			</div>
@@ -82,13 +79,13 @@
 			/>
 		{:else}
 			{#each groupedByLibrary as lib (lib.libraryId)}
-				<section class="border-b border-surface-200-800">
+				<section class="mb-4">
 					<header
-						class="px-4 pt-3 pb-1 text-xs font-semibold tracking-wide text-surface-600-400 uppercase"
+						class="px-3 pt-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
 					>
 						{lib.libraryName}
 					</header>
-					<div class="divide-y divide-surface-200-800">
+					<div>
 						{#each lib.groups as g (g.head.id)}
 							<NotificationItem
 								group={g}
@@ -104,14 +101,14 @@
 		{/if}
 		{#if notifications.nextCursor}
 			<div class="px-4 py-4 text-center">
-				<button
-					type="button"
-					class="text-sm text-primary-500 hover:underline"
+				<Button
+					variant="link"
+					size="sm"
 					disabled={notifications.loadingMore}
 					onclick={() => notifications.loadMore()}
 				>
 					{notifications.loadingMore ? 'Loading…' : 'Load older'}
-				</button>
+				</Button>
 			</div>
 		{/if}
 	</div>

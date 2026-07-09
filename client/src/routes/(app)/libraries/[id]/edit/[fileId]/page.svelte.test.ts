@@ -534,7 +534,8 @@ function makeDetection(id: string, over: Partial<AudioDetection> = {}): AudioDet
 	};
 }
 
-// Skeleton dialogs portal to document.body and mount on a MACROTASK — plain
+// bits-ui dialogs/alert-dialogs portal their content to document.body and
+// their open transition settles a beat after the triggering click — plain
 // tick()/microtasks are not enough.
 async function flush() {
 	await tick();
@@ -572,25 +573,21 @@ async function selectFirstListMoment(screen: { container: HTMLElement }) {
 	});
 }
 
-// The ConfirmModal's confirm button carries the error preset (its confirmClass
-// is `btn-error`), distinguishing it from the form's tonal-error Delete button.
-// The dialog portals to document.body, so search there.
+// bits-ui's AlertDialog.Content (ConfirmModal) is portalled to document.body
+// and unmounts entirely while closed, so its action/cancel buttons carry
+// stable data-slot hooks (see AppModal/ConfirmModal.svelte.test.ts) instead
+// of needing a class/text filter — and there's never more than one live
+// instance to disambiguate.
 function confirmModalDeleteButton(): HTMLButtonElement | undefined {
-	// A just-closed dialog's portal can linger in document.body for a beat after
-	// unmount; portals append, so the LAST match is the live one.
-	return Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'))
-		.filter(
-			(b) => b.className.includes('preset-filled-error-500') && b.textContent?.trim() === 'Delete'
-		)
-		.at(-1);
+	return (
+		document.querySelector<HTMLButtonElement>('[data-slot="alert-dialog-action"]') ?? undefined
+	);
 }
 
-// The ConfirmModal's dismiss button is the plain 'Cancel'; like the delete
-// button, portals append so the LAST match is the live dialog's.
 function confirmModalCancelButton(): HTMLButtonElement | undefined {
-	return Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'))
-		.filter((b) => b.textContent?.trim() === 'Cancel')
-		.at(-1);
+	return (
+		document.querySelector<HTMLButtonElement>('[data-slot="alert-dialog-cancel"]') ?? undefined
+	);
 }
 
 function stubPointerCapture(el: Element) {

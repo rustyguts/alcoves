@@ -2,7 +2,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { Dialog, Popover } from '@skeletonlabs/skeleton-svelte';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/state/auth.svelte';
 	import { registerLibrariesRefresh } from '$lib/state/libraries-list.svelte';
@@ -16,31 +18,21 @@
 	import type { LayoutProps } from './$types';
 
 	/**
-	 * Authenticated dashboard shell. Desktop fixed sidebar + a mobile drawer (a
-	 * left-anchored Skeleton Dialog), both rendering `SidebarLibraryNav` from
-	 * `data.libraries`. The header holds the mobile menu toggle, a global search
-	 * form that navigates to `/search?q=…`, the notification bell, and a user menu
-	 * popover. Ported faithfully from the Nuxt `dashboard.vue` layout — but reads
-	 * the shell data from the `(app)` layout load (`data.user`/`data.libraries`)
+	 * Authenticated dashboard shell, built on shadcn-svelte's `Sidebar.Provider`.
+	 * The mobile drawer (a Sheet) and the desktop fixed panel are the SAME
+	 * `Sidebar.Root` markup — the primitive swaps between them internally via the
+	 * `is-mobile` hook, so `SidebarLibraryNav` renders once and is shared between
+	 * both. The header holds the mobile sidebar trigger, a global search form
+	 * that navigates to `/search?q=…`, the notification bell, and a user menu.
+	 * Ported faithfully from the Nuxt `dashboard.vue` layout — but reads the
+	 * shell data from the `(app)` layout load (`data.user`/`data.libraries`)
 	 * instead of refetching, and refreshes via `invalidateAll()`.
 	 */
 	let { data, children }: LayoutProps = $props();
 
-	let sidebarOpen = $state(false);
-	let userMenuOpen = $state(false);
-
 	// Search box: seeded from the URL's `q` and re-synced as navigation changes the
 	// query string, yet still user-editable (writable derived) before submit.
 	let globalSearchQuery = $derived(page.url.searchParams.get('q') ?? '');
-
-	// Close the mobile drawer whenever the route changes so tapping a sidebar link
-	// doesn't leave the overlay covering the page.
-	$effect(() => {
-		// Read the path so it registers as a dependency, then close the drawer.
-		const _path = page.url.pathname;
-		void _path;
-		sidebarOpen = false;
-	});
 
 	// Let any page trigger a sidebar library-list refresh without prop-drilling.
 	onMount(() => {
@@ -63,150 +55,98 @@
 	}
 
 	async function signOut() {
-		userMenuOpen = false;
 		await auth.logout();
 	}
 
 	const displayName = $derived(data.user?.displayName ?? 'User');
 </script>
 
-<div class="flex h-dvh overflow-hidden bg-surface-50-950">
-	<!-- Mobile sidebar drawer -->
-	<Dialog open={sidebarOpen} onOpenChange={(e) => (sidebarOpen = e.open)}>
-		<Dialog.Backdrop class="fixed inset-0 z-40 bg-surface-950/50 backdrop-blur-sm lg:hidden" />
-		<Dialog.Positioner class="fixed inset-y-0 left-0 z-50 flex lg:hidden">
-			<Dialog.Content
-				class="flex h-full w-72 flex-col border-r border-surface-200-800 preset-filled-surface-50-950"
-			>
-				<a href="/" class="block px-5 py-4" onclick={() => (sidebarOpen = false)}>
-					<div class="flex items-center gap-3">
-						<img src="/logo.webp" alt="Alcoves" width="32" height="32" class="rounded-lg" />
-						<span class="text-lg font-bold tracking-tight">Alcoves</span>
-					</div>
-				</a>
-				<SidebarLibraryNav
-					libraries={data.libraries}
-					user={data.user}
-					currentPath={page.url.pathname}
-					librariesError={data.librariesError}
-					oncreate={createLibrary}
-				/>
-			</Dialog.Content>
-		</Dialog.Positioner>
-	</Dialog>
-
-	<!-- Desktop sidebar -->
-	<aside
-		class="hidden h-full w-64 flex-col overflow-hidden border-r border-surface-200-800 preset-filled-surface-50-950 lg:flex"
-	>
-		<a href="/" class="block px-5 py-4">
-			<div class="flex items-center gap-3">
+<!-- F18 rework: seed `open` from the SSR-read sidebar_state cookie (see
+     +layout.server.ts) so desktop collapse survives reload/SSR nav instead of
+     resetting to the primitive's default-open every time. -->
+<Sidebar.Provider class="h-dvh overflow-hidden" open={data.sidebarOpen}>
+	<Sidebar.Root>
+		<Sidebar.Header>
+			<a href="/" class="flex items-center gap-3">
 				<img src="/logo.webp" alt="Alcoves" width="32" height="32" class="rounded-lg" />
 				<span class="text-lg font-bold tracking-tight">Alcoves</span>
-			</div>
-		</a>
-		<SidebarLibraryNav
-			libraries={data.libraries}
-			user={data.user}
-			currentPath={page.url.pathname}
-			librariesError={data.librariesError}
-			oncreate={createLibrary}
-		/>
-	</aside>
+			</a>
+		</Sidebar.Header>
+		<Sidebar.Content>
+			<SidebarLibraryNav
+				libraries={data.libraries}
+				user={data.user}
+				currentPath={page.url.pathname}
+				librariesError={data.librariesError}
+				oncreate={createLibrary}
+			/>
+		</Sidebar.Content>
+	</Sidebar.Root>
 
-	<!-- Main column -->
-	<div class="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-		<!-- Header -->
+	<Sidebar.Inset class="min-h-0 min-w-0 overflow-hidden">
 		<!-- relative z-40 gives the header (and its dropdowns) a stacking context
-		     above the page content — e.g. the library table's sticky thead (z-30). -->
-		<header
-			class="relative z-40 flex h-16 shrink-0 items-center gap-3 border-b border-surface-200-800 preset-filled-surface-50-950 px-4 lg:px-6"
-		>
-			<button
-				type="button"
-				class="btn-icon preset-tonal lg:hidden"
-				aria-label="Open sidebar"
-				onclick={() => (sidebarOpen = true)}
-			>
-				<AppIcon name={ICONS.menu} class="size-5" />
-			</button>
+		     above the page content — e.g. the library table's sticky thead (z-30).
+		     No border-b: the header doesn't overlay scrolling content (main scrolls
+		     in its own container below), so a routine divider isn't earning its
+		     keep here — layering (bg-background) is enough. -->
+		<header class="relative z-40 flex h-16 shrink-0 items-center gap-3 bg-background px-4 md:px-6">
+			<Sidebar.Trigger aria-label="Open sidebar" size="icon-lg" class="md:hidden" />
 
-			<!-- Fills the header on mobile (capped only at lg); a plain flex row (no
-			     input-group) so there's no vertical divider between icon and input. -->
+			<!-- Fills the header on mobile (capped only at md). Stock InputGroup so
+			     the search box keeps its bordered form affordance (inputs/selects
+			     keep their stock border per the flat-redesign design language). -->
 			<form
-				class="min-w-0 flex-1 lg:max-w-lg"
+				class="min-w-0 flex-1 md:max-w-lg"
 				onsubmit={(e) => {
 					e.preventDefault();
 					submitGlobalSearch();
 				}}
 			>
-				<label
-					class="flex items-center rounded-lg preset-filled-surface-100-900 focus-within:ring-2 focus-within:ring-primary-500/40"
-				>
-					<span class="flex shrink-0 items-center justify-center pr-2.5 pl-3 opacity-60">
-						<AppIcon name={ICONS.search} class="size-4" />
-					</span>
-					<input
+				<InputGroup.Root>
+					<InputGroup.Addon>
+						<AppIcon name={ICONS.search} />
+					</InputGroup.Addon>
+					<InputGroup.Input
 						bind:value={globalSearchQuery}
 						type="search"
 						placeholder="Search everything…"
 						aria-label="Search everything"
-						class="min-w-0 flex-1 bg-transparent py-2 pr-3 outline-none"
 					/>
-				</label>
+				</InputGroup.Root>
 			</form>
 
 			<!-- Desktop-only spacer: pushes the bell/avatar right while the search stays
 			     capped. On mobile the spacer is gone so the search can fill the row. -->
-			<div class="hidden flex-1 lg:block"></div>
+			<div class="hidden flex-1 md:block"></div>
 
 			<NotificationBell />
 
-			<Popover
-				open={userMenuOpen}
-				onOpenChange={(e) => (userMenuOpen = e.open)}
-				positioning={{ placement: 'bottom-end' }}
-			>
-				<Popover.Trigger
-					class="rounded-md p-1 transition-colors hover:preset-tonal"
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger
+					class="rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
 					aria-label="User menu"
 				>
-					<UserAvatar {displayName} avatarUrl={data.user?.avatarUrl ?? null} sizeClass="w-8" />
-				</Popover.Trigger>
-				<Popover.Positioner class="z-50">
-					<Popover.Content
-						class="w-56 space-y-1 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-1 shadow-xl"
-					>
-						<div class="flex items-center gap-2 px-2.5 py-2">
-							<UserAvatar {displayName} avatarUrl={data.user?.avatarUrl ?? null} sizeClass="w-7" />
-							<span class="min-w-0 flex-1 truncate text-sm font-semibold">{displayName}</span>
-						</div>
+					<UserAvatar {displayName} avatarUrl={data.user?.avatarUrl ?? null} size="md" />
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end" class="w-56">
+					<div class="flex items-center gap-2 px-2 py-1.5">
+						<UserAvatar {displayName} avatarUrl={data.user?.avatarUrl ?? null} size="sm" />
+						<span class="min-w-0 flex-1 truncate text-sm font-semibold">{displayName}</span>
+					</div>
 
-						<hr class="my-1 border-surface-200-800" />
+					<DropdownMenu.Separator />
 
-						<button
-							type="button"
-							class="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:preset-tonal"
-							onclick={() => {
-								userMenuOpen = false;
-								goto('/profile');
-							}}
-						>
-							<AppIcon name={ICONS.user} class="size-4 shrink-0 opacity-60" />
-							<span>Profile</span>
-						</button>
+					<DropdownMenu.Item onSelect={() => goto('/profile')}>
+						<AppIcon name={ICONS.user} class="opacity-60" />
+						<span>Profile</span>
+					</DropdownMenu.Item>
 
-						<button
-							type="button"
-							class="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-error-500 hover:preset-tonal"
-							onclick={signOut}
-						>
-							<AppIcon name={ICONS.signOut} class="size-4 shrink-0" />
-							<span>Sign out</span>
-						</button>
-					</Popover.Content>
-				</Popover.Positioner>
-			</Popover>
+					<DropdownMenu.Item variant="destructive" onSelect={signOut}>
+						<AppIcon name={ICONS.signOut} />
+						<span>Sign out</span>
+					</DropdownMenu.Item>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
 		</header>
 
 		<!-- Page content -->
@@ -215,8 +155,8 @@
 				{@render children()}
 			</div>
 		</main>
-	</div>
-</div>
+	</Sidebar.Inset>
+</Sidebar.Provider>
 
 <!-- App-wide upload progress: pinned bottom-right, persists across navigation. -->
 <UploadProgress />

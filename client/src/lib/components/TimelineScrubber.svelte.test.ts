@@ -22,6 +22,21 @@ describe('TimelineScrubber', () => {
 		expect(years).toEqual(['2026', '2025', '2024']);
 	});
 
+	it('paints year labels above the rail rules with an opaque backdrop', async () => {
+		// Regression guard for the strike-through defect: the slider handle is a
+		// full-width rule rendered AFTER the labels in DOM order, so the labels
+		// need an explicit z-index and a fully opaque background to stay legible
+		// when the handle (at 0% on load) or a density blip sits underneath.
+		const screen = render(TimelineScrubber, { props: { buckets: BUCKETS, progress: 0 } });
+		const labels = [...screen.container.querySelectorAll('button')];
+		expect(labels.length).toBeGreaterThan(0);
+		for (const btn of labels) {
+			expect(btn.className).toContain('z-10');
+			expect(btn.className).toContain('bg-background');
+			expect(btn.className).not.toContain('bg-background/');
+		}
+	});
+
 	it('renders one density blip per bucket', async () => {
 		const screen = render(TimelineScrubber, { props: { buckets: BUCKETS, progress: 0 } });
 		const blips = screen.container.querySelectorAll("span[aria-hidden='true']");

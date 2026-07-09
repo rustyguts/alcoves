@@ -18,37 +18,49 @@ describe('AppPanel', () => {
 		expect(screen.container.querySelector('svg')).not.toBeNull();
 	});
 
-	it('renders body children inside a padded body by default', async () => {
+	it('renders body children inside a padded well by default', async () => {
 		const screen = render(AppPanel, {
 			props: { title: 'Box', children: text('hello body') }
 		});
 		await expect.element(screen.getByText('hello body')).toBeInTheDocument();
-		const body = screen.container.querySelector('.card > div:last-child');
+		const body = screen.container.querySelector('[data-slot="app-panel-body"]');
 		expect(body?.className).toContain('p-4');
+		expect(body?.className).toContain('bg-muted/50');
+		expect(body?.className).toContain('rounded-xl');
+	});
+
+	it('has no bordered card box on the root (flat redesign: layers, not borders)', async () => {
+		const screen = render(AppPanel, {
+			props: { title: 'Flat', children: text('x') }
+		});
+		const panel = screen.container.querySelector('[data-slot="app-panel"]')!;
+		expect(panel.className).not.toContain('border');
+		expect(panel.className).not.toContain('bg-card');
 	});
 
 	it('omits the header entirely when nothing header-related is provided', async () => {
 		const screen = render(AppPanel, { props: { children: text('just a body') } });
 		expect(screen.container.querySelector('h2')).toBeNull();
-		// Only the body div should exist under the card.
-		const card = screen.container.querySelector('.card')!;
-		expect(card.children.length).toBe(1);
+		// Only the body div should exist under the panel.
+		const panel = screen.container.querySelector('[data-slot="app-panel"]')!;
+		expect(panel.children.length).toBe(1);
 	});
 
-	it('applies flush (p-0) when requested', async () => {
+	it('applies flush (p-0) when requested, keeping the well', async () => {
 		const screen = render(AppPanel, {
 			props: { title: 'Flush', flush: true, children: text('x') }
 		});
-		const body = screen.container.querySelector('.card > div:last-child');
+		const body = screen.container.querySelector('[data-slot="app-panel-body"]');
 		expect(body?.className).toContain('p-0');
 		expect(body?.className).not.toContain('p-4');
+		expect(body?.className).toContain('bg-muted/50');
 	});
 
 	it('lets bodyClass override flush', async () => {
 		const screen = render(AppPanel, {
 			props: { title: 'Custom', flush: true, bodyClass: 'px-6 py-8', children: text('x') }
 		});
-		const body = screen.container.querySelector('.card > div:last-child');
+		const body = screen.container.querySelector('[data-slot="app-panel-body"]');
 		expect(body?.className).toContain('px-6');
 		expect(body?.className).toContain('py-8');
 		expect(body?.className).not.toContain('p-0');

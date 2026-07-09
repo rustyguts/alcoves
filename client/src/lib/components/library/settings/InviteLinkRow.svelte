@@ -3,6 +3,8 @@
 	import type { LibraryInviteLink } from '$lib/types/api';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
 
 	interface Props {
 		invite: LibraryInviteLink;
@@ -35,44 +37,42 @@
 	const uses = $derived(invite.uses ?? []);
 </script>
 
-<div class="flex flex-col gap-2 px-3 py-3">
+<div class="flex flex-col gap-2 px-3 py-3 transition-colors hover:bg-muted/60">
 	<div class="flex flex-col gap-3 md:flex-row md:items-center">
 		<div class="min-w-0 flex-1">
 			<p class="truncate text-sm font-medium">{invite.inviteUrl}</p>
-			<div class="flex flex-wrap items-center gap-2 text-xs opacity-75">
+			<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 				<span>{usageLabel}</span>
 				<span>·</span>
 				<span>{expiresLabel}</span>
 				{#if isExhausted}
-					<span class="badge preset-tonal-warning">Exhausted</span>
+					<Badge variant="outline" class="border-transparent bg-warning/10 text-warning">
+						Exhausted
+					</Badge>
 				{/if}
 				{#if isExpired}
-					<span class="badge preset-tonal-error">Expired</span>
+					<Badge variant="destructive">Expired</Badge>
 				{/if}
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
 			{#if uses.length}
-				<button
-					type="button"
-					class="btn gap-1 preset-tonal-surface btn-sm"
-					onclick={() => (expanded = !expanded)}
-				>
+				<Button variant="ghost" size="sm" onclick={() => (expanded = !expanded)}>
 					<AppIcon name={expanded ? ICONS.chevronUp : ICONS.chevronDown} class="size-4" />
 					{uses.length}
-				</button>
+				</Button>
 			{/if}
-			<button
-				type="button"
-				class="btn-icon btn-icon-sm preset-tonal-surface"
+			<Button
+				variant="ghost"
+				size="icon-sm"
 				aria-label="Copy invite link"
 				onclick={() => oncopy?.(invite.inviteUrl)}
 			>
 				<AppIcon name={ICONS.copy} class="size-4" />
-			</button>
-			<button
-				type="button"
-				class="btn-icon btn-icon-sm preset-tonal-error"
+			</Button>
+			<Button
+				variant="destructive"
+				size="icon-sm"
 				aria-label="Revoke invite link"
 				disabled={revoking}
 				onclick={() => onrevoke?.(invite.id)}
@@ -82,23 +82,19 @@
 				{:else}
 					<AppIcon name={ICONS.trash} class="size-4" />
 				{/if}
-			</button>
+			</Button>
 		</div>
 	</div>
 	{#if expanded && uses.length}
-		<div class="space-y-2 rounded-md border border-surface-200-800 bg-surface-100-900/30 px-3 py-2">
+		<div class="space-y-2 rounded-lg bg-muted/50 px-3 py-2">
 			{#each uses as u, idx (idx)}
 				<div class="flex items-center gap-2 text-xs">
-					<UserAvatar
-						displayName={u.user.displayName}
-						avatarUrl={u.user.avatarUrl}
-						sizeClass="w-6"
-					/>
+					<UserAvatar displayName={u.user.displayName} avatarUrl={u.user.avatarUrl} size="xs" />
 					<div class="min-w-0 flex-1">
 						<p class="truncate">{u.user.displayName}</p>
-						<p class="truncate opacity-75">{u.user.email}</p>
+						<p class="truncate text-muted-foreground">{u.user.email}</p>
 					</div>
-					<span class="opacity-75">{new Date(u.usedAt).toLocaleString()}</span>
+					<span class="text-muted-foreground">{new Date(u.usedAt).toLocaleString()}</span>
 				</div>
 			{/each}
 		</div>

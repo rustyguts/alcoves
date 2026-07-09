@@ -96,7 +96,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	bind:this={rowEl}
-	class="waveform-row relative cursor-pointer touch-none border-t border-surface-300-700 bg-surface-200-800/40"
+	class="waveform-row relative cursor-pointer touch-none border-t bg-muted/40"
 	style="width: {viewportWidth}px; height: {WAVEFORM_HEIGHT}px;"
 	data-testid="waveform-track"
 	onpointerdown={onPointerDown}
@@ -110,11 +110,11 @@
 		style="width: {viewportWidth}px; height: {WAVEFORM_HEIGHT}px;"
 	></canvas>
 	<span
-		class="pointer-events-none absolute top-1 left-1 rounded bg-surface-100-900/80 px-1 text-[9px] font-medium tracking-wide text-surface-500 uppercase"
+		class="pointer-events-none absolute top-1 left-1 rounded bg-muted/80 px-1 text-[9px] font-medium tracking-wide text-muted-foreground uppercase"
 	>
 		Audio
 	</span>
-	<!-- Viewport-pinned playhead -->
+	<!-- Viewport-pinned playhead — same deliberate blue accent as the ruler. -->
 	<div
 		class="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-blue-500"
 		style="left: {playheadLeftPx - scrollLeft}px;"

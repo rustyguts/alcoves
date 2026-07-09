@@ -97,6 +97,18 @@ describe('NotificationItem', () => {
 		expect(ondismiss).toHaveBeenCalledWith(['id-head']);
 	});
 
+	// F22: the dismiss button must reveal on keyboard focus (not just hover),
+	// with a visible focus ring, so it isn't invisible while tabbed to.
+	it('reveals the dismiss button on focus-visible with a visible ring', async () => {
+		const screen = render(NotificationItem, {
+			props: { group: makeGroup(), showLibraryName: false, showDismiss: true }
+		});
+		const btn = screen.getByRole('button', { name: 'Dismiss notification' });
+		const el = await btn.element();
+		expect(el.className).toContain('focus-visible:opacity-100');
+		expect(el.className).toContain('focus-visible:ring-2');
+	});
+
 	it('does not render dismiss button when showDismiss=false', async () => {
 		const screen = render(NotificationItem, {
 			props: { group: makeGroup(), showLibraryName: false, showDismiss: false }

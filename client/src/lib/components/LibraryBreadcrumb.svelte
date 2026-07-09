@@ -1,6 +1,5 @@
 <script lang="ts">
-	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import { ICONS } from '$lib/utils/icons';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 	import { libraryFolderPath } from '$lib/state/library-folder-path.svelte';
 
 	/**
@@ -36,34 +35,30 @@
 	const lastIndex = $derived(crumbs.length - 1);
 </script>
 
-<nav aria-label="Breadcrumb" class="min-w-0">
-	<ol class="flex min-w-0 flex-nowrap items-center">
+<Breadcrumb.Root aria-label="Breadcrumb" class="min-w-0">
+	<Breadcrumb.List class="flex-nowrap">
 		{#each crumbs as crumb, index (crumb.to)}
 			{#if index > 0}
-				<li aria-hidden="true" class="mx-1 shrink-0 text-surface-400 sm:mx-1.5">
-					<AppIcon name={ICONS.chevronRight} class="size-4 sm:size-5" />
-				</li>
+				<Breadcrumb.Separator class="shrink-0" />
 			{/if}
-			<li class="min-w-0">
+			<Breadcrumb.Item class="min-w-0">
 				{#if index === lastIndex}
-					<span
-						aria-current="page"
-						class="block truncate text-lg font-semibold text-surface-950
-							sm:max-w-xs sm:text-xl dark:text-surface-50"
+					<!-- Stock PageHeader h1 scale (text-2xl font-semibold) — this crumb
+					     IS the page's primary heading on library sub-tabs. -->
+					<Breadcrumb.Page
+						class="block truncate text-2xl font-semibold text-foreground sm:max-w-xs"
 					>
 						{crumb.label}
-					</span>
+					</Breadcrumb.Page>
 				{:else}
-					<a
+					<Breadcrumb.Link
 						href={crumb.to}
-						class="block truncate text-lg font-medium text-surface-500
-							transition-colors hover:text-surface-950 sm:max-w-xs
-							sm:text-xl dark:hover:text-surface-50"
+						class="block truncate text-2xl font-medium text-muted-foreground sm:max-w-xs"
 					>
 						{crumb.label}
-					</a>
+					</Breadcrumb.Link>
 				{/if}
-			</li>
+			</Breadcrumb.Item>
 		{/each}
-	</ol>
-</nav>
+	</Breadcrumb.List>
+</Breadcrumb.Root>

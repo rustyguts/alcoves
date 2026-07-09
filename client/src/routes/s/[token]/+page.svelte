@@ -38,17 +38,17 @@
 	{/if}
 </svelte:head>
 
-<div class="flex min-h-dvh flex-col bg-neutral-950 text-neutral-50">
-	<header class="flex items-center gap-3 border-b border-neutral-800 px-5 py-4">
+<div class="flex min-h-dvh flex-col bg-background text-foreground">
+	<header class="flex items-center gap-3 px-5 py-4">
 		<span class="font-bold tracking-tight">Alcoves</span>
-		<span class="text-neutral-500">· shared moment</span>
+		<span class="text-muted-foreground">· shared moment</span>
 	</header>
 
 	<main class="flex flex-1 flex-col items-center gap-4 px-4 py-6">
 		<div class="w-full max-w-5xl">
 			<h1 class="mb-1 text-2xl font-semibold">{meta.title}</h1>
 			{#if meta.description}
-				<p class="mb-3 whitespace-pre-wrap text-neutral-400">{meta.description}</p>
+				<p class="mb-3 whitespace-pre-wrap text-muted-foreground">{meta.description}</p>
 			{/if}
 		</div>
 
@@ -65,15 +65,15 @@
 			</div>
 		{:else}
 			<div
-				class="w-full max-w-5xl rounded-xl border border-dashed border-neutral-700 p-8 text-center text-neutral-400"
+				class="w-full max-w-5xl rounded-xl border border-dashed p-8 text-center text-muted-foreground"
 			>
-				<strong class="block text-neutral-200">Still processing.</strong>
+				<strong class="block text-foreground">Still processing.</strong>
 				The encoded clip isn't ready yet. Refresh in a moment.
 			</div>
 		{/if}
 	</main>
 
-	<footer class="border-t border-neutral-800 py-4 text-center text-sm text-neutral-500">
-		<a href={meta.appUrl} class="text-emerald-500 hover:text-emerald-400">View on Alcoves</a>
+	<footer class="py-4 text-center text-sm text-muted-foreground">
+		<a href={meta.appUrl} class="text-primary hover:underline">View on Alcoves</a>
 	</footer>
 </div>

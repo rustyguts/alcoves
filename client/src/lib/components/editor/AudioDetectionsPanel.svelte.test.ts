@@ -105,7 +105,10 @@ describe('AudioDetectionsPanel', () => {
 			const screen = renderPanel();
 			expect(screen.container.textContent).toContain('4 labels');
 			expect(screen.container.textContent).toContain('Click a bar to jump to that moment');
-			const labels = [...screen.container.querySelectorAll('li span.font-medium')].map(
+			// The label span and the vendored Badge both carry `font-medium` —
+			// scope to `.truncate` (only the label has it) to avoid picking up the
+			// score badges too.
+			const labels = [...screen.container.querySelectorAll('li span.truncate.font-medium')].map(
 				(s) => s.textContent
 			);
 			expect(labels).toEqual(['Laughter', 'Speech', 'Music', 'Hum']);
@@ -113,12 +116,19 @@ describe('AudioDetectionsPanel', () => {
 
 		it('renders score-tier badge classes and the window count', () => {
 			const screen = renderPanel();
-			const badges = [...screen.container.querySelectorAll('li .badge')];
+			const badges = [...screen.container.querySelectorAll('li [data-slot="badge"]')];
 			expect(badges.map((b) => b.textContent?.trim())).toEqual(['90%', '50%', '30%', '10%']);
-			expect(badges[0]!.className).toContain('preset-tonal-success'); // ≥ .7
-			expect(badges[1]!.className).toContain('preset-tonal-primary'); // ≥ .4
-			expect(badges[2]!.className).toContain('preset-tonal-warning'); // ≥ .2
-			expect(badges[3]!.className).toContain('preset-tonal-surface'); // < .2
+			expect(badges[0]!.className).toContain('bg-success/10'); // ≥ .7
+			expect(badges[1]!.className).toContain('bg-primary/10'); // ≥ .4
+			expect(badges[2]!.className).toContain('bg-warning/10'); // ≥ .2
+			// < .2, neutral: scoreBadgeClass returns '', so the Badge's own
+			// `variant="secondary"` tint (bg-secondary) survives the cn()/twMerge
+			// unchanged — pin that exact class rather than merely the absence of
+			// the success tint, so a wrong-tier regression here still fails.
+			expect(badges[3]!.className).toContain('bg-secondary');
+			expect(badges[3]!.className).not.toContain('bg-success/10');
+			expect(badges[3]!.className).not.toContain('bg-primary/10');
+			expect(badges[3]!.className).not.toContain('bg-warning/10');
 			expect(screen.container.textContent).toContain('2×'); // Laughter has two windows
 			expect(screen.container.textContent).toContain('1×');
 		});
@@ -134,14 +144,14 @@ describe('AudioDetectionsPanel', () => {
 			expect(laugh.style.left).toBe('25%'); // 5 / 20
 			expect(laugh.style.width).toBe('5%'); // 1 / 20
 			expect(parseFloat(laugh.style.opacity)).toBeCloseTo(0.4 + 0.6 * 0.9, 5);
-			expect(laugh.className).toContain('bg-success-500');
-			expect(bars[1]!.className).toContain('bg-primary-500'); // Laughter @ .6
+			expect(laugh.className).toContain('bg-success');
+			expect(bars[1]!.className).toContain('bg-primary'); // Laughter @ .6
 			const speech = bars[2]!;
 			expect(speech.style.left).toBe('0%');
 			expect(speech.style.width).toBe('10%');
 			expect(parseFloat(speech.style.opacity)).toBeCloseTo(0.4 + 0.6 * 0.5, 5);
-			expect(bars[3]!.className).toContain('bg-warning-500'); // Music @ .3
-			expect(bars[4]!.className).toContain('bg-surface-500'); // Hum @ .1
+			expect(bars[3]!.className).toContain('bg-warning'); // Music @ .3
+			expect(bars[4]!.className).toContain('bg-muted-foreground'); // Hum @ .1
 		});
 
 		it('clamps zero-length windows to a minimum bar width', () => {

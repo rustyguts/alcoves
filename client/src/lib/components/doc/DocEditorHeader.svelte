@@ -1,6 +1,8 @@
 <script lang="ts">
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Avatar from '$lib/components/ui/avatar/index.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import type { DocPeer } from '$lib/collab/doc-provider.svelte';
@@ -39,31 +41,28 @@
 				]
 	);
 
-	const statusClass = $derived.by(() => {
-		if (statusLabel.startsWith('Offline')) return 'preset-tonal-warning';
-		if (statusLabel === 'Saving…') return 'preset-tonal-primary';
-		if (statusLabel === 'Read-only') return 'preset-tonal-surface';
-		return 'preset-tonal-success';
-	});
+	function handleModeChange(value: string) {
+		// bits-ui Tabs never deselects (a click on the already-active tab is a
+		// no-op internally), so `value` is always one of `modes` here.
+		onmode?.(value as DocViewMode);
+	}
 </script>
 
 <div class="flex w-full flex-wrap items-center gap-3">
-	<Button variant="tonal" color="surface" size="sm" onclick={() => onback?.()}>
-		{#snippet icon()}
-			<AppIcon name={ICONS.back} class="size-4" />
-		{/snippet}
+	<Button variant="ghost" size="sm" onclick={() => onback?.()} class="gap-1.5">
+		<AppIcon name={ICONS.back} class="size-4" />
 		Back
 	</Button>
 
 	<div class="flex min-w-0 flex-1 items-center gap-2">
-		<AppIcon name={ICONS.file} class="size-5 shrink-0 opacity-70" />
+		<AppIcon name={ICONS.file} class="size-5 shrink-0 text-muted-foreground" />
 		<p class="truncate text-lg font-semibold">{file?.name ?? 'Loading…'}</p>
 	</div>
 
-	<span class="badge text-xs {statusClass}" data-testid="doc-status">{statusLabel}</span>
+	<span class="text-xs text-muted-foreground" data-testid="doc-status">{statusLabel}</span>
 
 	{#if shownPeers.length > 0}
-		<div class="flex items-center -space-x-2" data-testid="doc-peers">
+		<Avatar.Group data-testid="doc-peers">
 			{#each shownPeers as peer (peer.clientId)}
 				<div
 					class="rounded-full"
@@ -71,35 +70,22 @@
 					title={peer.name}
 					data-testid="doc-peer"
 				>
-					<UserAvatar displayName={peer.name} sizeClass="size-7" textSizeClass="text-[0.6rem]" />
+					<UserAvatar displayName={peer.name} size="sm" />
 				</div>
 			{/each}
 			{#if overflow > 0}
-				<span
-					class="z-10 grid size-7 place-items-center rounded-full preset-tonal-surface text-[0.6rem] font-semibold"
-				>
+				<Avatar.GroupCount class="size-7 text-xs font-semibold">
 					+{overflow}
-				</span>
+				</Avatar.GroupCount>
 			{/if}
-		</div>
+		</Avatar.Group>
 	{/if}
 
-	<div
-		class="flex overflow-hidden rounded-lg border border-surface-300-700"
-		role="group"
-		aria-label="View mode"
-	>
-		{#each modes as m (m.value)}
-			<button
-				type="button"
-				class="px-3 py-1.5 text-sm transition-colors {mode === m.value
-					? 'preset-filled-primary-500'
-					: 'hover:preset-tonal'}"
-				aria-pressed={mode === m.value}
-				onclick={() => onmode?.(m.value)}
-			>
-				{m.label}
-			</button>
-		{/each}
-	</div>
+	<Tabs.Root value={mode} onValueChange={handleModeChange}>
+		<Tabs.List aria-label="View mode">
+			{#each modes as m (m.value)}
+				<Tabs.Trigger value={m.value}>{m.label}</Tabs.Trigger>
+			{/each}
+		</Tabs.List>
+	</Tabs.Root>
 </div>

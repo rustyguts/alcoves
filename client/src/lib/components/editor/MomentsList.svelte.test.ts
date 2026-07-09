@@ -120,21 +120,25 @@ describe('MomentsList', () => {
 	});
 
 	it.each([
-		[null, null, '—', 'preset-tonal-surface'],
-		['queued', null, 'queued', 'preset-tonal-warning'],
-		['ready', null, 'ready', 'preset-tonal-success'],
-		['failed', null, 'failed', 'preset-tonal-error'],
-		['processing', null, 'processing', 'preset-tonal-warning'],
-		['processing', 42, '42%', 'preset-tonal-warning']
+		// Null status: statusBadge returns class '' so the Badge's own
+		// `variant="secondary"` tint (bg-secondary) survives cn()/twMerge —
+		// pin that exact class instead of skipping the assertion, so a
+		// wrong-tint regression in the default branch still fails.
+		[null, null, '—', 'bg-secondary'],
+		['queued', null, 'queued', 'bg-warning/10'],
+		['ready', null, 'ready', 'bg-success/10'],
+		['failed', null, 'failed', 'bg-destructive/10'],
+		['processing', null, 'processing', 'bg-warning/10'],
+		['processing', 42, '42%', 'bg-warning/10']
 	] as Array<[Moment['exportStatus'], number | null, string, string]>)(
 		'renders the %s (progress %s) status badge as %s',
-		(exportStatus, exportProgress, label, preset) => {
+		(exportStatus, exportProgress, label, tint) => {
 			const screen = render(MomentsList, {
 				props: { moments: [makeMoment({ exportStatus, exportProgress })], selectedId: null }
 			});
-			const badge = screen.container.querySelector('.badge')!;
+			const badge = screen.container.querySelector('[data-slot="badge"]')!;
 			expect(badge.textContent!.trim()).toBe(label);
-			expect(badge.className).toContain(preset);
+			expect(badge.className).toContain(tint);
 		}
 	);
 
@@ -149,10 +153,10 @@ describe('MomentsList', () => {
 			}
 		});
 		const [selected, other] = cards(screen.container);
-		expect(selected!.className).toContain('preset-tonal-primary');
-		expect(selected!.className).toContain('ring-primary-500');
-		expect(other!.className).toContain('preset-tonal-surface');
-		expect(other!.className).not.toContain('preset-tonal-primary');
+		expect(selected!.className).toContain('bg-primary/10');
+		expect(selected!.className).toContain('ring-primary');
+		expect(other!.className).toContain('bg-muted');
+		expect(other!.className).not.toContain('bg-primary/10');
 	});
 
 	it('fires onjumpto from the Jump button without selecting (stopPropagation)', async () => {

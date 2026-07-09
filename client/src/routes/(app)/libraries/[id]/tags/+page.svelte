@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { api } from '$lib/api';
 	import { toast } from '$lib/state/toast';
@@ -8,7 +8,8 @@
 	import { ICONS } from '$lib/utils/icons';
 	import AppPanel from '$lib/components/ui/AppPanel.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import TagColorPickerDropdown from '$lib/components/library/TagColorPickerDropdown.svelte';
 	import type { LibraryEntry, LibraryTag } from '$lib/types/api';
 
@@ -54,14 +55,11 @@
 		}
 	}
 
-	function closeColorDropdown(event: Event) {
-		const trigger = event.target as HTMLElement | null;
-		if (trigger?.closest('[data-color-dropdown]')) return;
-		openColorDropdown = null;
-	}
-
-	function toggleColorDropdown(key: string) {
-		openColorDropdown = openColorDropdown === key ? null : key;
+	// bits-ui's Popover owns dismissal (Escape, outside-click) and reports every
+	// open-state change here, so this stays the single source of truth for which
+	// (at most one) color picker is open across the create row + tag rows.
+	function setColorDropdownOpen(key: string, open: boolean) {
+		openColorDropdown = open ? key : null;
 	}
 
 	function setUsageCount(tagId: string, count: number) {
@@ -198,19 +196,12 @@
 	}
 
 	onMount(async () => {
-		document.addEventListener('click', closeColorDropdown);
 		try {
 			await Promise.all([refreshTags(), refreshTagUsageCounts()]);
 		} catch {
 			toast.add({ title: 'Failed to load tags', color: 'error' });
 		} finally {
 			loading = false;
-		}
-	});
-
-	onDestroy(() => {
-		if (typeof document !== 'undefined') {
-			document.removeEventListener('click', closeColorDropdown);
 		}
 	});
 </script>
@@ -222,9 +213,9 @@
 		icon={ICONS.tag}
 		flush
 	>
-		<div class="divide-y divide-surface-200-800 overflow-hidden rounded-md bg-surface-50-950">
+		<div class="overflow-hidden rounded-xl">
 			<!-- Create row — always present so a tag can be added in any state -->
-			<div class="flex items-center gap-2 bg-surface-100-900/40 px-3 py-2.5 sm:gap-3">
+			<div class="flex items-center gap-2 bg-muted/40 px-3 py-2.5 sm:gap-3">
 				<TagColorPickerDropdown
 					keyId="create"
 					open={openColorDropdown === 'create'}
@@ -232,17 +223,17 @@
 					draft={createTagColorDraft}
 					palette={TAG_COLOR_PALETTE}
 					title="Choose new tag color"
-					ontoggle={() => toggleColorDropdown('create')}
+					onOpenChange={(open) => setColorDropdownOpen('create', open)}
 					onpick={selectCreateTagColor}
 					onupdateDraft={(value) => (createTagColorDraft = value)}
 					oncommitDraft={applyCreateColorDraft}
 				/>
-				<input
+				<Input
 					bind:value={tags.createTagName}
 					type="text"
 					placeholder="Add a tag"
 					aria-label="New tag name"
-					class="min-w-0 flex-1 rounded-md bg-transparent px-1.5 py-1 text-sm transition placeholder:text-surface-600-400 hover:bg-surface-100-900/70 focus:bg-surface-50-950 focus:outline-none"
+					class="h-8 min-w-0 flex-1"
 					onkeydown={(e) => {
 						if (e.key === 'Enter') createTagAndRefresh();
 					}}
@@ -250,35 +241,36 @@
 				<Button
 					size="sm"
 					aria-label="Add tag"
-					loading={tags.creatingTag}
 					disabled={!tags.createTagName.trim() || tags.creatingTag}
 					onclick={createTagAndRefresh}
 				>
-					{#snippet icon()}
+					{#if tags.creatingTag}
+						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+					{:else}
 						<AppIcon name={ICONS.plus} class="size-4" />
-					{/snippet}
+					{/if}
 					<span>Add</span>
 				</Button>
 			</div>
 
 			{#if loading}
 				<!-- Loading (initial) -->
-				<div class="flex items-center gap-2 px-3 py-6 text-sm text-surface-600-400">
+				<div class="flex items-center gap-2 px-3 py-6 text-sm text-muted-foreground">
 					<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
 					Loading tags
 				</div>
 			{:else if !sortedTags.length}
 				<!-- Empty -->
 				<div class="flex flex-col items-center gap-1.5 px-3 py-12 text-center">
-					<AppIcon name={ICONS.tag} class="size-6 text-surface-600-400" />
+					<AppIcon name={ICONS.tag} class="size-6 text-muted-foreground" />
 					<p class="text-sm font-medium">No tags yet</p>
-					<p class="text-xs text-surface-600-400">Add your first tag above to start organizing.</p>
+					<p class="text-xs text-muted-foreground">Add your first tag above to start organizing.</p>
 				</div>
 			{:else}
 				<!-- Tag rows -->
 				{#each sortedTags as tag (tag.id)}
 					<div
-						class="group flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-surface-100-900/60 sm:gap-3"
+						class="group flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/60 sm:gap-3"
 					>
 						<TagColorPickerDropdown
 							keyId={tag.id}
@@ -286,7 +278,7 @@
 							color={tag.color}
 							draft={tagColorDrafts[tag.id] ?? tag.color}
 							palette={TAG_COLOR_PALETTE}
-							ontoggle={() => toggleColorDropdown(tag.id)}
+							onOpenChange={(open) => setColorDropdownOpen(tag.id, open)}
 							onpick={(color) => {
 								tags.updateTagColor(tag, color);
 								tagColorDrafts[tag.id] = color;
@@ -296,11 +288,11 @@
 						/>
 
 						<div class="group/name relative min-w-0 flex-1">
-							<input
+							<Input
 								bind:value={tags.tagDraftNames[tag.id]}
 								type="text"
 								aria-label={`Rename tag ${tag.name}`}
-								class="w-full truncate rounded-md bg-transparent py-1 pr-7 pl-1.5 text-sm font-medium transition hover:bg-surface-100-900/70 focus:bg-surface-50-950 focus:outline-none"
+								class="h-8 w-full truncate pr-7 font-medium"
 								onblur={() => tags.saveDraftTagName(tag)}
 								onkeydown={(e) => {
 									if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
@@ -308,11 +300,11 @@
 							/>
 							<AppIcon
 								name={ICONS.edit}
-								class="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-surface-600-400 opacity-0 transition-opacity group-focus-within/name:opacity-0 group-hover/name:opacity-100"
+								class="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-focus-within/name:opacity-0 group-hover/name:opacity-100"
 							/>
 						</div>
 
-						<span class="w-20 shrink-0 text-right text-xs text-surface-600-400 tabular-nums">
+						<span class="w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
 							{#if loadingUsage}
 								<AppIcon name={ICONS.loading} class="inline size-3 animate-spin" />
 							{:else}
@@ -322,17 +314,13 @@
 						</span>
 
 						<Button
-							iconOnly
-							size="sm"
-							variant="tonal"
-							color="error"
+							variant="destructive"
+							size="icon-sm"
 							class="shrink-0 opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
 							aria-label={`Delete tag ${tag.name}`}
 							onclick={() => deleteTagAndRefresh(tag.id)}
 						>
-							{#snippet icon()}
-								<AppIcon name={ICONS.trash} class="size-4" />
-							{/snippet}
+							<AppIcon name={ICONS.trash} class="size-4" />
 						</Button>
 					</div>
 				{/each}

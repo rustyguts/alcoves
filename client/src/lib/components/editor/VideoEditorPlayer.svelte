@@ -380,7 +380,7 @@
 		{/if}
 		{#if active}
 			<div
-				class="pointer-events-none absolute inset-0 z-10 rounded-lg border-4 border-primary-500 transition-opacity"
+				class="pointer-events-none absolute inset-0 z-10 rounded-lg border-4 border-primary transition-opacity"
 			></div>
 		{/if}
 	</div>

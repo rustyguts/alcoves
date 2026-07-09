@@ -28,6 +28,11 @@ export default defineConfig({
 				'src/lib/components/LibraryMap.svelte',
 				'src/lib/components/editor/VideoEditorPlayer.svelte',
 				'src/lib/components/doc/MarkdownEditor.svelte',
+				// shadcn-svelte vendored primitives: upstream-maintained, exercised via
+				// composite tests + e2e; excluded from coverage gates. (App composites
+				// are flat `ui/*.svelte` files and stay covered — only the vendored
+				// `ui/<shadcn>/` subdirectories are excluded here.)
+				'src/lib/components/ui/*/**',
 				// Pure 2-line passthroughs that render the (92%-covered) LibraryBrowser;
 				// the v8/Svelte artifact on such tiny files isn't a real coverage gap.
 				// (`*` segments avoid the glob metachars in the (app)/[id] dir names.)

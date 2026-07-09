@@ -43,18 +43,18 @@ describe('AppPanelRow', () => {
 		await expect.element(screen.getByText('extra-desc')).toBeInTheDocument();
 	});
 
-	it('colors the title with the error token in danger mode', async () => {
+	it('colors the title with the destructive token in danger mode', async () => {
 		const screen = render(AppPanelRow, { props: { title: 'Delete library', danger: true } });
 		const title = screen.container.querySelector('p');
-		expect(title?.className).toContain('text-error-500');
-		expect(title?.className).not.toContain('text-surface-950-50');
+		expect(title?.className).toContain('text-destructive');
+		expect(title?.className).not.toContain('text-foreground');
 	});
 
-	it('uses the highlighted title token by default', async () => {
+	it('uses the default foreground title token by default', async () => {
 		const screen = render(AppPanelRow, { props: { title: 'Normal' } });
 		const title = screen.container.querySelector('p');
-		expect(title?.className).toContain('text-surface-950-50');
-		expect(title?.className).not.toContain('text-error-500');
+		expect(title?.className).toContain('text-foreground');
+		expect(title?.className).not.toContain('text-destructive');
 	});
 
 	it('center-aligns the control by default and top-aligns with align="start"', async () => {
@@ -67,5 +67,12 @@ describe('AppPanelRow', () => {
 		const startedRow = started.container.firstElementChild;
 		expect(startedRow?.className).toContain('sm:items-start');
 		expect(startedRow?.className).not.toContain('sm:items-center');
+	});
+
+	it('is borderless with comfortable row padding (flat redesign: no per-row divider)', async () => {
+		const screen = render(AppPanelRow, { props: { title: 'Row' } });
+		const row = screen.container.firstElementChild;
+		expect(row?.className).not.toContain('border');
+		expect(row?.className).toContain('py-2.5');
 	});
 });

@@ -9,7 +9,10 @@ vi.mock('$app/state', () => ({
 	page: {
 		params: { id: 'lib-1' },
 		url: new URL('http://localhost/libraries/lib-1/timeline'),
-		data: { library: { id: 'lib-1', name: 'Family Photos' }, user: { id: 'u1' } }
+		data: {
+			library: { id: 'lib-1', name: 'Family Photos', emoji: '📷' },
+			user: { id: 'u1' }
+		}
 	}
 }));
 
@@ -136,6 +139,12 @@ beforeEach(() => {
 });
 
 describe('/libraries/[id]/timeline', () => {
+	it('renders the library header with its name and emoji (unlike other tabs, this route has to build it itself since the subtree layout suppresses its shared breadcrumb header for the full-bleed gallery)', async () => {
+		const screen = render(Page);
+		await expect.element(screen.getByText('Family Photos')).toBeInTheDocument();
+		await expect.element(screen.getByText('📷')).toBeInTheDocument();
+	});
+
 	it('instantiates the timeline store with a libraryId getter and pins media-only', () => {
 		render(Page);
 

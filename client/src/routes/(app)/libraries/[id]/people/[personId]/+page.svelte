@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
@@ -8,10 +8,11 @@
 	import { createLibraryPeople } from '$lib/state/library-people.svelte';
 	import type { LibraryFile, PersonFace } from '$lib/types/api';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import AlcovesImage from '$lib/components/ui/AlcovesImage.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
+	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
 
 	// This page reads route params (and the people store) rather than the layout's
 	// `data`, mirroring the other library tab pages — so no `data` prop is declared.
@@ -31,11 +32,27 @@
 	let previewOpen = $state(false);
 	const fileCache = new Map<string, LibraryFile>();
 
-	// Context menu for a single face crop (right-click), mirroring the Nuxt
-	// `UContextMenu`. We position a small popover at the cursor.
+	// Context menu for a single face crop (right-click). A single Root+Trigger
+	// wraps the whole face grid (rather than one per tile) — the native
+	// contextmenu event bubbles from whichever tile was clicked up to the
+	// Trigger, which opens itself positioned at the cursor automatically;
+	// `openFaceMenu` below only records which face the menu applies to. Mirrors
+	// the entries-grid context menu in LibraryBrowser.svelte.
+	//
+	// Two guards keep `menuFace` from going stale (and the menu from opening on
+	// grid gaps at all): a trigger-level `oncontextmenu` only forwards the event
+	// to bits-ui's own handler when it lands on a tile (native browser menu
+	// shows for gaps/trailing empty cells instead), and an effect clears
+	// `menuFace` whenever the menu closes so no leftover face can be targeted by
+	// a later stray open.
 	let menuFace = $state<PersonFace | null>(null);
-	let menuX = $state(0);
-	let menuY = $state(0);
+	let contextMenuOpen = $state(false);
+
+	$effect(() => {
+		if (!contextMenuOpen) {
+			menuFace = null;
+		}
+	});
 
 	const person = $derived(people.activePerson);
 	const faces = $derived(people.activePersonFaces);
@@ -83,24 +100,15 @@
 		}
 	}
 
-	function openFaceMenu(face: PersonFace, event: MouseEvent) {
-		event.preventDefault();
+	function openFaceMenu(face: PersonFace) {
 		menuFace = face;
-		menuX = event.clientX;
-		menuY = event.clientY;
-	}
-
-	function closeFaceMenu() {
-		menuFace = null;
 	}
 
 	async function updateCoverPhoto(face: PersonFace) {
-		closeFaceMenu();
 		await people.setPersonCover(personId, face.id);
 	}
 
 	async function createNewPerson(face: PersonFace) {
-		closeFaceMenu();
 		await people.splitFaceAsNewPerson(personId, face.id);
 		// The store refreshes the active person/faces. If the person is gone or has
 		// no faces left, fall back to the people list.
@@ -109,25 +117,8 @@
 		}
 	}
 
-	// Dismiss the context menu on any outside click / Escape.
-	function onWindowClick() {
-		if (menuFace) closeFaceMenu();
-	}
-	function onWindowKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' && menuFace) closeFaceMenu();
-	}
-
 	onMount(() => {
 		fetchPersonAndFaces();
-		window.addEventListener('click', onWindowClick);
-		window.addEventListener('keydown', onWindowKeydown);
-	});
-
-	onDestroy(() => {
-		if (typeof window !== 'undefined') {
-			window.removeEventListener('click', onWindowClick);
-			window.removeEventListener('keydown', onWindowKeydown);
-		}
 	});
 </script>
 
@@ -135,7 +126,7 @@
 	<div class="flex items-center gap-3">
 		<button
 			type="button"
-			class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-surface-700-300 hover:bg-surface-100-900"
+			class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 			onclick={goBack}
 		>
 			<AppIcon name={ICONS.back} class="size-4" />
@@ -143,7 +134,7 @@
 		</button>
 		<div class="min-w-0">
 			<p class="truncate text-sm font-semibold">{personLabel}</p>
-			<p class="text-xs text-surface-600-400">
+			<p class="text-xs text-muted-foreground">
 				{faces.length}
 				{faces.length === 1 ? 'face' : 'faces'}
 			</p>
@@ -152,7 +143,7 @@
 
 	{#if loading || people.loadingFaces}
 		<div class="flex items-center justify-center py-16">
-			<AppIcon name={ICONS.loading} class="size-5 animate-spin text-surface-600-400" />
+			<AppIcon name={ICONS.loading} class="size-5 animate-spin text-muted-foreground" />
 		</div>
 	{:else if !person}
 		<EmptyState
@@ -161,39 +152,68 @@
 			description="This person no longer exists in this library."
 		>
 			{#snippet actions()}
-				<Button variant="tonal" color="surface" onclick={goBack}>
-					{#snippet icon()}
-						<AppIcon name={ICONS.back} class="size-4" />
-					{/snippet}
+				<Button variant="outline" onclick={goBack}>
+					<AppIcon name={ICONS.back} class="size-4" />
 					Back to People
 				</Button>
 			{/snippet}
 		</EmptyState>
 	{:else if faces.length}
-		<div class="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
-			{#each faces as face (face.id)}
-				<button
-					type="button"
-					class="relative cursor-pointer overflow-hidden rounded-md bg-surface-100-900 transition hover:bg-surface-200-800 focus-visible:ring-2 focus-visible:ring-primary-500"
-					aria-label="Preview {face.fileName}"
-					onclick={() => openFacePreview(face)}
-					oncontextmenu={(e) => openFaceMenu(face, e)}
-				>
-					<AlcovesImage
-						{libraryId}
-						fileId={face.fileId}
-						alt={face.fileName}
-						variant="face"
-						class="aspect-square w-full object-cover"
-					/>
-					{#if actionFaceId === face.id}
-						<div class="absolute inset-0 flex items-center justify-center bg-black/40">
-							<AppIcon name={ICONS.loading} class="size-5 animate-spin text-white" />
-						</div>
-					{/if}
-				</button>
-			{/each}
-		</div>
+		<ContextMenu.Root bind:open={contextMenuOpen}>
+			<ContextMenu.Trigger>
+				{#snippet child({ props })}
+					<div
+						{...props}
+						class="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10"
+						oncontextmenu={(event: MouseEvent) => {
+							// Only let bits-ui open the menu when the event landed on a
+							// tile; otherwise leave it un-prevented so the native browser
+							// context menu shows over grid gaps / the trailing empty row.
+							if ((event.target as HTMLElement | null)?.closest('button')) {
+								(props.oncontextmenu as ((e: MouseEvent) => void) | undefined)?.(event);
+							}
+						}}
+					>
+						{#each faces as face (face.id)}
+							<button
+								type="button"
+								class="relative cursor-pointer overflow-hidden rounded-md bg-muted transition hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary"
+								aria-label="Preview {face.fileName}"
+								onclick={() => openFacePreview(face)}
+								oncontextmenu={() => openFaceMenu(face)}
+							>
+								<AlcovesImage
+									{libraryId}
+									fileId={face.fileId}
+									alt={face.fileName}
+									variant="face"
+									class="aspect-square w-full object-cover"
+								/>
+								{#if actionFaceId === face.id}
+									<div class="absolute inset-0 flex items-center justify-center bg-black/40">
+										<AppIcon name={ICONS.loading} class="size-5 animate-spin text-white" />
+									</div>
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/snippet}
+			</ContextMenu.Trigger>
+
+			<!-- Right-click face-crop menu. A single Root+Trigger wraps the whole
+			     face grid (rather than one per tile) — see the comment on
+			     `contextMenuOpen` above. -->
+			<ContextMenu.Content class="w-56">
+				<ContextMenu.Item onSelect={() => menuFace && updateCoverPhoto(menuFace)}>
+					<AppIcon name={ICONS.image} class="size-4" />
+					Update cover photo
+				</ContextMenu.Item>
+				<ContextMenu.Item onSelect={() => menuFace && createNewPerson(menuFace)}>
+					<AppIcon name={ICONS.person} class="size-4" />
+					New person
+				</ContextMenu.Item>
+			</ContextMenu.Content>
+		</ContextMenu.Root>
 	{:else}
 		<EmptyState
 			icon={ICONS.people}
@@ -202,40 +222,6 @@
 		/>
 	{/if}
 </div>
-
-{#if menuFace}
-	{@const face = menuFace}
-	<!-- The window listener closes the menu on any click; stop propagation here so a
-	     click inside the menu (on the items) doesn't immediately dismiss it. -->
-	<div
-		class="fixed z-50 w-56 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-1 shadow-xl"
-		style="left: {menuX}px; top: {menuY}px;"
-		role="menu"
-		tabindex="-1"
-		onclick={(e) => e.stopPropagation()}
-		onkeydown={(e) => e.stopPropagation()}
-		oncontextmenu={(e) => e.preventDefault()}
-	>
-		<button
-			type="button"
-			role="menuitem"
-			class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-100-900"
-			onclick={() => updateCoverPhoto(face)}
-		>
-			<AppIcon name={ICONS.image} class="size-4" />
-			Update cover photo
-		</button>
-		<button
-			type="button"
-			role="menuitem"
-			class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-100-900"
-			onclick={() => createNewPerson(face)}
-		>
-			<AppIcon name={ICONS.person} class="size-4" />
-			New person
-		</button>
-	</div>
-{/if}
 
 {#if previewFile}
 	<FilePreview

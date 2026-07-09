@@ -2,14 +2,17 @@
 	import { onMount, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import { api } from '$lib/api';
 	import { toast } from '$lib/state/toast';
 	import { createLibraryMembers } from '$lib/state/library-members.svelte';
 	import { canManageLibrary } from '$lib/utils/permissions';
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Switch } from '$lib/components/ui/switch/index.js';
 	import AppPanelRow from '$lib/components/ui/AppPanelRow.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import EmojiPicker from '$lib/components/ui/EmojiPicker.svelte';
@@ -167,6 +170,22 @@
 	let faceRecReprocessOpen = $state(false);
 	let faceRecReprocessing = $state(false);
 
+	// Writable $derived mirror of the switch's checked state, `bind:checked`
+	// to the Switch below. A one-way `checked={library?.faceRecognitionEnabled}`
+	// prop was tried first, but bits-ui's internal $bindable override for an
+	// unbound `checked` prop does not reliably clear just because the
+	// upstream value's reactive dependencies invalidate — the switch could
+	// get stuck showing a stale value after the ConfirmModal was cancelled
+	// or an update failed (F2, shadcn-rewrite rework findings; verified
+	// empirically in browser-mode vitest — the one-way prop never resynced
+	// even across multiple genuinely-distinct `library` object references).
+	// Binding directly to a writable $derived sidesteps that: bits-ui's
+	// writes land here directly, and every `refreshLibrary()` call
+	// (success, cancel, or failure — see the catch blocks + ConfirmModal
+	// `oncancel` below) reassigns `freshLibrary` to a new object, which
+	// recomputes this derived and discards any local override.
+	let faceRecChecked = $derived(library?.faceRecognitionEnabled ?? false);
+
 	async function toggleFaceRecognition(enabled: boolean) {
 		if (!enabled) {
 			faceRecDisableOpen = true;
@@ -179,6 +198,10 @@
 			toast.add({ title: 'Face recognition enabled. Processing will begin shortly.' });
 		} catch {
 			toast.add({ title: 'Failed to enable face recognition', color: 'error' });
+			// faceRecChecked already flipped on optimistically via bind:checked —
+			// resync from the server so the writable-$derived override above is
+			// discarded and it snaps back to reflect the true server state.
+			await refreshLibrary();
 		} finally {
 			faceRecToggling = false;
 		}
@@ -193,6 +216,9 @@
 			toast.add({ title: 'Face recognition disabled. All face data has been deleted.' });
 		} catch {
 			toast.add({ title: 'Failed to disable face recognition', color: 'error' });
+			// The disable never took effect server-side — resync so the switch
+			// snaps back to "on" instead of showing the rejected "off" state.
+			await refreshLibrary();
 		} finally {
 			faceRecToggling = false;
 		}
@@ -222,6 +248,10 @@
 	let objDetReprocessOpen = $state(false);
 	let objDetReprocessing = $state(false);
 
+	// Same F2 fix as facial recognition above: writable $derived, bound via
+	// bind:checked, rather than a one-way prop.
+	let objDetChecked = $derived(library?.objectDetectionEnabled ?? false);
+
 	async function toggleObjectDetection(enabled: boolean) {
 		if (!enabled) {
 			objDetDisableOpen = true;
@@ -234,6 +264,9 @@
 			toast.add({ title: 'Object detection enabled. Processing will begin shortly.' });
 		} catch {
 			toast.add({ title: 'Failed to enable object detection', color: 'error' });
+			// Resync from the server so the switch snaps back off (see
+			// toggleFaceRecognition's catch for the same fix).
+			await refreshLibrary();
 		} finally {
 			objDetToggling = false;
 		}
@@ -248,6 +281,9 @@
 			toast.add({ title: 'Object detection disabled. All detection data has been deleted.' });
 		} catch {
 			toast.add({ title: 'Failed to disable object detection', color: 'error' });
+			// The disable never took effect server-side — resync so the switch
+			// snaps back to "on".
+			await refreshLibrary();
 		} finally {
 			objDetToggling = false;
 		}
@@ -320,6 +356,10 @@
 	// ─── Sharing ────────────────────────────────────────────
 	let sharingToggling = $state(false);
 
+	// Same F2 fix as facial recognition above: writable $derived, bound via
+	// bind:checked, rather than a one-way prop.
+	let sharingChecked = $derived(library?.sharingEnabled ?? false);
+
 	async function toggleSharing(enabled: boolean) {
 		sharingToggling = true;
 		try {
@@ -333,6 +373,9 @@
 			});
 		} catch {
 			toast.add({ title: 'Failed to update sharing setting', color: 'error' });
+			// The switch already flipped optimistically — resync from the server
+			// so it snaps back to reflect the state the server rejected.
+			await refreshLibrary();
 		} finally {
 			sharingToggling = false;
 		}
@@ -416,7 +459,7 @@
 </script>
 
 <div class="min-h-0 w-full flex-1 overflow-y-auto px-0.5">
-	<div class="divide-y divide-surface-200-800">
+	<div class="flex flex-col gap-6 pb-6">
 		<!-- Library Name -->
 		<SettingsSection
 			title="Library Name"
@@ -425,24 +468,21 @@
 		>
 			<div class="flex flex-col gap-2 sm:flex-row sm:items-center">
 				<EmojiPicker value={library?.emoji ?? null} onselect={saveLibraryEmoji} />
-				<input
+				<Input
+					aria-label="Library name"
 					bind:value={libraryNameDraft}
 					placeholder="Library name"
-					class="input sm:flex-1"
+					class="sm:flex-1"
 					onkeydown={(e) => {
 						if (e.key === 'Enter') saveLibraryNameFromSettings();
 					}}
 				/>
-				<Button
-					variant="tonal"
-					color="primary"
-					loading={savingLibraryName}
-					disabled={!canSaveName}
-					onclick={saveLibraryNameFromSettings}
-				>
-					{#snippet icon()}
+				<Button disabled={!canSaveName} onclick={saveLibraryNameFromSettings}>
+					{#if savingLibraryName}
+						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+					{:else}
 						<AppIcon name={ICONS.check} class="size-4" />
-					{/snippet}
+					{/if}
 					Save
 				</Button>
 			</div>
@@ -455,54 +495,61 @@
 				description="Manage who has access to this library and their permissions."
 				icon={ICONS.members}
 			>
-				<div class="space-y-6">
-					<div class="space-y-3">
+				<div class="flex flex-col gap-6">
+					<div class="flex flex-col gap-3">
 						<div>
 							<p class="text-sm font-medium">Create Invite Link</p>
-							<p class="text-xs text-surface-600-400">
+							<p class="text-xs text-muted-foreground">
 								Anyone with the link can sign up and join this library as a member.
 							</p>
 						</div>
 						<div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-							<label class="flex-1">
-								<span class="mb-1 block text-xs font-medium">Max uses</span>
-								<input
+							<div class="flex-1">
+								<Label for="invite-max-uses" class="mb-1 text-xs font-medium">Max uses</Label>
+								<Input
+									id="invite-max-uses"
 									bind:value={newLinkMaxUses}
 									type="number"
 									min="1"
 									placeholder="Unlimited"
-									class="input w-full"
+									class="w-full"
 								/>
-							</label>
-							<label class="flex-1">
-								<span class="mb-1 block text-xs font-medium">Expires at</span>
-								<input bind:value={newLinkExpiresAt} type="datetime-local" class="input w-full" />
-							</label>
-							<Button loading={members.createInviteLinkLoading} onclick={submitCreateInviteLink}>
-								{#snippet icon()}
+							</div>
+							<div class="flex-1">
+								<Label for="invite-expires-at" class="mb-1 text-xs font-medium">Expires at</Label>
+								<Input
+									id="invite-expires-at"
+									bind:value={newLinkExpiresAt}
+									type="datetime-local"
+									class="w-full"
+								/>
+							</div>
+							<Button disabled={members.createInviteLinkLoading} onclick={submitCreateInviteLink}>
+								{#if members.createInviteLinkLoading}
+									<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+								{:else}
 									<AppIcon name={ICONS.link} class="size-4" />
-								{/snippet}
+								{/if}
 								Create Link
 							</Button>
 						</div>
-						<p class="text-xs text-surface-600-400">
+						<p class="text-xs text-muted-foreground">
 							Leave both fields blank for unlimited uses that never expire.
 						</p>
 					</div>
 
 					{#if members.inviteLinks.length}
-						<hr class="hr" />
-						<div class="space-y-3">
+						<div class="flex flex-col gap-3">
 							<div class="flex items-center justify-between gap-3">
 								<div>
 									<p class="text-sm font-medium">Active Invite Links</p>
-									<p class="text-xs text-surface-600-400">
+									<p class="text-xs text-muted-foreground">
 										Track redemptions and revoke links you no longer need.
 									</p>
 								</div>
-								<span class="badge preset-tonal-surface">{members.inviteLinks.length}</span>
+								<Badge variant="secondary">{members.inviteLinks.length}</Badge>
 							</div>
-							<div class="divide-y divide-surface-200-800 border-y border-surface-200-800">
+							<div class="overflow-hidden rounded-xl bg-muted/50">
 								{#each members.inviteLinks as invite (invite.id)}
 									<InviteLinkRow
 										{invite}
@@ -516,10 +563,9 @@
 					{/if}
 
 					{#if members.libraryMembers.length}
-						<hr class="hr" />
-						<div class="space-y-3">
+						<div class="flex flex-col gap-3">
 							<p class="text-sm font-medium">Members</p>
-							<div class="divide-y divide-surface-200-800 border-y border-surface-200-800">
+							<div class="overflow-hidden rounded-xl bg-muted/50">
 								{#each members.libraryMembers as member (member.id)}
 									<LibraryMemberRow
 										{member}
@@ -548,38 +594,33 @@
 			description="Detect and group faces from image uploads. Disabling removes all face data."
 			icon={ICONS.people}
 		>
-			<div class="space-y-4">
+			<div class="flex flex-col gap-4">
 				<AppPanelRow
 					title="Enable facial recognition"
 					description="Process new uploads and group detected faces."
 				>
 					<Switch
-						checked={library?.faceRecognitionEnabled ?? false}
+						aria-label="Enable facial recognition"
+						bind:checked={faceRecChecked}
 						disabled={faceRecToggling}
-						onCheckedChange={(e) => toggleFaceRecognition(e.checked)}
-					>
-						<Switch.Control>
-							<Switch.Thumb />
-						</Switch.Control>
-					</Switch>
+						onCheckedChange={(next) => toggleFaceRecognition(next)}
+					/>
 				</AppPanelRow>
-
-				<hr class="hr" />
 
 				<AppPanelRow
 					title="Queue full reprocessing"
 					description="Deletes current face inference data, then re-runs detection on all images."
 				>
 					<Button
-						variant="tonal"
-						color="warning"
-						loading={faceRecReprocessing}
+						variant="outline"
 						disabled={!library?.faceRecognitionEnabled || faceRecToggling || faceRecReprocessing}
 						onclick={() => (faceRecReprocessOpen = true)}
 					>
-						{#snippet icon()}
+						{#if faceRecReprocessing}
+							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+						{:else}
 							<AppIcon name={ICONS.reload} class="size-4" />
-						{/snippet}
+						{/if}
 						Reprocess Faces
 					</Button>
 				</AppPanelRow>
@@ -592,58 +633,48 @@
 			description="Detect objects in image uploads using YOLO26. Disabling removes all detection data."
 			icon={ICONS.objectDetection}
 		>
-			<div class="space-y-4">
+			<div class="flex flex-col gap-4">
 				<AppPanelRow
 					title="Enable object detection"
 					description="Process new uploads and index detected objects."
 				>
 					<Switch
-						checked={library?.objectDetectionEnabled ?? false}
+						aria-label="Enable object detection"
+						bind:checked={objDetChecked}
 						disabled={objDetToggling}
-						onCheckedChange={(e) => toggleObjectDetection(e.checked)}
-					>
-						<Switch.Control>
-							<Switch.Thumb />
-						</Switch.Control>
-					</Switch>
+						onCheckedChange={(next) => toggleObjectDetection(next)}
+					/>
 				</AppPanelRow>
-
-				<hr class="hr" />
 
 				<AppPanelRow
 					title="Browse detected objects"
 					description="View detected object labels and their frequency across the library."
 				>
 					<Button
-						variant="tonal"
-						color="surface"
+						variant="outline"
 						href={`/libraries/${libraryId}/objects`}
 						disabled={!library?.objectDetectionEnabled}
 						class={!library?.objectDetectionEnabled ? 'opacity-50' : ''}
 					>
-						{#snippet icon()}
-							<AppIcon name={ICONS.objectDetection} class="size-4" />
-						{/snippet}
+						<AppIcon name={ICONS.objectDetection} class="size-4" />
 						View Objects
 					</Button>
 				</AppPanelRow>
-
-				<hr class="hr" />
 
 				<AppPanelRow
 					title="Queue full reprocessing"
 					description="Deletes current object detection data, then re-runs detection on all images."
 				>
 					<Button
-						variant="tonal"
-						color="warning"
-						loading={objDetReprocessing}
+						variant="outline"
 						disabled={!library?.objectDetectionEnabled || objDetToggling || objDetReprocessing}
 						onclick={() => (objDetReprocessOpen = true)}
 					>
-						{#snippet icon()}
+						{#if objDetReprocessing}
+							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+						{:else}
 							<AppIcon name={ICONS.reload} class="size-4" />
-						{/snippet}
+						{/if}
 						Reprocess Objects
 					</Button>
 				</AppPanelRow>
@@ -661,14 +692,15 @@
 				description="Queues transcription for every video and audio file in this library, overwriting existing transcripts. Useful after a model upgrade or hallucination-fix rollout."
 			>
 				<Button
-					variant="tonal"
-					color="warning"
-					loading={transcribeReprocessing}
+					variant="outline"
+					disabled={transcribeReprocessing}
 					onclick={() => (transcribeReprocessOpen = true)}
 				>
-					{#snippet icon()}
+					{#if transcribeReprocessing}
+						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+					{:else}
 						<AppIcon name={ICONS.transcript} class="size-4" />
-					{/snippet}
+					{/if}
 					Reprocess Transcripts
 				</Button>
 			</AppPanelRow>
@@ -685,14 +717,15 @@
 				description="Queues PANNs detection for every video and audio file with a ready transcript, overwriting existing audio-event tags."
 			>
 				<Button
-					variant="tonal"
-					color="warning"
-					loading={audioDetectReprocessing}
+					variant="outline"
+					disabled={audioDetectReprocessing}
 					onclick={() => (audioDetectReprocessOpen = true)}
 				>
-					{#snippet icon()}
+					{#if audioDetectReprocessing}
+						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+					{:else}
 						<AppIcon name={ICONS.audioDetect} class="size-4" />
-					{/snippet}
+					{/if}
 					Reprocess Audio Detections
 				</Button>
 			</AppPanelRow>
@@ -709,14 +742,11 @@
 				description="When on, anyone with a share link can view the individual moment without signing in."
 			>
 				<Switch
-					checked={library?.sharingEnabled ?? false}
+					aria-label="Enable sharing"
+					bind:checked={sharingChecked}
 					disabled={sharingToggling}
-					onCheckedChange={(e) => toggleSharing(e.checked)}
-				>
-					<Switch.Control>
-						<Switch.Thumb />
-					</Switch.Control>
-				</Switch>
+					onCheckedChange={(next) => toggleSharing(next)}
+				/>
 			</AppPanelRow>
 		</SettingsSection>
 
@@ -729,14 +759,15 @@
 			>
 				<div class="flex sm:justify-end">
 					<Button
-						variant="tonal"
-						color="warning"
-						loading={videoThumbReprocessing}
+						variant="outline"
+						disabled={videoThumbReprocessing}
 						onclick={() => (videoThumbReprocessOpen = true)}
 					>
-						{#snippet icon()}
+						{#if videoThumbReprocessing}
+							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+						{:else}
 							<AppIcon name={ICONS.image} class="size-4" />
-						{/snippet}
+						{/if}
 						Regenerate Thumbnails
 					</Button>
 				</div>
@@ -752,14 +783,15 @@
 			>
 				<div class="flex sm:justify-end">
 					<Button
-						variant="tonal"
-						color="warning"
-						loading={metadataReprocessing}
+						variant="outline"
+						disabled={metadataReprocessing}
 						onclick={() => (metadataReprocessOpen = true)}
 					>
-						{#snippet icon()}
+						{#if metadataReprocessing}
+							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+						{:else}
 							<AppIcon name={ICONS.reload} class="size-4" />
-						{/snippet}
+						{/if}
 						Reprocess Metadata
 					</Button>
 				</div>
@@ -770,8 +802,8 @@
 		<SettingsSection>
 			{#snippet title_()}
 				<div class="flex items-center gap-2">
-					<AppIcon name={ICONS.warning} class="size-4 shrink-0 text-error-500" />
-					<h2 class="text-sm font-semibold text-error-500">Delete Library</h2>
+					<AppIcon name={ICONS.warning} class="size-4 shrink-0 text-destructive" />
+					<h2 class="text-base font-medium text-destructive">Delete Library</h2>
 				</div>
 			{/snippet}
 			<AppPanelRow
@@ -780,14 +812,11 @@
 				danger
 			>
 				<Button
-					variant="tonal"
-					color="error"
+					variant="destructive"
 					disabled={!canDeleteLibrary}
 					onclick={() => (deleteLibraryOpen = true)}
 				>
-					{#snippet icon()}
-						<AppIcon name={ICONS.trash} class="size-4" />
-					{/snippet}
+					<AppIcon name={ICONS.trash} class="size-4" />
 					Delete
 				</Button>
 			</AppPanelRow>
@@ -799,10 +828,54 @@
 		title="Disable Facial Recognition"
 		message="This will permanently delete all detected faces and people data for this library. This action cannot be undone."
 		confirmLabel="Disable & Delete Data"
-		confirmClass="btn-soft btn-error"
+		confirmClass="error"
 		confirmIcon={ICONS.trash}
 		pending={faceRecToggling}
 		onconfirm={confirmDisableFaceRecognition}
+		oncancel={() => {
+			// Cancelling never calls the API, but the switch already flipped off
+			// optimistically (bits-ui's local $bindable override) — resync from
+			// the server so it snaps back to reflect the true (still-enabled)
+			// state instead of showing "off" indefinitely.
+			refreshLibrary();
+		}}
+	/>
+
+	<ConfirmModal
+		bind:open={objDetDisableOpen}
+		title="Disable Object Detection"
+		message="This will permanently delete all detected object data for this library. This action cannot be undone."
+		confirmLabel="Disable & Delete Data"
+		confirmClass="error"
+		confirmIcon={ICONS.trash}
+		pending={objDetToggling}
+		onconfirm={confirmDisableObjectDetection}
+		oncancel={() => {
+			// Same fix as the facial-recognition disable modal above.
+			refreshLibrary();
+		}}
+	/>
+
+	<ConfirmModal
+		bind:open={faceRecReprocessOpen}
+		title="Reprocess Facial Recognition"
+		message="This deletes all existing face inference data and queues a full rebuild. Results may change, including how photos are grouped into people."
+		confirmLabel="Delete Data & Requeue"
+		confirmClass="error"
+		confirmIcon={ICONS.reload}
+		pending={faceRecReprocessing}
+		onconfirm={reprocessFaceRecognition}
+	/>
+
+	<ConfirmModal
+		bind:open={objDetReprocessOpen}
+		title="Reprocess Object Detection"
+		message="This deletes all existing object detection data and queues a full rebuild. Detected objects may change if the model or settings have been updated."
+		confirmLabel="Delete Data & Requeue"
+		confirmClass="error"
+		confirmIcon={ICONS.reload}
+		pending={objDetReprocessing}
+		onconfirm={reprocessObjectDetection}
 	/>
 
 	<ConfirmModal
@@ -810,7 +883,6 @@
 		title="Reprocess Photo Metadata"
 		message="This re-extracts capture date and GPS location for every photo and video in the library, refreshing the Timeline and Map. Existing metadata is overwritten as each file completes."
 		confirmLabel="Queue Reprocessing"
-		confirmClass="btn-soft btn-warning"
 		confirmIcon={ICONS.reload}
 		pending={metadataReprocessing}
 		onconfirm={reprocessMetadata}
@@ -821,21 +893,9 @@
 		title="Regenerate Video Thumbnails"
 		message="This queues thumbnail regeneration for all source videos in this library. Existing generated thumbnails will be replaced as new ones complete."
 		confirmLabel="Queue Regeneration"
-		confirmClass="btn-soft btn-warning"
 		confirmIcon={ICONS.image}
 		pending={videoThumbReprocessing}
 		onconfirm={reprocessVideoThumbnails}
-	/>
-
-	<ConfirmModal
-		bind:open={faceRecReprocessOpen}
-		title="Reprocess Facial Recognition"
-		message="This deletes all existing face inference data and queues a full rebuild. Results may change, including how photos are grouped into people."
-		confirmLabel="Delete Data & Requeue"
-		confirmClass="btn-soft btn-warning"
-		confirmIcon={ICONS.reload}
-		pending={faceRecReprocessing}
-		onconfirm={reprocessFaceRecognition}
 	/>
 
 	<ConfirmModal
@@ -843,7 +903,6 @@
 		title="Reprocess Transcripts"
 		message="This queues transcription for every video and audio file in the library. Existing transcripts will be overwritten when each job completes."
 		confirmLabel="Queue Reprocessing"
-		confirmClass="btn-soft btn-warning"
 		confirmIcon={ICONS.transcript}
 		pending={transcribeReprocessing}
 		onconfirm={reprocessTranscripts}
@@ -854,59 +913,10 @@
 		title="Reprocess Audio Detections"
 		message="This queues PANNs audio-event detection for every video and audio file with a ready transcript. Existing audio-event tags will be overwritten when each job completes."
 		confirmLabel="Queue Reprocessing"
-		confirmClass="btn-soft btn-warning"
 		confirmIcon={ICONS.audioDetect}
 		pending={audioDetectReprocessing}
 		onconfirm={reprocessAudioDetections}
 	/>
-
-	<!-- Disable Object Detection Modal -->
-	<AppModal
-		bind:open={objDetDisableOpen}
-		title="Disable Object Detection"
-		description="This will permanently delete all detected object data for this library. This action cannot be undone."
-	>
-		<div class="flex w-full justify-end gap-2">
-			<Button
-				variant="tonal"
-				color="surface"
-				disabled={objDetToggling}
-				onclick={() => (objDetDisableOpen = false)}
-			>
-				Cancel
-			</Button>
-			<Button color="error" loading={objDetToggling} onclick={confirmDisableObjectDetection}>
-				{#snippet icon()}
-					<AppIcon name={ICONS.trash} class="size-4" />
-				{/snippet}
-				Disable & Delete Data
-			</Button>
-		</div>
-	</AppModal>
-
-	<!-- Reprocess Object Detection Modal -->
-	<AppModal
-		bind:open={objDetReprocessOpen}
-		title="Reprocess Object Detection"
-		description="This deletes all existing object detection data and queues a full rebuild. Detected objects may change if the model or settings have been updated."
-	>
-		<div class="flex w-full justify-end gap-2">
-			<Button
-				variant="tonal"
-				color="surface"
-				disabled={objDetReprocessing}
-				onclick={() => (objDetReprocessOpen = false)}
-			>
-				Cancel
-			</Button>
-			<Button color="warning" loading={objDetReprocessing} onclick={reprocessObjectDetection}>
-				{#snippet icon()}
-					<AppIcon name={ICONS.reload} class="size-4" />
-				{/snippet}
-				Delete Data & Requeue
-			</Button>
-		</div>
-	</AppModal>
 
 	<!-- Delete Library Modal -->
 	<AppModal
@@ -915,30 +925,22 @@
 		description={`This will permanently delete the library ${library?.name ?? ''}. This action cannot be undone.`}
 	>
 		<div class="flex flex-col gap-2">
-			<label class="text-sm font-medium" for="delete-library-confirm">
-				Type 'delete' to confirm
-			</label>
-			<input
+			<Label for="delete-library-confirm">Type 'delete' to confirm</Label>
+			<Input
 				id="delete-library-confirm"
 				bind:value={deleteLibraryConfirmation}
 				placeholder="delete"
-				class="input w-full"
 			/>
 		</div>
 
 		<div class="flex w-full justify-end gap-2">
-			<Button variant="tonal" color="surface" onclick={() => (deleteLibraryOpen = false)}>
-				Cancel
-			</Button>
+			<Button variant="outline" onclick={() => (deleteLibraryOpen = false)}>Cancel</Button>
 			<Button
-				variant="tonal"
-				color="error"
+				variant="destructive"
 				disabled={deleteLibraryConfirmation !== 'delete'}
 				onclick={deleteLibrary}
 			>
-				{#snippet icon()}
-					<AppIcon name={ICONS.trash} class="size-4" />
-				{/snippet}
+				<AppIcon name={ICONS.trash} class="size-4" />
 				Delete Library
 			</Button>
 		</div>

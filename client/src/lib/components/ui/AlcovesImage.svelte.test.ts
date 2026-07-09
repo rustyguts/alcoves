@@ -39,7 +39,7 @@ describe('AlcovesImage', () => {
 			props: { libraryId: 'L', fileId: 'F', variant: 'timeline', class: 'object-cover' }
 		});
 		const img = screen.container.querySelector('img')!;
-		expect(img.getAttribute('class')).toContain('bg-surface-200-800');
+		expect(img.getAttribute('class')).toContain('bg-muted');
 		expect(img.getAttribute('class')).toContain('object-cover');
 	});
 });

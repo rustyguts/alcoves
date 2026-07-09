@@ -7,6 +7,7 @@
 	import { makeApiFetch } from '$lib/api/fetch';
 	import type { LibraryFile, PlaybackSource } from '$lib/types/api';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
 
 	interface Props {
 		file: LibraryFile;
@@ -345,8 +346,29 @@
 	});
 
 	// Keyboard navigation
+	//
+	// F24 rework: guard by event.target so the lightbox's global ArrowLeft/
+	// ArrowRight file-navigation doesn't fight controls that have their own
+	// native meaning for those keys — the playback-source <select> (changes
+	// the selected option) and the <video> (seeks) — both of which the Tab
+	// trap below can legitimately focus.
+	function isNavigableAwayFromControl(target: EventTarget | null): boolean {
+		return (
+			target instanceof HTMLSelectElement ||
+			target instanceof HTMLInputElement ||
+			target instanceof HTMLTextAreaElement ||
+			target instanceof HTMLMediaElement
+		);
+	}
+
 	function handleKeydown(event: KeyboardEvent) {
 		if (!open) return;
+		if (
+			(event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+			isNavigableAwayFromControl(event.target)
+		) {
+			return;
+		}
 		if (event.key === 'ArrowLeft') {
 			event.preventDefault();
 			goToPrevious();
@@ -459,7 +481,7 @@
 			<div class="flex h-full w-full items-center justify-center overflow-auto p-16">
 				{#if textContent !== null}
 					<pre
-						class="w-full max-w-4xl self-start rounded-lg border border-surface-50/20 bg-neutral-900/80 p-4 text-sm whitespace-pre-wrap text-white">{textContent}</pre>
+						class="w-full max-w-4xl self-start rounded-lg bg-neutral-900/85 p-4 text-sm whitespace-pre-wrap text-white">{textContent}</pre>
 				{:else}
 					<div class="flex items-center justify-center">
 						<AppIcon name={ICONS.loading} class="size-5 animate-spin text-white/60" />
@@ -491,11 +513,11 @@
 				<span class="truncate text-sm font-medium text-white">{file.name}</span>
 				{#if previewType === 'video'}
 					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							class="preset-tonal-primary-500 btn btn-sm"
+						<Button
+							size="sm"
 							disabled={generatingProxy}
 							onclick={generateProxy}
+							class="bg-white/15 text-white hover:bg-white/25"
 						>
 							{#if generatingProxy}
 								<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
@@ -503,10 +525,17 @@
 								<AppIcon name={ICONS.movie} class="size-4" />
 							{/if}
 							<span>Create Proxy</span>
-						</button>
+						</Button>
 						{#if playbackSources.length > 0}
+							<!--
+								A native select, deliberately not the Select.* primitive: this
+								control is media-playback logic (chooses the active video
+								source), which is explicitly out of scope for this pass — only
+								chrome/tokens change here.
+							-->
 							<select
-								class="select max-w-48 bg-black/40 text-xs text-white"
+								aria-label="Playback quality"
+								class="max-w-48 rounded-md border border-white/20 bg-black/40 px-2 py-1 text-xs text-white"
 								bind:value={selectedPlaybackSourceId}
 							>
 								{#each playbackSources as source (source.id)}
@@ -531,7 +560,7 @@
 
 		{#if videoProxyProcessing}
 			<div
-				class="absolute top-14 left-1/2 z-20 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 rounded-xl border border-white/15 bg-black/65 p-3 backdrop-blur-sm"
+				class="absolute top-14 left-1/2 z-20 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 rounded-xl bg-black/70 p-3 backdrop-blur-sm"
 			>
 				<div class="mb-2 flex items-center justify-between text-xs text-white/80">
 					<span>Preparing video preview</span>
@@ -539,7 +568,7 @@
 				</div>
 				<div class="h-1.5 w-full overflow-hidden rounded-full bg-white/20">
 					<div
-						class="h-full rounded-full bg-primary-500 transition-[width] duration-300"
+						class="h-full rounded-full bg-primary transition-[width] duration-300"
 						style="width: {videoProxyProgressPercent}%"
 					></div>
 				</div>

@@ -121,7 +121,7 @@ describe('LibraryEntriesGrid', () => {
 			props: defaultProps({ entries: [makeFile()], isEntrySelected: () => true })
 		});
 		const card = screen.container.querySelector('div[role="button"]')!;
-		expect(card.className).toContain('bg-primary-500/20');
+		expect(card.className).toContain('bg-primary/20');
 	});
 
 	it('applies drop-target styling on the target folder', () => {

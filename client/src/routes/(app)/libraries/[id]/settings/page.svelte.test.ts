@@ -1,21 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { userEvent } from '@vitest/browser/context';
 import { tick } from 'svelte';
 import type { Library, LibraryUsersResponse } from '$lib/types/api';
 
-// ─── skeleton-svelte mock ────────────────────────────────────────────────────
-// The real `Switch` is a zag-driven label + hidden input that can't be toggled in
-// a headless unit env (no layout/visibility), so swap it for a clickable
-// `role="switch"` button that fires `onCheckedChange`. Keep every other export
-// (notably `Dialog`, used by ConfirmModal/AppModal) intact. Imports happen inside
-// the factory because `vi.mock` is hoisted above the file's top-level imports.
-vi.mock('@skeletonlabs/skeleton-svelte', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('@skeletonlabs/skeleton-svelte')>();
-	const MockSwitch = (await import('./SwitchMock.svelte')).default;
-	const MockSlot = (await import('./SwitchSlotMock.svelte')).default;
-	const Switch = Object.assign(MockSwitch, { Control: MockSlot, Thumb: MockSlot });
-	return { ...actual, Switch };
-});
+// The vendored shadcn `Switch` (bits-ui) renders a real `role="switch"` button
+// and toggles synchronously on click — no mock needed (unlike the old
+// zag-driven Skeleton Switch, which required layout/visibility the headless
+// unit env couldn't provide).
 
 // ─── $app mocks ──────────────────────────────────────────────────────────────
 const goto = vi.fn();
@@ -154,7 +146,14 @@ const user = {
 
 function renderPage(over: Partial<Library> = {}) {
 	apiState.library = { ...apiState.library, ...over };
-	apiMock.libraries.get.mockResolvedValue(apiState.library);
+	// Return a *fresh* object reference on every call (like a real fetch +
+	// `.json()` would), not the same `apiState.library` reference each time.
+	// Svelte 5's `$state`/prop-derived invalidation for objects is a strict
+	// `===` check (see `equals` in svelte/internal/client/reactivity/
+	// equality.js) — reusing the same reference would silently defeat the
+	// F2 switch-desync fix under test (refreshLibrary() only re-syncs the
+	// Switch because each real response is a distinct object).
+	apiMock.libraries.get.mockImplementation(() => Promise.resolve({ ...apiState.library }));
 	apiMock.members.list.mockResolvedValue(apiState.users);
 	apiMock.files.list.mockResolvedValue({
 		totalCount: apiState.fileTotal,
@@ -227,6 +226,21 @@ describe('/libraries/[id]/settings', () => {
 			.toBeInTheDocument();
 	});
 
+	// ─── F6: every feature Switch has an accessible name ────────────────────────
+	it('gives every feature switch an accessible name', async () => {
+		const screen = renderPage();
+		await tick();
+		await expect
+			.element(screen.getByRole('switch', { name: 'Enable facial recognition' }))
+			.toBeInTheDocument();
+		await expect
+			.element(screen.getByRole('switch', { name: 'Enable object detection' }))
+			.toBeInTheDocument();
+		await expect
+			.element(screen.getByRole('switch', { name: 'Enable sharing' }))
+			.toBeInTheDocument();
+	});
+
 	it('shows Library Members for a non-default library', async () => {
 		const screen = renderPage({ isDefault: false });
 		await expect.element(screen.getByText('Library Members')).toBeInTheDocument();
@@ -255,8 +269,11 @@ describe('/libraries/[id]/settings', () => {
 	it('hides owner-only sections for a non-owner manager', async () => {
 		const screen = renderPage({ ownerId: 'someone-else', currentUserRole: 'admin' });
 		await tick();
-		expect(screen.container.querySelectorAll('h2')).not.toBeNull();
-		const headings = [...screen.container.querySelectorAll('h2')].map((h) => h.textContent?.trim());
+		// Section headings are Card.Title elements with role="heading" (only the
+		// hand-written Danger Zone title is a literal <h2>) — match both.
+		const headings = [...screen.container.querySelectorAll('h2, [role="heading"]')].map((h) =>
+			h.textContent?.trim()
+		);
 		expect(headings).not.toContain('Video Thumbnails');
 		expect(headings).not.toContain('Photo Metadata');
 	});
@@ -346,16 +363,15 @@ describe('/libraries/[id]/settings', () => {
 		apiMock.libraries.update.mockResolvedValue(apiState.library);
 		const screen = renderPage();
 		await tick();
-		// Open the emoji picker, then click the first emoji button.
+		// Open the emoji picker (a Popover.Trigger, not portalled), then click the
+		// first emoji button — bits-ui's Popover.Content IS portalled to
+		// `document.body`, so the grid must be queried via `document`.
 		const trigger = screen.container.querySelector(
 			'button[title="Choose emoji icon"]'
 		) as HTMLButtonElement;
 		trigger.click();
 		await tick();
-		// Emoji buttons live in the picker panel grid (grid-cols-8).
-		const emojiButton = screen.container.querySelector(
-			'.grid.grid-cols-8 button'
-		) as HTMLButtonElement;
+		const emojiButton = document.querySelector('.grid.grid-cols-8 button') as HTMLButtonElement;
 		expect(emojiButton).not.toBeNull();
 		emojiButton.click();
 		await vi.waitFor(() =>
@@ -400,6 +416,41 @@ describe('/libraries/[id]/settings', () => {
 		);
 	});
 
+	// ─── F2: switch state resyncs after cancel / API failure ────────────────────
+	it('reverts the facial-recognition switch to off after an enable API failure', async () => {
+		apiMock.libraries.update.mockRejectedValue(new Error('boom'));
+		const screen = renderPage({ faceRecognitionEnabled: false });
+		await tick();
+		const sw = screen.getByRole('switch', { name: 'Enable facial recognition' });
+		// bits-ui flips the switch on optimistically before the rejected API
+		// call settles (asserted separately in a synchronous-only scenario —
+		// with mocks resolving this fast the revert can land before this
+		// `await` even returns, so we only assert the settled end state here).
+		await sw.click();
+		await vi.waitFor(() => expect(toastAdd).toHaveBeenCalled());
+		// The server never enabled it — the switch must snap back to "off"
+		// instead of showing the rejected "on" state indefinitely (F2).
+		await vi.waitFor(() => expect(sw.element().getAttribute('aria-checked')).toBe('false'));
+	});
+
+	it('resyncs the facial-recognition switch to the true server state after cancelling the disable confirm', async () => {
+		const screen = renderPage({ faceRecognitionEnabled: true });
+		await tick();
+		const sw = screen.getByRole('switch', { name: 'Enable facial recognition' });
+		await sw.click();
+		await tick();
+		// Optimistically flips off while the confirm dialog is open.
+		expect(sw.element().getAttribute('aria-checked')).toBe('false');
+		await screen.getByRole('button', { name: 'Cancel' }).click();
+		// Cancelling never calls the API — face recognition is still enabled
+		// server-side, so the switch must resync back to "on" (F2), not stay
+		// showing "off".
+		await vi.waitFor(() => expect(sw.element().getAttribute('aria-checked')).toBe('true'));
+		expect(apiMock.libraries.update).not.toHaveBeenCalledWith('lib-1', {
+			faceRecognitionEnabled: false
+		});
+	});
+
 	it('opens the disable-face modal and confirms disabling', async () => {
 		apiMock.libraries.update.mockResolvedValue(apiState.library);
 		const screen = renderPage({ faceRecognitionEnabled: true });
@@ -434,6 +485,20 @@ describe('/libraries/[id]/settings', () => {
 				expect.objectContaining({ title: 'Failed to disable face recognition', color: 'error' })
 			)
 		);
+	});
+
+	it('reverts the facial-recognition switch to on after a disable-confirm API failure', async () => {
+		apiMock.libraries.update.mockRejectedValue(new Error('boom'));
+		const screen = renderPage({ faceRecognitionEnabled: true });
+		await tick();
+		const sw = screen.getByRole('switch', { name: 'Enable facial recognition' });
+		await sw.click();
+		await tick();
+		await screen.getByRole('button', { name: 'Disable & Delete Data' }).click();
+		await vi.waitFor(() => expect(toastAdd).toHaveBeenCalled());
+		// The disable never took effect server-side — the switch must snap
+		// back to "on" (F2), not show the rejected "off" state.
+		await vi.waitFor(() => expect(sw.element().getAttribute('aria-checked')).toBe('true'));
 	});
 
 	it('reprocesses faces (success, singular)', async () => {
@@ -510,20 +575,33 @@ describe('/libraries/[id]/settings', () => {
 	it('cancels the disable-object modal', async () => {
 		const screen = renderPage({ objectDetectionEnabled: true });
 		await tick();
-		const sw = screen.container.querySelectorAll('[role="switch"]')[1] as HTMLElement;
-		sw.click();
+		const sw = screen.getByRole('switch', { name: 'Enable object detection' });
+		await sw.click();
 		await tick();
-		// Click the modal Cancel button.
-		const cancels = screen.container.querySelectorAll('button');
-		const cancel = [...cancels].find(
-			(b) => b.textContent?.trim() === 'Cancel'
-		) as HTMLButtonElement;
-		expect(cancel).not.toBeUndefined();
-		cancel.click();
+		// Optimistically flips off while the confirm dialog is open.
+		expect(sw.element().getAttribute('aria-checked')).toBe('false');
+		// The disable-object confirmation is a ConfirmModal (AlertDialog), portalled
+		// to `document.body` — `screen.getByRole` already reaches portalled content.
+		await screen.getByRole('button', { name: 'Cancel' }).click();
 		await tick();
 		expect(apiMock.libraries.update).not.toHaveBeenCalledWith('lib-1', {
 			objectDetectionEnabled: false
 		});
+		// Cancelling never calls the API — object detection is still enabled
+		// server-side, so the switch must resync back to "on" (F2), not stay
+		// showing "off".
+		await vi.waitFor(() => expect(sw.element().getAttribute('aria-checked')).toBe('true'));
+	});
+
+	// ─── F2: switch state resyncs after API failure ──────────────────────────
+	it('reverts the object-detection switch to off after an enable API failure', async () => {
+		apiMock.libraries.update.mockRejectedValue(new Error('boom'));
+		const screen = renderPage({ objectDetectionEnabled: false });
+		await tick();
+		const sw = screen.getByRole('switch', { name: 'Enable object detection' });
+		await sw.click();
+		await vi.waitFor(() => expect(toastAdd).toHaveBeenCalled());
+		await vi.waitFor(() => expect(sw.element().getAttribute('aria-checked')).toBe('false'));
 	});
 
 	it('toasts an error when disabling object detection fails', async () => {
@@ -539,6 +617,18 @@ describe('/libraries/[id]/settings', () => {
 				expect.objectContaining({ title: 'Failed to disable object detection', color: 'error' })
 			)
 		);
+	});
+
+	it('reverts the object-detection switch to on after a disable-confirm API failure', async () => {
+		apiMock.libraries.update.mockRejectedValue(new Error('boom'));
+		const screen = renderPage({ objectDetectionEnabled: true });
+		await tick();
+		const sw = screen.getByRole('switch', { name: 'Enable object detection' });
+		await sw.click();
+		await tick();
+		await screen.getByRole('button', { name: 'Disable & Delete Data' }).click();
+		await vi.waitFor(() => expect(toastAdd).toHaveBeenCalled());
+		await vi.waitFor(() => expect(sw.element().getAttribute('aria-checked')).toBe('true'));
 	});
 
 	it('reprocesses objects (success, plural)', async () => {
@@ -671,6 +761,27 @@ describe('/libraries/[id]/settings', () => {
 		);
 	});
 
+	// ─── F2: switch state resyncs after API failure ──────────────────────────
+	it('reverts the sharing switch to off after a failed enable', async () => {
+		apiMock.libraries.update.mockRejectedValue(new Error('boom'));
+		const screen = renderPage({ sharingEnabled: false });
+		await tick();
+		const sw = screen.getByRole('switch', { name: 'Enable sharing' });
+		await sw.click();
+		await vi.waitFor(() => expect(toastAdd).toHaveBeenCalled());
+		await vi.waitFor(() => expect(sw.element().getAttribute('aria-checked')).toBe('false'));
+	});
+
+	it('reverts the sharing switch to on after a failed disable', async () => {
+		apiMock.libraries.update.mockRejectedValue(new Error('boom'));
+		const screen = renderPage({ sharingEnabled: true });
+		await tick();
+		const sw = screen.getByRole('switch', { name: 'Enable sharing' });
+		await sw.click();
+		await vi.waitFor(() => expect(toastAdd).toHaveBeenCalled());
+		await vi.waitFor(() => expect(sw.element().getAttribute('aria-checked')).toBe('true'));
+	});
+
 	// ─── Video thumbnails (owner-only) ────────────────────────────────────────
 	it('queues video-thumbnail regeneration (success)', async () => {
 		apiMock.files.reprocessVideoThumbnails.mockResolvedValue({ queuedCount: 2 });
@@ -737,11 +848,10 @@ describe('/libraries/[id]/settings', () => {
 		const screen = renderPage();
 		await vi.waitFor(() => expect(apiMock.files.list).toHaveBeenCalled());
 		await tick();
-		// Open the delete modal.
+		// Open the delete modal — AppModal's Dialog.Content is portalled to
+		// `document.body`, so the confirmation input must be queried via `document`.
 		await screen.getByRole('button', { name: 'Delete', exact: true }).click();
-		const confirmInput = screen.container.querySelector(
-			'#delete-library-confirm'
-		) as HTMLInputElement;
+		const confirmInput = document.querySelector('#delete-library-confirm') as HTMLInputElement;
 		expect(confirmInput).not.toBeNull();
 		await screen.getByLabelText("Type 'delete' to confirm").fill('delete');
 		await screen.getByRole('button', { name: 'Delete Library' }).click();
@@ -860,11 +970,19 @@ describe('/libraries/[id]/settings', () => {
 		membersState.memberRoleDrafts = { 'user-2': 'viewer' };
 		const screen = renderPage();
 		await tick();
-		// Change the role <select> → fires the page's inline onupdateRole handler.
-		const select = screen.container.querySelector('select.select') as HTMLSelectElement;
-		expect(select).not.toBeNull();
-		select.value = 'admin';
-		select.dispatchEvent(new Event('change', { bubbles: true }));
+		// Change the role via the Select trigger → fires the page's inline
+		// onupdateRole handler. bits-ui's Select opens on `pointerdown` and its
+		// Content is portalled to `document.body` — see the same idiom in
+		// routes/(app)/admin/page.svelte.test.ts.
+		const trigger = screen.container.querySelector<HTMLElement>('[data-slot="select-trigger"]');
+		expect(trigger).not.toBeNull();
+		await userEvent.click(trigger!);
+		await tick();
+		const adminItem = [...document.querySelectorAll<HTMLElement>('[data-slot="select-item"]')].find(
+			(el) => el.textContent?.trim() === 'Admin'
+		);
+		expect(adminItem).toBeDefined();
+		await userEvent.click(adminItem!);
 		await tick();
 		expect(membersState.memberRoleDrafts['user-2']).toBe('admin');
 		expect(membersState.updateMemberRole).toHaveBeenCalled();

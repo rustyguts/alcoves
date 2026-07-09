@@ -155,8 +155,8 @@ describe('MomentEditForm', () => {
 			props: baseProps({ onexport, ondownload, onshare, onclose })
 		});
 		findButton(screen.container, 'Reprocess')!.click();
-		screen.container.querySelector<HTMLButtonElement>("[title='Download']")!.click();
-		screen.container.querySelector<HTMLButtonElement>("[title='Share']")!.click();
+		screen.container.querySelector<HTMLButtonElement>("[aria-label='Download']")!.click();
+		screen.container.querySelector<HTMLButtonElement>("[aria-label='Share']")!.click();
 		screen.container.querySelector<HTMLButtonElement>("[aria-label='Close']")!.click();
 		expect(onexport).toHaveBeenCalledWith('m1');
 		expect(ondownload).toHaveBeenCalledWith('m1');
@@ -183,7 +183,7 @@ describe('MomentEditForm', () => {
 
 	it('shows a spinner on the download action when downloadPending', () => {
 		const screen = render(MomentEditForm, { props: baseProps({ downloadPending: true }) });
-		const download = screen.container.querySelector<HTMLButtonElement>("[title='Download']")!;
+		const download = screen.container.querySelector<HTMLButtonElement>("[aria-label='Download']")!;
 		expect(download.disabled).toBe(true);
 		expect(download.querySelector('.animate-spin')).not.toBeNull();
 	});
@@ -220,11 +220,11 @@ describe('MomentEditForm', () => {
 		const screen = render(MomentEditForm, {
 			props: baseProps({ moment: makeMoment({ exportStatus: 'ready' }) })
 		});
-		expect(screen.container.querySelector('.bg-warning-500')).toBeNull();
+		expect(screen.container.querySelector('[data-slot="progress"]')).toBeNull();
 		expect(screen.container.textContent).not.toContain('Queued');
 	});
 
-	it('shows the progress %, bar width and ETA while processing', () => {
+	it('shows the progress %, bar value and ETA while processing', () => {
 		const screen = render(MomentEditForm, {
 			props: baseProps({
 				moment: makeMoment({
@@ -234,31 +234,31 @@ describe('MomentEditForm', () => {
 				})
 			})
 		});
-		const bar = screen.container.querySelector<HTMLElement>('.bg-warning-500')!;
-		expect(bar.style.width).toBe('37.4%');
+		const bar = screen.container.querySelector<HTMLElement>('[data-slot="progress"]')!;
+		expect(bar.getAttribute('aria-valuenow')).toBe('37.4');
 		expect(screen.container.textContent).toContain('37%');
 		expect(screen.container.textContent).toContain('≈ 12s left');
 	});
 
-	it("shows 'Queued' with an empty bar when queued without progress", () => {
+	it("shows 'Queued' with a zero-value bar when queued without progress", () => {
 		const screen = render(MomentEditForm, {
 			props: baseProps({ moment: makeMoment({ exportStatus: 'queued' }) })
 		});
 		expect(screen.container.textContent).toContain('Queued');
 		expect(screen.container.textContent).not.toContain('≈');
-		const bar = screen.container.querySelector<HTMLElement>('.bg-warning-500')!;
-		expect(bar.style.width).toBe('0%');
+		const bar = screen.container.querySelector<HTMLElement>('[data-slot="progress"]')!;
+		expect(bar.getAttribute('aria-valuenow')).toBe('0');
 	});
 
 	it.each([
-		[150, '100%'],
-		[-20, '0%']
-	])('clamps the progress bar width for progress %s to %s', (exportProgress, width) => {
+		[150, '100'],
+		[-20, '0']
+	])('clamps the progress bar value for progress %s to %s', (exportProgress, valuenow) => {
 		const screen = render(MomentEditForm, {
 			props: baseProps({ moment: makeMoment({ exportStatus: 'processing', exportProgress }) })
 		});
-		const bar = screen.container.querySelector<HTMLElement>('.bg-warning-500')!;
-		expect(bar.style.width).toBe(width);
+		const bar = screen.container.querySelector<HTMLElement>('[data-slot="progress"]')!;
+		expect(bar.getAttribute('aria-valuenow')).toBe(valuenow);
 	});
 
 	it('floors the ETA readout at 1s', () => {
@@ -305,7 +305,7 @@ describe('MomentEditForm', () => {
 
 	it('shows the clip length badge in the header', () => {
 		const screen = render(MomentEditForm, { props: baseProps() });
-		const badges = Array.from(screen.container.querySelectorAll('.badge'));
+		const badges = Array.from(screen.container.querySelectorAll('[data-slot="badge"]'));
 		expect(badges.some((b) => b.textContent?.includes('2.00s'))).toBe(true);
 	});
 
@@ -315,8 +315,8 @@ describe('MomentEditForm', () => {
 			findButton(screen.container, 'Save')!.click();
 			findButton(screen.container, 'Delete')!.click();
 			findButton(screen.container, 'Reprocess')!.click();
-			screen.container.querySelector<HTMLButtonElement>("[title='Download']")!.click();
-			screen.container.querySelector<HTMLButtonElement>("[title='Share']")!.click();
+			screen.container.querySelector<HTMLButtonElement>("[aria-label='Download']")!.click();
+			screen.container.querySelector<HTMLButtonElement>("[aria-label='Share']")!.click();
 			screen.container.querySelector<HTMLButtonElement>("[aria-label='Close']")!.click();
 			screen.container
 				.querySelector<HTMLButtonElement>("[aria-label='Set start to playhead']")!

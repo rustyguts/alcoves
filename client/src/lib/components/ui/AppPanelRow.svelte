@@ -4,14 +4,22 @@
 	 *
 	 * The recurring settings row. `min-w-0` + the right column's `shrink-0` keep
 	 * long descriptions wrapping instead of shoving the control off-screen, and
-	 * the text block grows the row rather than clipping.
+	 * the text block grows the row rather than clipping. Borderless — rows
+	 * inside an AppPanel/well are separated by whitespace, not
+	 * `<Separator>`/`border-b`. Comfortable `py-2.5` rhythm compensates for the
+	 * dropped dividers. Not itself a click target: the right column always
+	 * holds a real interactive control (Switch/Button/Select), and nesting a
+	 * `role="button"` row around another interactive element is its own a11y
+	 * anti-pattern — a fully row-clickable list uses a real `<a>`/`<button>`
+	 * wrapper instead (see NotificationItem for that idiom).
 	 */
 	import type { Snippet } from 'svelte';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		title: string;
 		description?: string;
-		/** Render the title in the error color (danger-zone rows). */
+		/** Render the title in the destructive color (danger-zone rows). */
 		danger?: boolean;
 		/** Vertically center the control against the text (default) or top-align it. */
 		align?: 'center' | 'start';
@@ -32,20 +40,17 @@
 </script>
 
 <div
-	class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:gap-4"
-	class:sm:items-center={align === 'center'}
-	class:sm:items-start={align === 'start'}
+	class={cn(
+		'flex flex-col gap-3 rounded-lg px-3 py-2.5 sm:flex-row sm:justify-between sm:gap-4',
+		align === 'center' ? 'sm:items-center' : 'sm:items-start'
+	)}
 >
 	<div class="min-w-0 space-y-0.5">
-		<p
-			class="text-sm font-medium"
-			class:text-error-500={danger}
-			class:text-surface-950-50={!danger}
-		>
+		<p class={cn('text-sm font-medium', danger ? 'text-destructive' : 'text-foreground')}>
 			{title}
 		</p>
 		{#if description}
-			<p class="text-xs text-surface-600-400">{description}</p>
+			<p class="text-xs text-muted-foreground">{description}</p>
 		{/if}
 		{@render descriptionExtra?.()}
 	</div>

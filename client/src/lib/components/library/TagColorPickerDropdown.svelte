@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { ICONS } from '$lib/utils/icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import * as Popover from '$lib/components/ui/popover/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		open: boolean;
@@ -9,7 +12,7 @@
 		palette: readonly string[];
 		keyId: string;
 		title?: string;
-		ontoggle?: () => void;
+		onOpenChange?: (open: boolean) => void;
 		onpick?: (color: string) => void;
 		onupdateDraft?: (value: string) => void;
 		oncommitDraft?: () => void;
@@ -22,38 +25,43 @@
 		palette,
 		keyId,
 		title = 'Select tag color',
-		ontoggle,
+		onOpenChange,
 		onpick,
 		onupdateDraft,
 		oncommitDraft
 	}: Props = $props();
 
 	const selected = $derived(color.toUpperCase());
+
+	/**
+	 * The caller (routes/(app)/libraries/[id]/tags/+page.svelte) owns `open` as a
+	 * one-way controlled prop (only one color picker across the page may be open
+	 * at a time, keyed by `keyId`), but bits-ui's Popover is otherwise fully in
+	 * charge of opening/closing/dismissal: trigger click, Escape, and
+	 * outside-click all flow through `onOpenChange`, which the caller uses to
+	 * update its `open` source of truth. This mirrors the ConfirmModal /
+	 * AlertDialog.Root pattern — no hand-rolled document listener, no manual
+	 * `preventDefault` on the trigger.
+	 */
 </script>
 
 <div class="relative inline-block" data-color-dropdown>
-	<button
-		type="button"
-		class="inline-flex size-8 items-center justify-center rounded-full transition-colors hover:bg-surface-200-800"
-		{title}
-		onclick={(e) => {
-			e.preventDefault();
-			ontoggle?.();
-		}}
-	>
-		<span class="size-4 rounded-full" style:background-color={color}></span>
-	</button>
-	{#if open}
-		<div
-			class="absolute top-full left-0 z-20 mt-2 w-52 card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 p-4 shadow-xl"
+	<Popover.Root {open} onOpenChange={(next) => onOpenChange?.(next)}>
+		<Popover.Trigger
+			class="inline-flex size-8 items-center justify-center rounded-full transition-colors hover:bg-accent"
+			{title}
 		>
+			<span class="size-4 rounded-full" style:background-color={color}></span>
+		</Popover.Trigger>
+		<Popover.Content class="w-52 p-4" align="start">
 			<div class="grid grid-cols-4 gap-2">
 				{#each palette as entry (`${keyId}-${entry}`)}
 					<button
 						type="button"
-						class="relative size-9 rounded-full border border-surface-300-700 transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-						class:ring-2={entry === selected}
-						class:ring-primary-500={entry === selected}
+						class={cn(
+							'relative size-9 rounded-full border border-border transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40',
+							entry === selected && 'ring-2 ring-primary'
+						)}
 						style:background-color={entry}
 						title={entry}
 						onclick={() => onpick?.(entry)}
@@ -67,8 +75,8 @@
 					</button>
 				{/each}
 			</div>
-			<input
-				class="mt-2 input w-full font-mono uppercase"
+			<Input
+				class="mt-2 font-mono uppercase"
 				type="text"
 				value={draft}
 				placeholder="#3B82F6"
@@ -81,6 +89,6 @@
 					}
 				}}
 			/>
-		</div>
-	{/if}
+		</Popover.Content>
+	</Popover.Root>
 </div>

@@ -6,13 +6,19 @@
 	import { ICONS } from '$lib/utils/icons';
 	import { formatFileSize } from '$lib/utils/mime-icons';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import AppPanel from '$lib/components/ui/AppPanel.svelte';
+	import SettingsSection from '$lib/components/library/settings/SettingsSection.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import AdminJobsPanel from '$lib/components/admin/AdminJobsPanel.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import * as Table from '$lib/components/ui/table/index.js';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import type { AdminStats, AdminUser, AppSettings, RegistrationMode } from '$lib/types/api';
 
 	const currentUser = $derived(page.data.user);
@@ -102,11 +108,20 @@
 	let updatingRegistrationMode = $state(false);
 	async function updateRegistrationMode(next: RegistrationMode) {
 		if (!settings || next === settings.registration_mode) return;
+		// F3 fix: optimistically write the new mode into `settings` so the
+		// RadioGroup's one-way `value` prop tracks it immediately. On failure we
+		// write the previous mode back — a genuine value change, not a no-op —
+		// which forces the RadioGroup to re-derive its prop (fixing the display)
+		// and clears bits-ui's "already selected" guard (fixing the inert
+		// re-click, per .agents/specs/shadcn-rewrite/07-rework-findings.md F3).
+		const previous = settings.registration_mode;
+		settings.registration_mode = next;
 		updatingRegistrationMode = true;
 		try {
 			settings = await api.admin.updateSettings({ registration_mode: next });
 			toast.add({ title: 'Registration mode updated', color: 'success' });
 		} catch (error: unknown) {
+			settings.registration_mode = previous;
 			toast.add({ title: errorMessage(error, 'Failed to update settings'), color: 'error' });
 		} finally {
 			updatingRegistrationMode = false;
@@ -350,14 +365,35 @@
 	const selectedWhisper = $derived(whisperModels.find((m) => m.id === whisperModel) ?? null);
 	const selectedAudioTagger = $derived(audioTaggers.find((m) => m.id === audioTagger) ?? null);
 
+	const whisperModelLabel = $derived(selectedWhisper?.label ?? whisperModel);
+	const whisperLanguageLabel = $derived(
+		whisperLanguages.find((l) => l.id === whisperLanguage)?.label ?? whisperLanguage
+	);
+	const audioTaggerLabel = $derived(
+		selectedAudioTagger
+			? selectedAudioTagger.available
+				? selectedAudioTagger.label
+				: `${selectedAudioTagger.label} — not yet available`
+			: audioTagger
+	);
+
+	// The whisper/audio Selects share the same one-way `value` desync as the
+	// registration-mode RadioGroup (F3): their Trigger *label* self-heals
+	// because it's derived separately from `settings`, but the Select's
+	// internal selection (the checkmark, and whether re-picking the rejected
+	// item is inert) is driven by the `value` prop itself. Same optimistic
+	// set + explicit revert-on-failure fix as above.
 	let updatingWhisper = $state(false);
 	async function updateWhisperModel(next: string) {
 		if (!settings || next === (settings.whisper_model ?? 'large-v3')) return;
+		const previous = settings.whisper_model;
+		settings.whisper_model = next;
 		updatingWhisper = true;
 		try {
 			settings = await api.admin.updateSettings({ whisper_model: next });
 			toast.add({ title: `Transcription model: ${next}`, color: 'success' });
 		} catch (error: unknown) {
+			settings.whisper_model = previous;
 			toast.add({ title: errorMessage(error, 'Failed to update model'), color: 'error' });
 		} finally {
 			updatingWhisper = false;
@@ -366,11 +402,14 @@
 
 	async function updateWhisperLanguage(next: string) {
 		if (!settings || next === (settings.whisper_language ?? 'auto')) return;
+		const previous = settings.whisper_language;
+		settings.whisper_language = next;
 		updatingWhisper = true;
 		try {
 			settings = await api.admin.updateSettings({ whisper_language: next });
 			toast.add({ title: `Transcription language: ${next}`, color: 'success' });
 		} catch (error: unknown) {
+			settings.whisper_language = previous;
 			toast.add({ title: errorMessage(error, 'Failed to update language'), color: 'error' });
 		} finally {
 			updatingWhisper = false;
@@ -380,11 +419,14 @@
 	let updatingAudioTagger = $state(false);
 	async function updateAudioTagger(next: string) {
 		if (!settings || next === (settings.audio_detect_model ?? 'efficientat_mn10')) return;
+		const previous = settings.audio_detect_model;
+		settings.audio_detect_model = next;
 		updatingAudioTagger = true;
 		try {
 			settings = await api.admin.updateSettings({ audio_detect_model: next });
 			toast.add({ title: `Audio tagger: ${next}`, color: 'success' });
 		} catch (error: unknown) {
+			settings.audio_detect_model = previous;
 			toast.add({ title: errorMessage(error, 'Failed to update audio tagger'), color: 'error' });
 		} finally {
 			updatingAudioTagger = false;
@@ -413,14 +455,20 @@
 	let updatingRoleUserId = $state<string | null>(null);
 	async function updateUserRole(user: AdminUser, nextRole: AdminUser['role']) {
 		if (!nextRole || nextRole === user.role) return;
+		// Same one-way `value` desync as the registration mode / model Selects
+		// (F3): optimistically write the row's own `role` field (read directly
+		// by this row's Select `value` prop) and revert it on failure — a real
+		// value change, not a same-array-reference no-op — so the row re-syncs
+		// to the server's actual role and a rejected pick can be retried.
+		const previousRole = user.role;
+		user.role = nextRole;
 		updatingRoleUserId = user.id;
 		try {
 			const updated = await api.admin.updateUserRole(user.id, { role: nextRole });
 			user.role = updated.role;
 			toast.add({ title: 'Role updated', color: 'success' });
 		} catch (error: unknown) {
-			// Re-read the list so the select reverts to the server's role.
-			users = users ? [...users] : users;
+			user.role = previousRole;
 			toast.add({ title: errorMessage(error, 'Failed to update role'), color: 'error' });
 		} finally {
 			updatingRoleUserId = null;
@@ -448,6 +496,10 @@
 		color: string;
 	}
 
+	// Neutral, media-first chrome: a single muted/primary text tint per metric
+	// (no tinted icon "chrome box" — see StatCard) — success/warning/destructive
+	// stay reserved for actual status signal elsewhere on this page (job states,
+	// load errors).
 	const statCards = $derived<StatCard[]>([
 		{
 			key: 'files',
@@ -455,7 +507,7 @@
 			value: stats?.files?.toLocaleString('en-US') ?? '—',
 			caption: 'Active across all libraries',
 			icon: ICONS.files,
-			color: 'text-primary-500 bg-primary-500/10'
+			color: 'text-primary'
 		},
 		{
 			key: 'storage',
@@ -463,7 +515,7 @@
 			value: stats ? formatFileSize(stats.totalSize) : '—',
 			caption: 'Total disk usage',
 			icon: ICONS.storage,
-			color: 'text-secondary-500 bg-secondary-500/10'
+			color: 'text-muted-foreground'
 		},
 		{
 			key: 'libraries',
@@ -471,7 +523,7 @@
 			value: stats?.libraries?.toLocaleString('en-US') ?? '—',
 			caption: 'Including personal defaults',
 			icon: ICONS.library,
-			color: 'text-tertiary-500 bg-tertiary-500/10'
+			color: 'text-primary'
 		},
 		{
 			key: 'users',
@@ -479,7 +531,7 @@
 			value: stats?.users?.toLocaleString('en-US') ?? '—',
 			caption: 'Registered accounts',
 			icon: ICONS.members,
-			color: 'text-success-500 bg-success-500/10'
+			color: 'text-muted-foreground'
 		},
 		{
 			key: 'folders',
@@ -487,25 +539,25 @@
 			value: stats?.folders?.toLocaleString('en-US') ?? '—',
 			caption: 'Active folder hierarchy',
 			icon: ICONS.folder,
-			color: 'text-warning-500 bg-warning-500/10'
+			color: 'text-primary'
 		}
 	]);
 </script>
 
-<div class="min-h-0 flex-1 space-y-6 overflow-y-auto px-0.5">
+<div class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-0.5">
 	<PageHeader
 		title="Admin Dashboard"
 		description="Instance overview, user management, and background jobs."
 	/>
 
 	{#if statsError}
-		<div
-			class="flex items-center gap-3 rounded-lg border border-error-500/30 bg-error-500/10 px-4 py-3 text-sm text-error-600"
-		>
-			<AppIcon name={ICONS.warning} class="size-5 shrink-0" />
-			<span class="flex-1">Couldn't load instance statistics.</span>
-			<Button variant="tonal" color="error" size="sm" onclick={loadStats}>Retry</Button>
-		</div>
+		<Alert.Root variant="destructive">
+			<AppIcon name={ICONS.warning} class="size-4 shrink-0" />
+			<Alert.Title>Couldn't load instance statistics</Alert.Title>
+			<Alert.Action>
+				<Button variant="ghost" size="sm" onclick={loadStats}>Retry</Button>
+			</Alert.Action>
+		</Alert.Root>
 	{/if}
 
 	<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -521,224 +573,258 @@
 	</div>
 
 	{#if settingsError}
-		<div
-			class="flex items-center gap-3 rounded-lg border border-error-500/30 bg-error-500/10 px-4 py-3 text-sm text-error-600"
-		>
-			<AppIcon name={ICONS.warning} class="size-5 shrink-0" />
-			<span class="flex-1">Couldn't load instance settings — values below may be inaccurate.</span>
-			<Button variant="tonal" color="error" size="sm" onclick={loadSettings}>Retry</Button>
-		</div>
+		<Alert.Root variant="destructive">
+			<AppIcon name={ICONS.warning} class="size-4 shrink-0" />
+			<Alert.Title>Couldn't load instance settings</Alert.Title>
+			<Alert.Description>Values below may be inaccurate.</Alert.Description>
+			<Alert.Action>
+				<Button variant="ghost" size="sm" onclick={loadSettings}>Retry</Button>
+			</Alert.Action>
+		</Alert.Root>
 	{/if}
 
-	<AppPanel
+	<SettingsSection
 		title="Registration"
 		description="Control who can create accounts on this instance."
 		icon={ICONS.person}
 	>
-		<div class="flex flex-col gap-1">
+		<RadioGroup.Root
+			value={settings?.registration_mode ?? 'open'}
+			onValueChange={(next) => updateRegistrationMode(next as RegistrationMode)}
+			disabled={updatingRegistrationMode}
+			class="flex flex-col gap-1"
+		>
 			{#each registrationModes as mode (mode.value)}
+				{@const id = `registration-mode-${mode.value}`}
 				<label
-					class="flex cursor-pointer items-start gap-3 rounded-lg p-3 hover:bg-surface-200-800/50"
+					for={id}
+					class="flex cursor-pointer items-start gap-3 rounded-lg p-3 hover:bg-accent hover:text-accent-foreground"
 				>
-					<input
-						type="radio"
-						name="registration-mode"
-						class="mt-1 radio"
-						value={mode.value}
-						checked={settings?.registration_mode === mode.value}
-						disabled={updatingRegistrationMode}
-						onchange={() => updateRegistrationMode(mode.value)}
-					/>
+					<RadioGroup.Item {id} value={mode.value} class="mt-1" />
 					<div class="min-w-0">
 						<p class="text-sm font-medium">{mode.label}</p>
-						<p class="text-xs text-surface-500">{mode.description}</p>
+						<p class="text-xs text-muted-foreground">{mode.description}</p>
 					</div>
 				</label>
 			{/each}
-		</div>
-	</AppPanel>
+		</RadioGroup.Root>
+	</SettingsSection>
 
-	<AppPanel
+	<SettingsSection
 		title="Inference models"
 		description="Switch the transcription model and audio-tagger used by background workers. Changes take effect on the next job; long-running jobs already in flight finish on the previous model."
 		icon={ICONS.models}
 	>
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-			<div class="space-y-3">
+			<div class="flex flex-col gap-3">
 				<div>
 					<p class="text-sm font-medium">Transcription model (whisper.cpp)</p>
-					<p class="text-xs text-surface-500">
+					<p class="text-xs text-muted-foreground">
 						Lower WER = better accuracy. RAM peak is the inference high-water mark for whisper-cli;
 						budget headroom for ffmpeg + the rest of the worker pod.
 					</p>
 				</div>
-				<select
-					class="select"
+				<Select.Root
+					type="single"
 					value={whisperModel}
+					onValueChange={(v) => updateWhisperModel(v)}
 					disabled={updatingWhisper}
-					onchange={(e) => updateWhisperModel((e.currentTarget as HTMLSelectElement).value)}
 				>
-					{#each whisperModels as m (m.id)}
-						<option value={m.id}>{m.label}</option>
-					{/each}
-				</select>
+					<Select.Trigger class="w-full" aria-label="Transcription model">
+						{whisperModelLabel}
+					</Select.Trigger>
+					<Select.Content>
+						{#each whisperModels as m (m.id)}
+							<Select.Item value={m.id} label={m.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
 				{#if selectedWhisper}
-					<div class="space-y-1.5 rounded-md bg-surface-200-800/50 p-3 text-xs">
+					<div class="flex flex-col gap-1.5 rounded-md bg-muted p-3 text-xs">
 						<p>{selectedWhisper.notes}</p>
-						<div class="grid grid-cols-2 gap-2 text-surface-500">
+						<div class="grid grid-cols-2 gap-2 text-muted-foreground">
 							<p>
-								Disk: <span class="text-surface-950-50">{formatMB(selectedWhisper.diskMB)}</span>
+								Disk: <span class="text-foreground">{formatMB(selectedWhisper.diskMB)}</span>
 							</p>
 							<p>
 								RAM peak:
-								<span class="text-surface-950-50">{formatMB(selectedWhisper.ramPeakMB)}</span>
+								<span class="text-foreground">{formatMB(selectedWhisper.ramPeakMB)}</span>
 							</p>
 							<p>
 								CPU speed:
-								<span class="text-surface-950-50">~{selectedWhisper.realtime}× realtime</span>
+								<span class="text-foreground">~{selectedWhisper.realtime}× realtime</span>
 							</p>
 							<p>
 								WER (clean/other):
-								<span class="text-surface-950-50"
+								<span class="text-foreground"
 									>{selectedWhisper.werClean.toFixed(1)}% / {selectedWhisper.werOther.toFixed(
 										1
 									)}%</span
 								>
 							</p>
 							{#if selectedWhisper.english}
-								<p class="col-span-2 text-warning-500">English-only</p>
+								<p class="col-span-2 text-warning">English-only</p>
 							{/if}
 							{#if selectedWhisper.ramPeakMB >= 3000}
-								<p class="col-span-2 text-warning-500">⚠️ Needs ≥4 GB RAM in the worker pod.</p>
+								<p class="col-span-2 text-warning">⚠️ Needs ≥4 GB RAM in the worker pod.</p>
 							{/if}
 						</div>
 					</div>
 				{/if}
 				<div class="pt-1">
-					<p class="mb-1 text-xs text-surface-500">Language</p>
-					<select
-						class="select"
+					<p class="mb-1 text-xs text-muted-foreground">Language</p>
+					<Select.Root
+						type="single"
 						value={whisperLanguage}
+						onValueChange={(v) => updateWhisperLanguage(v)}
 						disabled={updatingWhisper}
-						onchange={(e) => updateWhisperLanguage((e.currentTarget as HTMLSelectElement).value)}
 					>
-						{#each whisperLanguages as l (l.id)}
-							<option value={l.id}>{l.label}</option>
-						{/each}
-					</select>
+						<Select.Trigger class="w-full" aria-label="Transcription language">
+							{whisperLanguageLabel}
+						</Select.Trigger>
+						<Select.Content>
+							{#each whisperLanguages as l (l.id)}
+								<Select.Item value={l.id} label={l.label} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
 				</div>
 			</div>
 
-			<div class="space-y-3">
+			<div class="flex flex-col gap-3">
 				<div>
 					<p class="text-sm font-medium">Audio tagger (AudioSet 527 classes)</p>
-					<p class="text-xs text-surface-500">
+					<p class="text-xs text-muted-foreground">
 						Powers the per-clip event labels (music, speech, applause, …). Higher mAP = better
 						tagging quality. Every model shares the same 527-class label space, so existing
 						HighlightFilter expressions keep working after a swap.
 					</p>
 				</div>
-				<select
-					class="select"
+				<Select.Root
+					type="single"
 					value={audioTagger}
+					onValueChange={(v) => updateAudioTagger(v)}
 					disabled={updatingAudioTagger}
-					onchange={(e) => updateAudioTagger((e.currentTarget as HTMLSelectElement).value)}
 				>
-					{#each audioTaggers as m (m.id)}
-						<option value={m.id} disabled={!m.available}>
-							{m.available ? m.label : `${m.label} — not yet available`}
-						</option>
-					{/each}
-				</select>
+					<Select.Trigger class="w-full" aria-label="Audio tagger">
+						{audioTaggerLabel}
+					</Select.Trigger>
+					<Select.Content>
+						{#each audioTaggers as m (m.id)}
+							<Select.Item
+								value={m.id}
+								label={m.available ? m.label : `${m.label} — not yet available`}
+								disabled={!m.available}
+							/>
+						{/each}
+					</Select.Content>
+				</Select.Root>
 				{#if selectedAudioTagger}
-					<div class="space-y-1.5 rounded-md bg-surface-200-800/50 p-3 text-xs">
+					<div class="flex flex-col gap-1.5 rounded-md bg-muted p-3 text-xs">
 						<p>{selectedAudioTagger.notes}</p>
-						<div class="grid grid-cols-2 gap-2 text-surface-500">
+						<div class="grid grid-cols-2 gap-2 text-muted-foreground">
 							<p>
 								Disk:
-								<span class="text-surface-950-50">{formatMB(selectedAudioTagger.diskMB)}</span>
+								<span class="text-foreground">{formatMB(selectedAudioTagger.diskMB)}</span>
 							</p>
 							<p>
 								RAM peak:
-								<span class="text-surface-950-50">{formatMB(selectedAudioTagger.ramPeakMB)}</span>
+								<span class="text-foreground">{formatMB(selectedAudioTagger.ramPeakMB)}</span>
 							</p>
 							<p>
 								mAP (AudioSet):
-								<span class="text-surface-950-50">{selectedAudioTagger.mAP.toFixed(3)}</span>
+								<span class="text-foreground">{selectedAudioTagger.mAP.toFixed(3)}</span>
 							</p>
-							<p>License: <span class="text-surface-950-50">{selectedAudioTagger.license}</span></p>
+							<p>License: <span class="text-foreground">{selectedAudioTagger.license}</span></p>
 						</div>
 					</div>
 				{/if}
-				<p class="text-xs text-surface-500">
+				<p class="text-xs text-muted-foreground">
 					New tagger applies to <em>future</em> detection jobs. Re-run via the bulk action on a library's
 					settings page to backfill existing files with the new model.
 				</p>
 			</div>
 		</div>
-	</AppPanel>
+	</SettingsSection>
 
-	<AppPanel title="Users" description="Manage accounts and roles." icon={ICONS.members} flush>
+	<SettingsSection title="Users" description="Manage accounts and roles." icon={ICONS.members}>
 		{#snippet actions()}
 			{#if users}
-				<span class="badge preset-tonal-surface">{users.length}</span>
+				<Badge variant="secondary">{users.length}</Badge>
 			{/if}
 		{/snippet}
 
 		{#if usersStatus === 'pending'}
-			<div class="flex justify-center py-12">
-				<AppIcon name={ICONS.loading} class="size-6 animate-spin text-surface-500" />
+			<div class="flex flex-col gap-2 p-4">
+				{#each Array(4) as _, i (i)}
+					<Skeleton class="h-12 w-full" />
+				{/each}
 			</div>
 		{:else if users?.length}
-			<div class="overflow-x-auto">
-				<table class="w-full text-sm">
-					<thead class="bg-surface-200-800">
-						<tr class="text-left">
-							<th class="px-4 py-3 font-medium">User</th>
-							<th class="px-4 py-3 font-medium">Role</th>
-							<th class="px-4 py-3 font-medium">Joined</th>
-							<th class="px-4 py-3 font-medium">Updated</th>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-surface-200-800">
-						{#each users as user (user.id)}
-							<tr>
-								<td class="px-4 py-3">
-									<div class="flex items-center gap-3">
-										<UserAvatar
-											displayName={user.displayName}
-											avatarUrl={user.avatarUrl}
-											sizeClass="w-8"
-										/>
-										<div class="min-w-0">
-											<p class="truncate text-sm font-medium">{user.displayName}</p>
-											<p class="truncate text-xs text-surface-500">{user.email}</p>
-										</div>
+			<Table.Root>
+				<Table.Header>
+					<Table.Row class="hover:bg-transparent">
+						<Table.Head
+							class="px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+						>
+							User
+						</Table.Head>
+						<Table.Head
+							class="px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+						>
+							Role
+						</Table.Head>
+						<Table.Head
+							class="px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+						>
+							Joined
+						</Table.Head>
+						<Table.Head
+							class="px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+						>
+							Updated
+						</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each users as user (user.id)}
+						<Table.Row class="border-0 hover:bg-muted">
+							<Table.Cell class="px-4 py-3 whitespace-normal">
+								<div class="flex items-center gap-3">
+									<UserAvatar displayName={user.displayName} avatarUrl={user.avatarUrl} size="md" />
+									<div class="min-w-0">
+										<p class="truncate text-sm font-medium">{user.displayName}</p>
+										<p class="truncate text-xs text-muted-foreground">{user.email}</p>
 									</div>
-								</td>
-								<td class="px-4 py-3">
-									<select
-										class="select w-28"
-										value={user.role}
-										disabled={updatingRoleUserId === user.id || currentUser?.id === user.id}
-										onchange={(e) =>
-											updateUserRole(
-												user,
-												(e.currentTarget as HTMLSelectElement).value as AdminUser['role']
-											)}
-									>
+								</div>
+							</Table.Cell>
+							<Table.Cell class="px-4 py-3">
+								<Select.Root
+									type="single"
+									value={user.role}
+									onValueChange={(v) => updateUserRole(user, v as AdminUser['role'])}
+									disabled={updatingRoleUserId === user.id || currentUser?.id === user.id}
+								>
+									<Select.Trigger class="w-28" aria-label={`Change role for ${user.displayName}`}>
+										{roleOptions.find((o) => o.value === user.role)?.label ?? user.role}
+									</Select.Trigger>
+									<Select.Content>
 										{#each roleOptions as opt (opt.value)}
-											<option value={opt.value}>{opt.label}</option>
+											<Select.Item value={opt.value} label={opt.label} />
 										{/each}
-									</select>
-								</td>
-								<td class="px-4 py-3 text-xs text-surface-500">{formatDateTime(user.createdAt)}</td>
-								<td class="px-4 py-3 text-xs text-surface-500">{formatDateTime(user.updatedAt)}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+									</Select.Content>
+								</Select.Root>
+							</Table.Cell>
+							<Table.Cell class="px-4 py-3 text-xs text-muted-foreground">
+								{formatDateTime(user.createdAt)}
+							</Table.Cell>
+							<Table.Cell class="px-4 py-3 text-xs text-muted-foreground">
+								{formatDateTime(user.updatedAt)}
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
 		{:else if usersStatus === 'error'}
 			<EmptyState
 				icon={ICONS.warning}
@@ -747,10 +833,8 @@
 				tone="error"
 			>
 				{#snippet actions()}
-					<Button variant="tonal" color="surface" onclick={loadUsers}>
-						{#snippet icon()}
-							<AppIcon name={ICONS.reload} class="size-4" />
-						{/snippet}
+					<Button variant="secondary" onclick={loadUsers}>
+						<AppIcon name={ICONS.reload} class="size-4" />
 						Retry
 					</Button>
 				{/snippet}
@@ -758,26 +842,28 @@
 		{:else}
 			<EmptyState icon={ICONS.members} title="No users found" />
 		{/if}
-	</AppPanel>
+	</SettingsSection>
 
 	<AdminJobsPanel embedded />
 
 	{#if versionDisplay}
-		<footer class="flex items-center justify-end gap-2 pt-2 pb-4 text-xs text-surface-500">
+		<footer class="flex items-center justify-end gap-2 pt-2 pb-4 text-xs text-muted-foreground">
 			<span>Version</span>
 			<a
 				href={versionDisplay.href}
 				target="_blank"
 				rel="noopener noreferrer"
-				class="font-mono underline hover:text-surface-950-50"
+				class="font-mono underline hover:text-foreground"
 			>
 				{versionDisplay.short}
 			</a>
 			{#if versionDisplay.dirty}
-				<span class="badge preset-tonal-warning text-xs">dirty</span>
+				<Badge class="bg-warning/10 text-xs text-warning">dirty</Badge>
 			{/if}
 			{#if versionDisplay.buildTime}
-				<span class="text-surface-500/70">· built {formatDateTime(versionDisplay.buildTime)}</span>
+				<span class="text-muted-foreground/70"
+					>· built {formatDateTime(versionDisplay.buildTime)}</span
+				>
 			{/if}
 		</footer>
 	{/if}

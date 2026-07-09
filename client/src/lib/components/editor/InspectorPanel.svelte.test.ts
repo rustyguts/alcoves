@@ -46,7 +46,7 @@ describe('InspectorPanel', () => {
 		const screen = renderPanel({ onselecttab });
 		const tabs = [...screen.container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
 		expect(tabs[0]!.getAttribute('aria-selected')).toBe('true');
-		expect(tabs[0]!.className).toContain('preset-tonal-primary');
+		expect(tabs[0]!.className).toContain('bg-primary/10');
 		expect(tabs[1]!.getAttribute('aria-selected')).toBe('false');
 		tabs[2]!.click();
 		expect(onselecttab).toHaveBeenCalledWith('audio');
@@ -57,7 +57,9 @@ describe('InspectorPanel', () => {
 			props: { tabs: TABS, active: 'moments', width: 400 }
 		});
 		// Without a children snippet the body is just empty — assert structure.
-		const body = screen.container.querySelector('aside > div.min-h-0');
+		// The body sits inside the Tabs.Root the tablist also lives in, so it's
+		// a descendant of <aside>, not a direct child.
+		const body = screen.container.querySelector('aside div.min-h-0');
 		expect(body).not.toBeNull();
 	});
 
@@ -121,11 +123,14 @@ describe('InspectorPanel', () => {
 	});
 
 	it('implements roving tabindex + arrow navigation on the tablist', () => {
+		// aria-controls is populated by bits-ui once a matching Tabs.Content
+		// registers itself — that only happens once the page renders real panel
+		// content alongside this component (see page.svelte.test.ts), so it's
+		// not asserted here; tabindex + keyboard navigation don't depend on it.
 		const onselecttab = vi.fn();
 		const screen = renderPanel({ onselecttab });
 		const tabs = [...screen.container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
 		expect(tabs.map((t) => t.getAttribute('tabindex'))).toEqual(['0', '-1', '-1']);
-		expect(tabs[0]!.getAttribute('aria-controls')).toBe('inspector-panel-moments');
 
 		tabs[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
 		expect(onselecttab).toHaveBeenLastCalledWith('transcript');

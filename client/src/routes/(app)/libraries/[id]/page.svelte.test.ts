@@ -249,6 +249,13 @@ function renderTrash() {
 	});
 }
 
+// bits-ui's ContextMenu.Content (and AppModal's Dialog.Content, and Select's
+// Select.Content) are portalled to `document.body`, not the mounted container —
+// query the document for anything that can render inside one of those.
+function modalRoot(): HTMLElement {
+	return document.body;
+}
+
 // Open the context menu for a row (default: first) and return the rendered menu.
 async function openRowContextMenu(
 	screen: ReturnType<typeof render>,
@@ -261,12 +268,13 @@ async function openRowContextMenu(
 	);
 	await tick();
 	await tick();
-	return screen.container.querySelector('[role="menu"]') as HTMLElement;
+	return document.querySelector('[role="menu"]') as HTMLElement;
 }
 
-// Find a top-level (non-submenu) context-menu item by visible label.
-function menuItem(menu: HTMLElement, label: string): HTMLButtonElement | undefined {
-	return Array.from(menu.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')).find((b) =>
+// Find a top-level (non-submenu) context-menu item by visible label. Items
+// render as `[role="menuitem"]` (a styled div, not a native button).
+function menuItem(menu: HTMLElement, label: string): HTMLElement | undefined {
+	return Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]')).find((b) =>
 		b.textContent?.includes(label)
 	);
 }
@@ -384,27 +392,104 @@ describe('/libraries/[id] (browser)', () => {
 		expect(explorerState.entryViewMode).toBe('card');
 	});
 
-	it('shows Folder + Upload buttons for managers and opens them', async () => {
+	it('shows a Create dropdown for managers with Upload / New folder / New document, and each item opens its flow', async () => {
 		explorerState.entries = [makeFile()];
 		const screen = renderPage();
-		const folderBtn = Array.from(
+
+		const createBtn = Array.from(
 			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.trim() === 'Folder');
-		folderBtn!.click();
+		).find((b) => b.textContent?.trim() === 'Create');
+		expect(createBtn, 'Create toolbar button').toBeTruthy();
+
+		createBtn!.click();
+		await tick();
+		let dropdown = document.querySelector('[role="menu"]') as HTMLElement;
+		expect(dropdown).toBeTruthy();
+		menuItem(dropdown, 'New folder')!.click();
 		expect(folderActionsMock.openCreateFolderModal).toHaveBeenCalled();
-		const uploadBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.trim() === 'Upload');
-		uploadBtn!.click();
+
+		createBtn!.click();
+		await tick();
+		dropdown = document.querySelector('[role="menu"]') as HTMLElement;
+		const uploadItem = menuItem(dropdown, 'Upload');
+		expect(uploadItem).toBeTruthy();
+		uploadItem!.click();
+		await vi.waitFor(() => expect(document.body.textContent).toContain('Upload Files'));
 	});
 
-	it('hides manager toolbar buttons for viewers', async () => {
+	it('hides the Create dropdown for viewers', async () => {
 		explorerState.entries = [makeFile()];
 		const screen = renderPage({ user: viewer, library: { ...library, currentUserRole: 'viewer' } });
-		const folderBtn = Array.from(
+		const createBtn = Array.from(
 			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.trim() === 'Folder');
-		expect(folderBtn).toBeUndefined();
+		).find((b) => b.textContent?.trim() === 'Create');
+		expect(createBtn).toBeUndefined();
+	});
+
+	// ── F25: view toggles expose pressed state ─────────────────────────────────
+	it('exposes aria-pressed reflecting the active view mode', async () => {
+		explorerState.entries = [makeFile()];
+		explorerState.entryViewMode = 'file';
+		const fileScreen = renderPage();
+		expect(
+			fileScreen.container.querySelector('button[title="List view"]')!.getAttribute('aria-pressed')
+		).toBe('true');
+		expect(
+			fileScreen.container.querySelector('button[title="Grid view"]')!.getAttribute('aria-pressed')
+		).toBe('false');
+
+		explorerState.entryViewMode = 'card';
+		const cardScreen = renderPage();
+		expect(
+			cardScreen.container.querySelector('button[title="List view"]')!.getAttribute('aria-pressed')
+		).toBe('false');
+		expect(
+			cardScreen.container.querySelector('button[title="Grid view"]')!.getAttribute('aria-pressed')
+		).toBe('true');
+	});
+
+	// ── F7: toolbar buttons keep accessible names ───────────────────────────────
+	it('gives the Create button, its dropdown items, and Delete All an accessible name', async () => {
+		explorerState.entries = [makeFile()];
+		const filesScreen = renderPage();
+		await expect
+			.element(filesScreen.getByRole('button', { name: 'Create', exact: true }))
+			.toBeInTheDocument();
+
+		await filesScreen.getByRole('button', { name: 'Create', exact: true }).click();
+		await expect
+			.element(filesScreen.getByRole('menuitem', { name: 'Upload', exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(filesScreen.getByRole('menuitem', { name: 'New folder', exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(filesScreen.getByRole('menuitem', { name: 'New document', exact: true }))
+			.toBeInTheDocument();
+
+		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
+		explorerState.totalCount = 1;
+		const trashScreen = renderTrash();
+		await expect
+			.element(trashScreen.getByRole('button', { name: 'Delete All', exact: true }))
+			.toBeInTheDocument();
+	});
+
+	// ── No more mobile overflow ─────────────────────────────────────────────────
+	// The old Folder/Document/Upload trio collapsed into a "More actions"
+	// overflow below `sm` so a handful of icon-only buttons didn't crowd the
+	// breadcrumb. A single Create dropdown (already a DropdownMenu) plus the
+	// two view-toggle icon buttons render identically at every breakpoint now,
+	// so the overflow is gone outright — List/Grid view stay directly reachable.
+	it('no longer collapses the toolbar into a mobile "More actions" overflow', async () => {
+		explorerState.entries = [makeFile()];
+		const screen = renderPage();
+		expect(screen.container.querySelector('button[aria-label="More actions"]')).toBeFalsy();
+		await expect.element(screen.getByTitle('List view')).toBeInTheDocument();
+		await expect.element(screen.getByTitle('Grid view')).toBeInTheDocument();
+		await expect
+			.element(screen.getByRole('button', { name: 'Create', exact: true }))
+			.toBeInTheDocument();
 	});
 
 	// ── Empty-state actions ────────────────────────────────────────────────────
@@ -572,8 +657,8 @@ describe('/libraries/[id] (browser)', () => {
 		// Open the "Tags" submenu trigger (has children → not runContextItem).
 		menuItem(menu, 'Tags')!.click();
 		await tick();
-		const holiday = Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
-			b.textContent?.includes('Holiday')
+		const holiday = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(b) => b.textContent?.includes('Holiday')
 		);
 		holiday!.click();
 		expect(tagsMock.toggleTagForFiles).toHaveBeenCalledWith(['file-1'], 'tag-1');
@@ -653,6 +738,10 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		expect(menu.textContent).toContain('Download');
 		expect(menu.textContent).not.toContain('Rename');
+		// Create actions are manager-gated, same as the toolbar's Create button.
+		expect(menu.textContent).not.toContain('Upload');
+		expect(menu.textContent).not.toContain('New folder');
+		expect(menu.textContent).not.toContain('New document');
 	});
 
 	it('viewer folder context menu offers Open + Download as ZIP', async () => {
@@ -664,6 +753,89 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		expect(menu.textContent).toContain('Open');
 		expect(menu.textContent).toContain('Download as ZIP');
+		expect(menu.textContent).not.toContain('Upload');
+	});
+
+	// ── Create actions appended to the entry context menu ───────────────────────
+	it('manager file context menu appends a separated Upload / New folder / New document group', async () => {
+		explorerState.entries = [makeFile()];
+		const screen = renderPage();
+		const menu = await openRowContextMenu(screen);
+		expect(menuItem(menu, 'Upload')).toBeTruthy();
+		expect(menuItem(menu, 'New folder')).toBeTruthy();
+		expect(menuItem(menu, 'New document')).toBeTruthy();
+		// It's its own trailing group (a separator sits between it and the
+		// entry's own actions), not folded into the entry actions themselves.
+		expect(menu.querySelectorAll('[data-slot="context-menu-separator"]').length).toBeGreaterThan(0);
+
+		menuItem(menu, 'New folder')!.click();
+		expect(folderActionsMock.openCreateFolderModal).toHaveBeenCalled();
+	});
+
+	it('trash file context menu never offers create actions, even for the owner', async () => {
+		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
+		const screen = renderTrash();
+		const menu = await openRowContextMenu(screen);
+		expect(menu.textContent).not.toContain('Upload');
+		expect(menu.textContent).not.toContain('New folder');
+		expect(menu.textContent).not.toContain('New document');
+	});
+
+	// ── Empty-space context menu (Create actions) ────────────────────────────────
+	it('right-click on empty space opens a create-actions-only menu for a manager', async () => {
+		explorerState.entries = [makeFile()];
+		const screen = renderPage();
+		const container = screen.container.querySelector('.overflow-y-auto') as HTMLElement;
+		container.dispatchEvent(
+			new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 })
+		);
+		await tick();
+		await tick();
+		const menu = document.querySelector('[role="menu"]') as HTMLElement;
+		expect(menu).toBeTruthy();
+		expect(menuItem(menu, 'Upload')).toBeTruthy();
+		expect(menuItem(menu, 'New folder')).toBeTruthy();
+		expect(menuItem(menu, 'New document')).toBeTruthy();
+		// Never a previous/stale entry's own actions.
+		expect(menuItem(menu, 'Rename')).toBeFalsy();
+		expect(menuItem(menu, 'Delete')).toBeFalsy();
+	});
+
+	it('right-click on empty space does nothing for a viewer (native context menu, permission-gated)', async () => {
+		explorerState.entries = [makeFile()];
+		const screen = renderPage({
+			user: viewer,
+			library: { ...library, currentUserRole: 'viewer' }
+		});
+		const container = screen.container.querySelector('.overflow-y-auto') as HTMLElement;
+		const event = new MouseEvent('contextmenu', {
+			bubbles: true,
+			cancelable: true,
+			clientX: 5,
+			clientY: 5
+		});
+		container.dispatchEvent(event);
+		await tick();
+		await tick();
+		expect(document.querySelector('[role="menu"]')).toBeFalsy();
+		expect(event.defaultPrevented).toBe(false);
+	});
+
+	it('right-click on empty space does nothing in the trash view, even for the owner (native context menu)', async () => {
+		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
+		const screen = renderTrash();
+		const container = screen.container.querySelector('.overflow-y-auto') as HTMLElement;
+		const event = new MouseEvent('contextmenu', {
+			bubbles: true,
+			cancelable: true,
+			clientX: 5,
+			clientY: 5
+		});
+		container.dispatchEvent(event);
+		await tick();
+		await tick();
+		expect(document.querySelector('[role="menu"]')).toBeFalsy();
+		expect(event.defaultPrevented).toBe(false);
 	});
 
 	// ── Rename save paths ──────────────────────────────────────────────────────
@@ -794,10 +966,10 @@ describe('/libraries/[id] (browser)', () => {
 		const screen = renderPage();
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Move')!.click();
-		await vi.waitFor(() => expect(screen.container.textContent).toContain('Move Files'));
-		const cancelBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.trim() === 'Cancel');
+		await vi.waitFor(() => expect(modalRoot().textContent).toContain('Move Files'));
+		const cancelBtn = Array.from(modalRoot().querySelectorAll<HTMLButtonElement>('button')).find(
+			(b) => b.textContent?.trim() === 'Cancel'
+		);
 		cancelBtn!.click();
 		expect(apiMock.files.update).not.toHaveBeenCalled();
 	});
@@ -875,7 +1047,8 @@ describe('/libraries/[id] (browser)', () => {
 		});
 		const row = screen.container.querySelector('tbody tr') as HTMLElement;
 		row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-		expect(screen.container.querySelector('[role="menu"]')).toBeFalsy();
+		await tick();
+		expect(document.querySelector('[role="menu"]')).toBeFalsy();
 	});
 
 	// ── Purge modal confirm flow ──────────────────────────────────────────────
@@ -885,13 +1058,13 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Permanently delete')!.click();
 		await tick();
-		const confirm = screen.container.querySelector('#purge-confirm') as HTMLInputElement;
+		const confirm = document.querySelector('#purge-confirm') as HTMLInputElement;
 		confirm.value = 'delete';
 		confirm.dispatchEvent(new Event('input', { bubbles: true }));
 		await tick();
-		const deleteBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.includes('Delete Permanently'));
+		const deleteBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+			b.textContent?.includes('Delete Permanently')
+		);
 		deleteBtn!.click();
 		await vi.waitFor(() => expect(apiMock.files.purge).toHaveBeenCalled());
 	});
@@ -902,13 +1075,13 @@ describe('/libraries/[id] (browser)', () => {
 		const screen = renderTrash();
 		await screen.getByRole('button', { name: 'Delete All' }).click();
 		await tick();
-		const confirm = screen.container.querySelector('#purge-confirm') as HTMLInputElement;
+		const confirm = document.querySelector('#purge-confirm') as HTMLInputElement;
 		confirm.value = 'delete';
 		confirm.dispatchEvent(new Event('input', { bubbles: true }));
 		await tick();
-		const deleteBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.includes('Delete Permanently'));
+		const deleteBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+			b.textContent?.includes('Delete Permanently')
+		);
 		deleteBtn!.click();
 		await vi.waitFor(() => expect(apiMock.files.purge).toHaveBeenCalledWith('lib-1'));
 	});
@@ -920,13 +1093,13 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Permanently delete')!.click();
 		await tick();
-		const confirm = screen.container.querySelector('#purge-confirm') as HTMLInputElement;
+		const confirm = document.querySelector('#purge-confirm') as HTMLInputElement;
 		confirm.value = 'delete';
 		confirm.dispatchEvent(new Event('input', { bubbles: true }));
 		await tick();
-		const deleteBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.includes('Delete Permanently'));
+		const deleteBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+			b.textContent?.includes('Delete Permanently')
+		);
 		deleteBtn!.click();
 		await vi.waitFor(() =>
 			expect(toastMock.add).toHaveBeenCalledWith(
@@ -993,11 +1166,11 @@ describe('/libraries/[id] (browser)', () => {
 		folderRow.dispatchEvent(new DragEvent('dragenter', { bubbles: true, dataTransfer: dt }));
 		await tick();
 		// Entering a folder highlights it as the drop target (ring).
-		expect(folderRow.className).toContain('ring-primary-500/60');
+		expect(folderRow.className).toContain('ring-primary/60');
 		folderRow.dispatchEvent(new DragEvent('dragleave', { bubbles: true, dataTransfer: dt }));
 		await tick();
 		// Leaving clears the highlight.
-		expect(folderRow.className).not.toContain('ring-primary-500/60');
+		expect(folderRow.className).not.toContain('ring-primary/60');
 		fileRow.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
 	});
 
@@ -1030,23 +1203,27 @@ describe('/libraries/[id] (browser)', () => {
 	});
 
 	// ── Context menu dismissal ─────────────────────────────────────────────────
-	it('window click closes an open context menu', async () => {
+	// Dismissal-on-outside-interaction is bits-ui's ContextMenu behavior (the
+	// ContextMenu.Root wrapping the entries area owns it now, replacing the old
+	// hand-rolled `closeContextMenu`); Escape is the reliable, synthesizable way
+	// to exercise "the menu can be dismissed" without reproducing bits-ui's
+	// internal outside-pointerdown geometry/debounce heuristics in a unit test.
+	it('Escape closes an open context menu', async () => {
 		explorerState.entries = [makeFile()];
 		const screen = renderPage();
 		const menu = await openRowContextMenu(screen);
 		expect(menu).toBeTruthy();
-		window.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-		await tick();
-		expect(screen.container.querySelector('[role="menu"]')).toBeFalsy();
+		menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		await vi.waitFor(() => {
+			expect(document.querySelector('[role="menu"]')).toBeFalsy();
+		});
 	});
 
 	// ── Large-download size-warning modal buttons ──────────────────────────────
 	it('size-warning modal Cancel calls cancelLargeDownload', async () => {
 		zipMock.showSizeWarning = true;
 		const screen = renderPage();
-		await vi.waitFor(() =>
-			expect(screen.container.textContent).toContain('Large Download Warning')
-		);
+		await vi.waitFor(() => expect(document.body.textContent).toContain('Large Download Warning'));
 		await screen.getByRole('button', { name: 'Cancel', exact: true }).click();
 		expect(zipMock.cancelLargeDownload).toHaveBeenCalled();
 	});
@@ -1054,9 +1231,7 @@ describe('/libraries/[id] (browser)', () => {
 	it('size-warning modal Download Anyway calls confirmLargeDownload', async () => {
 		zipMock.showSizeWarning = true;
 		const screen = renderPage();
-		await vi.waitFor(() =>
-			expect(screen.container.textContent).toContain('Large Download Warning')
-		);
+		await vi.waitFor(() => expect(document.body.textContent).toContain('Large Download Warning'));
 		await screen.getByRole('button', { name: 'Download Anyway' }).click();
 		expect(zipMock.confirmLargeDownload).toHaveBeenCalled();
 	});
@@ -1231,8 +1406,8 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Tags')!.click();
 		await tick();
-		const tagBtn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
-			b.textContent?.includes('Trip')
+		const tagBtn = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(b) => b.textContent?.includes('Trip')
 		);
 		tagBtn!.click();
 		expect(tagsMock.toggleTagForFolder).toHaveBeenCalled();
@@ -1247,8 +1422,8 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Tags')!.click();
 		await tick();
-		const tagBtn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
-			b.textContent?.includes('Trip')
+		const tagBtn = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(b) => b.textContent?.includes('Trip')
 		);
 		tagBtn!.click();
 		expect(tagsMock.toggleTagForFiles).toHaveBeenCalledWith(['file-1', 'file-2'], 'tag-1');
@@ -1262,9 +1437,9 @@ describe('/libraries/[id] (browser)', () => {
 			{ label: 'Root', value: '__root__' },
 			{ label: 'Photos', value: 'p1' }
 		];
-		const screen = renderPage();
-		await vi.waitFor(() => expect(screen.container.textContent).toContain('Move Folder'));
-		expect(screen.container.textContent).toContain('Docs');
+		renderPage();
+		await vi.waitFor(() => expect(document.body.textContent).toContain('Move Folder'));
+		expect(document.body.textContent).toContain('Docs');
 	});
 
 	it('grid view opens a context menu from a card and toggles a file tag', async () => {
@@ -1279,12 +1454,12 @@ describe('/libraries/[id] (browser)', () => {
 		);
 		await tick();
 		await tick();
-		const menu = screen.container.querySelector('[role="menu"]') as HTMLElement;
+		const menu = document.querySelector('[role="menu"]') as HTMLElement;
 		expect(menu).toBeTruthy();
 		menuItem(menu, 'Tags')!.click();
 		await tick();
-		const tagBtn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
-			b.textContent?.includes('Fun')
+		const tagBtn = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+			(b) => b.textContent?.includes('Fun')
 		);
 		tagBtn!.click();
 		expect(tagsMock.toggleTagForFiles).toHaveBeenCalledWith(['file-1'], 'tag-1');
@@ -1326,14 +1501,20 @@ describe('/libraries/[id] (browser)', () => {
 		const screen = renderPage();
 		const menu = await openRowContextMenu(screen);
 		menuItem(menu, 'Move')!.click();
+		await vi.waitFor(() => expect(document.querySelector('#move-files-dest')).toBeTruthy());
+		// Open the Select (portalled Select.Content lists Select.Item options).
+		// bits-ui's Select opens on `pointerdown`, not `click` — a bare
+		// `element.click()` DOM call only synthesizes a `click` event.
+		const trigger = document.querySelector<HTMLElement>('#move-files-dest')!;
+		trigger.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1 })
+		);
 		await vi.waitFor(() => {
-			const opt = screen.container.querySelector('#move-files-dest option[value="child-f"]');
-			if (!opt) throw new Error('nested option not ready');
+			const item = Array.from(document.querySelectorAll('[data-slot="select-item"]')).find((el) =>
+				el.textContent?.includes('Root Folder / Child')
+			);
+			if (!item) throw new Error('nested option not ready');
 		});
-		const nested = screen.container.querySelector(
-			'#move-files-dest option[value="child-f"]'
-		) as HTMLOptionElement;
-		expect(nested.textContent).toContain('Root Folder / Child');
 	});
 
 	// ── Drag handler guards ─────────────────────────────────────────────────────

@@ -9,7 +9,10 @@
 	 * markers lane — same data, two surfaces.
 	 */
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
 	import { ICONS } from '$lib/utils/icons';
 	import type {
 		HighlightFilter,
@@ -140,40 +143,40 @@
 	);
 </script>
 
-<div class="flex flex-col" data-testid="highlight-filters-panel">
-	<div class="flex items-center justify-between gap-2 border-b border-surface-200-800 pb-2">
+<div class="flex flex-col gap-2" data-testid="highlight-filters-panel">
+	<div class="flex items-center justify-between gap-2">
 		<div class="flex min-w-0 items-center gap-2">
-			<span class="badge preset-tonal-surface text-xs">{filters.length}</span>
+			<Badge variant="secondary">{filters.length}</Badge>
 			<span title="Comma = OR · & = AND · word:foo = transcript · audio:foo = label · :25 = min %">
-				<AppIcon name={ICONS.help} class="size-3.5 text-surface-600-400" />
+				<AppIcon name={ICONS.help} class="size-3.5 text-muted-foreground" />
 			</span>
 		</div>
 		<div class="flex shrink-0 items-center gap-1">
 			{#if filters.length === 0}
 				<Button
-					variant="tonal"
-					color="primary"
+					variant="secondary"
 					size="sm"
-					{loading}
+					disabled={loading}
+					aria-busy={loading || undefined}
 					onclick={() => onloadpresets?.()}
 				>
-					{#snippet icon()}
+					{#if loading}
+						<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+					{:else}
 						<AppIcon name={ICONS.loadPresets} class="size-4" />
-					{/snippet}
+					{/if}
 					Load presets
 				</Button>
 			{/if}
 			<Button size="sm" onclick={startAdd}>
-				{#snippet icon()}
-					<AppIcon name={ICONS.plus} class="size-4" />
-				{/snippet}
+				<AppIcon name={ICONS.plus} class="size-4" />
 				Add filter
 			</Button>
 		</div>
 	</div>
 
 	{#if !hasSignals && filters.length === 0 && !adding}
-		<p class="px-1 py-2 text-[11px] text-surface-600-400">
+		<p class="px-1 py-2 text-[11px] text-muted-foreground">
 			Run <span class="font-medium">Transcribe</span> or
 			<span class="font-medium">Waveform → Detect audio</span>
 			first to give filters something to match.
@@ -182,30 +185,31 @@
 
 	<!-- Add form -->
 	{#if adding}
-		<div class="border-b border-surface-200-800 bg-surface-200-800/50 px-2 py-2">
+		<div class="rounded-lg bg-muted/50 px-2 py-2">
 			<div class="flex flex-wrap items-end gap-2">
 				<div class="flex w-40 flex-col gap-1">
-					<label class="text-[11px] font-medium text-surface-600-400" for="hf-add-name">Name</label>
-					<input id="hf-add-name" class="input" bind:value={draft.name} placeholder="Funny clip" />
+					<Label class="text-[11px] font-medium text-muted-foreground" for="hf-add-name">
+						Name
+					</Label>
+					<Input id="hf-add-name" bind:value={draft.name} placeholder="Funny clip" />
 				</div>
 				<div class="flex min-w-[200px] flex-1 flex-col gap-1">
-					<label class="text-[11px] font-medium text-surface-600-400" for="hf-add-expr">
-						Expression <span class="text-surface-500">(comma = OR, & = AND)</span>
-					</label>
-					<input
+					<Label class="text-[11px] font-medium text-muted-foreground" for="hf-add-expr">
+						Expression <span class="text-muted-foreground/70">(comma = OR, & = AND)</span>
+					</Label>
+					<Input
 						id="hf-add-expr"
-						class="input"
 						bind:value={draft.expression}
 						placeholder={EXPRESSION_PLACEHOLDER}
 					/>
 				</div>
 				<div class="flex w-24 flex-col gap-1">
-					<label class="text-[11px] font-medium text-surface-600-400" for="hf-add-prox">
+					<Label class="text-[11px] font-medium text-muted-foreground" for="hf-add-prox">
 						AND ± {draft.proximitySeconds}s
-					</label>
+					</Label>
 					<input
 						id="hf-add-prox"
-						class="input"
+						class="accent-primary"
 						type="range"
 						min="0"
 						max="30"
@@ -214,22 +218,20 @@
 					/>
 				</div>
 				<div class="flex w-12 flex-col gap-1">
-					<label class="text-[11px] font-medium text-surface-600-400" for="hf-add-color"
-						>Color</label
-					>
+					<Label class="text-[11px] font-medium text-muted-foreground" for="hf-add-color">
+						Color
+					</Label>
 					<input
 						id="hf-add-color"
 						type="color"
-						class="h-7 w-10 cursor-pointer rounded border border-surface-200-800"
+						class="h-7 w-10 cursor-pointer rounded border"
 						bind:value={draft.color}
 					/>
 				</div>
 				<div class="flex items-center gap-1">
-					<Button variant="tonal" color="surface" size="sm" onclick={cancelAdd}>Cancel</Button>
+					<Button variant="secondary" size="sm" onclick={cancelAdd}>Cancel</Button>
 					<Button size="sm" onclick={submitAdd}>
-						{#snippet icon()}
-							<AppIcon name={ICONS.check} class="size-4" />
-						{/snippet}
+						<AppIcon name={ICONS.check} class="size-4" />
 						Save
 					</Button>
 				</div>
@@ -238,31 +240,31 @@
 	{/if}
 
 	{#if sortedFilters.length > 0}
-		<ul class="flex flex-col divide-y divide-surface-200-800">
+		<ul class="flex flex-col gap-1">
 			{#each sortedFilters as f (f.id)}
-				<li class="py-2">
+				<li class="rounded-lg py-2">
 					{#if editing === f.id}
 						<!-- Edit form -->
 						<div class="flex flex-wrap items-end gap-2">
 							<div class="flex w-40 flex-col gap-1">
-								<label class="text-[11px] font-medium text-surface-600-400" for="hf-edit-name">
+								<Label class="text-[11px] font-medium text-muted-foreground" for="hf-edit-name">
 									Name
-								</label>
-								<input id="hf-edit-name" class="input" bind:value={draft.name} />
+								</Label>
+								<Input id="hf-edit-name" bind:value={draft.name} />
 							</div>
 							<div class="flex min-w-[200px] flex-1 flex-col gap-1">
-								<label class="text-[11px] font-medium text-surface-600-400" for="hf-edit-expr">
+								<Label class="text-[11px] font-medium text-muted-foreground" for="hf-edit-expr">
 									Expression
-								</label>
-								<input id="hf-edit-expr" class="input" bind:value={draft.expression} />
+								</Label>
+								<Input id="hf-edit-expr" bind:value={draft.expression} />
 							</div>
 							<div class="flex w-24 flex-col gap-1">
-								<label class="text-[11px] font-medium text-surface-600-400" for="hf-edit-prox">
+								<Label class="text-[11px] font-medium text-muted-foreground" for="hf-edit-prox">
 									AND ± {draft.proximitySeconds}s
-								</label>
+								</Label>
 								<input
 									id="hf-edit-prox"
-									class="input"
+									class="accent-primary"
 									type="range"
 									min="0"
 									max="30"
@@ -271,24 +273,20 @@
 								/>
 							</div>
 							<div class="flex w-12 flex-col gap-1">
-								<label class="text-[11px] font-medium text-surface-600-400" for="hf-edit-color">
+								<Label class="text-[11px] font-medium text-muted-foreground" for="hf-edit-color">
 									Color
-								</label>
+								</Label>
 								<input
 									id="hf-edit-color"
 									type="color"
-									class="h-7 w-10 cursor-pointer rounded border border-surface-200-800"
+									class="h-7 w-10 cursor-pointer rounded border"
 									bind:value={draft.color}
 								/>
 							</div>
 							<div class="flex items-center gap-1">
-								<Button variant="tonal" color="surface" size="sm" onclick={cancelEdit}>
-									Cancel
-								</Button>
+								<Button variant="secondary" size="sm" onclick={cancelEdit}>Cancel</Button>
 								<Button size="sm" onclick={() => submitEdit(f.id)}>
-									{#snippet icon()}
-										<AppIcon name={ICONS.check} class="size-4" />
-									{/snippet}
+									<AppIcon name={ICONS.check} class="size-4" />
 									Save
 								</Button>
 							</div>
@@ -303,61 +301,56 @@
 							>
 								<AppIcon
 									name={expanded.has(f.id) ? ICONS.chevronDown : ICONS.chevronRight}
-									class="size-3.5 shrink-0 text-surface-600-400"
+									class="size-3.5 shrink-0 text-muted-foreground"
 								/>
 								<span class="size-2.5 shrink-0 rounded-full" style="background-color: {f.color};"
 								></span>
 								<span class="truncate text-sm font-medium">{f.name}</span>
 								{#if (aggregates[f.id]?.expressionErrors?.length ?? 0) > 0}
-									<span
-										class="badge shrink-0 preset-tonal-warning text-xs"
+									<Badge
+										variant="secondary"
+										class="shrink-0 bg-warning/10 text-warning"
 										title={aggregates[f.id]?.expressionErrors.join('; ')}
 									>
 										parse error
-									</span>
+									</Badge>
 								{/if}
 							</button>
 
 							<div class="flex shrink-0 items-center gap-1.5">
-								<span
-									class="badge text-xs {(aggregates[f.id]?.count ?? 0) > 0
-										? 'preset-tonal-primary'
-										: 'preset-tonal-surface'}"
+								<Badge
+									variant="secondary"
+									class={(aggregates[f.id]?.count ?? 0) > 0 ? 'bg-primary/10 text-primary' : ''}
 								>
 									{aggregates[f.id]?.count ?? 0} hits
-								</span>
+								</Badge>
 								<Button
-									iconOnly
-									size="sm"
-									variant="tonal"
-									color="surface"
+									variant="ghost"
+									size="icon-sm"
 									aria-label="Edit filter"
 									onclick={() => startEdit(f)}
 								>
-									{#snippet icon()}
-										<AppIcon name={ICONS.edit} class="size-4" />
-									{/snippet}
+									<AppIcon name={ICONS.edit} class="size-4" />
 								</Button>
 								<Button
-									iconOnly
-									size="sm"
-									variant="tonal"
-									color="error"
+									variant="ghost"
+									size="icon-sm"
+									class="text-destructive hover:bg-destructive/10 hover:text-destructive"
 									aria-label="Remove filter"
 									onclick={() => onremove?.(f.id)}
 								>
-									{#snippet icon()}
-										<AppIcon name={ICONS.trash} class="size-4" />
-									{/snippet}
+									<AppIcon name={ICONS.trash} class="size-4" />
 								</Button>
 							</div>
 						</div>
 
 						<!-- Expression + stats line -->
 						<div class="mt-1 flex min-w-0 items-center gap-2 pl-5">
-							<code class="truncate font-mono text-[11px] text-surface-500">{f.expression}</code>
+							<code class="truncate font-mono text-[11px] text-muted-foreground">
+								{f.expression}
+							</code>
 							{#if (aggregates[f.id]?.count ?? 0) > 0}
-								<span class="shrink-0 text-[10px] text-surface-600-400 tabular-nums">
+								<span class="shrink-0 text-[10px] text-muted-foreground tabular-nums">
 									avg {((aggregates[f.id]?.meanScore ?? 0) * 100).toFixed(0)}% · max
 									{((aggregates[f.id]?.maxScore ?? 0) * 100).toFixed(0)}%
 								</span>
@@ -371,16 +364,16 @@
 									<li>
 										<button
 											type="button"
-											class="flex items-center gap-1 rounded-md border border-surface-200-800 px-2 py-0.5 text-[11px] tabular-nums hover:border-primary-500 hover:bg-surface-200-800"
+											class="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] tabular-nums hover:bg-accent"
 											title={joinEvidence(m.evidence)}
 											onclick={() => onseek?.(m.startSeconds)}
 										>
 											<AppIcon name={ICONS.play} class="size-2.5" />
 											{formatTime(m.startSeconds)}
-											<span class="text-surface-600-400">
+											<span class="text-muted-foreground">
 												· {(m.score * 100).toFixed(0)}%
 											</span>
-											<span class="max-w-[220px] truncate text-surface-500">
+											<span class="max-w-[220px] truncate text-muted-foreground">
 												{joinEvidence(m.evidence)}
 											</span>
 										</button>
@@ -393,7 +386,7 @@
 			{/each}
 		</ul>
 	{:else if !adding}
-		<div class="px-3 py-4 text-center text-xs text-surface-600-400">
+		<div class="px-3 py-4 text-center text-xs text-muted-foreground">
 			No filters yet. Click <span class="font-medium">Add filter</span> or
 			<span class="font-medium">Load presets</span> to get started.
 		</div>

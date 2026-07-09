@@ -10,71 +10,73 @@ function bodySnippet(text: string) {
 	}));
 }
 
-function content(root: ParentNode) {
-	return root.querySelector('[data-part="content"]');
+// bits-ui's Dialog.Content is portalled to `document.body`, not the mounted
+// container, so assertions query the document rather than screen.container.
+function content() {
+	return document.querySelector('[data-slot="dialog-content"]');
 }
 
 describe('AppModal', () => {
 	it('renders the body slot content when open', async () => {
-		const screen = render(AppModal, {
+		render(AppModal, {
 			props: { open: true, children: bodySnippet('Modal content') }
 		});
 		await tick();
-		expect(screen.container.textContent).toContain('Modal content');
-		expect(content(screen.container)?.getAttribute('data-state')).toBe('open');
+		expect(content()?.textContent).toContain('Modal content');
 	});
 
-	it('hides the modal content when closed', async () => {
-		const screen = render(AppModal, {
+	it('does not render the modal content when closed', async () => {
+		render(AppModal, {
 			props: { open: false, children: bodySnippet('Hidden content') }
 		});
 		await tick();
-		// Skeleton's dialog keeps content mounted but flags it hidden when closed.
-		const box = content(screen.container);
-		expect(box?.getAttribute('data-state')).toBe('closed');
-		expect(box?.hasAttribute('hidden')).toBe(true);
+		// bits-ui's Dialog unmounts Content entirely (portalled) when closed.
+		expect(content()).toBeNull();
 	});
 
 	it('renders the title and description when provided', async () => {
-		const screen = render(AppModal, {
+		render(AppModal, {
 			props: { open: true, title: 'My Title', description: 'My description' }
 		});
 		await tick();
-		expect(screen.container.textContent).toContain('My Title');
-		expect(screen.container.textContent).toContain('My description');
+		expect(content()?.textContent).toContain('My Title');
+		expect(content()?.textContent).toContain('My description');
 	});
 
-	it('omits the header when neither title nor description is given', async () => {
-		const screen = render(AppModal, {
+	it('renders a screen-reader-only title for accessibility when none is given', async () => {
+		render(AppModal, {
 			props: { open: true, children: bodySnippet('Bare body') }
 		});
 		await tick();
-		expect(screen.container.querySelector('header')).toBeNull();
-		expect(screen.container.textContent).toContain('Bare body');
+		const dialogTitle = document.querySelector('[data-slot="dialog-title"]');
+		expect(dialogTitle).not.toBeNull();
+		expect(dialogTitle?.closest('[data-slot="dialog-header"]')?.className).toContain('sr-only');
+		expect(content()?.textContent).toContain('Bare body');
 	});
 
 	it('merges boxClass onto the modal content box', async () => {
-		const screen = render(AppModal, {
+		render(AppModal, {
 			props: { open: true, boxClass: 'custom-box-class', children: bodySnippet('Boxed') }
 		});
 		await tick();
-		expect(content(screen.container)?.classList.contains('custom-box-class')).toBe(true);
+		expect(content()?.classList.contains('custom-box-class')).toBe(true);
 	});
 
 	it('exposes an accessible close trigger that closes the dialog', async () => {
-		const screen = render(AppModal, {
+		render(AppModal, {
 			props: { open: true, children: bodySnippet('Closable') }
 		});
 		await tick();
-		expect(content(screen.container)?.getAttribute('data-state')).toBe('open');
+		expect(content()).not.toBeNull();
 
-		const closeBtn = screen.container.querySelector<HTMLButtonElement>('[aria-label="Close"]');
+		const closeBtn = document.querySelector<HTMLButtonElement>('[data-slot="dialog-close"]');
 		expect(closeBtn).not.toBeNull();
+		expect(closeBtn?.textContent?.trim()).toBe('Close');
 		closeBtn!.click();
 
-		// onOpenChange flips the bound `open` to false, so the dialog transitions to closed.
+		// The internal close trigger flips the bound `open` to false.
 		await vi.waitFor(() => {
-			expect(content(screen.container)?.getAttribute('data-state')).toBe('closed');
+			expect(content()).toBeNull();
 		});
 	});
 });

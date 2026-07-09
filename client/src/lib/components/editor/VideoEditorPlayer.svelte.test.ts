@@ -67,10 +67,10 @@ describe('VideoEditorPlayer', () => {
 		const screen = render(VideoEditorPlayer, {
 			props: { file: makeFile(), libraryId: 'lib1', active: false }
 		});
-		expect(screen.container.querySelector('.border-primary-500')).toBeNull();
+		expect(screen.container.querySelector('.border-primary')).toBeNull();
 
 		await screen.rerender({ file: makeFile(), libraryId: 'lib1', active: true });
-		expect(screen.container.querySelector('.border-primary-500')).not.toBeNull();
+		expect(screen.container.querySelector('.border-primary')).not.toBeNull();
 	});
 
 	it('does not emit a duration while the file has none', () => {

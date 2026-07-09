@@ -2,18 +2,19 @@
 	/**
 	 * EditorTopBar — back navigation, file identity, and the local-inference job
 	 * buttons (Transcribe / Detect audio / Waveform), plus the keyboard-help
-	 * trigger. Job buttons keep their status-driven styling: tonal normally,
-	 * FILLED when the job failed; labels collapse to icons below `sm`.
+	 * trigger. Job buttons keep their status-driven tint: neutral/tonal
+	 * normally, destructive when the job failed; labels collapse to icons below
+	 * `sm`. Icon-only controls keep native `title` + `aria-label` (this bar sits
+	 * beside the equally dense TransportBar/TimelineControls — see the note
+	 * there on skipping the Tooltip primitive for this high-frequency chrome).
 	 */
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { ICONS } from '$lib/utils/icons';
 	import { formatTimecode } from '$lib/utils/timeline-geometry';
 	import type { LibraryFile } from '$lib/types/api';
-	import type { JobButtonColor, JobStatusButton } from '$lib/utils/job-status-button';
-
-	type ButtonColor = 'primary' | 'surface' | 'error' | 'warning' | 'success';
-	type ButtonVariant = 'filled' | 'tonal';
+	import type { JobStatusButton } from '$lib/utils/job-status-button';
 
 	interface Props {
 		file: LibraryFile | null | undefined;
@@ -51,18 +52,17 @@
 		return !!mimeType && (mimeType.startsWith('video/') || mimeType.startsWith('audio/'));
 	}
 
-	// JobButtonColor -> Button color token. `neutral` has no preset of its own;
-	// it maps onto the surface palette.
-	const colorToken: Record<JobButtonColor, ButtonColor> = {
-		primary: 'primary',
-		neutral: 'surface',
-		warning: 'warning',
-		error: 'error'
+	// Job status tint: a soft color chip when idle/queued, the destructive
+	// treatment when the job failed (that state should shout).
+	const TINT: Record<'primary' | 'warning', string> = {
+		primary: 'bg-primary/10 text-primary hover:bg-primary/20',
+		warning: 'bg-warning/10 text-warning hover:bg-warning/20'
 	};
 
-	// Filled when failed, tonal otherwise — the failure state should shout.
-	function actionVariant(failed: boolean): ButtonVariant {
-		return failed ? 'filled' : 'tonal';
+	function actionClass(color: JobStatusButton['color'], failed: boolean): string {
+		if (failed) return '';
+		if (color === 'primary' || color === 'warning') return TINT[color];
+		return '';
 	}
 
 	const playable = $derived(!!file && isPlayable(file.mimeType));
@@ -85,44 +85,42 @@
 
 <div class="flex w-full items-center gap-2 sm:gap-3">
 	<Button
-		iconOnly
-		variant="tonal"
-		color="surface"
-		size="sm"
+		variant="secondary"
+		size="icon-sm"
 		title="Back to library"
 		aria-label="Back to library"
 		onclick={() => onback?.()}
 	>
-		{#snippet icon()}
-			<AppIcon name={ICONS.back} class="size-4" />
-		{/snippet}
+		<AppIcon name={ICONS.back} class="size-4" />
 	</Button>
 
 	<div class="flex min-w-0 flex-1 items-center gap-2">
 		<p class="truncate text-lg font-semibold">{file?.name ?? 'Loading…'}</p>
 		{#if file?.duration}
-			<span class="badge hidden preset-tonal-surface text-xs tabular-nums sm:inline-flex">
+			<Badge variant="secondary" class="hidden text-xs tabular-nums sm:inline-flex">
 				{formatTimecode(file.duration)}
-			</span>
+			</Badge>
 		{/if}
 		{#if kindBadge}
-			<span class="badge hidden preset-tonal-surface text-xs sm:inline-flex">{kindBadge}</span>
+			<Badge variant="secondary" class="hidden text-xs sm:inline-flex">{kindBadge}</Badge>
 		{/if}
 	</div>
 
 	{#if playable}
 		<Button
 			size="sm"
-			variant={actionVariant(transcribeFailed)}
-			color={colorToken[transcribeButton.color]}
-			loading={transcribeLoading}
-			disabled={transcribeButton.disabled || transcribing}
+			variant={transcribeFailed ? 'destructive' : 'secondary'}
+			class={actionClass(transcribeButton.color, transcribeFailed)}
+			disabled={transcribeButton.disabled || transcribing || transcribeLoading}
+			aria-busy={transcribeLoading || undefined}
 			title={transcribeButton.label}
 			onclick={() => ontranscribe?.()}
 		>
-			{#snippet icon()}
+			{#if transcribeLoading}
+				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+			{:else}
 				<AppIcon name={ICONS.transcript} class="size-4" />
-			{/snippet}
+			{/if}
 			<span class="hidden sm:inline">{transcribeButton.label}</span>
 		</Button>
 	{/if}
@@ -130,16 +128,18 @@
 	{#if canDetectAudio}
 		<Button
 			size="sm"
-			variant={actionVariant(audioDetectFailed)}
-			color={colorToken[audioDetectButton.color]}
-			loading={audioDetectLoading}
-			disabled={audioDetectButton.disabled || audioDetecting}
+			variant={audioDetectFailed ? 'destructive' : 'secondary'}
+			class={actionClass(audioDetectButton.color, audioDetectFailed)}
+			disabled={audioDetectButton.disabled || audioDetecting || audioDetectLoading}
+			aria-busy={audioDetectLoading || undefined}
 			title={audioDetectButton.label}
 			onclick={() => onaudioDetect?.()}
 		>
-			{#snippet icon()}
+			{#if audioDetectLoading}
+				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+			{:else}
 				<AppIcon name={ICONS.audioDetect} class="size-4" />
-			{/snippet}
+			{/if}
 			<span class="hidden sm:inline">{audioDetectButton.label}</span>
 		</Button>
 	{/if}
@@ -147,31 +147,29 @@
 	{#if playable}
 		<Button
 			size="sm"
-			variant={actionVariant(waveformFailed)}
-			color={colorToken[waveformButton.color]}
-			loading={waveformLoading}
-			disabled={waveformButton.disabled || waveformGenerating}
+			variant={waveformFailed ? 'destructive' : 'secondary'}
+			class={actionClass(waveformButton.color, waveformFailed)}
+			disabled={waveformButton.disabled || waveformGenerating || waveformLoading}
+			aria-busy={waveformLoading || undefined}
 			title={waveformButton.label}
 			onclick={() => onwaveform?.()}
 		>
-			{#snippet icon()}
+			{#if waveformLoading}
+				<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+			{:else}
 				<AppIcon name={ICONS.waveform} class="size-4" />
-			{/snippet}
+			{/if}
 			<span class="hidden sm:inline">{waveformButton.label}</span>
 		</Button>
 	{/if}
 
 	<Button
-		iconOnly
-		size="sm"
-		variant="tonal"
-		color="surface"
+		variant="secondary"
+		size="icon-sm"
 		title="Keyboard shortcuts (?)"
 		aria-label="Keyboard shortcuts"
 		onclick={() => onopenShortcuts?.()}
 	>
-		{#snippet icon()}
-			<AppIcon name={ICONS.keyboard} class="size-4" />
-		{/snippet}
+		<AppIcon name={ICONS.keyboard} class="size-4" />
 	</Button>
 </div>

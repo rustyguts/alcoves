@@ -29,9 +29,20 @@ try {
 	process.exit(1);
 }
 
+// shadcn-svelte vendored primitives: upstream-maintained, exercised via
+// composite tests + e2e; excluded from coverage gates. Mirrors the
+// vite.config.ts coverage.exclude entry for `src/lib/components/ui/*/**`
+// (app composites are flat `ui/*.svelte` files and are NOT matched by this).
+const VENDORED_UI_DIR = resolve(root, 'src/lib/components/ui');
+function isVendoredPrimitive(absFile) {
+	const rel = relative(VENDORED_UI_DIR, absFile);
+	return !rel.startsWith('..') && rel !== '' && rel.includes('/');
+}
+
 const offenders = [];
 for (const [file, metrics] of Object.entries(summary)) {
 	if (file === 'total') continue;
+	if (isVendoredPrimitive(file)) continue;
 	const lines = metrics?.lines;
 	// Skip files with no executable lines (pure type modules report total: 0).
 	if (!lines || lines.total === 0) continue;

@@ -136,17 +136,17 @@ describe('TransportBar', () => {
 		const loop = button(screen.container, 'Loop selected moment');
 		expect(loop?.disabled).toBe(false);
 		expect(loop?.getAttribute('aria-pressed')).toBe('true');
-		expect(loop?.className).toContain('preset-tonal-primary');
+		expect(loop?.getAttribute('data-state')).toBe('on');
 		loop?.click();
 		expect(ontoggleloop).toHaveBeenCalledTimes(1);
 	});
 
-	it('keeps the loop toggle surface-toned when not looping', () => {
+	it('keeps the loop toggle in the off state when not looping', () => {
 		const screen = render(TransportBar, {
 			props: baseProps({ hasSelection: true, loop: false })
 		});
-		expect(button(screen.container, 'Loop selected moment')?.className).toContain(
-			'preset-tonal-surface'
+		expect(button(screen.container, 'Loop selected moment')?.getAttribute('data-state')).toBe(
+			'off'
 		);
 	});
 

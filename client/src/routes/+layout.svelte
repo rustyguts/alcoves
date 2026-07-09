@@ -1,8 +1,8 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
-	import { Toast } from '@skeletonlabs/skeleton-svelte';
-	import { toaster } from '$lib/state/toast';
+	import { Toaster } from '$lib/components/ui/sonner/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { theme } from '$lib/state/theme.svelte';
 	import { auth } from '$lib/state/auth.svelte';
 	import type { LayoutProps } from './$types';
@@ -22,16 +22,8 @@
 	});
 </script>
 
-{@render children()}
+<Tooltip.Provider>
+	{@render children()}
+</Tooltip.Provider>
 
-<Toast.Group {toaster}>
-	{#snippet children(toast)}
-		<Toast {toast}>
-			<Toast.Message>
-				<Toast.Title>{toast.title}</Toast.Title>
-				<Toast.Description>{toast.description}</Toast.Description>
-			</Toast.Message>
-			<Toast.CloseTrigger />
-		</Toast>
-	{/snippet}
-</Toast.Group>
+<Toaster richColors closeButton position="bottom-right" theme={theme.resolved} />

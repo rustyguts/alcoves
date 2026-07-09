@@ -276,11 +276,11 @@
 			class="group absolute top-1 bottom-1 cursor-grab touch-none rounded-md border transition-colors active:cursor-grabbing {isDirty(
 				m.id
 			)
-				? 'border-warning-500 bg-warning-500/40 hover:bg-warning-500/55'
-				: 'border-primary-500/60 bg-primary-500/35 hover:bg-primary-500/55'} {m.id === selectedId
+				? 'border-warning bg-warning/40 hover:bg-warning/55'
+				: 'border-primary/60 bg-primary/35 hover:bg-primary/55'} {m.id === selectedId
 				? isDirty(m.id)
-					? 'ring-2 ring-warning-500'
-					: 'border-primary-500 ring-2 ring-primary-500'
+					? 'ring-2 ring-warning'
+					: 'border-primary ring-2 ring-primary'
 				: ''}"
 			style={momentStylePx(m)}
 			title="{m.name || 'Untitled'} ({effective(m).startSeconds.toFixed(2)}s – {effective(
@@ -333,9 +333,9 @@
 							<AppIcon name={ICONS.loading} class="size-3 animate-spin" />
 						{/if}
 					{:else if status.kind === 'processed'}
-						<AppIcon name={ICONS.momentReady} class="size-3 text-success-400" />
+						<AppIcon name={ICONS.momentReady} class="size-3 text-success" />
 					{:else if status.kind === 'failed'}
-						<AppIcon name={ICONS.warning} class="size-3 text-error-400" />
+						<AppIcon name={ICONS.warning} class="size-3 text-destructive" />
 					{:else}
 						<AppIcon name={ICONS.loading} class="size-3 text-white/70" />
 					{/if}
@@ -350,7 +350,7 @@
 			>
 				{m.name || 'Untitled'}
 				{#if isDirty(m.id)}
-					<span class="ml-1 text-warning-200">●</span>
+					<span class="ml-1 text-warning">●</span>
 				{/if}
 			</span>
 
@@ -362,8 +362,8 @@
 				class="absolute top-0 bottom-0 left-0 flex w-2 cursor-ew-resize touch-none items-center justify-center rounded-l-md before:absolute before:-inset-x-2 before:inset-y-0 before:content-[''] {isDirty(
 					m.id
 				)
-					? 'bg-warning-500/80 hover:bg-warning-500'
-					: 'bg-primary-500/80 hover:bg-primary-500'}"
+					? 'bg-warning/80 hover:bg-warning'
+					: 'bg-primary/80 hover:bg-primary'}"
 				aria-hidden="true"
 				data-resize-handle="start"
 				onpointerdown={(e) => {
@@ -383,8 +383,8 @@
 				class="absolute top-0 right-0 bottom-0 flex w-2 cursor-ew-resize touch-none items-center justify-center rounded-r-md before:absolute before:-inset-x-2 before:inset-y-0 before:content-[''] {isDirty(
 					m.id
 				)
-					? 'bg-warning-500/80 hover:bg-warning-500'
-					: 'bg-primary-500/80 hover:bg-primary-500'}"
+					? 'bg-warning/80 hover:bg-warning'
+					: 'bg-primary/80 hover:bg-primary'}"
 				aria-hidden="true"
 				data-resize-handle="end"
 				onpointerdown={(e) => {

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import AppModal from '$lib/components/ui/AppModal.svelte';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import { ICONS } from '$lib/utils/icons';
 	import { uploadQueue } from '$lib/state/upload-queue.svelte';
 
@@ -47,30 +48,23 @@
 
 <AppModal bind:open title="Upload Files">
 	<div class="flex flex-col gap-3">
-		<p class="text-sm opacity-75">
-			Uploading to <strong>{libraryName}</strong>
+		<p class="text-sm text-muted-foreground">
+			Uploading to <strong class="font-medium text-foreground">{libraryName}</strong>
 		</p>
 
-		<input
-			type="file"
-			class="block w-full cursor-pointer text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface-200-800 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-surface-300-700"
-			multiple
-			onchange={onFileChange}
-		/>
+		<Input type="file" multiple onchange={onFileChange} />
 
 		{#if selectedFileCount}
-			<p class="text-sm opacity-75">
+			<p class="text-sm text-muted-foreground">
 				{selectedFileCount} file{selectedFileCount === 1 ? '' : 's'} selected
 			</p>
 		{/if}
 	</div>
 
-	<div class="flex justify-end gap-2">
-		<button type="button" class="btn preset-tonal" onclick={() => (open = false)}>Cancel</button>
+	<div class="flex w-full justify-end gap-2">
+		<Button type="button" variant="ghost" onclick={() => (open = false)}>Cancel</Button>
 		<Button disabled={!selectedFileCount} onclick={handleUpload}>
-			{#snippet icon()}
-				<AppIcon name={ICONS.upload} class="size-4" />
-			{/snippet}
+			<AppIcon name={ICONS.upload} class="size-4" />
 			<span>Upload</span>
 		</Button>
 	</div>

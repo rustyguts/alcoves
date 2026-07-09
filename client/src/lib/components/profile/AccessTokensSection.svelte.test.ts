@@ -126,9 +126,12 @@ describe('AccessTokensSection', () => {
 		input.value = 'ci';
 		input.dispatchEvent(new Event('input', { bubbles: true }));
 
-		const select = screen.container.querySelector<HTMLSelectElement>('select')!;
-		select.value = '90';
-		select.dispatchEvent(new Event('change', { bubbles: true }));
+		// bits-ui's Select trigger is a plain button (aria-haspopup=listbox) that
+		// opens a portalled listbox — open it and pick the option via real locator
+		// clicks (raw DOM .click() doesn't fire the pointerdown/up sequence the
+		// primitive listens for).
+		await screen.getByRole('button', { name: 'Expires' }).click();
+		await screen.getByRole('option', { name: '90 days' }).click();
 		await tick();
 
 		const createBtn = [...screen.container.querySelectorAll('button')].find((b) =>

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
+import { userEvent } from '@vitest/browser/context';
 import Page from './+page.svelte';
 
 const mocks = vi.hoisted(() => ({
@@ -142,27 +143,39 @@ async function renderPageDegraded() {
 	return screen;
 }
 
-/** Find the role <select> for the non-current (enabled) user row. */
-function memberRoleSelect(screen: Awaited<ReturnType<typeof render>>): HTMLSelectElement {
-	return [...screen.container.querySelectorAll('select')].find((s) => {
-		const opts = [...s.options].map((o) => o.value);
-		return opts.includes('owner') && opts.includes('member') && !s.disabled;
-	}) as HTMLSelectElement;
+/** All radio items (bits-ui RadioGroup.Item renders role="radio" + data-value). */
+function radioItem(value: string) {
+	return document.querySelector<HTMLButtonElement>(`[role="radio"][data-value="${value}"]`);
 }
 
-/** Find a <select> that contains an option with the given value. */
-function selectWithOption(
+/**
+ * Select triggers are buttons (`data-slot="select-trigger"`), one per Select.Root
+ * on the page. bits-ui opens/selects on `pointerdown`/`pointerup` (not `click`),
+ * so a plain DOM `.click()` doesn't work here — use the Playwright-backed
+ * `userEvent` (real pointer events) instead. Since Select.Content is portalled
+ * to `document.body`, pick the option by its visible text from the (single,
+ * currently-open) portalled listbox.
+ */
+async function chooseSelect(trigger: HTMLButtonElement, optionText: string) {
+	await userEvent.click(trigger);
+	await tick();
+	const item = [...document.querySelectorAll<HTMLElement>('[data-slot="select-item"]')].find(
+		(el) => el.textContent?.trim() === optionText
+	);
+	expect(item).toBeDefined();
+	await userEvent.click(item!);
+	await tick();
+}
+
+function selectTriggers(screen: Awaited<ReturnType<typeof render>>) {
+	return [...screen.container.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]')];
+}
+
+function selectTriggerByLabel(
 	screen: Awaited<ReturnType<typeof render>>,
-	value: string
-): HTMLSelectElement {
-	return [...screen.container.querySelectorAll('select')].find((s) =>
-		[...s.options].some((o) => o.value === value)
-	) as HTMLSelectElement;
-}
-
-function changeSelect(select: HTMLSelectElement, value: string) {
-	select.value = value;
-	select.dispatchEvent(new Event('change', { bubbles: true }));
+	label: string
+): HTMLButtonElement {
+	return selectTriggers(screen).find((t) => t.getAttribute('aria-label') === label)!;
 }
 
 describe('/admin page', () => {
@@ -199,24 +212,16 @@ describe('/admin page', () => {
 
 	it('disables the role select for the signed-in user but enables it for others', async () => {
 		const screen = await renderPage();
-		const selects = [...screen.container.querySelectorAll('select')].filter((s) =>
-			[...s.options].some((o) => o.value === 'owner' || o.value === 'member')
-		);
-		// One role select per user row.
-		const roleSelects = selects.slice(0, 2);
-		expect(roleSelects[0]?.disabled).toBe(true); // current user (user-1)
-		expect(roleSelects[1]?.disabled).toBe(false); // other user (user-2)
+		const ownerTrigger = selectTriggerByLabel(screen, 'Change role for Owner User');
+		const memberTrigger = selectTriggerByLabel(screen, 'Change role for Member User');
+		expect(ownerTrigger.disabled).toBe(true); // current user (user-1)
+		expect(memberTrigger.disabled).toBe(false); // other user (user-2)
 	});
 
 	it('updates a user role through api.admin.updateUserRole', async () => {
 		const screen = await renderPage();
-		const memberSelect = [...screen.container.querySelectorAll('select')].find((s) => {
-			const opts = [...s.options].map((o) => o.value);
-			return opts.includes('owner') && opts.includes('member') && !s.disabled;
-		}) as HTMLSelectElement;
-		expect(memberSelect).toBeDefined();
-		memberSelect.value = 'owner';
-		memberSelect.dispatchEvent(new Event('change', { bubbles: true }));
+		const memberTrigger = selectTriggerByLabel(screen, 'Change role for Member User');
+		await chooseSelect(memberTrigger, 'Owner');
 		await vi.waitFor(() => {
 			expect(mocks.updateUserRole).toHaveBeenCalledWith('user-2', { role: 'owner' });
 		});
@@ -224,20 +229,15 @@ describe('/admin page', () => {
 	});
 
 	it('renders the registration mode radios reflecting the loaded setting', async () => {
-		const screen = await renderPage();
-		const openRadio = screen.container.querySelector(
-			'input[value="open"]'
-		) as HTMLInputElement | null;
+		await renderPage();
+		const openRadio = radioItem('open');
 		expect(openRadio).not.toBeNull();
-		expect(openRadio?.checked).toBe(true);
+		expect(openRadio?.getAttribute('aria-checked')).toBe('true');
 	});
 
 	it('updates the registration mode via a radio change', async () => {
-		const screen = await renderPage();
-		const inviteRadio = screen.container.querySelector(
-			'input[value="invite_only"]'
-		) as HTMLInputElement;
-		inviteRadio.dispatchEvent(new Event('change', { bubbles: true }));
+		await renderPage();
+		radioItem('invite_only')?.click();
 		await vi.waitFor(() => {
 			expect(mocks.updateSettings).toHaveBeenCalledWith({ registration_mode: 'invite_only' });
 		});
@@ -255,12 +255,8 @@ describe('/admin page', () => {
 
 	it('updates the whisper model via the select', async () => {
 		const screen = await renderPage();
-		const whisperSelect = [...screen.container.querySelectorAll('select')].find((s) =>
-			[...s.options].some((o) => o.value === 'tiny')
-		) as HTMLSelectElement;
-		expect(whisperSelect).toBeDefined();
-		whisperSelect.value = 'tiny';
-		whisperSelect.dispatchEvent(new Event('change', { bubbles: true }));
+		const trigger = selectTriggerByLabel(screen, 'Transcription model');
+		await chooseSelect(trigger, 'tiny');
 		await vi.waitFor(() => {
 			expect(mocks.updateSettings).toHaveBeenCalledWith({ whisper_model: 'tiny' });
 		});
@@ -272,24 +268,100 @@ describe('/admin page', () => {
 
 	it('marks unavailable audio taggers as disabled options', async () => {
 		const screen = await renderPage();
-		const audioSelect = [...screen.container.querySelectorAll('select')].find((s) =>
-			[...s.options].some((o) => o.value === 'pann_cnn14')
-		) as HTMLSelectElement;
-		expect(audioSelect).toBeDefined();
-		const cedSmall = [...audioSelect.options].find((o) => o.value === 'ced_small');
-		const pann = [...audioSelect.options].find((o) => o.value === 'pann_cnn14');
-		expect(cedSmall?.disabled).toBe(true);
-		expect(pann?.disabled).toBe(false);
+		const trigger = selectTriggerByLabel(screen, 'Audio tagger');
+		await userEvent.click(trigger);
+		await tick();
+		const items = [...document.querySelectorAll<HTMLElement>('[data-slot="select-item"]')];
+		const cedSmall = items.find((el) => el.textContent?.includes('CED-Small'));
+		const pann = items.find((el) => el.textContent?.includes('PANNs CNN14'));
+		expect(cedSmall?.hasAttribute('data-disabled')).toBe(true);
+		expect(pann?.hasAttribute('data-disabled')).toBe(false);
 	});
 
 	it('rolls back and toasts on a settings update failure', async () => {
-		const screen = await renderPage();
+		await renderPage();
 		mocks.updateSettings.mockRejectedValueOnce(new Error('server boom'));
-		const closedRadio = screen.container.querySelector('input[value="closed"]') as HTMLInputElement;
-		closedRadio.dispatchEvent(new Event('change', { bubbles: true }));
+		radioItem('closed')?.click();
 		await vi.waitFor(() => {
 			expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'server boom', color: 'error' });
 		});
+	});
+
+	// F3 regression (.agents/specs/shadcn-rewrite/07-rework-findings.md): a
+	// failed PATCH used to leave the RadioGroup showing the rejected mode
+	// (via bits-ui's unbound-bindable local override) AND made re-clicking
+	// that same mode inert (bits-ui's same-value guard never saw a change).
+	it('shows the true server state and allows a retry after a registration-mode failure', async () => {
+		await renderPage();
+		mocks.updateSettings.mockRejectedValueOnce(new Error('server boom'));
+		radioItem('closed')?.click();
+		await vi.waitFor(() => {
+			expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'server boom', color: 'error' });
+		});
+		// The radio must re-sync to the real (unchanged) server state, not the
+		// rejected selection.
+		await vi.waitFor(() => {
+			expect(radioItem('open')?.getAttribute('aria-checked')).toBe('true');
+		});
+		expect(radioItem('closed')?.getAttribute('aria-checked')).toBe('false');
+
+		// Re-clicking the previously-rejected mode must retry the API call, not
+		// be swallowed by bits-ui's "already selected" guard.
+		mocks.toastAdd.mockClear();
+		radioItem('closed')?.click();
+		await vi.waitFor(() => {
+			expect(mocks.updateSettings).toHaveBeenCalledWith({ registration_mode: 'closed' });
+		});
+		expect(mocks.toastAdd).toHaveBeenCalledWith({
+			title: 'Registration mode updated',
+			color: 'success'
+		});
+	});
+
+	// Same one-way `value` desync as F3, audited on the adjacent Select
+	// controls: the Trigger label self-heals (it's derived from `settings`
+	// separately), but the Select's own internal selection must also re-sync
+	// or a retry pick is silently swallowed.
+	it('re-syncs the select and allows a retry after a whisper-model update failure', async () => {
+		const screen = await renderPage();
+		mocks.updateSettings.mockRejectedValueOnce(new Error('model failed'));
+		const trigger = selectTriggerByLabel(screen, 'Transcription model');
+		await chooseSelect(trigger, 'tiny');
+		await vi.waitFor(() => {
+			expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'model failed', color: 'error' });
+		});
+
+		mocks.toastAdd.mockClear();
+		await chooseSelect(trigger, 'tiny');
+		await vi.waitFor(() => {
+			expect(mocks.updateSettings).toHaveBeenCalledWith({ whisper_model: 'tiny' });
+		});
+		expect(mocks.toastAdd).toHaveBeenCalledWith({
+			title: 'Transcription model: tiny',
+			color: 'success'
+		});
+	});
+
+	// Same class of fix applied to the per-row role Select, replacing the
+	// previous "reassign the array" trick that didn't reliably resync a
+	// single row's Select value.
+	it('re-syncs the role select and allows a retry after a role-update failure', async () => {
+		const screen = await renderPage();
+		mocks.updateUserRole.mockRejectedValueOnce(new Error('role denied'));
+		const memberTrigger = selectTriggerByLabel(screen, 'Change role for Member User');
+		await chooseSelect(memberTrigger, 'Owner');
+		await vi.waitFor(() => {
+			expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'role denied', color: 'error' });
+		});
+		expect(memberTrigger.textContent?.trim()).toBe('Member');
+
+		mocks.toastAdd.mockClear();
+		mocks.updateUserRole.mockResolvedValueOnce({ id: 'user-2', role: 'owner' });
+		await chooseSelect(memberTrigger, 'Owner');
+		await vi.waitFor(() => {
+			expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'Role updated', color: 'success' });
+		});
+		expect(mocks.updateUserRole).toHaveBeenCalledWith('user-2', { role: 'owner' });
 	});
 
 	it('renders the version footer linking to the GitHub commit', async () => {
@@ -348,9 +420,8 @@ describe('/admin page', () => {
 	it('rolls back the user list and toasts on a role-update failure', async () => {
 		const screen = await renderPage();
 		mocks.updateUserRole.mockRejectedValueOnce(new Error('role denied'));
-		const select = memberRoleSelect(screen);
-		expect(select).toBeDefined();
-		changeSelect(select, 'owner');
+		const memberTrigger = selectTriggerByLabel(screen, 'Change role for Member User');
+		await chooseSelect(memberTrigger, 'Owner');
 		await vi.waitFor(() => {
 			expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'role denied', color: 'error' });
 		});
@@ -359,9 +430,8 @@ describe('/admin page', () => {
 
 	it('updates the transcription language via the language select', async () => {
 		const screen = await renderPage();
-		const langSelect = selectWithOption(screen, 'fr');
-		expect(langSelect).toBeDefined();
-		changeSelect(langSelect, 'fr');
+		const trigger = selectTriggerByLabel(screen, 'Transcription language');
+		await chooseSelect(trigger, 'French');
 		await vi.waitFor(() => {
 			expect(mocks.updateSettings).toHaveBeenCalledWith({ whisper_language: 'fr' });
 		});
@@ -374,8 +444,8 @@ describe('/admin page', () => {
 	it('toasts an error when the language update fails', async () => {
 		const screen = await renderPage();
 		mocks.updateSettings.mockRejectedValueOnce(new Error('lang failed'));
-		const langSelect = selectWithOption(screen, 'fr');
-		changeSelect(langSelect, 'de');
+		const trigger = selectTriggerByLabel(screen, 'Transcription language');
+		await chooseSelect(trigger, 'German');
 		await vi.waitFor(() => {
 			expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'lang failed', color: 'error' });
 		});
@@ -383,9 +453,8 @@ describe('/admin page', () => {
 
 	it('updates the audio tagger via the tagger select', async () => {
 		const screen = await renderPage();
-		const taggerSelect = selectWithOption(screen, 'pann_cnn14');
-		expect(taggerSelect).toBeDefined();
-		changeSelect(taggerSelect, 'pann_cnn14');
+		const trigger = selectTriggerByLabel(screen, 'Audio tagger');
+		await chooseSelect(trigger, 'PANNs CNN14 (legacy)');
 		await vi.waitFor(() => {
 			expect(mocks.updateSettings).toHaveBeenCalledWith({ audio_detect_model: 'pann_cnn14' });
 		});
@@ -398,8 +467,8 @@ describe('/admin page', () => {
 	it('toasts an error when the audio-tagger update fails', async () => {
 		const screen = await renderPage();
 		mocks.updateSettings.mockRejectedValueOnce(new Error('tagger failed'));
-		const taggerSelect = selectWithOption(screen, 'pann_cnn14');
-		changeSelect(taggerSelect, 'pann_cnn14');
+		const trigger = selectTriggerByLabel(screen, 'Audio tagger');
+		await chooseSelect(trigger, 'PANNs CNN14 (legacy)');
 		await vi.waitFor(() => {
 			expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'tagger failed', color: 'error' });
 		});
@@ -408,8 +477,8 @@ describe('/admin page', () => {
 	it('toasts an error when the whisper-model update fails', async () => {
 		const screen = await renderPage();
 		mocks.updateSettings.mockRejectedValueOnce(new Error('model failed'));
-		const whisperSelect = selectWithOption(screen, 'tiny');
-		changeSelect(whisperSelect, 'tiny');
+		const trigger = selectTriggerByLabel(screen, 'Transcription model');
+		await chooseSelect(trigger, 'tiny');
 		await vi.waitFor(() => {
 			expect(mocks.toastAdd).toHaveBeenCalledWith({ title: 'model failed', color: 'error' });
 		});
@@ -442,8 +511,8 @@ describe('/admin page', () => {
 		// A non-Error rejection (e.g. a string) falls through errorMessage to the
 		// supplied fallback string.
 		mocks.updateSettings.mockRejectedValueOnce('opaque failure');
-		const taggerSelect = selectWithOption(screen, 'pann_cnn14');
-		changeSelect(taggerSelect, 'pann_cnn14');
+		const trigger = selectTriggerByLabel(screen, 'Audio tagger');
+		await chooseSelect(trigger, 'PANNs CNN14 (legacy)');
 		await vi.waitFor(() => {
 			expect(mocks.toastAdd).toHaveBeenCalledWith({
 				title: 'Failed to update audio tagger',
@@ -482,9 +551,8 @@ describe('/admin page', () => {
 	});
 
 	it('no-ops when selecting the already-active registration mode', async () => {
-		const screen = await renderPage();
-		const openRadio = screen.container.querySelector('input[value="open"]') as HTMLInputElement;
-		openRadio.dispatchEvent(new Event('change', { bubbles: true }));
+		await renderPage();
+		radioItem('open')?.click();
 		await tick();
 		// Selecting the current value short-circuits before calling the API.
 		expect(mocks.updateSettings).not.toHaveBeenCalled();
@@ -492,19 +560,17 @@ describe('/admin page', () => {
 
 	it('no-ops when re-selecting the active whisper model', async () => {
 		const screen = await renderPage();
-		const whisperSelect = selectWithOption(screen, 'tiny');
+		const trigger = selectTriggerByLabel(screen, 'Transcription model');
 		// large-v3 is already active; re-selecting it must not hit the API.
-		changeSelect(whisperSelect, 'large-v3');
-		await tick();
+		await chooseSelect(trigger, 'large-v3 (default)');
 		expect(mocks.updateSettings).not.toHaveBeenCalled();
 	});
 
 	it('no-ops a role change to the same role the user already has', async () => {
 		const screen = await renderPage();
-		const select = memberRoleSelect(screen);
+		const memberTrigger = selectTriggerByLabel(screen, 'Change role for Member User');
 		// user-2 is already a member; re-picking member short-circuits.
-		changeSelect(select, 'member');
-		await tick();
+		await chooseSelect(memberTrigger, 'Member');
 		expect(mocks.updateUserRole).not.toHaveBeenCalled();
 	});
 });

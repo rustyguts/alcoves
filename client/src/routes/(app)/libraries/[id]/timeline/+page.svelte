@@ -3,15 +3,21 @@
 	import { page } from '$app/state';
 	import { ICONS } from '$lib/utils/icons';
 	import { createLibraryTimeline, type TimelineGroup } from '$lib/state/library-timeline.svelte';
-	import type { LibraryFile } from '$lib/types/api';
+	import type { Library, LibraryFile } from '$lib/types/api';
 	import type { GalleryGroup, GalleryItem } from '$lib/utils/gallery-types';
 	import { formatDuration } from '$lib/utils/format-duration';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 	import JustifiedGallery from '$lib/components/JustifiedGallery.svelte';
+	import LibraryHeader from '$lib/components/LibraryHeader.svelte';
 	import TimelineScrubber from '$lib/components/TimelineScrubber.svelte';
 
 	const libraryId = $derived(page.params.id ?? '');
+	// The subtree layout drops the shared breadcrumb header for this full-bleed
+	// gallery (`hideHeading` in the library `+layout.svelte`), so render the same
+	// library-name/emoji heading composite locally instead of going headerless.
+	const library = $derived(page.data.library as Library | undefined);
 
 	const timeline = createLibraryTimeline(() => page.params.id ?? '');
 	// Timeline is photos & videos only — there is no file/all toggle here.
@@ -159,73 +165,72 @@
 	});
 </script>
 
-<div class="relative flex h-full min-h-0">
-	<div bind:this={scrollEl} class="min-h-0 flex-1 overflow-y-auto" onscroll={onScroll}>
-		{#if timeline.loading && timeline.entries.length === 0}
-			<!-- Loading -->
-			<div class="text-dimmed px-4 py-12 text-center text-sm">
-				<AppIcon name={ICONS.loading} class="inline-block size-5 animate-spin" />
-				<p class="mt-2">Loading timeline…</p>
-			</div>
-		{:else if timeline.error}
-			<!-- Error -->
-			<div class="px-4 py-12 text-center text-sm text-error-500">
-				{timeline.error}
-			</div>
-		{:else if timeline.entries.length === 0}
-			<!-- Empty -->
-			<div class="text-dimmed px-4 py-16 text-center text-sm">
-				<AppIcon name={ICONS.timeline} class="mx-auto mb-3 size-8 opacity-40" />
-				<p>Nothing to show yet.</p>
-				<p class="mt-1 text-xs">
-					Capture dates are extracted in the background — check back shortly after uploading.
-				</p>
-			</div>
-		{:else}
-			<!-- Justified gallery -->
-			<div class="px-2 pt-2 pb-6 sm:px-3">
-				<JustifiedGallery continuous groups={galleryGroups} onselect={openPreview} />
+<div class="flex h-full min-h-0 flex-col gap-2">
+	<LibraryHeader {libraryId} name={library?.name} emoji={library?.emoji} />
 
-				<!-- Infinite-scroll sentinel + load-more fallback -->
-				<div bind:this={sentinel} class="h-px"></div>
-				{#if timeline.loadingMore}
-					<div class="text-dimmed py-4 text-center text-sm">
-						<AppIcon name={ICONS.loading} class="inline-block size-4 animate-spin" />
-					</div>
-				{:else if timeline.nextCursor}
-					<div class="py-4 text-center">
-						<button
-							type="button"
-							class="text-sm text-primary-500 hover:underline"
-							onclick={() => timeline.loadMore()}
-						>
-							Load more
-						</button>
-					</div>
-				{/if}
+	<div class="relative flex min-h-0 flex-1">
+		<div bind:this={scrollEl} class="min-h-0 flex-1 overflow-y-auto" onscroll={onScroll}>
+			{#if timeline.loading && timeline.entries.length === 0}
+				<!-- Loading -->
+				<div class="px-4 py-12 text-center text-sm text-muted-foreground">
+					<AppIcon name={ICONS.loading} class="inline-block size-5 animate-spin" />
+					<p class="mt-2">Loading timeline…</p>
+				</div>
+			{:else if timeline.error}
+				<!-- Error -->
+				<div class="px-4 py-12 text-center text-sm text-destructive">
+					{timeline.error}
+				</div>
+			{:else if timeline.entries.length === 0}
+				<!-- Empty -->
+				<div class="px-4 py-16 text-center text-sm text-muted-foreground">
+					<AppIcon name={ICONS.timeline} class="mx-auto mb-3 size-8 opacity-40" />
+					<p>Nothing to show yet.</p>
+					<p class="mt-1 text-xs">
+						Capture dates are extracted in the background — check back shortly after uploading.
+					</p>
+				</div>
+			{:else}
+				<!-- Justified gallery -->
+				<div class="px-2 pt-2 pb-6 sm:px-3">
+					<JustifiedGallery continuous groups={galleryGroups} onselect={openPreview} />
+
+					<!-- Infinite-scroll sentinel + load-more fallback -->
+					<div bind:this={sentinel} class="h-px"></div>
+					{#if timeline.loadingMore}
+						<div class="py-4 text-center text-sm text-muted-foreground">
+							<AppIcon name={ICONS.loading} class="inline-block size-4 animate-spin" />
+						</div>
+					{:else if timeline.nextCursor}
+						<div class="py-4 text-center">
+							<Button variant="link" size="sm" onclick={() => timeline.loadMore()}>Load more</Button
+							>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		{#if timeline.buckets.length > 1}
+			<!-- Mobile: overlay the gallery and only show while scrolling, so photos get
+		     the full width. Desktop (lg): a static rail that's always visible. -->
+			<div
+				class="absolute inset-y-0 right-0 z-20 transition-opacity duration-200 lg:static lg:opacity-100 {scrolling
+					? 'opacity-100'
+					: 'pointer-events-none opacity-0 lg:pointer-events-auto'}"
+			>
+				<TimelineScrubber buckets={timeline.buckets} {progress} onscrub={onScrub} />
 			</div>
 		{/if}
+
+		{#if previewFile}
+			<FilePreview
+				bind:open={previewOpen}
+				file={previewFile}
+				{libraryId}
+				files={timeline.entries}
+				onnavigate={(f) => (previewFile = f)}
+			/>
+		{/if}
 	</div>
-
-	{#if timeline.buckets.length > 1}
-		<!-- Mobile: overlay the gallery and only show while scrolling, so photos get
-		     the full width. Desktop (lg): a static rail that's always visible. -->
-		<div
-			class="absolute inset-y-0 right-0 z-20 transition-opacity duration-200 lg:static lg:opacity-100 {scrolling
-				? 'opacity-100'
-				: 'pointer-events-none opacity-0 lg:pointer-events-auto'}"
-		>
-			<TimelineScrubber buckets={timeline.buckets} {progress} onscrub={onScrub} />
-		</div>
-	{/if}
-
-	{#if previewFile}
-		<FilePreview
-			bind:open={previewOpen}
-			file={previewFile}
-			{libraryId}
-			files={timeline.entries}
-			onnavigate={(f) => (previewFile = f)}
-		/>
-	{/if}
 </div>

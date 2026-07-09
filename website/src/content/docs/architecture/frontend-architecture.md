@@ -1,9 +1,9 @@
 ---
 title: "Frontend architecture (SvelteKit)"
-description: "How the Alcoves SvelteKit frontend is structured: SSR topology, route groups, auth via hooks, the createApi client and in-process /api proxy, Svelte 5 rune stores, Skeleton UI, testing, and adapter-node deployment."
+description: "How the Alcoves SvelteKit frontend is structured: SSR topology, route groups, auth via hooks, the createApi client and in-process /api proxy, Svelte 5 rune stores, shadcn-svelte, testing, and adapter-node deployment."
 ---
 
-The Alcoves frontend is a **SvelteKit** (Svelte 5) application living in `client/`, built on **Skeleton UI v4** + **Tailwind 4** and run under **Bun**. The Go backend is a pure API — it does not embed or serve frontend assets. The SvelteKit server reaches the co-located Go API through an in-process proxy and server-side `load` functions; it never touches the database directly.
+The Alcoves frontend is a **SvelteKit** (Svelte 5) application living in `client/`, built on **shadcn-svelte** (the Svelte 5 port of shadcn/ui, on top of **bits-ui**) + **Tailwind 4** and run under **Bun**. The Go backend is a pure API — it does not embed or serve frontend assets. The SvelteKit server reaches the co-located Go API through an in-process proxy and server-side `load` functions; it never touches the database directly.
 
 | Process | Default port |
 |---|---|
@@ -140,9 +140,10 @@ Rune stores reassign a fresh `Set`/`Map` to a `$state` field on each change (whi
 
 ## Styling, theme, and icons
 
-- **Tailwind 4 + Skeleton UI v4**, configured **CSS-first** in `src/app.css` (`@import 'tailwindcss'`, `@import '@skeletonlabs/skeleton'` + the `cerberus` theme + `skeleton-svelte`). There is **no `tailwind.config`** — Tailwind is wired through `@tailwindcss/vite`.
+- **Tailwind 4 + shadcn-svelte**, configured **CSS-first** in `src/app.css` (`@import 'tailwindcss'` + `@import 'tw-animate-css'`, plus a zinc-neutral `:root`/`.dark` design-token block — `--background`, `--foreground`, `--primary`, `--border`, etc. — feeding Tailwind's `@theme inline`). There is **no `tailwind.config`** — Tailwind is wired through `@tailwindcss/vite`. shadcn-svelte's components (built on **bits-ui** primitives) are vendored, not npm-installed: each lives under `src/lib/components/ui/<name>/` (e.g. `ui/button/`, `ui/dialog/`, `ui/sidebar/`) so the project owns and can theme the source directly.
 - **Class-based dark mode.** `app.css` redefines the dark variant with `@custom-variant dark (&:where(.dark, .dark *))`, so light/dark is driven by a `.dark` class on `<html>` toggled by a persisted preference (`theme.svelte.ts`, key `alcoves.theme`), not by `prefers-color-scheme` alone. `app.html` applies the persisted scheme **before first paint** to avoid a flash of the wrong theme.
-- **Offline icons.** Icons use `@iconify/svelte` rendered via `AppIcon.svelte`, which calls `addCollection(@iconify-json/lineicons)` in a `module` block so the Lineicons set is **bundled and rendered fully offline** — no requests to the Iconify API (privacy-first, per the project vision). `src/lib/utils/icons.ts` is the single registry: keys are *semantic UI roles*, values are `lineicons:<glyph>` strings, all validated against the installed set by `icons.test.ts`.
+- **Offline icons.** App-level icons use `@iconify/svelte` rendered via `AppIcon.svelte`, which calls `addCollection(@iconify-json/lineicons)` in a `module` block so the Lineicons set is **bundled and rendered fully offline** — no requests to the Iconify API (privacy-first, per the project vision). `src/lib/utils/icons.ts` is the single registry: keys are *semantic UI roles*, values are `lineicons:<glyph>` strings, all validated against the installed set by `icons.test.ts`. `@lucide/svelte` is used only inside the vendored shadcn-svelte primitives (also offline/tree-shaken), never elsewhere.
+- **Toasts and the sidebar shell.** Toasts render through **svelte-sonner** (`ui/sonner/`), mounted once in the root layout and driven from application code via `$lib/state/toast` — call sites never touch `svelte-sonner` directly. The authed dashboard shell is shadcn's `Sidebar` composition (`Sidebar.Provider`/`Sidebar.Root`/`Sidebar.Inset` etc., in `ui/sidebar/`), which folds to a `Sheet`-based drawer on mobile.
 
 ### Pre-hydration form guard
 
@@ -165,7 +166,7 @@ OXlint/OXfmt can't parse `.svelte`, so the client uses **svelte-check** (typeche
 | `server` | `node` | `src/**/*.{test,spec}.ts` | Pure logic, hooks, `load` functions, the `/api` proxy, the API client |
 | `client` | browser (`vitest-browser-svelte` + Playwright chromium, headless) | `src/**/*.svelte.{test,spec}.ts` | Components and DOM-touching rune stores |
 
-There are ~1,591 unit tests. Coverage is v8 with global thresholds of **90%** lines/functions/statements and **80%** branches; `scripts/coverage-floor.mjs` enforces the complementary per-file rule that **no file is below 60%**. A short coverage-exclude list covers files the unit harness can't meaningfully exercise — `LibraryMap.svelte` and `VideoEditorPlayer.svelte` (thin wrappers around browser-only libs whose `onMount` dynamic imports can't run in unit tests) and the two trivial `libraries/[id]` `+page.svelte` passthroughs — all of which are exercised by the full-stack e2e instead.
+There are ~2,100 unit tests. Coverage is v8 with global thresholds of **90%** lines/functions/statements and **80%** branches; `scripts/coverage-floor.mjs` enforces the complementary per-file rule that **no file is below 60%**. A short coverage-exclude list covers files the unit harness can't meaningfully exercise — `LibraryMap.svelte` and `VideoEditorPlayer.svelte` (thin wrappers around browser-only libs whose `onMount` dynamic imports can't run in unit tests), the two trivial `libraries/[id]` `+page.svelte` passthroughs, and the **vendored shadcn-svelte primitives** under `src/lib/components/ui/*/**` (upstream-maintained, exercised via the composites and pages built on top of them plus e2e, not hand-written) — all exercised by the full-stack e2e or their composites instead.
 
 :::note[Route tests must not use `+`-prefixed filenames]
 SvelteKit treats `+page`/`+layout`/`+server` files as routes, so test files alongside them are named `page.svelte.test.ts`, `layout.server.test.ts`, etc. — never `+page.test.ts`.
@@ -226,7 +227,7 @@ The Helm chart's `frontend` Deployment runs the one image with `args: ["web"]` a
 | Rune stores | `client/src/lib/state/*.svelte.ts` |
 | Icon registry + offline bundling | `client/src/lib/utils/icons.ts`, `client/src/lib/components/ui/AppIcon.svelte` |
 | Theme bootstrap + form guard | `client/src/app.html`, `client/src/lib/state/theme.svelte.ts` |
-| Tailwind 4 + Skeleton CSS-first config | `client/src/app.css` |
+| Tailwind 4 + shadcn-svelte CSS-first config | `client/src/app.css` |
 | Public share page (SSR for OG) | `client/src/routes/s/[token]/+page.server.ts` |
 | adapter-node + `envPrefix` | `client/svelte.config.js` |
 | Vitest dual projects + coverage | `client/vite.config.ts`, `client/scripts/coverage-floor.mjs` |

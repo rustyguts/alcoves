@@ -55,6 +55,7 @@
 	import MomentShareModal from '$lib/components/editor/MomentShareModal.svelte';
 	import EditorKeyboardHelpModal from '$lib/components/editor/EditorKeyboardHelpModal.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 
 	import type { Library, LibraryFile, Moment } from '$lib/types/api';
 	import type { HighlightFilterPatch } from '$lib/types/api';
@@ -619,14 +620,10 @@
 			onwidthchange={(w) => prefs.setInspectorWidth(w)}
 			class="order-5 lg:order-none"
 		>
-			<!-- Every tab stays MOUNTED (hidden via CSS) so search boxes and
-			     in-progress forms survive tab switches. -->
-			<div
-				id="inspector-panel-moments"
-				role="tabpanel"
-				aria-labelledby="inspector-tab-moments"
-				class={prefs.inspectorTab === 'moments' ? 'flex flex-col gap-3' : 'hidden'}
-			>
+			<!-- Every tab stays MOUNTED — bits-ui's Tabs.Content hides inactive
+			     panels via the `hidden` attribute rather than unmounting them, so
+			     search boxes and in-progress forms survive tab switches. -->
+			<Tabs.Content value="moments" id="inspector-panel-moments" class="flex flex-col gap-3">
 				{#if selectedMoment}
 					<MomentEditForm
 						moment={selectedMoment}
@@ -649,14 +646,9 @@
 					onjumpto={jumpToMoment}
 					oncreate={() => void createAtPlayhead()}
 				/>
-			</div>
+			</Tabs.Content>
 
-			<div
-				id="inspector-panel-transcript"
-				role="tabpanel"
-				aria-labelledby="inspector-tab-transcript"
-				class={prefs.inspectorTab === 'transcript' ? '' : 'hidden'}
-			>
+			<Tabs.Content value="transcript" id="inspector-panel-transcript">
 				<TranscriptPanel
 					cues={transcriptCues}
 					currentTime={playback.currentTime}
@@ -664,14 +656,9 @@
 					jobButton={transcribeJob.button}
 					onrunjob={() => transcribeJob.run()}
 				/>
-			</div>
+			</Tabs.Content>
 
-			<div
-				id="inspector-panel-highlights"
-				role="tabpanel"
-				aria-labelledby="inspector-tab-highlights"
-				class={prefs.inspectorTab === 'highlights' ? '' : 'hidden'}
-			>
+			<Tabs.Content value="highlights" id="inspector-panel-highlights">
 				<HighlightFiltersPanel
 					filters={highlights.filters}
 					matches={highlights.matches}
@@ -684,14 +671,9 @@
 					onremove={highlights.onRemove}
 					onloadpresets={highlights.onLoadPresets}
 				/>
-			</div>
+			</Tabs.Content>
 
-			<div
-				id="inspector-panel-audio"
-				role="tabpanel"
-				aria-labelledby="inspector-tab-audio"
-				class={prefs.inspectorTab === 'audio' ? '' : 'hidden'}
-			>
+			<Tabs.Content value="audio" id="inspector-panel-audio">
 				<AudioDetectionsPanel
 					detections={audioDetections}
 					duration={playback.duration}
@@ -700,7 +682,7 @@
 					{canDetectAudio}
 					onrunjob={() => audioDetectJob.run()}
 				/>
-			</div>
+			</Tabs.Content>
 		</InspectorPanel>
 	</div>
 
@@ -739,7 +721,7 @@
 		title="Delete moment?"
 		message="This moment will be moved to trash. Any cached exports will be deleted."
 		confirmLabel="Delete"
-		confirmClass="btn-error"
+		confirmClass="error"
 		confirmIcon={ICONS.trash}
 		onconfirm={onDeleteConfirm}
 		oncancel={() => (pendingDeleteId = null)}

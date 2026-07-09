@@ -8,10 +8,13 @@
 	 * focus semantics. Empty state offers the create CTA.
 	 */
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Kbd } from '$lib/components/ui/kbd/index.js';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import { formatTimecode } from '$lib/utils/timeline-geometry';
+	import { cn } from '$lib/utils';
 	import type { Moment, MomentExportStatus } from '$lib/types/api';
 
 	interface Props {
@@ -37,24 +40,22 @@
 		)}`;
 	}
 
-	// Skeleton badge preset per export status. `neutral`/idle uses the surface
-	// palette since there is no dedicated neutral preset.
-	function statusBadge(m: Moment): { preset: string; label: string } {
+	function statusBadge(m: Moment): { class: string; label: string } {
 		const status: MomentExportStatus = m.exportStatus;
 		switch (status) {
 			case 'queued':
-				return { preset: 'preset-tonal-warning', label: 'queued' };
+				return { class: 'bg-warning/10 text-warning', label: 'queued' };
 			case 'processing':
 				return {
-					preset: 'preset-tonal-warning',
+					class: 'bg-warning/10 text-warning',
 					label: m.exportProgress != null ? `${m.exportProgress}%` : 'processing'
 				};
 			case 'ready':
-				return { preset: 'preset-tonal-success', label: 'ready' };
+				return { class: 'bg-success/10 text-success', label: 'ready' };
 			case 'failed':
-				return { preset: 'preset-tonal-error', label: 'failed' };
+				return { class: '', label: 'failed' };
 			default:
-				return { preset: 'preset-tonal-surface', label: '—' };
+				return { class: '', label: '—' };
 		}
 	}
 
@@ -71,11 +72,9 @@
 	>
 		{#snippet actions()}
 			<Button size="sm" onclick={() => oncreate?.()}>
-				{#snippet icon()}
-					<AppIcon name={ICONS.plus} class="size-4" />
-				{/snippet}
+				<AppIcon name={ICONS.plus} class="size-4" />
 				New moment
-				<kbd class="ml-1 rounded bg-surface-200-800/60 px-1 text-[10px]">M</kbd>
+				<Kbd class="ml-1">M</Kbd>
 			</Button>
 		{/snippet}
 	</EmptyState>
@@ -87,9 +86,12 @@
 				<div
 					role="button"
 					tabindex="0"
-					class="cursor-pointer card p-2 transition-colors outline-none {m.id === selectedId
-						? 'preset-tonal-primary ring-2 ring-primary-500'
-						: 'preset-tonal-surface hover:bg-surface-200-800 focus-visible:ring-2 focus-visible:ring-primary-500'}"
+					class={cn(
+						'flex cursor-pointer flex-col gap-0.5 rounded-lg p-2 transition-colors outline-none',
+						m.id === selectedId
+							? 'bg-primary/10 ring-2 ring-primary'
+							: 'bg-muted/50 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring'
+					)}
 					onclick={() => select(m.id)}
 					onkeydown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') {
@@ -99,30 +101,32 @@
 						}
 					}}
 				>
-					<div class="flex flex-col gap-0.5">
-						<div class="flex items-center justify-between gap-2">
-							<span class="truncate text-xs font-medium">{m.name || 'Untitled'}</span>
-							<span class="badge shrink-0 text-xs {badge.preset}">{badge.label}</span>
-						</div>
-						<div class="flex items-center gap-2 text-[10px] text-surface-600-400 tabular-nums">
-							<span>{formatRange(m)}</span>
-							<span>·</span>
-							<span>{formatLength(m)}</span>
-							<span class="flex-1"></span>
-							<button
-								type="button"
-								class="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-surface-600-400 hover:preset-tonal hover:text-surface-950-50"
-								title="Jump to start"
-								aria-label="Jump to start of {m.name || 'Untitled'}"
-								onclick={(e) => {
-									e.stopPropagation();
-									onjumpto?.(m.id);
-								}}
-							>
-								<AppIcon name={ICONS.play} class="size-2.5" />
-								Jump
-							</button>
-						</div>
+					<div class="flex items-center justify-between gap-2">
+						<span class="truncate text-xs font-medium">{m.name || 'Untitled'}</span>
+						{#if badge.label === 'failed'}
+							<Badge variant="destructive" class="shrink-0">{badge.label}</Badge>
+						{:else}
+							<Badge variant="secondary" class={cn('shrink-0', badge.class)}>{badge.label}</Badge>
+						{/if}
+					</div>
+					<div class="flex items-center gap-2 text-[10px] text-muted-foreground tabular-nums">
+						<span>{formatRange(m)}</span>
+						<span>·</span>
+						<span>{formatLength(m)}</span>
+						<span class="flex-1"></span>
+						<button
+							type="button"
+							class="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+							title="Jump to start"
+							aria-label="Jump to start of {m.name || 'Untitled'}"
+							onclick={(e) => {
+								e.stopPropagation();
+								onjumpto?.(m.id);
+							}}
+						>
+							<AppIcon name={ICONS.play} class="size-2.5" />
+							Jump
+						</button>
 					</div>
 				</div>
 			</li>

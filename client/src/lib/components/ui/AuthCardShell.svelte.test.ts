@@ -10,8 +10,9 @@ describe('AuthCardShell', () => {
 		const screen = render(AuthCardShell, {
 			props: { title: 'Sign In', subtitle: 'Welcome back' }
 		});
-		const h2 = screen.container.querySelector('h2')!;
-		expect(h2.textContent).toBe('Sign In');
+		await expect
+			.element(screen.getByRole('heading', { level: 2, name: 'Sign In' }))
+			.toBeInTheDocument();
 		expect(screen.container.textContent).toContain('Welcome back');
 	});
 

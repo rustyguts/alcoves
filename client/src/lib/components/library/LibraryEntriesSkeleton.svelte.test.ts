@@ -48,18 +48,22 @@ describe('LibraryEntriesSkeleton', () => {
 		expect(text).toContain('Size');
 	});
 
-	it('renders placeholder elements inside the table rows', async () => {
+	it('renders skeleton placeholder elements inside the table rows', async () => {
 		const screen = render(LibraryEntriesSkeleton, {
 			props: { entryViewMode: 'file', showTrashed: false }
 		});
-		expect(screen.container.querySelectorAll('tbody .placeholder').length).toBeGreaterThan(0);
+		expect(
+			screen.container.querySelectorAll('tbody [data-slot="skeleton"]').length
+		).toBeGreaterThan(0);
 	});
 
-	it('renders placeholder elements inside the card grid', async () => {
+	it('renders skeleton placeholder elements inside the card grid', async () => {
 		const screen = render(LibraryEntriesSkeleton, {
 			props: { entryViewMode: 'card', showTrashed: false }
 		});
-		expect(screen.container.querySelectorAll('.grid .placeholder').length).toBeGreaterThan(0);
+		expect(
+			screen.container.querySelectorAll('.grid [data-slot="skeleton"]').length
+		).toBeGreaterThan(0);
 	});
 
 	it('applies the deterministic width style to the name placeholder rows', async () => {
@@ -68,7 +72,7 @@ describe('LibraryEntriesSkeleton', () => {
 		});
 		// First row (i=1): 40 + ((1 * 17) % 40) = 57%.
 		const first = screen.container.querySelector(
-			'tbody tr:first-child td:nth-child(2) .placeholder'
+			'tbody tr:first-child td:nth-child(2) [data-slot="skeleton"]'
 		) as HTMLElement | null;
 		expect(first).not.toBeNull();
 		expect(first!.style.width).toBe('57%');

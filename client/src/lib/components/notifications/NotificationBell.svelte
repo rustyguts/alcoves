@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Popover } from '@skeletonlabs/skeleton-svelte';
+	import * as Popover from '$lib/components/ui/popover/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
 	import { ICONS } from '$lib/utils/icons';
 	import { notifications } from '$lib/state/notifications.svelte';
@@ -9,9 +10,11 @@
 
 	/**
 	 * Bell button with an unread-count badge, opening the notification dropdown in
-	 * a Skeleton Popover. Ported from the Nuxt `NotificationBell.vue`: on mount it
-	 * opens the activity WebSocket, wires incoming activity into the global
-	 * notifications store, and fetches the initial unread count for the badge.
+	 * a Popover (a free-form panel, not a menu — rows carry their own links and
+	 * nested dismiss buttons). Ported from the Nuxt `NotificationBell.vue`: on
+	 * mount it opens the activity WebSocket, wires incoming activity into the
+	 * global notifications store, and fetches the initial unread count for the
+	 * badge.
 	 */
 	let open = $state(false);
 
@@ -33,26 +36,20 @@
 	});
 </script>
 
-<Popover {open} onOpenChange={(e) => (open = e.open)} positioning={{ placement: 'bottom-end' }}>
+<Popover.Root bind:open>
 	<Popover.Trigger
-		class="relative rounded-md p-1 transition-colors hover:preset-tonal"
+		class="relative inline-flex size-10 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground"
 		aria-label="Notifications"
 	>
 		<AppIcon name={ICONS.bell} class="size-5" />
 		{#if badgeText}
-			<span
-				class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-500 px-1 text-center text-[10px] leading-4 font-semibold text-white"
-			>
+			<Badge class="absolute -top-1 -right-1 min-w-5 justify-center rounded-full px-1">
 				{badgeText}
-			</span>
+			</Badge>
 		{/if}
 	</Popover.Trigger>
 
-	<Popover.Positioner class="z-50">
-		<Popover.Content
-			class="card rounded-lg border border-surface-200-800 preset-filled-surface-100-900 shadow-xl"
-		>
-			<NotificationDropdown onclose={() => (open = false)} />
-		</Popover.Content>
-	</Popover.Positioner>
-</Popover>
+	<Popover.Content class="w-96 max-w-[90vw] p-0" align="end">
+		<NotificationDropdown onclose={() => (open = false)} />
+	</Popover.Content>
+</Popover.Root>

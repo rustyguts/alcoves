@@ -58,7 +58,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	bind:this={rulerEl}
-	class="relative h-5 w-full cursor-pointer touch-none border-b border-surface-300-700 hover:bg-surface-200-800"
+	class="relative h-5 w-full cursor-pointer touch-none border-b hover:bg-muted"
 	data-testid="timeline-ruler"
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
@@ -68,20 +68,22 @@
 	{#each ticks as t (t.seconds)}
 		<div
 			class="pointer-events-none absolute top-0 bottom-0 {t.major
-				? 'w-px bg-surface-400-600'
-				: 'w-px bg-surface-300-700'}"
+				? 'w-px bg-muted-foreground/60'
+				: 'w-px bg-border'}"
 			style="left: {t.leftPx}px;"
 		>
 			{#if t.label}
 				<span
-					class="absolute top-0 left-1 text-[10px] whitespace-nowrap text-surface-500 tabular-nums"
+					class="absolute top-0 left-1 text-[10px] whitespace-nowrap text-muted-foreground tabular-nums"
 				>
 					{t.label}
 				</span>
 			{/if}
 		</div>
 	{/each}
-	<!-- Ruler playhead indicator -->
+	<!-- Ruler playhead indicator — kept a deliberate blue accent (distinct from
+	     selection/primary tint) so the playhead reads consistently across the
+	     ruler, moments track and waveform. -->
 	<div
 		class="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-blue-500"
 		style="left: {playheadLeftPx}px;"

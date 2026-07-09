@@ -403,6 +403,48 @@ describe('FilePreview', () => {
 		expect(video.getAttribute('src')).toBe('/stream/source.mov');
 	});
 
+	// F24: the playback-source select needs an accessible name, and arrow
+	// keys reaching it as the event target must not trigger the lightbox's
+	// global prev/next file navigation (it has its own native meaning there).
+	it('gives the playback-source select an accessible name and ignores arrow keys targeted at it', async () => {
+		apiPlaybackSources.mockResolvedValue({
+			defaultSourceId: 's-proxy',
+			sources: [
+				{
+					id: 's-proxy',
+					name: '720p',
+					mimeType: 'video/mp4',
+					kind: 'proxy',
+					streamUrl: '/stream/proxy.mp4',
+					createdAt: '2025-01-01T00:00:00Z'
+				}
+			]
+		});
+		const files = [
+			makeFile({ id: 'vid', mimeType: 'video/mp4', name: 'clip.mp4' }),
+			makeFile({ id: 'vid2', mimeType: 'video/mp4', name: 'clip2.mp4' })
+		];
+		const onnavigate = vi.fn();
+		const screen = render(FilePreview, {
+			props: { file: files[0], libraryId: 'lib-1', files, open: true, onnavigate }
+		});
+		await vi.waitFor(() => {
+			expect(screen.container.querySelector('select')).not.toBeNull();
+		});
+		const select = screen.container.querySelector('select') as HTMLSelectElement;
+		expect(select.getAttribute('aria-label')).toBe('Playback quality');
+
+		select.dispatchEvent(
+			new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+		);
+		await tick();
+		expect(onnavigate).not.toHaveBeenCalled();
+
+		// A window-targeted ArrowRight (not from the select) still navigates.
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+		expect(onnavigate).toHaveBeenCalledTimes(1);
+	});
+
 	it('refreshes playback sources when a proxy reaches the ready state', async () => {
 		const file = makeFile({
 			id: 'vid',

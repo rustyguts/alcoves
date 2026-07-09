@@ -143,6 +143,43 @@ describe('/libraries/[id]/people', () => {
 		expect(goto).toHaveBeenCalledWith('/libraries/lib-1/people/p1');
 	});
 
+	// F10 regression: double-click was the ONLY way to open a person, which is
+	// unreachable by keyboard (Enter/Space on a button only ever synthesizes a
+	// single click). A tile must open the detail view on Enter/Space too.
+	it('opens the person detail on Enter', async () => {
+		peopleState.people = [makePerson('p1', { name: 'Alex' })];
+		const screen = render(Page);
+		const tile = screen.container.querySelector('button[title="Alex"]') as HTMLButtonElement;
+		tile.dispatchEvent(
+			new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+		);
+		await tick();
+		expect(goto).toHaveBeenCalledWith('/libraries/lib-1/people/p1');
+		expect(peopleState.togglePersonSelection).not.toHaveBeenCalled();
+	});
+
+	it('opens the person detail on Space', async () => {
+		peopleState.people = [makePerson('p1', { name: 'Alex' })];
+		const screen = render(Page);
+		const tile = screen.container.querySelector('button[title="Alex"]') as HTMLButtonElement;
+		const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+		tile.dispatchEvent(event);
+		await tick();
+		expect(goto).toHaveBeenCalledWith('/libraries/lib-1/people/p1');
+		// preventDefault stops the browser's own click synthesis for Space so the
+		// tile's click handler (selection toggle) doesn't also fire.
+		expect(event.defaultPrevented).toBe(true);
+	});
+
+	it('does not open the person detail for unrelated keys', async () => {
+		peopleState.people = [makePerson('p1', { name: 'Alex' })];
+		const screen = render(Page);
+		const tile = screen.container.querySelector('button[title="Alex"]') as HTMLButtonElement;
+		tile.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true }));
+		await tick();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
 	it('opens the rename modal on right-click and renames via Save', async () => {
 		peopleState.people = [makePerson('p1', { name: 'Alex' })];
 		const screen = render(Page);

@@ -8,8 +8,9 @@
 	import { refreshLibraries } from '$lib/state/libraries-list.svelte';
 	import { toast } from '$lib/state/toast';
 	import { ICONS } from '$lib/utils/icons';
+	import { cn } from '$lib/utils';
 	import AppIcon from '$lib/components/ui/AppIcon.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import AuthCardShell from '$lib/components/ui/AuthCardShell.svelte';
 	import type { InviteLookupResponse } from '$lib/types/api';
@@ -67,18 +68,29 @@
 		}
 	});
 
-	const statusPreset = $derived.by(() => {
+	const statusIcon = $derived.by(() => {
 		switch (invite?.status) {
-			case 'pending':
-				return 'preset-tonal-primary';
 			case 'already_member':
-				return 'preset-tonal-success';
+				return ICONS.success;
 			case 'expired':
 			case 'revoked':
 			case 'exhausted':
-				return 'preset-tonal-error';
+				return ICONS.error;
 			default:
-				return 'preset-tonal-surface';
+				return ICONS.info;
+		}
+	});
+
+	const statusTone = $derived.by(() => {
+		switch (invite?.status) {
+			case 'already_member':
+				return 'text-success';
+			case 'expired':
+			case 'revoked':
+			case 'exhausted':
+				return 'text-destructive';
+			default:
+				return 'text-primary';
 		}
 	});
 
@@ -110,32 +122,35 @@
 				<UserAvatar
 					displayName={invite.invitedBy.displayName}
 					avatarUrl={invite.invitedBy.avatarUrl}
-					sizeClass="w-10"
+					size="lg"
 				/>
 			{/if}
-			<h1 class="text-base font-semibold text-surface-950-50">{inviteTitle}</h1>
+			<h1 class="text-base font-semibold">{inviteTitle}</h1>
 		</div>
 
 		{#if loading}
 			<div class="flex items-center justify-center py-8">
-				<AppIcon name={ICONS.loading} class="size-5 animate-spin opacity-75" />
+				<AppIcon name={ICONS.loading} class="size-5 animate-spin text-muted-foreground" />
 			</div>
 		{:else}
-			<div class="card {statusPreset} p-3 text-sm" role="status">
-				{statusMessage}
+			<div class="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm" role="status">
+				<AppIcon name={statusIcon} class={cn('mt-0.5 size-4 shrink-0', statusTone)} />
+				<span>{statusMessage}</span>
 			</div>
 
 			<div class="flex flex-wrap items-center gap-2">
 				{#if invite?.canAccept}
-					<Button loading={accepting} disabled={accepting} onclick={acceptInvite}>
-						{#snippet icon()}
+					<Button disabled={accepting} onclick={acceptInvite}>
+						{#if accepting}
+							<AppIcon name={ICONS.loading} class="size-4 animate-spin" />
+						{:else}
 							<AppIcon name={ICONS.check} class="size-4" />
-						{/snippet}
+						{/if}
 						Accept Invite
 					</Button>
 				{/if}
 				{#if invite?.library.id}
-					<Button href={`/libraries/${invite.library.id}`} variant="tonal" color="surface">
+					<Button href={`/libraries/${invite.library.id}`} variant="outline">
 						Go to library
 						<AppIcon name={ICONS.arrowRight} class="size-4" />
 					</Button>

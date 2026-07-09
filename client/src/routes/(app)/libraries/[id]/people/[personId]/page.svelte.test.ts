@@ -444,7 +444,14 @@ describe('person detail page', () => {
 		);
 	});
 
-	it('closes the open context menu on an outside window click', async () => {
+	// Dismissal-on-outside-interaction (click/contextmenu-inside-doesn't-close) is
+	// now bits-ui's ContextMenu behavior — the ContextMenu.Root wrapping the face
+	// grid owns it, replacing the old hand-rolled window click/stopPropagation
+	// listeners. Escape is the reliable, synthesizable way to exercise "the menu
+	// can be dismissed" without reproducing bits-ui's internal outside-pointerdown
+	// geometry/debounce heuristics in a unit test (see the identical precedent +
+	// rationale in routes/(app)/libraries/[id]/page.svelte.test.ts).
+	it('Escape closes an open context menu', async () => {
 		const person = makePerson();
 		store.activePerson = person;
 		store.activePersonFaces = [makeFace('a')];
@@ -460,67 +467,14 @@ describe('person detail page', () => {
 		const tile = screen.container.querySelector('[data-testid="image-stub"]')!.parentElement!;
 		tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
 		await tick();
-		expect(screen.container.querySelector('[role="menu"]')).not.toBeNull();
-
-		// An outside click bubbles to the window listener and dismisses the menu.
-		window.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 		await tick();
-		expect(screen.container.querySelector('[role="menu"]')).toBeNull();
-	});
+		const menu = document.querySelector('[role="menu"]');
+		expect(menu).not.toBeNull();
 
-	it('closes the open context menu on Escape', async () => {
-		const person = makePerson();
-		store.activePerson = person;
-		store.activePersonFaces = [makeFace('a')];
-		store.fetchPeople.mockImplementation(async () => {
-			store.people = [person];
+		menu!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		await vi.waitFor(() => {
+			expect(document.querySelector('[role="menu"]')).toBeNull();
 		});
-
-		const screen = render(Page);
-
-		await vi.waitFor(() =>
-			expect(screen.container.querySelector('[data-testid="image-stub"]')).not.toBeNull()
-		);
-		const tile = screen.container.querySelector('[data-testid="image-stub"]')!.parentElement!;
-		tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-		await tick();
-		expect(screen.container.querySelector('[role="menu"]')).not.toBeNull();
-
-		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-		await tick();
-		expect(screen.container.querySelector('[role="menu"]')).toBeNull();
-
-		// A non-Escape keydown while the menu is closed is a no-op (no throw).
-		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-		await tick();
-		expect(screen.container.querySelector('[role="menu"]')).toBeNull();
-	});
-
-	it('stops menu clicks from bubbling out and dismissing the menu', async () => {
-		const person = makePerson();
-		store.activePerson = person;
-		store.activePersonFaces = [makeFace('a')];
-		store.fetchPeople.mockImplementation(async () => {
-			store.people = [person];
-		});
-
-		const screen = render(Page);
-
-		await vi.waitFor(() =>
-			expect(screen.container.querySelector('[data-testid="image-stub"]')).not.toBeNull()
-		);
-		const tile = screen.container.querySelector('[data-testid="image-stub"]')!.parentElement!;
-		tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-		await tick();
-		const menu = screen.container.querySelector('[role="menu"]')!;
-
-		// Click + keydown + contextmenu inside the menu are stopped/prevented so the
-		// menu survives (the window listener never sees them).
-		menu.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-		menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
-		menu.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-		await tick();
-		expect(screen.container.querySelector('[role="menu"]')).not.toBeNull();
 	});
 
 	it('returns to the people list after splitting empties the active person', async () => {
@@ -547,6 +501,81 @@ describe('person detail page', () => {
 
 		await screen.getByRole('menuitem', { name: 'New person' }).click();
 		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/libraries/lib-1/people'));
+	});
+
+	// F5/F14/F20 regression: a single ContextMenu.Root+Trigger wraps the whole
+	// face grid, so right-clicking a gap (never any tile) used to still open
+	// bits-ui's menu — with whatever face was last recorded, or silently
+	// no-op items on a fresh visit. The trigger-level guard should leave gap
+	// right-clicks un-prevented (native browser menu) instead of opening.
+	it('does not open the context menu when right-clicking a grid gap', async () => {
+		const person = makePerson();
+		store.activePerson = person;
+		store.activePersonFaces = [makeFace('a'), makeFace('b')];
+		store.fetchPeople.mockImplementation(async () => {
+			store.people = [person];
+		});
+
+		const screen = render(Page);
+
+		await vi.waitFor(() =>
+			expect(screen.container.querySelectorAll('[data-testid="image-stub"]')).toHaveLength(2)
+		);
+		const tile = screen.container.querySelector('[data-testid="image-stub"]')!.parentElement!;
+		const grid = tile.parentElement!;
+
+		const gapEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+		grid.dispatchEvent(gapEvent);
+		await tick();
+
+		expect(document.querySelector('[role="menu"]')).toBeNull();
+		// Left un-prevented so the native browser context menu is free to show.
+		expect(gapEvent.defaultPrevented).toBe(false);
+	});
+
+	it('does not reopen a stale menu targeting the previous face when right-clicking a grid gap', async () => {
+		const person = makePerson();
+		const faceA = makeFace('a');
+		const faceB = makeFace('b');
+		store.activePerson = person;
+		store.activePersonFaces = [faceA, faceB];
+		store.fetchPeople.mockImplementation(async () => {
+			store.people = [person];
+		});
+
+		const screen = render(Page);
+
+		await vi.waitFor(() =>
+			expect(screen.container.querySelectorAll('[data-testid="image-stub"]')).toHaveLength(2)
+		);
+		const tiles = screen.container.querySelectorAll('[data-testid="image-stub"]');
+		const tileA = tiles[0]!.parentElement!;
+		const grid = tileA.parentElement!;
+
+		// Right-click face A, then dismiss the menu (Escape).
+		tileA.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+		await tick();
+		const menu = document.querySelector('[role="menu"]');
+		expect(menu).not.toBeNull();
+		menu!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull());
+
+		// Right-clicking the grid gap must NOT reopen a menu wired to face A.
+		const gapEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+		grid.dispatchEvent(gapEvent);
+		await tick();
+		expect(document.querySelector('[role="menu"]')).toBeNull();
+		expect(gapEvent.defaultPrevented).toBe(false);
+
+		// A subsequent right-click on the actual second tile still targets the
+		// correct face (B), proving menuFace was cleared rather than left on A.
+		const tileB = tiles[1]!.parentElement!;
+		tileB.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+		await tick();
+		const coverBtn = screen.getByRole('menuitem', { name: 'Update cover photo' });
+		await coverBtn.click();
+		expect(store.setPersonCover).toHaveBeenCalledWith('p1', 'b');
+		expect(store.setPersonCover).not.toHaveBeenCalledWith('p1', 'a');
 	});
 
 	it('stays on the page when splitting leaves the person with faces', async () => {

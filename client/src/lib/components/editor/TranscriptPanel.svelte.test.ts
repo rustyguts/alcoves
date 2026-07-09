@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { userEvent } from '@vitest/browser/context';
 import TranscriptPanel from './TranscriptPanel.svelte';
 import type { VttCue } from '$lib/utils/parse-vtt';
 import type { JobStatusButton } from '$lib/utils/job-status-button';
@@ -29,7 +30,7 @@ function setSearch(screen: Screen, value: string) {
 
 function activeRows(screen: Screen): HTMLElement[] {
 	return [...screen.container.querySelectorAll('li')].filter((li) =>
-		li.className.includes('bg-primary-500/10')
+		li.className.includes('bg-primary/10')
 	);
 }
 
@@ -44,7 +45,26 @@ async function openTopWords(screen: Screen) {
 		(b) => b.textContent?.trim() === 'Top words'
 	) as HTMLButtonElement;
 	topTab.click();
-	await vi.waitFor(() => expect(screen.container.querySelector('select')).not.toBeNull());
+	await vi.waitFor(() =>
+		expect(screen.container.querySelector('[data-slot="select-trigger"]')).not.toBeNull()
+	);
+}
+
+/**
+ * bits-ui's Select opens/selects on pointerdown/pointerup (not click), so a
+ * plain DOM `.click()` doesn't work — use the Playwright-backed `userEvent`
+ * (real pointer events). Content is portalled to `document.body`.
+ */
+async function chooseSelect(trigger: HTMLElement, optionText: string) {
+	await userEvent.click(trigger);
+	const item = await vi.waitFor(() => {
+		const found = [...document.querySelectorAll<HTMLElement>('[data-slot="select-item"]')].find(
+			(el) => el.textContent?.trim() === optionText
+		);
+		expect(found).toBeDefined();
+		return found!;
+	});
+	await userEvent.click(item);
 }
 
 describe('TranscriptPanel', () => {
@@ -182,7 +202,7 @@ describe('TranscriptPanel', () => {
 			expect(firstRow.textContent).toContain('banana');
 			expect(firstRow.textContent).toContain('3');
 			// the top word gets a full-width bar
-			const bar = firstRow.querySelector('.bg-primary-500') as HTMLElement;
+			const bar = firstRow.querySelector('.bg-primary') as HTMLElement;
 			expect(bar.style.width).toBe('100%');
 			// the cue search box is gone while on the words tab
 			expect(screen.container.querySelector("input[type='text']")).toBeNull();
@@ -192,9 +212,8 @@ describe('TranscriptPanel', () => {
 			const screen = renderPanel();
 			await openTopWords(screen);
 			expect(wordRows(screen)).toHaveLength(6);
-			const select = screen.container.querySelector('select') as HTMLSelectElement;
-			select.value = '5';
-			select.dispatchEvent(new Event('change', { bubbles: true }));
+			const trigger = screen.container.querySelector<HTMLElement>('[data-slot="select-trigger"]')!;
+			await chooseSelect(trigger, '5');
 			await vi.waitFor(() => expect(wordRows(screen)).toHaveLength(5));
 			expect(wordRows(screen)).not.toContain('useful');
 		});

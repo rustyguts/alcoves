@@ -66,7 +66,7 @@ describe('HighlightFiltersPanel', () => {
 		const screen = renderPanel({
 			filters: [makeFilter({ id: 'a' }), makeFilter({ id: 'b', name: 'B' })]
 		});
-		const badge = screen.container.querySelector('.badge');
+		const badge = screen.container.querySelector('[data-slot="badge"]');
 		expect(badge?.textContent?.trim()).toBe('2');
 		const help = screen.container.querySelector('span[title]');
 		expect(help?.getAttribute('title')).toContain('Comma = OR');
@@ -287,14 +287,14 @@ describe('HighlightFiltersPanel', () => {
 			filters: [makeFilter({ id: 'a', name: 'Hit' }), makeFilter({ id: 'b', name: 'Miss' })],
 			aggregates: { a: agg({ count: 3 }), b: agg({ count: 0 }) }
 		});
-		const hitBadges = [...screen.container.querySelectorAll('.badge')].filter((b) =>
+		const hitBadges = [...screen.container.querySelectorAll('[data-slot="badge"]')].filter((b) =>
 			b.textContent?.includes('hits')
 		);
 		expect(hitBadges).toHaveLength(2);
 		expect(hitBadges[0]!.textContent?.trim()).toBe('3 hits');
-		expect(hitBadges[0]!.classList.contains('preset-tonal-primary')).toBe(true);
+		expect(hitBadges[0]!.className).toContain('bg-primary/10');
 		expect(hitBadges[1]!.textContent?.trim()).toBe('0 hits');
-		expect(hitBadges[1]!.classList.contains('preset-tonal-surface')).toBe(true);
+		expect(hitBadges[1]!.className).not.toContain('bg-primary/10');
 	});
 
 	it('shows the avg/max score line only for filters with hits', () => {
@@ -312,7 +312,7 @@ describe('HighlightFiltersPanel', () => {
 			filters: [makeFilter({ id: 'a' })],
 			aggregates: { a: agg({ expressionErrors: ['bad token', 'also bad'] }) }
 		});
-		const badge = [...screen.container.querySelectorAll('.badge')].find(
+		const badge = [...screen.container.querySelectorAll('[data-slot="badge"]')].find(
 			(b) => b.textContent?.trim() === 'parse error'
 		);
 		expect(badge).toBeTruthy();

@@ -43,7 +43,7 @@ describe('EditorTopBar', () => {
 		expect(nullScreen.container.textContent).toContain('Loading…');
 		// No file → not playable → no job buttons or badges either.
 		expect(findButton(nullScreen.container, 'Transcribe')).toBeUndefined();
-		expect(nullScreen.container.querySelectorAll('.badge')).toHaveLength(0);
+		expect(nullScreen.container.querySelectorAll('[data-slot="badge"]')).toHaveLength(0);
 
 		const undefScreen = render(EditorTopBar, { props: baseProps({ file: undefined }) });
 		expect(undefScreen.container.textContent).toContain('Loading…');
@@ -58,7 +58,7 @@ describe('EditorTopBar', () => {
 
 	it('shows duration and kind badges for a video with metadata', () => {
 		const screen = render(EditorTopBar, { props: baseProps({ file: makeFile({ duration: 90 }) }) });
-		const badges = Array.from(screen.container.querySelectorAll('.badge')).map((b) =>
+		const badges = Array.from(screen.container.querySelectorAll('[data-slot="badge"]')).map((b) =>
 			b.textContent?.trim()
 		);
 		expect(badges).toEqual(['1:30', 'Video']);
@@ -68,7 +68,7 @@ describe('EditorTopBar', () => {
 		const screen = render(EditorTopBar, {
 			props: baseProps({ file: makeFile({ mimeType: 'audio/mpeg', duration: 8 }) })
 		});
-		const badges = Array.from(screen.container.querySelectorAll('.badge')).map((b) =>
+		const badges = Array.from(screen.container.querySelectorAll('[data-slot="badge"]')).map((b) =>
 			b.textContent?.trim()
 		);
 		expect(badges).toEqual(['0:08', 'Audio']);
@@ -81,7 +81,7 @@ describe('EditorTopBar', () => {
 				canDetectAudio: false
 			})
 		});
-		expect(screen.container.querySelectorAll('.badge')).toHaveLength(0);
+		expect(screen.container.querySelectorAll('[data-slot="badge"]')).toHaveLength(0);
 	});
 
 	it('shows the job buttons for a playable file and fires their callbacks', () => {
@@ -117,7 +117,7 @@ describe('EditorTopBar', () => {
 		expect(findButton(screen.container, 'Generate waveform')).toBeDefined();
 	});
 
-	it('uses a filled preset for failed jobs and tonal otherwise', () => {
+	it('uses the destructive variant for failed jobs and a tonal tint otherwise', () => {
 		const screen = render(EditorTopBar, {
 			props: baseProps({
 				file: makeFile({ transcribeStatus: 'failed', audioDetectStatus: 'failed' }),
@@ -126,18 +126,16 @@ describe('EditorTopBar', () => {
 			})
 		});
 		expect(findButton(screen.container, 'Retry transcribe')?.className).toContain(
-			'preset-filled-error-500'
+			'bg-destructive/10'
 		);
 		expect(findButton(screen.container, 'Retry detection')?.className).toContain(
-			'preset-filled-error-500'
+			'bg-destructive/10'
 		);
-		// The non-failed waveform job keeps the tonal variant.
-		expect(findButton(screen.container, 'Generate waveform')?.className).toContain(
-			'preset-tonal-primary'
-		);
+		// The non-failed waveform job keeps its primary tint.
+		expect(findButton(screen.container, 'Generate waveform')?.className).toContain('bg-primary/10');
 	});
 
-	it('shouts a failed waveform job with the filled preset', () => {
+	it('shouts a failed waveform job with the destructive variant', () => {
 		const screen = render(EditorTopBar, {
 			props: baseProps({
 				file: makeFile({ waveformStatus: 'failed' }),
@@ -145,17 +143,15 @@ describe('EditorTopBar', () => {
 			})
 		});
 		expect(findButton(screen.container, 'Retry waveform')?.className).toContain(
-			'preset-filled-error-500'
+			'bg-destructive/10'
 		);
 	});
 
-	it('maps the neutral job color onto the surface palette', () => {
+	it('maps the neutral job color onto the secondary variant', () => {
 		const screen = render(EditorTopBar, {
 			props: baseProps({ transcribeButton: btn('Re-transcribe', { color: 'neutral' }) })
 		});
-		expect(findButton(screen.container, 'Re-transcribe')?.className).toContain(
-			'preset-tonal-surface'
-		);
+		expect(findButton(screen.container, 'Re-transcribe')?.className).toContain('bg-secondary');
 	});
 
 	it('passes the loading state through to the buttons', () => {

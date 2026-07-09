@@ -39,13 +39,13 @@
 	}
 </script>
 
-<div class="flex w-96 max-w-[90vw] flex-col">
-	<div class="flex items-center justify-between border-b border-surface-200-800 px-4 py-2.5">
+<div class="flex w-96 max-w-[90vw] flex-col overflow-hidden rounded-md">
+	<div class="flex items-center justify-between px-4 py-2.5">
 		<h3 class="text-sm font-semibold">Notifications</h3>
 		{#if notifications.entries.length > 0}
 			<button
 				type="button"
-				class="text-xs text-surface-600-400 underline hover:text-surface-950-50"
+				class="text-xs text-muted-foreground underline hover:text-foreground"
 				onclick={onDismissAll}
 			>
 				Dismiss all
@@ -54,9 +54,9 @@
 	</div>
 	<div class="max-h-96 overflow-y-auto">
 		{#if notifications.loading && notifications.entries.length === 0}
-			<div class="px-4 py-6 text-center text-sm text-surface-600-400">Loading…</div>
+			<div class="px-4 py-6 text-center text-sm text-muted-foreground">Loading…</div>
 		{:else if notifications.entries.length === 0}
-			<div class="px-4 py-6 text-center text-sm text-surface-600-400">You're all caught up.</div>
+			<div class="px-4 py-6 text-center text-sm text-muted-foreground">You're all caught up.</div>
 		{:else}
 			{#each groups as g (g.head.id)}
 				<NotificationItem
@@ -72,7 +72,7 @@
 	{#if hasMore}
 		<button
 			type="button"
-			class="border-t border-surface-200-800 px-4 py-2 text-center text-sm text-primary-500 hover:bg-surface-100-900"
+			class="px-4 py-2.5 text-center text-sm text-primary hover:bg-muted"
 			onclick={viewAll}
 		>
 			See all notifications
