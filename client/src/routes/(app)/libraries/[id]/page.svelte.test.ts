@@ -392,27 +392,38 @@ describe('/libraries/[id] (browser)', () => {
 		expect(explorerState.entryViewMode).toBe('card');
 	});
 
-	it('shows Folder + Upload buttons for managers and opens them', async () => {
+	it('shows a Create dropdown for managers with Upload / New folder / New document, and each item opens its flow', async () => {
 		explorerState.entries = [makeFile()];
 		const screen = renderPage();
-		const folderBtn = Array.from(
+
+		const createBtn = Array.from(
 			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.trim() === 'Folder');
-		folderBtn!.click();
+		).find((b) => b.textContent?.trim() === 'Create');
+		expect(createBtn, 'Create toolbar button').toBeTruthy();
+
+		createBtn!.click();
+		await tick();
+		let dropdown = document.querySelector('[role="menu"]') as HTMLElement;
+		expect(dropdown).toBeTruthy();
+		menuItem(dropdown, 'New folder')!.click();
 		expect(folderActionsMock.openCreateFolderModal).toHaveBeenCalled();
-		const uploadBtn = Array.from(
-			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.trim() === 'Upload');
-		uploadBtn!.click();
+
+		createBtn!.click();
+		await tick();
+		dropdown = document.querySelector('[role="menu"]') as HTMLElement;
+		const uploadItem = menuItem(dropdown, 'Upload');
+		expect(uploadItem).toBeTruthy();
+		uploadItem!.click();
+		await vi.waitFor(() => expect(document.body.textContent).toContain('Upload Files'));
 	});
 
-	it('hides manager toolbar buttons for viewers', async () => {
+	it('hides the Create dropdown for viewers', async () => {
 		explorerState.entries = [makeFile()];
 		const screen = renderPage({ user: viewer, library: { ...library, currentUserRole: 'viewer' } });
-		const folderBtn = Array.from(
+		const createBtn = Array.from(
 			screen.container.querySelectorAll<HTMLButtonElement>('button')
-		).find((b) => b.textContent?.trim() === 'Folder');
-		expect(folderBtn).toBeUndefined();
+		).find((b) => b.textContent?.trim() === 'Create');
+		expect(createBtn).toBeUndefined();
 	});
 
 	// ── F25: view toggles expose pressed state ─────────────────────────────────
@@ -438,21 +449,22 @@ describe('/libraries/[id] (browser)', () => {
 	});
 
 	// ── F7: toolbar buttons keep accessible names ───────────────────────────────
-	it('gives the Folder/Document/Upload/Delete All buttons an accessible name on desktop', async () => {
+	it('gives the Create button, its dropdown items, and Delete All an accessible name', async () => {
 		explorerState.entries = [makeFile()];
 		const filesScreen = renderPage();
-		// Desktop-width test viewport: the `sm:flex` strip is visible and its
-		// buttons' accessible name comes from their always-rendered text (no
-		// `hidden sm:inline` span to strip it) — matches the e2e locators
-		// (`getByRole('button', { name: 'Folder' })` / `'Upload'`, unqualified).
 		await expect
-			.element(filesScreen.getByRole('button', { name: 'Folder', exact: true }))
+			.element(filesScreen.getByRole('button', { name: 'Create', exact: true }))
+			.toBeInTheDocument();
+
+		await filesScreen.getByRole('button', { name: 'Create', exact: true }).click();
+		await expect
+			.element(filesScreen.getByRole('menuitem', { name: 'Upload', exact: true }))
 			.toBeInTheDocument();
 		await expect
-			.element(filesScreen.getByRole('button', { name: 'Document', exact: true }))
+			.element(filesScreen.getByRole('menuitem', { name: 'New folder', exact: true }))
 			.toBeInTheDocument();
 		await expect
-			.element(filesScreen.getByRole('button', { name: 'Upload', exact: true }).first())
+			.element(filesScreen.getByRole('menuitem', { name: 'New document', exact: true }))
 			.toBeInTheDocument();
 
 		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
@@ -463,50 +475,21 @@ describe('/libraries/[id] (browser)', () => {
 			.toBeInTheDocument();
 	});
 
-	// The mobile overflow tests below cover the F7 mobile case directly: the
-	// icon-only "More actions" trigger has its own aria-label, and once open
-	// its items ("New folder"/"New document"/"Upload files"/"Delete All") get
-	// their accessible name from visible text like any other menu item — no
-	// `hidden sm:inline` text-stripping ever applies to them.
-
-	// ── Mobile overflow menu ─────────────────────────────────────────────────
-	it('collapses toolbar actions into a mobile "More actions" overflow menu', async () => {
+	// ── No more mobile overflow ─────────────────────────────────────────────────
+	// The old Folder/Document/Upload trio collapsed into a "More actions"
+	// overflow below `sm` so a handful of icon-only buttons didn't crowd the
+	// breadcrumb. A single Create dropdown (already a DropdownMenu) plus the
+	// two view-toggle icon buttons render identically at every breakpoint now,
+	// so the overflow is gone outright — List/Grid view stay directly reachable.
+	it('no longer collapses the toolbar into a mobile "More actions" overflow', async () => {
 		explorerState.entries = [makeFile()];
 		const screen = renderPage();
-		const trigger = screen.container.querySelector<HTMLButtonElement>(
-			'button[aria-label="More actions"]'
-		);
-		expect(trigger).toBeTruthy();
-		trigger!.click();
-		await tick();
-		await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy());
-		const menu = document.querySelector('[role="menu"]') as HTMLElement;
-		expect(menu.textContent).toContain('List view');
-		expect(menu.textContent).toContain('Grid view');
-
-		const newFolderItem = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
-			(el) => el.textContent?.includes('New folder')
-		);
-		newFolderItem!.click();
-		expect(folderActionsMock.openCreateFolderModal).toHaveBeenCalled();
-	});
-
-	it('the mobile overflow menu offers Delete All in the trash view', async () => {
-		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
-		explorerState.totalCount = 1;
-		const screen = renderTrash();
-		const trigger = screen.container.querySelector<HTMLButtonElement>(
-			'button[aria-label="More actions"]'
-		);
-		expect(trigger).toBeTruthy();
-		trigger!.click();
-		await tick();
-		await vi.waitFor(() => expect(document.querySelector('[role="menu"]')).toBeTruthy());
-		const menu = document.querySelector('[role="menu"]') as HTMLElement;
-		const deleteAllItem = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
-			(el) => el.textContent?.includes('Delete All')
-		);
-		expect(deleteAllItem).toBeTruthy();
+		expect(screen.container.querySelector('button[aria-label="More actions"]')).toBeFalsy();
+		await expect.element(screen.getByTitle('List view')).toBeInTheDocument();
+		await expect.element(screen.getByTitle('Grid view')).toBeInTheDocument();
+		await expect
+			.element(screen.getByRole('button', { name: 'Create', exact: true }))
+			.toBeInTheDocument();
 	});
 
 	// ── Empty-state actions ────────────────────────────────────────────────────
@@ -755,6 +738,10 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		expect(menu.textContent).toContain('Download');
 		expect(menu.textContent).not.toContain('Rename');
+		// Create actions are manager-gated, same as the toolbar's Create button.
+		expect(menu.textContent).not.toContain('Upload');
+		expect(menu.textContent).not.toContain('New folder');
+		expect(menu.textContent).not.toContain('New document');
 	});
 
 	it('viewer folder context menu offers Open + Download as ZIP', async () => {
@@ -766,6 +753,89 @@ describe('/libraries/[id] (browser)', () => {
 		const menu = await openRowContextMenu(screen);
 		expect(menu.textContent).toContain('Open');
 		expect(menu.textContent).toContain('Download as ZIP');
+		expect(menu.textContent).not.toContain('Upload');
+	});
+
+	// ── Create actions appended to the entry context menu ───────────────────────
+	it('manager file context menu appends a separated Upload / New folder / New document group', async () => {
+		explorerState.entries = [makeFile()];
+		const screen = renderPage();
+		const menu = await openRowContextMenu(screen);
+		expect(menuItem(menu, 'Upload')).toBeTruthy();
+		expect(menuItem(menu, 'New folder')).toBeTruthy();
+		expect(menuItem(menu, 'New document')).toBeTruthy();
+		// It's its own trailing group (a separator sits between it and the
+		// entry's own actions), not folded into the entry actions themselves.
+		expect(menu.querySelectorAll('[data-slot="context-menu-separator"]').length).toBeGreaterThan(0);
+
+		menuItem(menu, 'New folder')!.click();
+		expect(folderActionsMock.openCreateFolderModal).toHaveBeenCalled();
+	});
+
+	it('trash file context menu never offers create actions, even for the owner', async () => {
+		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
+		const screen = renderTrash();
+		const menu = await openRowContextMenu(screen);
+		expect(menu.textContent).not.toContain('Upload');
+		expect(menu.textContent).not.toContain('New folder');
+		expect(menu.textContent).not.toContain('New document');
+	});
+
+	// ── Empty-space context menu (Create actions) ────────────────────────────────
+	it('right-click on empty space opens a create-actions-only menu for a manager', async () => {
+		explorerState.entries = [makeFile()];
+		const screen = renderPage();
+		const container = screen.container.querySelector('.overflow-y-auto') as HTMLElement;
+		container.dispatchEvent(
+			new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 })
+		);
+		await tick();
+		await tick();
+		const menu = document.querySelector('[role="menu"]') as HTMLElement;
+		expect(menu).toBeTruthy();
+		expect(menuItem(menu, 'Upload')).toBeTruthy();
+		expect(menuItem(menu, 'New folder')).toBeTruthy();
+		expect(menuItem(menu, 'New document')).toBeTruthy();
+		// Never a previous/stale entry's own actions.
+		expect(menuItem(menu, 'Rename')).toBeFalsy();
+		expect(menuItem(menu, 'Delete')).toBeFalsy();
+	});
+
+	it('right-click on empty space does nothing for a viewer (native context menu, permission-gated)', async () => {
+		explorerState.entries = [makeFile()];
+		const screen = renderPage({
+			user: viewer,
+			library: { ...library, currentUserRole: 'viewer' }
+		});
+		const container = screen.container.querySelector('.overflow-y-auto') as HTMLElement;
+		const event = new MouseEvent('contextmenu', {
+			bubbles: true,
+			cancelable: true,
+			clientX: 5,
+			clientY: 5
+		});
+		container.dispatchEvent(event);
+		await tick();
+		await tick();
+		expect(document.querySelector('[role="menu"]')).toBeFalsy();
+		expect(event.defaultPrevented).toBe(false);
+	});
+
+	it('right-click on empty space does nothing in the trash view, even for the owner (native context menu)', async () => {
+		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
+		const screen = renderTrash();
+		const container = screen.container.querySelector('.overflow-y-auto') as HTMLElement;
+		const event = new MouseEvent('contextmenu', {
+			bubbles: true,
+			cancelable: true,
+			clientX: 5,
+			clientY: 5
+		});
+		container.dispatchEvent(event);
+		await tick();
+		await tick();
+		expect(document.querySelector('[role="menu"]')).toBeFalsy();
+		expect(event.defaultPrevented).toBe(false);
 	});
 
 	// ── Rename save paths ──────────────────────────────────────────────────────

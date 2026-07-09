@@ -113,13 +113,6 @@
 
 	const dragEnabled = $derived(canManageLibrary && !trashed);
 
-	// Whether the mobile toolbar overflow trigger has anything to show. Mirrors
-	// the union of the desktop toolbar's own `{#if}` conditions below so the
-	// "More actions" button never opens onto an empty menu.
-	const mobileToolbarHasItems = $derived(
-		!trashed || (!explorer.filesPending && explorer.totalCount > 0)
-	);
-
 	// Move-files modal state
 	let moveFilesOpen = $state(false);
 	let moveFilesLoading = $state(false);
@@ -160,6 +153,27 @@
 		if (!contextMenuOpen) contextMenuGroups = [];
 	});
 
+	// The create actions (Upload / New folder / New document) — the same three
+	// flows the toolbar's Create dropdown triggers. Appended as their own
+	// trailing group to an entry's context menu, and used standalone as the
+	// entire menu when right-clicking empty space. Manager-gated + hidden in
+	// trash, same as the toolbar's Create button.
+	function createContextMenuActions(): ContextMenuItem[] {
+		return [
+			{ label: 'Upload', icon: ICONS.upload, onSelect: () => (uploadOpen = true) },
+			{
+				label: 'New folder',
+				icon: ICONS.folder,
+				onSelect: () => folderActions.openCreateFolderModal()
+			},
+			{
+				label: 'New document',
+				icon: ICONS.file,
+				onSelect: () => documentActions.openCreateDocumentModal()
+			}
+		];
+	}
+
 	// The row-level `oncontextmenu` handler (LibraryEntriesTable/Grid, via
 	// `onrowContextMenu`) only computes which items apply for ITS entry and
 	// marks the event as claimed; the actual open/position/dismiss behavior is
@@ -169,7 +183,9 @@
 	// showing an empty one.
 	function showContextMenu(entry: LibraryEntry, event: MouseEvent) {
 		entryContextMenuHandled = true;
-		contextMenuGroups = getContextMenuItems(entry);
+		const entryGroups = getContextMenuItems(entry);
+		const createGroup = canManageLibrary && !trashed ? [createContextMenuActions()] : [];
+		contextMenuGroups = [...entryGroups, ...createGroup];
 		if (!contextMenuGroups.length) {
 			event.preventDefault();
 		}
@@ -1093,127 +1109,67 @@
 		</div>
 	{/if}
 
-	<!-- Toolbar — portaled into the library header's breadcrumb row. Two
-	     responsive variants share the same actions: a full desktop strip
-	     (`sm:` and up) and a single-button mobile overflow (below `sm`) so a
-	     handful of icon-only buttons don't crowd out the library title/
-	     breadcrumb, which shares the row and needs to truncate gracefully. -->
+	<!-- Toolbar — portaled into the library header's breadcrumb row. A single
+	     Create dropdown replaces the old Folder/Document/Upload button trio, so
+	     the whole strip (view toggles + Create) is compact enough to render
+	     identically at every breakpoint — no more mobile-only overflow menu. -->
 	<div use:portal={'#library-header-actions'}>
 		<div class="flex shrink-0 items-center gap-1.5">
-			<!-- Desktop: every action as its own labeled button. -->
-			<div class="hidden shrink-0 items-center gap-1.5 sm:flex">
-				{#if !trashed}
-					<Button
-						variant={explorer.entryViewMode === 'file' ? 'secondary' : 'ghost'}
-						size="icon-sm"
-						aria-label="List view"
-						aria-pressed={explorer.entryViewMode === 'file'}
-						title="List view"
-						onclick={() => (explorer.entryViewMode = 'file')}
-					>
-						<AppIcon name={ICONS.listView} class="size-4" />
-					</Button>
-					<Button
-						variant={explorer.entryViewMode === 'card' ? 'secondary' : 'ghost'}
-						size="icon-sm"
-						aria-label="Grid view"
-						aria-pressed={explorer.entryViewMode === 'card'}
-						title="Grid view"
-						onclick={() => (explorer.entryViewMode = 'card')}
-					>
-						<AppIcon name={ICONS.gridView} class="size-4" />
-					</Button>
-				{/if}
+			{#if !trashed}
+				<Button
+					variant={explorer.entryViewMode === 'file' ? 'secondary' : 'ghost'}
+					size="icon-sm"
+					aria-label="List view"
+					aria-pressed={explorer.entryViewMode === 'file'}
+					title="List view"
+					onclick={() => (explorer.entryViewMode = 'file')}
+				>
+					<AppIcon name={ICONS.listView} class="size-4" />
+				</Button>
+				<Button
+					variant={explorer.entryViewMode === 'card' ? 'secondary' : 'ghost'}
+					size="icon-sm"
+					aria-label="Grid view"
+					aria-pressed={explorer.entryViewMode === 'card'}
+					title="Grid view"
+					onclick={() => (explorer.entryViewMode = 'card')}
+				>
+					<AppIcon name={ICONS.gridView} class="size-4" />
+				</Button>
+			{/if}
 
-				{#if trashed && !explorer.filesPending && explorer.totalCount > 0}
-					<Button variant="destructive" size="sm" onclick={() => openPurgeAllModal()}>
-						<AppIcon name={ICONS.trash} class="size-4" />
-						<span>Delete All</span>
-					</Button>
-				{/if}
+			{#if trashed && !explorer.filesPending && explorer.totalCount > 0}
+				<Button variant="destructive" size="sm" onclick={() => openPurgeAllModal()}>
+					<AppIcon name={ICONS.trash} class="size-4" />
+					<span>Delete All</span>
+				</Button>
+			{/if}
 
-				{#if canManageLibrary && !trashed}
-					<div class="flex items-center gap-1.5">
-						<Button variant="ghost" size="sm" onclick={() => folderActions.openCreateFolderModal()}>
-							<AppIcon name={ICONS.folder} class="size-4" />
-							<span>Folder</span>
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={() => documentActions.openCreateDocumentModal()}
-						>
-							<AppIcon name={ICONS.file} class="size-4" />
-							<span>Document</span>
-						</Button>
-						<Button variant="ghost" size="sm" onclick={() => (uploadOpen = true)}>
+			{#if canManageLibrary && !trashed}
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<Button {...props} size="sm">
+								<AppIcon name={ICONS.plus} class="size-4" />
+								<span>Create</span>
+							</Button>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content align="end" class="w-48">
+						<DropdownMenu.Item onSelect={() => (uploadOpen = true)}>
 							<AppIcon name={ICONS.upload} class="size-4" />
-							<span>Upload</span>
-						</Button>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Mobile: everything collapses into one overflow menu so the
-			     breadcrumb/title keeps its space in the shared header row. -->
-			{#if mobileToolbarHasItems}
-				<div class="sm:hidden">
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger>
-							{#snippet child({ props })}
-								<Button
-									{...props}
-									variant="ghost"
-									size="icon-sm"
-									aria-label="More actions"
-									title="More actions"
-								>
-									<AppIcon name={ICONS.ellipsis} class="size-4" />
-								</Button>
-							{/snippet}
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content align="end" class="w-48">
-							{#if !trashed}
-								<DropdownMenu.RadioGroup
-									value={explorer.entryViewMode}
-									onValueChange={(v) => (explorer.entryViewMode = v as 'file' | 'card')}
-								>
-									<DropdownMenu.RadioItem value="file">
-										<AppIcon name={ICONS.listView} class="size-4" />
-										List view
-									</DropdownMenu.RadioItem>
-									<DropdownMenu.RadioItem value="card">
-										<AppIcon name={ICONS.gridView} class="size-4" />
-										Grid view
-									</DropdownMenu.RadioItem>
-								</DropdownMenu.RadioGroup>
-							{/if}
-
-							{#if trashed && !explorer.filesPending && explorer.totalCount > 0}
-								<DropdownMenu.Item variant="destructive" onSelect={() => openPurgeAllModal()}>
-									<AppIcon name={ICONS.trash} class="size-4" />
-									Delete All
-								</DropdownMenu.Item>
-							{/if}
-
-							{#if canManageLibrary && !trashed}
-								<DropdownMenu.Separator />
-								<DropdownMenu.Item onSelect={() => folderActions.openCreateFolderModal()}>
-									<AppIcon name={ICONS.folder} class="size-4" />
-									New folder
-								</DropdownMenu.Item>
-								<DropdownMenu.Item onSelect={() => documentActions.openCreateDocumentModal()}>
-									<AppIcon name={ICONS.file} class="size-4" />
-									New document
-								</DropdownMenu.Item>
-								<DropdownMenu.Item onSelect={() => (uploadOpen = true)}>
-									<AppIcon name={ICONS.upload} class="size-4" />
-									Upload files
-								</DropdownMenu.Item>
-							{/if}
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
-				</div>
+							Upload
+						</DropdownMenu.Item>
+						<DropdownMenu.Item onSelect={() => folderActions.openCreateFolderModal()}>
+							<AppIcon name={ICONS.folder} class="size-4" />
+							New folder
+						</DropdownMenu.Item>
+						<DropdownMenu.Item onSelect={() => documentActions.openCreateDocumentModal()}>
+							<AppIcon name={ICONS.file} class="size-4" />
+							New document
+						</DropdownMenu.Item>
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
 			{/if}
 		</div>
 	</div>
@@ -1225,16 +1181,22 @@
 					{...props}
 					class="relative min-h-0 flex-1 overflow-y-auto px-0.5"
 					oncontextmenu={(event: MouseEvent) => {
-						// Only let bits-ui open its menu when a row/card claimed THIS
-						// event during the bubble phase (see showContextMenu, which
-						// runs first — rows/cards are descendants of this div).
-						// Otherwise leave the event alone entirely: no preventDefault,
-						// no bits-ui open call, so the browser's native context menu
-						// shows over empty space, grid gaps, the table header, and the
-						// empty-state panel — instead of a stale or empty menu carried
-						// over from a previously right-clicked entry.
+						// A row/card claimed THIS event during the bubble phase (see
+						// showContextMenu, which runs first — rows/cards are descendants
+						// of this div): forward it to bits-ui using the items it computed.
 						if (entryContextMenuHandled) {
 							entryContextMenuHandled = false;
+							(props.oncontextmenu as ((e: MouseEvent) => void) | undefined)?.(event);
+							return;
+						}
+						// Empty space (no row/card underneath): offer the create actions
+						// as their own menu when the user can manage this library and
+						// we're not in the read-only trash view. Otherwise leave the
+						// event alone entirely — no preventDefault, no bits-ui open
+						// call — so the browser's native context menu shows, same as a
+						// viewer or the trash view always has.
+						if (canManageLibrary && !trashed) {
+							contextMenuGroups = [createContextMenuActions()];
 							(props.oncontextmenu as ((e: MouseEvent) => void) | undefined)?.(event);
 						}
 					}}

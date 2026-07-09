@@ -37,14 +37,10 @@ test.describe('authenticated app', () => {
 		const id = await defaultLibraryId(page);
 		await page.goto(`/libraries/${id}`);
 		await settle(page);
-		// Below `sm` the view toggle collapses into the "More actions" overflow
-		// menu (mobile header crowding fix) instead of its own labeled button.
-		if (isMobile()) {
-			await page.getByRole('button', { name: 'More actions' }).click();
-			await page.getByRole('menuitemradio', { name: 'Grid view' }).click();
-		} else {
-			await page.getByRole('button', { name: 'Grid view' }).click();
-		}
+		// The view toggle is its own labeled icon button at every breakpoint now
+		// (the single Create dropdown replaced the old Folder/Document/Upload
+		// trio, so there's no more mobile-only "More actions" overflow to open).
+		await page.getByRole('button', { name: 'Grid view' }).click();
 		await settle(page);
 		await expect(page).toHaveScreenshot('library-files-grid.png', { mask: masks(page) });
 	});
@@ -212,11 +208,13 @@ test.describe('authenticated app', () => {
 
 	// ── Interactive states ──────────────────────────────────────────────────────
 	test('state — create folder modal', async ({ page }) => {
-		test.skip(isMobile(), 'desktop toolbar labels');
+		// The Create dropdown renders identically at every breakpoint now, so
+		// this state is no longer desktop-only.
 		const id = await defaultLibraryId(page);
 		await page.goto(`/libraries/${id}`);
 		await settle(page);
-		await page.getByRole('button', { name: 'Folder' }).click();
+		await page.getByRole('button', { name: 'Create' }).click();
+		await page.getByRole('menuitem', { name: 'New folder' }).click();
 		await expect(page.getByText('Create Folder')).toBeVisible();
 		await expect(page).toHaveScreenshot('state-create-folder-modal.png', { mask: masks(page) });
 	});

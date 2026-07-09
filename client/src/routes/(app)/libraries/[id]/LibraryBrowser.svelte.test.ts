@@ -8,9 +8,11 @@ import type { Library, LibraryFolder } from '$lib/types/api';
  * (unmocked) `createLibraryFolderActions` store to prove anything:
  *
  * 1. F1/F4/F9 — the single ContextMenu.Root+Trigger wrapping the whole
- *    entries area must never open a stale/empty menu when a right-click
- *    lands on empty space rather than a row, and must never leave a
- *    previous entry's items behind after the menu closes.
+ *    entries area must never leave a previous entry's items behind after the
+ *    menu closes. Right-clicking empty space now OPENS a menu — a
+ *    create-actions-only group (Upload/New folder/New document), gated by
+ *    manage-permission and hidden in the read-only trash view, where the old
+ *    "leave the event alone, let the native menu show" behavior still holds.
  * 2. The create-folder / move-folder modals' `bind:open={folderActions.*}`
  *    two-way sync — open AND every close path (X, Escape, backdrop, the
  *    modal's own Cancel action) must round-trip back to the store's real
@@ -211,8 +213,28 @@ const user = {
 	avatarUrl: null
 };
 
-function renderBrowser() {
-	return render(LibraryBrowser, { props: { library, user, trashed: false } });
+// A user who can't manage the library (not the owner, and a non-owner/admin
+// role) — used to prove the Create button/dropdown and the create-actions
+// context-menu group are permission-gated, not just hidden when trashed.
+const viewerLibrary: Library = { ...library, ownerId: 'someone-else', currentUserRole: 'viewer' };
+const viewerUser = {
+	id: 'user-9',
+	email: 'viewer@x.io',
+	displayName: 'Viewer',
+	role: 'member',
+	avatarUrl: null
+};
+
+function renderBrowser(
+	overrides: { library?: Library; user?: typeof user; trashed?: boolean } = {}
+) {
+	return render(LibraryBrowser, {
+		props: {
+			library: overrides.library ?? library,
+			user: overrides.user ?? user,
+			trashed: overrides.trashed ?? false
+		}
+	});
 }
 
 function menu(): HTMLElement | null {
@@ -225,12 +247,26 @@ function menuItem(root: HTMLElement, label: string): HTMLElement | undefined {
 	);
 }
 
-function folderButton(): HTMLButtonElement {
+function createButton(): HTMLButtonElement {
 	const btn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-		(b) => b.textContent?.trim() === 'Folder'
+		(b) => b.textContent?.trim() === 'Create'
 	);
-	expect(btn, 'Folder toolbar button').toBeTruthy();
+	expect(btn, 'Create toolbar button').toBeTruthy();
 	return btn!;
+}
+
+// Opens the toolbar's Create dropdown and clicks the named item (matching the
+// same "New folder" / "New document" / "Upload" labels the context menu's
+// create-actions group uses).
+async function openCreateItem(label: string) {
+	createButton().click();
+	await tick();
+	const dropdown = document.querySelector<HTMLElement>('[role="menu"]');
+	expect(dropdown, 'Create dropdown').toBeTruthy();
+	const item = menuItem(dropdown!, label);
+	expect(item, `Create dropdown item "${label}"`).toBeTruthy();
+	item!.click();
+	await tick();
 }
 
 function dialogContent(): HTMLElement {
@@ -250,7 +286,7 @@ describe('LibraryBrowser — context menu staleness (F1/F4/F9)', () => {
 		vi.clearAllMocks();
 	});
 
-	it('right-click on empty space opens no menu and does not suppress the native context menu', async () => {
+	it('right-click on empty space opens a create-actions-only menu for a manager', async () => {
 		explorerState.entries = [makeFile()];
 		const screen = renderBrowser();
 		await tick();
@@ -270,12 +306,58 @@ describe('LibraryBrowser — context menu staleness (F1/F4/F9)', () => {
 		await tick();
 		await tick();
 
+		const openMenu = menu();
+		expect(openMenu).toBeTruthy();
+		expect(menuItem(openMenu!, 'Upload')).toBeTruthy();
+		expect(menuItem(openMenu!, 'New folder')).toBeTruthy();
+		expect(menuItem(openMenu!, 'New document')).toBeTruthy();
+		// Never a stale/previous entry's own actions.
+		expect(menuItem(openMenu!, 'Delete')).toBeFalsy();
+		expect(menuItem(openMenu!, 'Rename')).toBeFalsy();
+	});
+
+	it('right-click on empty space does nothing for a viewer (native context menu, permission-gated)', async () => {
+		explorerState.entries = [makeFile()];
+		const screen = renderBrowser({ library: viewerLibrary, user: viewerUser });
+		await tick();
+
+		const container = screen.container.querySelector('.overflow-y-auto') as HTMLElement;
+		const event = new MouseEvent('contextmenu', {
+			bubbles: true,
+			cancelable: true,
+			clientX: 5,
+			clientY: 5
+		});
+		container.dispatchEvent(event);
+		await tick();
+		await tick();
+
 		expect(menu()).toBeFalsy();
-		// Un-prevented → the browser's native context menu would show.
+		// Un-prevented → the browser's native context menu shows, same as before.
 		expect(event.defaultPrevented).toBe(false);
 	});
 
-	it('opening a menu for one entry, closing it, then right-clicking empty space never resurrects its items', async () => {
+	it('right-click on empty space does nothing in the trash view, even for the owner (native context menu)', async () => {
+		explorerState.entries = [makeFile({ trashedAt: '2024-02-01' })];
+		const screen = renderBrowser({ trashed: true });
+		await tick();
+
+		const container = screen.container.querySelector('.overflow-y-auto') as HTMLElement;
+		const event = new MouseEvent('contextmenu', {
+			bubbles: true,
+			cancelable: true,
+			clientX: 5,
+			clientY: 5
+		});
+		container.dispatchEvent(event);
+		await tick();
+		await tick();
+
+		expect(menu()).toBeFalsy();
+		expect(event.defaultPrevented).toBe(false);
+	});
+
+	it('opening a menu for one entry, closing it, then right-clicking empty space shows only the create actions, never a previous entry’s items', async () => {
 		explorerState.entries = [makeFile({ id: 'file-1', name: 'a.jpg' })];
 		explorerState.totalCount = 1;
 		const screen = renderBrowser();
@@ -295,8 +377,8 @@ describe('LibraryBrowser — context menu staleness (F1/F4/F9)', () => {
 		openMenu!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 		await vi.waitFor(() => expect(menu()).toBeFalsy());
 
-		// Right-click empty space (the container, not a row) — must NOT
-		// resurrect file-1's menu.
+		// Right-click empty space (the container, not a row) — must show ONLY
+		// the create actions, never resurrect file-1's menu.
 		const container = screen.container.querySelector('.overflow-y-auto') as HTMLElement;
 		const event = new MouseEvent('contextmenu', {
 			bubbles: true,
@@ -308,8 +390,13 @@ describe('LibraryBrowser — context menu staleness (F1/F4/F9)', () => {
 		await tick();
 		await tick();
 
-		expect(menu()).toBeFalsy();
-		expect(event.defaultPrevented).toBe(false);
+		const emptySpaceMenu = menu();
+		expect(emptySpaceMenu).toBeTruthy();
+		expect(menuItem(emptySpaceMenu!, 'Delete')).toBeFalsy();
+		expect(menuItem(emptySpaceMenu!, 'Rename')).toBeFalsy();
+		expect(menuItem(emptySpaceMenu!, 'Upload')).toBeTruthy();
+		expect(menuItem(emptySpaceMenu!, 'New folder')).toBeTruthy();
+		expect(menuItem(emptySpaceMenu!, 'New document')).toBeTruthy();
 	});
 
 	it('a fresh right-click on a different row after closing shows only that row’s items', async () => {
@@ -362,8 +449,7 @@ describe('LibraryBrowser — create-folder/move-folder bind:open sync', () => {
 		await tick();
 		expect(capturedFolderActions.current).toBeTruthy();
 
-		folderButton().click();
-		await tick();
+		await openCreateItem('New folder');
 		expect(capturedFolderActions.current!.createFolderOpen).toBe(true);
 		const content = dialogContent();
 		expect(content.textContent).toContain('Folder name');
@@ -383,8 +469,7 @@ describe('LibraryBrowser — create-folder/move-folder bind:open sync', () => {
 	it('closes via Escape and syncs the store back to false', async () => {
 		renderBrowser();
 		await tick();
-		folderButton().click();
-		await tick();
+		await openCreateItem('New folder');
 		expect(capturedFolderActions.current!.createFolderOpen).toBe(true);
 
 		document
@@ -400,8 +485,7 @@ describe('LibraryBrowser — create-folder/move-folder bind:open sync', () => {
 	it('closes via clicking the backdrop overlay and syncs the store back to false', async () => {
 		renderBrowser();
 		await tick();
-		folderButton().click();
-		await tick();
+		await openCreateItem('New folder');
 		expect(capturedFolderActions.current!.createFolderOpen).toBe(true);
 
 		const overlay = document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]');
@@ -426,8 +510,7 @@ describe('LibraryBrowser — create-folder/move-folder bind:open sync', () => {
 	it('closes via the modal’s own Cancel action and syncs the store back to false', async () => {
 		renderBrowser();
 		await tick();
-		folderButton().click();
-		await tick();
+		await openCreateItem('New folder');
 		const content = dialogContent();
 		const cancelBtn = Array.from(content.querySelectorAll<HTMLButtonElement>('button')).find(
 			(b) => b.textContent?.trim() === 'Cancel'
@@ -471,8 +554,7 @@ describe('LibraryBrowser — create-folder/move-folder bind:open sync', () => {
 		const screen = renderBrowser();
 		await tick();
 
-		folderButton().click();
-		await tick();
+		await openCreateItem('New folder');
 		document.querySelector<HTMLButtonElement>('[data-slot="dialog-close"]')!.click();
 		await vi.waitFor(() => {
 			expect(document.querySelector('[data-slot="dialog-content"]')).toBeNull();

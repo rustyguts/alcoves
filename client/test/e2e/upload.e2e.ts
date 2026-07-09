@@ -21,8 +21,9 @@ test.describe('upload queue (full stack)', () => {
 		// Unique name so the file is unambiguous in both the panel and the grid.
 		const name = `e2e-upload-${Date.now()}-${Math.floor(Math.random() * 1e6)}.png`;
 
-		// Open the upload modal from the toolbar (only one "Upload" button until it opens).
-		await page.getByRole('button', { name: 'Upload' }).filter({ visible: true }).first().click();
+		// Open the upload modal via the toolbar's Create dropdown.
+		await page.getByRole('button', { name: 'Create' }).click();
+		await page.getByRole('menuitem', { name: 'Upload' }).click();
 
 		const dialog = page.getByRole('dialog');
 		await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -63,7 +64,8 @@ test.describe('upload queue (full stack)', () => {
 
 		const name = `e2e-nav-${Date.now()}-${Math.floor(Math.random() * 1e6)}.png`;
 
-		await page.getByRole('button', { name: 'Upload' }).filter({ visible: true }).first().click();
+		await page.getByRole('button', { name: 'Create' }).click();
+		await page.getByRole('menuitem', { name: 'Upload' }).click();
 		const dialog = page.getByRole('dialog');
 		await expect(dialog).toBeVisible({ timeout: 10_000 });
 		await dialog.locator('input[type="file"]').setInputFiles({

@@ -29,11 +29,16 @@ async function openFamilyPhotos(page: Page) {
 	await gotoLibrary(page, 'Family Photos');
 }
 
-/** Create a doc via the toolbar and land in the editor; returns its URL. */
+/** Create a doc via the toolbar's Create dropdown and land in the editor;
+ * returns its URL. The "Create" name is shared by the toolbar's own trigger
+ * button and the modal's submit button, so the submit click is scoped to the
+ * open dialog to disambiguate. */
 async function createDocument(page: Page, name: string): Promise<string> {
-	await page.getByRole('button', { name: 'Document' }).click();
-	await page.locator('#create-document-name').fill(name);
 	await page.getByRole('button', { name: 'Create' }).click();
+	await page.getByRole('menuitem', { name: 'New document' }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.locator('#create-document-name').fill(name);
+	await dialog.getByRole('button', { name: 'Create' }).click();
 	await expect(page).toHaveURL(/\/doc\//, { timeout: 15_000 });
 	await expect(page.locator('.cm-content')).toBeVisible({ timeout: 15_000 });
 	return page.url();
