@@ -10,6 +10,13 @@ Vue/Nuxt stack — beginning October 2025. Earlier history (a video site under
 the `bken-io` name plus several abandoned framework experiments — Remix,
 SvelteKit, Django, Go templ) is collapsed into the `0.0.0` entry.
 
+## [0.30.0](https://github.com/rustyguts/alcoves/compare/v0.29.0...v0.30.0) (2026-07-09)
+
+
+### Added
+
+* **client:** rewrite the UI on shadcn-svelte and remove Skeleton UI ([#629](https://github.com/rustyguts/alcoves/issues/629)) ([114d69b](https://github.com/rustyguts/alcoves/commit/114d69bfc0221908e53fb663a8fe817960292064))
+
 ## [0.29.0](https://github.com/rustyguts/alcoves/compare/v0.28.0...v0.29.0) (2026-07-07)
 
 
